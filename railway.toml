@@ -1,7 +1,0 @@
-[build]
-builder = "nixpacks"
-
-[deploy]
-# We'll rely on the default Nixpacks start command for Laravel which serves via Nginx.
-# Just ensuring we run migrations before starting the web server.
-startCommand = "php artisan migrate --force && /root/.nixpacks/start.sh"
