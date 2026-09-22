@@ -1,0 +1,19 @@
+[phases.setup]
+nixPkgs = ["php83", "php83Extensions.pdo", "php83Extensions.pdo_pgsql", "php83Extensions.mbstring", "php83Extensions.tokenizer", "php83Extensions.xml", "php83Extensions.ctype", "php83Extensions.fileinfo", "php83Extensions.openssl", "php83Extensions.curl", "php83Extensions.zip", "php83Extensions.gd", "nodejs_20", "nodePackages.npm"]
+
+[phases.install]
+cmds = ["composer install --optimize-autoloader --no-dev --no-interaction"]
+
+[phases.build]
+cmds = [
+    "npm ci",
+    "npm run build",
+    "mkdir -p storage/framework/{sessions,views,cache,testing} storage/logs bootstrap/cache",
+    "chmod -R a+rw storage",
+    "php artisan config:cache",
+    "php artisan route:cache",
+    "php artisan view:cache"
+]
+
+[start]
+cmd = "php artisan serve --host=0.0.0.0 --port=${PORT:-8080}"
