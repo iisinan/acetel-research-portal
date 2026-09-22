@@ -2,14 +2,13 @@
 nixPkgs = ["php83", "php83Extensions.pdo", "php83Extensions.pdo_pgsql", "php83Extensions.mbstring", "php83Extensions.tokenizer", "php83Extensions.xml", "php83Extensions.ctype", "php83Extensions.fileinfo", "php83Extensions.openssl", "php83Extensions.curl", "php83Extensions.zip", "php83Extensions.gd", "nodejs_20", "nodePackages.npm"]
 
 [phases.install]
-cmds = ["composer install --optimize-autoloader --no-dev --no-interaction"]
+cmds = ["composer install --optimize-autoloader --no-dev --no-interaction", "npm ci"]
 
 [phases.build]
 cmds = [
-    "npm ci",
     "npm run build",
-    "mkdir -p storage/framework/{sessions,views,cache,testing} storage/logs bootstrap/cache",
-    "chmod -R a+rw storage",
+    "mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache storage/framework/testing storage/logs bootstrap/cache",
+    "chmod -R a+rw storage bootstrap/cache",
     "php artisan config:cache",
     "php artisan route:cache",
     "php artisan view:cache"
