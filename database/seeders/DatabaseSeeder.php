@@ -15,47 +15,50 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // Roles
-        Role::create(['name' => 'Super Admin']);
-        Role::create(['name' => 'Coordinator']);
-        Role::create(['name' => 'Supervisor']);
-        Role::create(['name' => 'Student']);
+        Role::firstOrCreate(['name' => 'Super Admin']);
+        Role::firstOrCreate(['name' => 'Coordinator']);
+        Role::firstOrCreate(['name' => 'Supervisor']);
+        Role::firstOrCreate(['name' => 'Student']);
+        Role::firstOrCreate(['name' => 'Examiner']);
 
         // Programmes
-        Programme::create(['name' => 'Artificial Intelligence', 'code' => 'AI']);
-        Programme::create(['name' => 'Cybersecurity', 'code' => 'CYB']);
-        Programme::create(['name' => 'Management Information Systems', 'code' => 'MIS']);
+        Programme::firstOrCreate(['code' => 'AI'],   ['name' => 'Artificial Intelligence']);
+        Programme::firstOrCreate(['code' => 'CYB'],  ['name' => 'Cybersecurity']);
+        Programme::firstOrCreate(['code' => 'MIS'],  ['name' => 'Management Information Systems']);
 
         // Degrees
-        Degree::create(['name' => 'MSc', 'required_supervisors' => 2]);
-        Degree::create(['name' => 'PhD', 'required_supervisors' => 3]);
+        Degree::firstOrCreate(['name' => 'MSc'], ['required_supervisors' => 2]);
+        Degree::firstOrCreate(['name' => 'PhD'], ['required_supervisors' => 3]);
 
         // Intakes
-        Intake::create(['name' => 'First Intake']);
-        Intake::create(['name' => 'Second Intake']);
+        Intake::firstOrCreate(['name' => 'First Intake']);
+        Intake::firstOrCreate(['name' => 'Second Intake']);
 
         // Milestones
         $milestones = [
-            ['name' => 'Registered', 'order_index' => 1],
-            ['name' => 'Seminar Course', 'order_index' => 2],
-            ['name' => 'Supervisors Assigned', 'order_index' => 3],
-            ['name' => 'Proposal Defence', 'order_index' => 4],
+            ['name' => 'Registered',             'order_index' => 1],
+            ['name' => 'Seminar Course',          'order_index' => 2],
+            ['name' => 'Supervisors Assigned',    'order_index' => 3],
+            ['name' => 'Proposal Defence',        'order_index' => 4],
             ['name' => 'Progress Presentation 1', 'order_index' => 5],
             ['name' => 'Progress Presentation 2', 'order_index' => 6],
-            ['name' => 'Internal Defence', 'order_index' => 7],
-            ['name' => 'Viva', 'order_index' => 8],
-            ['name' => 'Completed', 'order_index' => 9],
+            ['name' => 'Internal Defence',        'order_index' => 7],
+            ['name' => 'Viva',                    'order_index' => 8],
+            ['name' => 'Completed',               'order_index' => 9],
         ];
 
         foreach ($milestones as $m) {
-            Milestone::create($m);
+            Milestone::firstOrCreate(['name' => $m['name']], $m);
         }
-        
+
         // Setup Super Admin User
-        $admin = User::factory()->create([
-            'name' => 'Admin User',
-            'email' => 'admin@acetel.edu.ng',
-            'password' => bcrypt('password'),
-        ]);
-        $admin->assignRole('Super Admin');
+        $admin = User::firstOrCreate(
+            ['email' => 'admin@acetel.edu.ng'],
+            [
+                'name'     => 'Admin User',
+                'password' => bcrypt('password'),
+            ]
+        );
+        $admin->syncRoles(['Super Admin']);
     }
 }
