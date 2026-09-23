@@ -54,13 +54,18 @@
     <!-- STEP 1: Basic Information -->
     @if($step === 1)
         <div wire:key="step-1" class="pt-6 animate-fade-in-up">
-            <div class="flex items-center justify-center mb-6 border-b border-gray-100 pb-3 relative">
-                <a href="/" class="absolute left-0 text-gray-500 hover:text-green-600 flex items-center transition-colors font-medium">
-                    <svg class="w-5 h-5 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-                    <span class="hidden sm:inline text-sm">Cancel</span>
-                </a>
-                <div class="bg-green-100 text-green-700 rounded-full h-8 w-8 flex items-center justify-center font-bold mr-3 text-sm flex-shrink-0">1</div>
-                <h3 class="text-xl font-semibold text-gray-800 truncate">Student Information</h3>
+            <div class="flex items-center justify-between mb-6 border-b border-gray-100 pb-3">
+                <div class="w-20">
+                    <a href="/" class="text-gray-500 hover:text-green-600 flex items-center transition-colors font-medium text-sm">
+                        <svg class="w-5 h-5 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                        <span class="hidden sm:inline">Cancel</span>
+                    </a>
+                </div>
+                <div class="flex items-center justify-center flex-1">
+                    <div class="bg-green-100 text-green-700 rounded-full h-8 w-8 flex items-center justify-center font-bold mr-3 text-sm flex-shrink-0">1</div>
+                    <h3 class="text-xl font-semibold text-gray-800 truncate">Student Information</h3>
+                </div>
+                <div class="w-20"></div>
             </div>
             
             <form wire:submit="validateBasicInfo" class="space-y-5">
@@ -177,13 +182,18 @@
     <!-- STEP 2: Questionnaire -->
     @if($step === 2)
         <div wire:key="step-2" wire:transition.opacity.duration.300ms class="text-center pt-6">
-            <div class="flex items-center justify-center mb-6 pb-3 border-b border-gray-100 relative">
-                <button wire:click="goBackQuestion" class="absolute left-0 text-sm text-gray-500 hover:text-green-600 flex items-center transition-colors font-medium">
-                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-                    Back
-                </button>
-                <div class="bg-green-100 text-green-700 rounded-full h-8 w-8 flex items-center justify-center font-bold mr-3 text-sm">2</div>
-                <h3 class="text-xl font-semibold text-gray-800">Research Progress</h3>
+            <div class="flex items-center justify-between mb-6 pb-3 border-b border-gray-100">
+                <div class="w-20">
+                    <button wire:click="goBackQuestion" class="text-sm text-gray-500 hover:text-green-600 flex items-center transition-colors font-medium">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                        Back
+                    </button>
+                </div>
+                <div class="flex items-center justify-center flex-1">
+                    <div class="bg-green-100 text-green-700 rounded-full h-8 w-8 flex items-center justify-center font-bold mr-3 text-sm">2</div>
+                    <h3 class="text-xl font-semibold text-gray-800">Research Progress</h3>
+                </div>
+                <div class="w-20"></div>
             </div>
             
             <div class="bg-gradient-to-br from-green-50 to-white p-8 rounded-2xl border border-green-100 shadow-sm mt-4">
@@ -231,13 +241,18 @@
     <!-- STEP 3: Thesis Upload -->
     @if($step === 3)
         <div wire:key="step-3" wire:transition.opacity.duration.300ms class="pt-6">
-            <div class="flex items-center justify-center mb-6 pb-3 border-b border-gray-100 relative">
-                <button wire:click="goBackToStep2" class="absolute left-0 text-sm text-gray-500 hover:text-green-600 flex items-center transition-colors font-medium">
-                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-                    Back
-                </button>
-                <div class="bg-green-100 text-green-700 rounded-full h-8 w-8 flex items-center justify-center font-bold mr-3 text-sm">3</div>
-                <h3 class="text-xl font-semibold text-gray-800">Final Thesis Submission</h3>
+            <div class="flex items-center justify-between mb-6 pb-3 border-b border-gray-100">
+                <div class="w-20">
+                    <button wire:click="goBackToStep2" class="text-sm text-gray-500 hover:text-green-600 flex items-center transition-colors font-medium">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                        Back
+                    </button>
+                </div>
+                <div class="flex items-center justify-center flex-1">
+                    <div class="bg-green-100 text-green-700 rounded-full h-8 w-8 flex items-center justify-center font-bold mr-3 text-sm">3</div>
+                    <h3 class="text-xl font-semibold text-gray-800">Final Thesis Submission</h3>
+                </div>
+                <div class="w-20"></div>
             </div>
             
             <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded-r-lg">
@@ -336,15 +351,20 @@
     <!-- STEP 4: Supervisor Details -->
     @if($step === 4)
         <div wire:key="step-4" wire:transition.opacity.duration.300ms class="pt-6">
-            <div class="flex items-center justify-center mb-6 pb-3 border-b border-gray-100 relative">
-                <button wire:click="goBackToStep2FromSupervisors" class="absolute left-0 text-gray-500 hover:text-green-600 flex items-center transition-colors font-medium">
-                    <svg class="w-5 h-5 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-                    <span class="hidden sm:inline text-sm">Cancel</span>
-                </button>
-                <div class="bg-green-100 text-green-700 rounded-full h-8 w-8 flex items-center justify-center font-bold mr-3 text-sm flex-shrink-0">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+            <div class="flex items-center justify-between mb-6 pb-3 border-b border-gray-100">
+                <div class="w-20">
+                    <button wire:click="goBackToStep2FromSupervisors" class="text-gray-500 hover:text-green-600 flex items-center transition-colors font-medium text-sm">
+                        <svg class="w-5 h-5 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                        <span class="hidden sm:inline">Cancel</span>
+                    </button>
                 </div>
-                <h3 class="text-xl font-semibold text-gray-800 truncate">Supervisor Details</h3>
+                <div class="flex items-center justify-center flex-1">
+                    <div class="bg-green-100 text-green-700 rounded-full h-8 w-8 flex items-center justify-center font-bold mr-3 text-sm flex-shrink-0">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-800 truncate">Supervisor Details</h3>
+                </div>
+                <div class="w-20"></div>
             </div>
 
             <div class="mb-6 text-sm text-gray-600 text-center">
