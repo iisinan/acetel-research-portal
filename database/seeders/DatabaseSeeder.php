@@ -60,5 +60,24 @@ class DatabaseSeeder extends Seeder
             ]
         );
         $admin->syncRoles(['Super Admin']);
+
+        // Setup Sample Supervisors
+        $supervisor1 = User::firstOrCreate(
+            ['email' => 'dr.smith@acetel.edu.ng'],
+            [
+                'name'     => 'Dr. John Smith',
+                'password' => bcrypt('password'),
+            ]
+        );
+        $supervisor1->syncRoles(['Supervisor']);
+
+        $supervisor2 = User::firstOrCreate(
+            ['email' => 'prof.doe@acetel.edu.ng'],
+            [
+                'name'     => 'Prof. Jane Doe',
+                'password' => bcrypt('password'),
+            ]
+        );
+        $supervisor2->syncRoles(['Supervisor']);
     }
 }
