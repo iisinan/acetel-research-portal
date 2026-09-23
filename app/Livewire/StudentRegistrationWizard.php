@@ -179,6 +179,8 @@ class StudentRegistrationWizard extends Component
         } else {
             // "No" means stop questionnaire here (this is their current stage)
             $this->questions[$this->currentQuestionIndex]['completed'] = false;
+            $this->submitRegistration();
+            return;
         }
 
         $this->currentQuestionIndex++;
