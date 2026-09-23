@@ -40,21 +40,44 @@ class ImportSupervisors extends Command
         $this->info("Parsing Excel file: {$path}");
 
         if ( $xlsx = SimpleXLSX::parse($path) ) {
-            $rows = $xlsx->rows();
-            $header = array_shift($rows); // Remove header row
+            $rows = $xlsx->rows(1); // Read from the second sheet "Supervosors Details"
             
             $this->info("Found " . count($rows) . " rows to process.");
-            $count = 0;
+            
+            // Delete existing supervisors
+            $this->info("Deleting all existing supervisors from database to start fresh...");
+            $supervisors = User::role('Supervisor')->get();
+            foreach ($supervisors as $sup) {
+                Supervisor::where('user_id', $sup->id)->delete();
+                $sup->delete();
+            }
 
             Role::firstOrCreate(['name' => 'Supervisor']);
 
+            $count = 0;
+            $currentDepartment = 'ACETEL';
+
             foreach ($rows as $index => $row) {
-                // Assuming columns: 0 => Name, 1 => Email, 2 => Phone, etc.
-                // We need to inspect the header to map correctly if it's dynamic, 
-                // but let's try to extract standard fields first.
+                // Determine if this is a section header (e.g. "Artificial Intelligence")
+                // Usually it's in column 0 or 1 and other columns are empty
+                $colA = trim((string)($row[0] ?? ''));
+                $colB = trim((string)($row[1] ?? ''));
+                $colC = trim((string)($row[2] ?? ''));
+
+                if (!empty($colB) && empty($colC) && empty($colA)) {
+                    if (in_array(strtolower($colB), ['artificial intelligence', 'cyber security', 'management information system', 'management information systems'])) {
+                        $currentDepartment = $colB;
+                        continue;
+                    }
+                }
+
+                // Skip rows that are empty or are headers
+                if (empty($colB) || strtolower($colB) === 'supervisor name' || str_contains(strtolower($colB), 'list of acetel')) {
+                    continue;
+                }
                 
-                $name = $row[1] ?? 'Unknown Name'; // Usually Name is the second column after S/N
-                $email = $row[2] ?? '';            // Usually Email is the third
+                $name = $colB;
+                $email = $colC;
                 
                 // Fallback for weird formats - just look for an @ symbol to find the email
                 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -67,7 +90,7 @@ class ImportSupervisors extends Command
                 }
 
                 if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                    // Generate a fake email based on name if none exists, just to allow creation
+                    // Generate a fake email based on name if none exists
                     $slug = Str::slug($name);
                     $email = "{$slug}@acetel.edu.ng";
                 }
@@ -86,11 +109,11 @@ class ImportSupervisors extends Command
                     $user->assignRole('Supervisor');
                 }
                 
-                // Also create their Supervisor profile record if it doesn't exist
+                // Create their Supervisor profile record
                 Supervisor::firstOrCreate(
                     ['user_id' => $user->id],
                     [
-                        'department' => 'ACETEL'
+                        'department' => $currentDepartment
                     ]
                 );
 
