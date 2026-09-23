@@ -4,8 +4,14 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    $students = \App\Models\Student::with('user')->whereNotNull('thesis_title')->get();
-    return view('welcome', compact('students'));
+    return view('welcome');
+});
+
+Route::get('/repository', function () {
+    $students = \App\Models\Student::with(['user', 'programme'])
+        ->whereNotNull('thesis_title')
+        ->get();
+    return view('repository', compact('students'));
 });
 
 Route::get('/dashboard', function () {
