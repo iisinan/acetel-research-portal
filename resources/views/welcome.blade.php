@@ -59,7 +59,7 @@
                                 Register as Student
                             </a>
                             <a href="{{ route('login') }}" class="w-full sm:w-auto px-8 py-4 bg-white text-green-700 border-2 border-green-200 font-bold rounded-xl shadow-sm hover:bg-green-50 hover:border-green-300 transition-all duration-200 text-lg">
-                                Staff Login
+                                Login
                             </a>
                         @endauth
                     </div>
