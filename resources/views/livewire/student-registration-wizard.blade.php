@@ -638,6 +638,44 @@
         </div>
     @endif
 
+    <!-- STEP 8: Seminar Course Grade -->
+    @if($step === 8)
+        <div wire:key="step-8" wire:transition.opacity.duration.300ms class="pt-6">
+            <div class="flex items-center justify-between mb-6 pb-3 border-b border-gray-100">
+                <div class="w-20">
+                    <button wire:click="goBackToStep2FromSeminar" class="text-sm text-gray-500 hover:text-green-600 flex items-center transition-colors font-medium">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                        Back
+                    </button>
+                </div>
+                <div class="flex items-center justify-center flex-1">
+                    <div class="bg-green-100 text-green-700 rounded-full h-8 w-8 flex items-center justify-center font-bold mr-3 text-sm">2</div>
+                    <h3 class="text-xl font-semibold text-gray-800">Seminar Course Grade</h3>
+                </div>
+                <div class="w-20"></div>
+            </div>
+
+            <div class="mb-6 text-sm text-gray-600 text-center">
+                Since you have completed your Seminar Course, please provide your grade below.
+            </div>
+
+            <form wire:submit="submitSeminarGrade" class="space-y-6 max-w-md mx-auto">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1.5">Course Grade</label>
+                    <div class="relative rounded-md shadow-sm">
+                        <input type="text" wire:model="seminar_grade" class="block w-full py-3 px-4 sm:text-sm border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500 transition-colors bg-gray-50 focus:bg-white" placeholder="e.g. A, B+, 75%">
+                    </div>
+                    @error('seminar_grade') <span class="text-red-500 text-xs mt-1.5 block font-medium">{{ $message }}</span> @enderror
+                </div>
+
+                <button type="submit" class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-md text-base font-bold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all transform hover:-translate-y-0.5">
+                    Save Grade & Continue
+                    <svg class="ml-2 -mr-1 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+                </button>
+            </form>
+        </div>
+    @endif
+
     <!-- STEP 99: Success State -->
     @if($step === 99)
         <div wire:key="step-99" wire:transition.opacity.duration.500ms class="py-12 text-center animate-fade-in-up">

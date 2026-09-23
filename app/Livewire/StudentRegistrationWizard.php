@@ -52,6 +52,9 @@ class StudentRegistrationWizard extends Component
     // Uploads
     public $thesis_file;
 
+    // Step 8: Seminar Grade
+    public $seminar_grade;
+
     // Step 4: Supervisors
     public $supervisors_data = [];
     public $available_supervisors = [];
@@ -145,6 +148,12 @@ class StudentRegistrationWizard extends Component
                 return;
             }
 
+            // If it's Seminar Course, prompt for grade
+            if ($currentQuestion['name'] === 'Seminar Course') {
+                $this->step = 8;
+                return;
+            }
+
             // Intercept for Presentation Dates
             if (in_array($currentQuestion['name'], ['Progress Presentation 1', 'Progress Presentation 2'])) {
                 $this->current_intercept_milestone = $currentQuestion['name'];
@@ -210,6 +219,28 @@ class StudentRegistrationWizard extends Component
         if ($this->currentQuestionIndex >= count($this->questions)) {
             $this->submitRegistration();
         }
+    }
+
+    public function submitSeminarGrade()
+    {
+        $this->validate([
+            'seminar_grade' => 'required|string|max:50',
+        ], [
+            'seminar_grade.required' => 'Please provide your seminar course grade.',
+        ]);
+
+        $this->step = 2; // Back to questionnaire
+        $this->currentQuestionIndex++;
+        
+        if ($this->currentQuestionIndex >= count($this->questions)) {
+            $this->submitRegistration();
+        }
+    }
+
+    public function goBackToStep2FromSeminar()
+    {
+        $this->questions[$this->currentQuestionIndex]['completed'] = false;
+        $this->step = 2;
     }
 
     public function goBackToStep2FromPresentation()
@@ -482,6 +513,7 @@ class StudentRegistrationWizard extends Component
                         'milestone_id' => $q['id'],
                         'status' => 'Pending', // Pending Coordinator verification
                         'completion_date' => $this->milestone_dates[$q['name']] ?? now(),
+                        'remarks' => $q['name'] === 'Seminar Course' ? 'Grade: ' . $this->seminar_grade : null,
                     ]);
                     
                     if ($q['name'] === 'Internal Defence' && $this->internal_thesis_file) {
