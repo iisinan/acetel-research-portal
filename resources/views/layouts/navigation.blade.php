@@ -67,9 +67,9 @@
             <x-slot name="content">
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
-                    <x-dropdown-link :href="route('logout')" onclick="event.preventDefault(); this.closest('form').submit();" class="text-red-600 hover:bg-red-50 hover:text-red-700 font-bold">
+                    <button type="submit" class="block w-full px-4 py-2 text-start text-sm leading-5 font-bold text-red-600 hover:bg-red-50 hover:text-red-700 focus:outline-none transition duration-150 ease-in-out">
                         {{ __('Log Out') }}
-                    </x-dropdown-link>
+                    </button>
                 </form>
             </x-slot>
         </x-dropdown>
