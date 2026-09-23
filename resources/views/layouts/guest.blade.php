@@ -15,15 +15,21 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
         @livewireStyles
     </head>
-    <body class="font-sans text-gray-900 antialiased">
-        <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 bg-gray-100">
+    <body class="font-sans text-gray-900 antialiased bg-gray-50 relative overflow-hidden">
+        <!-- Background Decoration -->
+        <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none flex items-center justify-center">
+            <div class="absolute w-[600px] h-[600px] bg-green-50 rounded-full opacity-50 blur-3xl translate-x-1/3 -translate-y-1/4"></div>
+            <div class="absolute w-[500px] h-[500px] bg-emerald-50 rounded-full opacity-40 blur-3xl -translate-x-1/3 translate-y-1/4"></div>
+        </div>
+
+        <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 relative z-10">
             <div>
-                <a href="/">
-                    <img src="{{ asset('acetel logo.jpg') }}" alt="ACETEL Logo" class="w-28 h-auto object-contain mix-blend-multiply" />
+                <a href="/" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 inline-block mb-2">
+                    <img src="{{ asset('acetel logo.jpg') }}" alt="ACETEL Logo" class="w-32 h-auto object-contain" />
                 </a>
             </div>
 
-            <div class="w-full sm:max-w-md mt-6 px-8 py-8 bg-white border border-gray-100 shadow-xl sm:rounded-2xl">
+            <div class="w-full sm:max-w-md mt-6 px-8 py-10 bg-white border border-gray-100 shadow-xl sm:rounded-3xl">
                 {{ $slot }}
             </div>
         </div>

@@ -1,7 +1,7 @@
 <x-guest-layout>
     <div class="text-center mb-8 animate-fade-in-up">
         <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Welcome Back</h2>
-        <h2 class="text-xl font-bold text-indigo-600 tracking-tight mt-1">Sign in to your account</h2>
+        <h2 class="text-xl font-bold text-green-700 tracking-tight mt-1">Sign in to your account</h2>
     </div>
 
     <!-- Session Status -->
@@ -19,7 +19,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
                     </svg>
                 </div>
-                <input id="email" type="email" name="email" value="{{ old('email') }}" required autofocus autocomplete="username" class="block w-full pl-10 pr-3 py-2.5 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-gray-50 focus:bg-white" placeholder="you@example.com">
+                <input id="email" type="email" name="email" value="{{ old('email') }}" required autofocus autocomplete="username" class="block w-full pl-10 pr-3 py-2.5 sm:text-sm border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors bg-gray-50 focus:bg-white" placeholder="you@example.com">
             </div>
             <x-input-error :messages="$errors->get('email')" class="mt-2 text-xs font-medium text-red-500" />
         </div>
@@ -33,7 +33,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                     </svg>
                 </div>
-                <input id="password" :type="show ? 'text' : 'password'" name="password" required autocomplete="current-password" class="block w-full pl-10 pr-10 py-2.5 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-gray-50 focus:bg-white" placeholder="••••••••">
+                <input id="password" :type="show ? 'text' : 'password'" name="password" required autocomplete="current-password" class="block w-full pl-10 pr-10 py-2.5 sm:text-sm border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors bg-gray-50 focus:bg-white" placeholder="••••••••">
                 <button type="button" @click="show = !show" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none">
                     <svg x-show="!show" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -50,19 +50,19 @@
         <!-- Remember Me and Forgot Password -->
         <div class="flex items-center justify-between mt-4">
             <label for="remember_me" class="flex items-center">
-                <input id="remember_me" type="checkbox" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500 h-4 w-4 transition duration-150 ease-in-out" name="remember">
+                <input id="remember_me" type="checkbox" class="rounded border-gray-300 text-green-600 shadow-sm focus:ring-green-500 h-4 w-4 transition duration-150 ease-in-out" name="remember">
                 <span class="ms-2 text-sm font-medium text-gray-600">{{ __('Remember me') }}</span>
             </label>
 
             @if (Route::has('password.request'))
-                <a class="text-sm font-semibold text-indigo-600 hover:text-indigo-500 focus:outline-none focus:underline transition duration-150 ease-in-out" href="{{ route('password.request') }}">
+                <a class="text-sm font-semibold text-green-700 hover:text-green-600 focus:outline-none focus:underline transition duration-150 ease-in-out" href="{{ route('password.request') }}">
                     {{ __('Forgot password?') }}
                 </a>
             @endif
         </div>
 
         <div class="pt-2">
-            <button type="submit" class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-md text-base font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all transform hover:-translate-y-0.5">
+            <button type="submit" class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-base font-bold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all transform hover:-translate-y-0.5">
                 {{ __('Log in') }}
                 <svg class="ml-2 -mr-1 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
@@ -73,7 +73,7 @@
         <div class="text-center mt-4">
             <p class="text-sm text-gray-600">
                 Don't have an account?
-                <a href="{{ route('register') }}" class="font-semibold text-indigo-600 hover:text-indigo-500 transition duration-150 ease-in-out">Sign up</a>
+                <a href="{{ route('register') }}" class="font-semibold text-green-700 hover:text-green-600 transition duration-150 ease-in-out">Sign up</a>
             </p>
         </div>
     </form>

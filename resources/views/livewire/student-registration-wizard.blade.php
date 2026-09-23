@@ -55,11 +55,11 @@
     @if($step === 1)
         <div wire:key="step-1" class="pt-6 animate-fade-in-up">
             <div class="flex items-center justify-center mb-6 border-b border-gray-100 pb-3 relative">
-                <a href="/" class="absolute left-0 text-gray-500 hover:text-indigo-600 flex items-center transition-colors font-medium">
+                <a href="/" class="absolute left-0 text-gray-500 hover:text-green-600 flex items-center transition-colors font-medium">
                     <svg class="w-5 h-5 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
                     <span class="hidden sm:inline text-sm">Cancel</span>
                 </a>
-                <div class="bg-indigo-100 text-indigo-700 rounded-full h-8 w-8 flex items-center justify-center font-bold mr-3 text-sm flex-shrink-0">1</div>
+                <div class="bg-green-100 text-green-700 rounded-full h-8 w-8 flex items-center justify-center font-bold mr-3 text-sm flex-shrink-0">1</div>
                 <h3 class="text-xl font-semibold text-gray-800 truncate">Student Information</h3>
             </div>
             
@@ -71,7 +71,7 @@
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
                         </div>
-                        <input type="text" wire:model="name" class="block w-full pl-10 pr-3 py-2.5 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-gray-50 focus:bg-white" placeholder="John Doe">
+                        <input type="text" wire:model="name" class="block w-full pl-10 pr-3 py-2.5 sm:text-sm border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors bg-gray-50 focus:bg-white" placeholder="John Doe">
                     </div>
                     @error('name') <span class="text-red-500 text-xs mt-1 block font-medium">{{ $message }}</span> @enderror
                 </div>
@@ -82,7 +82,7 @@
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
                         </div>
-                        <input type="email" wire:model="email" class="block w-full pl-10 pr-3 py-2.5 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-gray-50 focus:bg-white" placeholder="john@example.com">
+                        <input type="email" wire:model="email" class="block w-full pl-10 pr-3 py-2.5 sm:text-sm border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors bg-gray-50 focus:bg-white" placeholder="john@example.com">
                     </div>
                     @error('email') <span class="text-red-500 text-xs mt-1 block font-medium">{{ $message }}</span> @enderror
                 </div>
@@ -94,7 +94,7 @@
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                             </div>
-                            <input :type="show ? 'text' : 'password'" wire:model="password" class="block w-full pl-10 pr-10 py-2.5 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-gray-50 focus:bg-white" placeholder="••••••••">
+                            <input :type="show ? 'text' : 'password'" wire:model="password" class="block w-full pl-10 pr-10 py-2.5 sm:text-sm border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors bg-gray-50 focus:bg-white" placeholder="••••••••">
                             <button type="button" @click="show = !show" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none">
                                 <svg x-show="!show" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                 <svg x-cloak x-show="show" class="h-5 w-5" style="display: none;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path></svg>
@@ -108,7 +108,7 @@
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                             </div>
-                            <input :type="show ? 'text' : 'password'" wire:model="password_confirmation" class="block w-full pl-10 pr-10 py-2.5 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-gray-50 focus:bg-white" placeholder="••••••••">
+                            <input :type="show ? 'text' : 'password'" wire:model="password_confirmation" class="block w-full pl-10 pr-10 py-2.5 sm:text-sm border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors bg-gray-50 focus:bg-white" placeholder="••••••••">
                             <button type="button" @click="show = !show" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none">
                                 <svg x-show="!show" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                 <svg x-cloak x-show="show" class="h-5 w-5" style="display: none;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path></svg>
@@ -123,7 +123,7 @@
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"></path></svg>
                         </div>
-                        <input type="text" wire:model="matric_no" placeholder="e.g. ACE26210011" class="block w-full pl-10 pr-3 py-2.5 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 uppercase transition-colors bg-gray-50 focus:bg-white">
+                        <input type="text" wire:model="matric_no" placeholder="e.g. ACE26210011" class="block w-full pl-10 pr-3 py-2.5 sm:text-sm border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 uppercase transition-colors bg-gray-50 focus:bg-white">
                     </div>
 
                     @error('matric_no') <span class="text-red-500 text-xs mt-1 block font-medium">{{ $message }}</span> @enderror
@@ -135,7 +135,7 @@
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
                         </div>
-                        <input type="text" wire:model="place_of_work" placeholder="Where do you currently work?" class="block w-full pl-10 pr-3 py-2.5 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-gray-50 focus:bg-white">
+                        <input type="text" wire:model="place_of_work" placeholder="Where do you currently work?" class="block w-full pl-10 pr-3 py-2.5 sm:text-sm border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors bg-gray-50 focus:bg-white">
                     </div>
                     @error('place_of_work') <span class="text-red-500 text-xs mt-1 block font-medium">{{ $message }}</span> @enderror
                 </div>
@@ -165,7 +165,7 @@
                 </div>
 
                 <div class="pt-6">
-                    <button type="submit" class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-md text-base font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all transform hover:-translate-y-0.5">
+                    <button type="submit" class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-md text-base font-bold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all transform hover:-translate-y-0.5">
                         Continue to Questionnaire 
                         <svg class="ml-2 -mr-1 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>
                     </button>
@@ -178,19 +178,19 @@
     @if($step === 2)
         <div wire:key="step-2" wire:transition.opacity.duration.300ms class="text-center pt-6">
             <div class="flex items-center justify-center mb-6 pb-3 border-b border-gray-100 relative">
-                <button wire:click="goBackQuestion" class="absolute left-0 text-sm text-gray-500 hover:text-indigo-600 flex items-center transition-colors font-medium">
+                <button wire:click="goBackQuestion" class="absolute left-0 text-sm text-gray-500 hover:text-green-600 flex items-center transition-colors font-medium">
                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
                     Back
                 </button>
-                <div class="bg-indigo-100 text-indigo-700 rounded-full h-8 w-8 flex items-center justify-center font-bold mr-3 text-sm">2</div>
+                <div class="bg-green-100 text-green-700 rounded-full h-8 w-8 flex items-center justify-center font-bold mr-3 text-sm">2</div>
                 <h3 class="text-xl font-semibold text-gray-800">Research Progress</h3>
             </div>
             
-            <div class="bg-gradient-to-br from-indigo-50 to-white p-8 rounded-2xl border border-indigo-100 shadow-sm mt-4">
+            <div class="bg-gradient-to-br from-green-50 to-white p-8 rounded-2xl border border-green-100 shadow-sm mt-4">
                 <div class="flex justify-between items-center mb-6">
-                    <span class="text-indigo-600 text-sm font-semibold bg-indigo-100 px-3 py-1 rounded-full">Question {{ $currentQuestionIndex + 1 }} of {{ count($questions) }}</span>
+                    <span class="text-green-600 text-sm font-semibold bg-green-100 px-3 py-1 rounded-full">Question {{ $currentQuestionIndex + 1 }} of {{ count($questions) }}</span>
                     <div class="w-32 bg-gray-200 rounded-full h-2">
-                        <div class="bg-indigo-600 h-2 rounded-full transition-all duration-500 ease-out" style="width: {{ (($currentQuestionIndex + 1) / count($questions)) * 100 }}%"></div>
+                        <div class="bg-green-600 h-2 rounded-full transition-all duration-500 ease-out" style="width: {{ (($currentQuestionIndex + 1) / count($questions)) * 100 }}%"></div>
                     </div>
                 </div>
                 
@@ -211,7 +211,7 @@
                         $highlightText = "Viva Voce";
                     }
                 @endphp
-                <h4 class="text-2xl font-bold text-gray-800 mb-8 leading-relaxed">{{ $qPrefix }} <span class="text-indigo-600 border-b-2 border-indigo-200">{{ $highlightText }}</span>{{ $qSuffix }}</h4>
+                <h4 class="text-2xl font-bold text-gray-800 mb-8 leading-relaxed">{{ $qPrefix }} <span class="text-green-600 border-b-2 border-green-200">{{ $highlightText }}</span>{{ $qSuffix }}</h4>
                 
                 <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
                     <button wire:click="answerQuestion('yes')" class="w-full sm:w-auto px-8 py-3 bg-emerald-500 text-white font-bold rounded-xl shadow hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition-all transform hover:-translate-y-0.5 flex items-center justify-center">
@@ -232,11 +232,11 @@
     @if($step === 3)
         <div wire:key="step-3" wire:transition.opacity.duration.300ms class="pt-6">
             <div class="flex items-center justify-center mb-6 pb-3 border-b border-gray-100 relative">
-                <button wire:click="goBackToStep2" class="absolute left-0 text-sm text-gray-500 hover:text-indigo-600 flex items-center transition-colors font-medium">
+                <button wire:click="goBackToStep2" class="absolute left-0 text-sm text-gray-500 hover:text-green-600 flex items-center transition-colors font-medium">
                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
                     Back
                 </button>
-                <div class="bg-indigo-100 text-indigo-700 rounded-full h-8 w-8 flex items-center justify-center font-bold mr-3 text-sm">3</div>
+                <div class="bg-green-100 text-green-700 rounded-full h-8 w-8 flex items-center justify-center font-bold mr-3 text-sm">3</div>
                 <h3 class="text-xl font-semibold text-gray-800">Final Thesis Submission</h3>
             </div>
             
@@ -283,12 +283,12 @@
                             <div class="grid grid-cols-1 gap-4">
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-700 mb-1">Full Name</label>
-                                    <input type="text" wire:model="external_examiner_name" class="block w-full py-2 px-3 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors" placeholder="e.g. Dr. Jane Smith">
+                                    <input type="text" wire:model="external_examiner_name" class="block w-full py-2 px-3 sm:text-sm border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors" placeholder="e.g. Dr. Jane Smith">
                                     @error('external_examiner_name') <span class="text-red-500 text-xs mt-1 block font-medium">{{ $message }}</span> @enderror
                                 </div>
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-700 mb-1">Email Address</label>
-                                    <input type="email" wire:model="external_examiner_email" class="block w-full py-2 px-3 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors" placeholder="e.g. jsmith@acetel.edu.ng">
+                                    <input type="email" wire:model="external_examiner_email" class="block w-full py-2 px-3 sm:text-sm border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors" placeholder="e.g. jsmith@acetel.edu.ng">
                                     @error('external_examiner_email') <span class="text-red-500 text-xs mt-1 block font-medium">{{ $message }}</span> @enderror
                                 </div>
                             </div>
@@ -303,7 +303,7 @@
                                 <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                             </svg>
                             <div class="flex text-sm text-gray-600 justify-center">
-                                <label for="file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+                                <label for="file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-green-600 hover:text-green-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-green-500">
                                     <span>Upload a file</span>
                                     <input id="file-upload" type="file" wire:model="thesis_file" accept=".pdf" class="sr-only">
                                 </label>
@@ -337,11 +337,11 @@
     @if($step === 4)
         <div wire:key="step-4" wire:transition.opacity.duration.300ms class="pt-6">
             <div class="flex items-center justify-center mb-6 pb-3 border-b border-gray-100 relative">
-                <button wire:click="goBackToStep2FromSupervisors" class="absolute left-0 text-gray-500 hover:text-indigo-600 flex items-center transition-colors font-medium">
+                <button wire:click="goBackToStep2FromSupervisors" class="absolute left-0 text-gray-500 hover:text-green-600 flex items-center transition-colors font-medium">
                     <svg class="w-5 h-5 sm:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
                     <span class="hidden sm:inline text-sm">Cancel</span>
                 </button>
-                <div class="bg-indigo-100 text-indigo-700 rounded-full h-8 w-8 flex items-center justify-center font-bold mr-3 text-sm flex-shrink-0">
+                <div class="bg-green-100 text-green-700 rounded-full h-8 w-8 flex items-center justify-center font-bold mr-3 text-sm flex-shrink-0">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                 </div>
                 <h3 class="text-xl font-semibold text-gray-800 truncate">Supervisor Details</h3>
@@ -357,7 +357,7 @@
                         <div class="absolute top-0 right-0 -mt-3 -mr-3 bg-white border border-gray-200 text-gray-500 font-bold rounded-full w-8 h-8 flex items-center justify-center shadow-sm text-xs">
                             #{{ $index + 1 }}
                         </div>
-                        <h4 class="text-sm font-bold text-indigo-700 mb-4 uppercase tracking-wider">{{ $index === 0 ? 'Principal Supervisor' : 'Co-Supervisor' }}</h4>
+                        <h4 class="text-sm font-bold text-green-700 mb-4 uppercase tracking-wider">{{ $index === 0 ? 'Principal Supervisor' : 'Co-Supervisor' }}</h4>
                         
                         <div class="grid grid-cols-1 gap-4">
                             <div>
@@ -380,12 +380,12 @@
                                     <div class="grid grid-cols-1 gap-4">
                                         <div>
                                             <label class="block text-xs font-semibold text-gray-700 mb-1">Full Name</label>
-                                            <input type="text" wire:model="supervisors_data.{{ $index }}.name" class="block w-full py-2 px-3 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors" placeholder="e.g. Dr. Jane Smith">
+                                            <input type="text" wire:model="supervisors_data.{{ $index }}.name" class="block w-full py-2 px-3 sm:text-sm border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors" placeholder="e.g. Dr. Jane Smith">
                                             @error('supervisors_data.'.$index.'.name') <span class="text-red-500 text-xs mt-1 block font-medium">{{ $message }}</span> @enderror
                                         </div>
                                         <div>
                                             <label class="block text-xs font-semibold text-gray-700 mb-1">Email Address</label>
-                                            <input type="email" wire:model="supervisors_data.{{ $index }}.email" class="block w-full py-2 px-3 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors" placeholder="e.g. jsmith@acetel.edu.ng">
+                                            <input type="email" wire:model="supervisors_data.{{ $index }}.email" class="block w-full py-2 px-3 sm:text-sm border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors" placeholder="e.g. jsmith@acetel.edu.ng">
                                             @error('supervisors_data.'.$index.'.email') <span class="text-red-500 text-xs mt-1 block font-medium">{{ $message }}</span> @enderror
                                         </div>
                                     </div>
@@ -396,10 +396,10 @@
                 @endforeach
 
                 <div class="pt-4 flex justify-between items-center border-t border-gray-100">
-                    <button type="button" wire:click="goBackToStep2FromSupervisors" class="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-medium rounded-xl shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                    <button type="button" wire:click="goBackToStep2FromSupervisors" class="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-medium rounded-xl shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
                         Cancel
                     </button>
-                    <button type="submit" class="px-6 py-2.5 bg-indigo-600 border border-transparent text-white font-bold rounded-xl shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-transform transform hover:-translate-y-0.5">
+                    <button type="submit" class="px-6 py-2.5 bg-green-600 border border-transparent text-white font-bold rounded-xl shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-transform transform hover:-translate-y-0.5">
                         Save & Continue
                     </button>
                 </div>
@@ -427,18 +427,18 @@
                 <form wire:submit.prevent="submitProposalDetails" class="space-y-6 max-w-lg mx-auto">
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1">Thesis Title</label>
-                        <input type="text" wire:model="thesis_title" class="block w-full py-2.5 px-3 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-white shadow-sm" placeholder="Enter your approved thesis title">
+                        <input type="text" wire:model="thesis_title" class="block w-full py-2.5 px-3 sm:text-sm border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors bg-white shadow-sm" placeholder="Enter your approved thesis title">
                         @error('thesis_title') <span class="text-red-500 text-xs mt-1 block font-medium">{{ $message }}</span> @enderror
                     </div>
 
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1">Thesis Abstract</label>
-                        <textarea wire:model="thesis_abstract" rows="6" class="block w-full py-2.5 px-3 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-white shadow-sm" placeholder="Paste your approved abstract here..."></textarea>
+                        <textarea wire:model="thesis_abstract" rows="6" class="block w-full py-2.5 px-3 sm:text-sm border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors bg-white shadow-sm" placeholder="Paste your approved abstract here..."></textarea>
                         @error('thesis_abstract') <span class="text-red-500 text-xs mt-1 block font-medium">{{ $message }}</span> @enderror
                     </div>
 
                     <div class="pt-4">
-                        <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                        <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-sm font-bold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
                             Save Details & Continue
                         </button>
                     </div>
@@ -467,12 +467,12 @@
                 <form wire:submit.prevent="submitPresentationDate" class="space-y-6 max-w-sm mx-auto">
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1">Presentation Date</label>
-                        <input type="date" wire:model="presentation_date" max="{{ date('Y-m-d') }}" class="block w-full py-2.5 px-3 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-white shadow-sm">
+                        <input type="date" wire:model="presentation_date" max="{{ date('Y-m-d') }}" class="block w-full py-2.5 px-3 sm:text-sm border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors bg-white shadow-sm">
                         @error('presentation_date') <span class="text-red-500 text-xs mt-1 block font-medium">{{ $message }}</span> @enderror
                     </div>
 
                     <div class="pt-4">
-                        <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                        <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-sm font-bold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
                             Save Date & Continue
                         </button>
                     </div>
@@ -502,7 +502,7 @@
                     <!-- Presentation Date -->
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1">Defence Date</label>
-                        <input type="date" wire:model="presentation_date" max="{{ date('Y-m-d') }}" class="block w-full py-2.5 px-3 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-white shadow-sm">
+                        <input type="date" wire:model="presentation_date" max="{{ date('Y-m-d') }}" class="block w-full py-2.5 px-3 sm:text-sm border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors bg-white shadow-sm">
                         @error('presentation_date') <span class="text-red-500 text-xs mt-1 block font-medium">{{ $message }}</span> @enderror
                     </div>
 
@@ -526,12 +526,12 @@
                                 <div class="grid grid-cols-1 gap-4">
                                     <div>
                                         <label class="block text-xs font-semibold text-gray-700 mb-1">Full Name</label>
-                                        <input type="text" wire:model="internal_examiner_name" class="block w-full py-2 px-3 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors" placeholder="e.g. Dr. Jane Smith">
+                                        <input type="text" wire:model="internal_examiner_name" class="block w-full py-2 px-3 sm:text-sm border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors" placeholder="e.g. Dr. Jane Smith">
                                         @error('internal_examiner_name') <span class="text-red-500 text-xs mt-1 block font-medium">{{ $message }}</span> @enderror
                                     </div>
                                     <div>
                                         <label class="block text-xs font-semibold text-gray-700 mb-1">Email Address</label>
-                                        <input type="email" wire:model="internal_examiner_email" class="block w-full py-2 px-3 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors" placeholder="e.g. jsmith@acetel.edu.ng">
+                                        <input type="email" wire:model="internal_examiner_email" class="block w-full py-2 px-3 sm:text-sm border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors" placeholder="e.g. jsmith@acetel.edu.ng">
                                         @error('internal_examiner_email') <span class="text-red-500 text-xs mt-1 block font-medium">{{ $message }}</span> @enderror
                                     </div>
                                 </div>
@@ -560,13 +560,13 @@
                                     <div class="space-y-4">
                                         <div>
                                             <label class="block text-sm font-semibold text-gray-700 mb-1.5">Publication Title or DOI</label>
-                                            <input type="text" wire:model="publications_data.{{ $index }}.title" class="block w-full py-2.5 px-3.5 text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors shadow-sm" placeholder="e.g. 10.1016/j.jocs.2023.10214">
+                                            <input type="text" wire:model="publications_data.{{ $index }}.title" class="block w-full py-2.5 px-3.5 text-sm border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 transition-colors shadow-sm" placeholder="e.g. 10.1016/j.jocs.2023.10214">
                                             @error('publications_data.'.$index.'.title') <span class="text-red-500 text-xs mt-1.5 block font-medium">{{ $message }}</span> @enderror
                                         </div>
                                         <div>
                                             <label class="block text-sm font-semibold text-gray-700 mb-1.5">Publication File (PDF)</label>
                                             <div class="flex items-center w-full">
-                                                <input type="file" wire:model="publications_data.{{ $index }}.file" accept=".pdf" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition-colors cursor-pointer border border-gray-200 rounded-lg p-1 bg-gray-50">
+                                                <input type="file" wire:model="publications_data.{{ $index }}.file" accept=".pdf" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 transition-colors cursor-pointer border border-gray-200 rounded-lg p-1 bg-gray-50">
                                             </div>
                                             @error('publications_data.'.$index.'.file') <span class="text-red-500 text-xs mt-1.5 block font-medium">{{ $message }}</span> @enderror
                                         </div>
@@ -575,7 +575,7 @@
                             @endforeach
                         </div>
                         
-                        <button type="button" wire:click="addPublication" class="mt-5 flex items-center justify-center w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-sm font-bold text-gray-600 hover:text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50 transition-colors bg-white shadow-sm">
+                        <button type="button" wire:click="addPublication" class="mt-5 flex items-center justify-center w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-sm font-bold text-gray-600 hover:text-green-600 hover:border-green-400 hover:bg-green-50 transition-colors bg-white shadow-sm">
                             <svg class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
                             Add Another Publication
                         </button>
@@ -590,7 +590,7 @@
                                     <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                                 </svg>
                                 <div class="flex text-sm text-gray-600 justify-center">
-                                    <label for="internal-thesis" class="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+                                    <label for="internal-thesis" class="relative cursor-pointer bg-white rounded-md font-medium text-green-600 hover:text-green-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-green-500">
                                         <span>Upload a file</span>
                                         <input id="internal-thesis" type="file" wire:model="internal_thesis_file" accept=".pdf" class="sr-only">
                                     </label>
@@ -609,7 +609,7 @@
                     </div>
 
                     <div class="pt-4">
-                        <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                        <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-md text-sm font-bold text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
                             Save Details & Continue
                         </button>
                     </div>
