@@ -3,7 +3,7 @@
 <div
     x-data="{
         open: false,
-        value: @entangle($attributes->wire('model')),
+        value: $wire.entangle('{{ $attributes->wire('model')->value() }}'),
         options: {{ json_encode($options) }},
         get selectedLabel() {
             let selected = this.options.find(opt => opt.value == this.value);

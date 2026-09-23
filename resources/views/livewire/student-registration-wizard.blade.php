@@ -88,23 +88,31 @@
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div class="relative">
+                    <div class="relative" x-data="{ show: false }">
                         <label class="block text-sm font-semibold text-gray-700 mb-1">Password</label>
                         <div class="relative rounded-md shadow-sm">
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                             </div>
-                            <input type="password" wire:model="password" class="block w-full pl-10 pr-10 py-2.5 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-gray-50 focus:bg-white" placeholder="••••••••">
+                            <input :type="show ? 'text' : 'password'" wire:model="password" class="block w-full pl-10 pr-10 py-2.5 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-gray-50 focus:bg-white" placeholder="••••••••">
+                            <button type="button" @click="show = !show" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none">
+                                <svg x-show="!show" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                                <svg x-cloak x-show="show" class="h-5 w-5" style="display: none;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path></svg>
+                            </button>
                         </div>
                         @error('password') <span class="text-red-500 text-xs mt-1 block font-medium">{{ $message }}</span> @enderror
                     </div>
-                    <div class="relative">
+                    <div class="relative" x-data="{ show: false }">
                         <label class="block text-sm font-semibold text-gray-700 mb-1">Confirm Password</label>
                         <div class="relative rounded-md shadow-sm">
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                             </div>
-                            <input type="password" wire:model="password_confirmation" class="block w-full pl-10 pr-3 py-2.5 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-gray-50 focus:bg-white" placeholder="••••••••">
+                            <input :type="show ? 'text' : 'password'" wire:model="password_confirmation" class="block w-full pl-10 pr-10 py-2.5 sm:text-sm border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-gray-50 focus:bg-white" placeholder="••••••••">
+                            <button type="button" @click="show = !show" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none">
+                                <svg x-show="!show" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                                <svg x-cloak x-show="show" class="h-5 w-5" style="display: none;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path></svg>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -186,7 +194,24 @@
                     </div>
                 </div>
                 
-                <h4 class="text-2xl font-bold text-gray-800 mb-8 leading-relaxed">Have you completed your <span class="text-indigo-600 border-b-2 border-indigo-200">{{ $questions[$currentQuestionIndex]['name'] }}</span>?</h4>
+                @php
+                    $msName = $questions[$currentQuestionIndex]['name'];
+                    $qPrefix = "Have you completed your";
+                    $qSuffix = "?";
+                    $highlightText = $msName;
+                    
+                    if ($msName === 'Supervisors Assigned') {
+                        $qPrefix = "Has your";
+                        $highlightText = "Supervisory Committee";
+                        $qSuffix = " been assigned?";
+                    } elseif ($msName === 'Internal Defence') {
+                        $qPrefix = "Have you conducted your";
+                    } elseif ($msName === 'Viva') {
+                        $qPrefix = "Have you completed your";
+                        $highlightText = "Viva Voce";
+                    }
+                @endphp
+                <h4 class="text-2xl font-bold text-gray-800 mb-8 leading-relaxed">{{ $qPrefix }} <span class="text-indigo-600 border-b-2 border-indigo-200">{{ $highlightText }}</span>{{ $qSuffix }}</h4>
                 
                 <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
                     <button wire:click="answerQuestion('yes')" class="w-full sm:w-auto px-8 py-3 bg-emerald-500 text-white font-bold rounded-xl shadow hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition-all transform hover:-translate-y-0.5 flex items-center justify-center">

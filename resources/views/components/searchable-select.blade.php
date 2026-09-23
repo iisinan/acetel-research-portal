@@ -4,7 +4,7 @@
     x-data="{
         open: false,
         search: '',
-        value: @entangle($attributes->wire('model')),
+        value: $wire.entangle('{{ $attributes->wire('model')->value() }}'),
         options: {{ json_encode($options) }},
         get filteredOptions() {
             if (this.search === '') return this.options;
