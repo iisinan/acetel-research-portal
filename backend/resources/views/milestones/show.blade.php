@@ -332,7 +332,7 @@
                                 </div>
                                 @endif
 
-                                @if(in_array('publication', $milestone->template->submission_type))
+                                @if(in_array('publication', $milestone->template->submission_type) || in_array('publications', $milestone->template->submission_type))
                                 <div>
                                     <label class="block text-sm font-semibold text-slate-700 mb-2">
                                         Upload Publications (PDF Only, Select one or more)

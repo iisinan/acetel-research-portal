@@ -322,7 +322,7 @@ class MilestoneController extends Controller
             $rules['file'] = ['required', 'file', 'mimes:pdf', 'max:51200'];
         }
 
-        if (in_array('publication', $subTypes)) {
+        if (in_array('publication', $subTypes) || in_array('publications', $subTypes)) {
             $existingCount = $milestone->submissions()->where('type', 'publication')->count();
             $maxAllowed = 5 - $existingCount;
             $rules['publications'] = [($existingCount > 0 ? 'nullable' : 'required'), 'array', 'min:1', "max:{$maxAllowed}"];
@@ -401,7 +401,7 @@ class MilestoneController extends Controller
         }
 
         // Handle Publications
-        if (in_array('publication', $subTypes) && $request->hasFile('publications')) {
+        if ((in_array('publication', $subTypes) || in_array('publications', $subTypes)) && $request->hasFile('publications')) {
             foreach ($request->file('publications') as $pubFile) {
                 $pubPath = $pubFile->store('submissions/' . $milestone->thesis_project_id . '/publications', 'public');
                 

@@ -47,27 +47,42 @@ class MilestoneTemplateSeeder extends Seeder
                 'description' => 'Supervisor approval required, followed by Program Coordinator scheduling proposal defence.'
             ],
             [
-                'name' => 'Progress presentation 1',
-                'slug' => 'progress_presentation_1',
+                'name' => 'Progress Report 1',
+                'slug' => 'progress_report_1',
                 'order' => 4,
                 'requires_submission' => true,
+                'submission_type' => ['file'],
                 'requires_approval' => true,
-                'required_approvers' => ['Supervisor', 'Program Coordinator'],
-                'description' => 'First progress presentation submission and approval.'
+                'required_approvers' => ['Supervisor'],
+                'description' => 'First progress report document upload and supervisor validation.'
             ],
             [
-                'name' => 'Progress presentation 2',
-                'slug' => 'progress_presentation_2',
+                'name' => 'Progress Report 2',
+                'slug' => 'progress_report_2',
                 'order' => 5,
                 'requires_submission' => true,
+                'submission_type' => ['file'],
+                'requires_approval' => true,
+                'required_approvers' => ['Supervisor'],
+                'description' => 'Second progress report document upload and supervisor validation.'
+            ],
+            [
+                'name' => 'Progress Presentation',
+                'slug' => 'progress_presentation',
+                'order' => 6,
+                'requires_submission' => true,
+                'submission_type' => ['ppt'],
                 'requires_approval' => true,
                 'required_approvers' => ['Supervisor', 'Program Coordinator'],
-                'description' => 'Second progress presentation submission and approval.'
+                'allow_defence_date' => true,
+                'defence_type' => 'progress',
+                'defence_date_role' => 'Program Coordinator',
+                'description' => 'Student presents progress. Committee evaluates and grades.'
             ],
             [
                 'name' => 'Internal defence',
                 'slug' => 'internal_defence',
-                'order' => 6,
+                'order' => 7,
                 'requires_submission' => true,
                 'requires_approval' => true,
                 'submission_requires_approval' => true,
@@ -83,7 +98,7 @@ class MilestoneTemplateSeeder extends Seeder
             [
                 'name' => 'Viva',
                 'slug' => 'viva',
-                'order' => 7,
+                'order' => 8,
                 'requires_submission' => true,
                 'requires_approval' => true,
                 'submission_requires_approval' => true,
