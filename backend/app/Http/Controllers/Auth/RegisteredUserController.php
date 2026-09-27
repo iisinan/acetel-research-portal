@@ -51,7 +51,7 @@ class RegisteredUserController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|confirmed|min:8',
@@ -86,6 +86,33 @@ class RegisteredUserController extends Controller
             'external_examiner_email' => 'nullable|email|max:255',
             'final_thesis_file' => 'nullable|file|mimes:pdf|max:20480',
         ]);
+
+        $completedIds = $request->input('completed_milestones', []);
+        if (!empty($completedIds)) {
+            $templates = \App\Models\MilestoneTemplate::whereIn('id', $completedIds)->get();
+            $completedSlugs = $templates->pluck('slug')->toArray();
+
+            $validator->after(function ($validator) use ($request, $completedSlugs) {
+                if (in_array('proposal_defence', $completedSlugs)) {
+                    if (empty($request->thesis_title)) {
+                        $validator->errors()->add('thesis_title', 'Thesis title is required since Proposal Defence is completed.');
+                    }
+                    if (empty($request->proposal_defence_date)) {
+                        $validator->errors()->add('proposal_defence_date', 'Proposal Defence date is required.');
+                    }
+                }
+                if (in_array('viva', $completedSlugs)) {
+                    if (!$request->hasFile('final_thesis_file')) {
+                        $validator->errors()->add('final_thesis_file', 'The final cleared thesis PDF is required since Viva is completed.');
+                    }
+                    if (empty($request->viva_date)) {
+                        $validator->errors()->add('viva_date', 'Viva date is required.');
+                    }
+                }
+            });
+        }
+
+        $validator->validate();
 
         DB::beginTransaction();
         try {
