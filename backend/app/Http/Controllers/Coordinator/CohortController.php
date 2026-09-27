@@ -200,6 +200,10 @@ class CohortController extends Controller
                 'student_id_number' => $request->matrix_number,
                 'enrollment_status' => 'active',
                 'current_semester' => 1,
+                'phone_number' => $request->phone_number,
+                'gender' => $request->gender,
+                'nationality' => $request->nationality,
+                'place_of_work' => $request->place_of_work,
             ]);
 
             $profile->thesis()->create([
@@ -233,6 +237,10 @@ class CohortController extends Controller
                 $email = trim($data[1] ?? '');
                 $programSearch = trim($data[2] ?? '');
                 $matrixNumber = trim($data[3] ?? '');
+                $gender = trim($data[4] ?? '');
+                $phone = trim($data[5] ?? '');
+                $nationality = trim($data[6] ?? '');
+                $placeOfWork = trim($data[7] ?? '');
                 
                 if (empty($email) || empty($programSearch)) continue;
                 
@@ -272,6 +280,10 @@ class CohortController extends Controller
                     'student_id_number' => $matrixNumber,
                     'enrollment_status' => 'active',
                     'current_semester' => 1,
+                    'gender' => !empty($gender) ? $gender : null,
+                    'phone_number' => !empty($phone) ? $phone : null,
+                    'nationality' => !empty($nationality) ? $nationality : null,
+                    'place_of_work' => !empty($placeOfWork) ? $placeOfWork : null,
                 ]);
 
                 $profile->thesis()->create([
