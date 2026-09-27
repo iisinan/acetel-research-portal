@@ -34,6 +34,16 @@ php artisan config:clear  || true
 php artisan route:clear   || true
 php artisan view:clear    || true
 
+# ── Schema initialization ────────────────────────────────────────
+if [ -n "$DB_SCHEMA" ] && [ "$DB_SCHEMA" != "public" ]; then
+    echo "=== Ensuring PostgreSQL schema '$DB_SCHEMA' exists ==="
+    php -r "\
+        \$pdo = new PDO(getenv('DATABASE_URL') ?: 'pgsql:host=' . getenv('DB_HOST') . ';port=' . getenv('DB_PORT') . ';dbname=' . getenv('DB_DATABASE'), getenv('DB_USERNAME'), getenv('DB_PASSWORD'));\
+        \$pdo->exec('CREATE SCHEMA IF NOT EXISTS "' . getenv('DB_SCHEMA') . '";');\
+    " || echo "WARN: Failed to create schema $DB_SCHEMA"
+fi
+
+
 # ── Migrations ───────────────────────────────────────────────────
 echo "=== Running migrations ==="
 php artisan migrate --force || echo "WARN: Migration failed — check DB connection"
