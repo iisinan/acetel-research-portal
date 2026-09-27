@@ -46,6 +46,9 @@ fi
 echo "=== Running migrations ==="
 php artisan migrate --force || echo "WARN: Migration failed — check DB connection"
 
+echo "=== Seeding default data if database is empty ==="
+php artisan tinker --execute="if (\App\Models\User::count() === 0) { \Artisan::call('db:seed', ['--force' => true]); echo \Artisan::output(); }" || echo "WARN: Seeding failed"
+
 # ── Production caching ───────────────────────────────────────────
 echo "=== Caching config, routes, views, and events ==="
 php artisan config:cache || echo "WARN: Config cache failed"
