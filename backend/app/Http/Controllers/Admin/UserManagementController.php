@@ -120,7 +120,7 @@ class UserManagementController extends Controller
 
         try {
             \Illuminate\Support\Facades\Mail::to($user->email)->queue(new \App\Mail\WelcomeUser($user, $password));
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
              \Illuminate\Support\Facades\Log::error("Mail sending failed for user {$user->email}: " . $e->getMessage());
         }
 
@@ -538,7 +538,7 @@ class UserManagementController extends Controller
                 \Illuminate\Support\Facades\Mail::to($user->email)->queue(new \App\Mail\WelcomeUser($user, $password));
 
                 $importedCount++;
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 $errors[] = "Row $i: Failed to create user. " . $e->getMessage();
             }
         }

@@ -12,9 +12,6 @@ class SupervisorRoleAssigned extends Notification implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
-    /**
-     * Create a new notification instance.
-     */
     protected $assignment;
 
     public function __construct($assignment)
@@ -22,37 +19,23 @@ class SupervisorRoleAssigned extends Notification implements ShouldQueue
         $this->assignment = $assignment;
     }
 
-    /**
-     * Get the notification's delivery channels.
-     *
-     * @return array<int, string>
-     */
     public function via(object $notifiable): array
     {
         return ['database', 'mail'];
     }
 
-    /**
-     * Get the mail representation of the notification.
-     */
     public function toMail(object $notifiable): MailMessage
     {
-        $studentName = $this->assignment->thesisProject->student->user->name;
         $role = ucfirst($this->assignment->role);
 
         return (new MailMessage)
-                    ->subject('New Supervision Assignment: ' . $role)
-                    ->line('You have been assigned as a ' . $role . ' supervisor for the student: ' . $studentName)
-                    ->line('Project Title: ' . $this->assignment->thesisProject->title)
-                    ->action('View Project', url('/theses/' . $this->assignment->thesisProject->id))
-                    ->line('Please review the project details and student milestones.');
+            ->subject('New Supervision Assignment: ' . $role)
+            ->markdown('emails.supervisor-assigned', [
+                'assignment' => $this->assignment,
+                'notifiable' => $notifiable
+            ]);
     }
 
-    /**
-     * Get the array representation of the notification.
-     *
-     * @return array<string, mixed>
-     */
     public function toArray(object $notifiable): array
     {
         return [

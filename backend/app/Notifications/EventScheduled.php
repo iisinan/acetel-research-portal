@@ -14,49 +14,26 @@ class EventScheduled extends Notification implements ShouldQueue
 
     protected $event;
 
-    /**
-     * Create a new notification instance.
-     */
     public function __construct(DefenceEvent $event)
     {
         $this->event = $event;
     }
 
-    /**
-     * Get the notification's delivery channels.
-     *
-     * @return array<int, string>
-     */
     public function via(object $notifiable): array
     {
         return ['mail', 'database'];
     }
 
-    /**
-     * Get the mail representation of the notification.
-     */
     public function toMail(object $notifiable): MailMessage
     {
-        $studentName = $this->event->thesis && $this->event->thesis->student && $this->event->thesis->student->user 
-            ? $this->event->thesis->student->user->name 
-            : 'A student';
-            
         return (new MailMessage)
-                    ->subject('New Presentation Scheduled: ' . ucfirst($this->event->type))
-                    ->line('A presentation has been scheduled.')
-                    ->line('Student: ' . $studentName)
-                    ->line('Type: ' . ucfirst($this->event->type))
-                    ->line('Date: ' . ($this->event->schedule_start ? $this->event->schedule_start->format('M d, Y') : 'TBD'))
-                    ->line('Time: ' . ($this->event->schedule_start ? $this->event->schedule_start->format('H:i') : 'TBD'))
-                    ->line('Location: ' . ($this->event->location ?? 'Online / TBD'))
-                    ->action('View Details', url('/dashboard'));
+            ->subject('New Presentation Scheduled: ' . ucfirst(str_replace('_', ' ', $this->event->type)))
+            ->markdown('emails.event-scheduled', [
+                'event' => $this->event,
+                'notifiable' => $notifiable
+            ]);
     }
 
-    /**
-     * Get the array representation of the notification.
-     *
-     * @return array<string, mixed>
-     */
     public function toArray(object $notifiable): array
     {
         return [
