@@ -58,8 +58,6 @@ class RegisteredUserController extends Controller
             'matric_number' => ['required', 'string', 'max:255', 'unique:student_profiles,student_id_number', new \App\Rules\ValidMatricNumber],
             'program_id' => 'required|exists:programs,id',
             'place_of_work' => 'nullable|string|max:255',
-            'thesis_title' => 'nullable|string|max:255',
-            'thesis_abstract' => 'nullable|string',
             'supervisor_ids' => 'nullable|array',
             'supervisor_ids.*' => 'nullable|distinct',
             'new_supervisors' => 'nullable|array',

@@ -11,7 +11,7 @@ class MilestoneTemplateController extends Controller
 {
     public function index()
     {
-        $templates = MilestoneTemplate::with('program')->with(['studentMilestones' => function($q) { $q->whereIn('status', ['ongoing', 'pending_submission', 'pending_review', 'needs_revision', 'pending_defence'])->with(['thesisProject.student.user', 'thesisProject.defenceEvents.panelMembers.user', 'submissions']); }])->orderBy('order')->get();
+        $templates = MilestoneTemplate::with('program')->with(['studentMilestones' => function($q) { $q->whereIn('status', ['ongoing', 'pending_submission', 'pending_review', 'needs_revision', 'pending_defence'])->with(['thesis.student.user', 'thesis.defenceEvents.panelMembers.user', 'submissions']); }])->orderBy('order')->get();
         $supervisors = \App\Models\SupervisorProfile::with('user')->get();
         return view('admin.milestone-templates.index', compact('templates', 'supervisors'));
     }
@@ -289,7 +289,7 @@ class MilestoneTemplateController extends Controller
     {
         $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
             ->whereIn('status', ['ongoing', 'pending_submission', 'pending_review', 'needs_revision', 'pending_defence'])
-            ->with('thesisProject.student.user')
+            ->with('thesis.student.user')
             ->get();
             
         $fileName = 'students_' . $template->slug . '.csv';
@@ -309,8 +309,8 @@ class MilestoneTemplateController extends Controller
 
             foreach ($milestones as $milestone) {
                 fputcsv($file, [
-                    $milestone->thesisProject->student->user->name ?? '',
-                    $milestone->thesisProject->student->matric_number ?? '',
+                    $milestone->thesis->student->user->name ?? '',
+                    $milestone->thesis->student->matric_number ?? '',
                     $milestone->status,
                     $milestone->defence_date ?? 'Not Scheduled'
                 ]);

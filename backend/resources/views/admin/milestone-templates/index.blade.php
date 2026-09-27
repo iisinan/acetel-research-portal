@@ -164,7 +164,7 @@
                                         <tbody class="divide-y divide-slate-100">
                                             @foreach($template->studentMilestones as $sm)
                                                 @php
-                                                    $event = current($sm->thesisProject->defenceEvents->where('type', $template->defence_type ?? 'seminar')->all());
+                                                    $event = current($sm->thesis->defenceEvents->where('type', $template->defence_type ?? 'seminar')->all());
                                                     $examiner = $event ? current($event->panelMembers->where('role', 'Examiner')->all()) : null;
                                                 @endphp
                                                 <tr class="hover:bg-slate-50/50 transition-colors">
@@ -172,8 +172,8 @@
                                                         <input type="checkbox" :value="'{{ $sm->id }}'" x-model="selected" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
                                                     </td>
                                                     <td class="px-4 py-3">
-                                                        <div class="font-medium text-slate-900">{{ $sm->thesisProject->student->user->name ?? 'N/A' }}</div>
-                                                        <div class="text-xs text-slate-500">{{ $sm->thesisProject->student->matric_number ?? 'N/A' }}</div>
+                                                        <div class="font-medium text-slate-900">{{ $sm->thesis->student->user->name ?? 'N/A' }}</div>
+                                                        <div class="text-xs text-slate-500">{{ $sm->thesis->student->matric_number ?? 'N/A' }}</div>
                                                     </td>
                                                     <td class="px-4 py-3">
                                                         <span class="px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">{{ ucfirst(str_replace('_', ' ', $sm->status)) }}</span>
