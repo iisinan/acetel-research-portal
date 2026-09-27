@@ -20,6 +20,7 @@ class StudentProfile extends Model
         'gender',
         'phone_number',
         'nationality',
+        'place_of_work',
         'enrollment_status',
         'current_semester'
     ];

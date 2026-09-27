@@ -57,6 +57,7 @@ class RegisteredUserController extends Controller
             'password' => 'required|string|confirmed|min:8',
             'matric_number' => ['required', 'string', 'max:255', 'unique:student_profiles,student_id_number', new \App\Rules\ValidMatricNumber],
             'program_id' => 'required|exists:programs,id',
+            'place_of_work' => 'nullable|string|max:255',
             'thesis_title' => 'nullable|string|max:255',
             'thesis_abstract' => 'nullable|string',
             'supervisor_ids' => 'nullable|array',
@@ -154,6 +155,7 @@ class RegisteredUserController extends Controller
                 'program_id' => $request->program_id,
                 'level_id' => $levelId,
                 'cohort_id' => $cohort->id,
+                'place_of_work' => $request->place_of_work,
             ]);
 
             // 3b. Handle Internal Examiner
@@ -442,6 +444,12 @@ class RegisteredUserController extends Controller
             DB::commit();
 
             Auth::login($user);
+            
+            session()->flash('success', 'Registration complete! Welcome to your dashboard.');
+            if ($request->expectsJson()) {
+                return response()->json(['success' => true, 'redirect' => route('dashboard')]);
+            }
+            
             return redirect()->route('dashboard');
 
         } catch (\Throwable $e) {
