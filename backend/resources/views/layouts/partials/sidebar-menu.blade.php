@@ -1,3 +1,21 @@
+<div x-data="{ activeRole: localStorage.getItem('activeDashboardRole') || '{{ Auth::user()->getRoleNames()->first() ?? 'Student' }}' }" @role-changed.window="activeRole = $event.detail" x-init="$watch('activeRole', val => { localStorage.setItem('activeDashboardRole', val); window.dispatchEvent(new CustomEvent('role-changed', {detail: val})); })">
+
+@php
+    $userRoles = Auth::user()->getRoleNames();
+    $hasMultipleRoles = $userRoles->count() > 1;
+@endphp
+
+@if($hasMultipleRoles)
+    <div class="px-4 mb-6">
+        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Switch Role</label>
+        <select x-model="activeRole" class="w-full bg-slate-50 border border-slate-200 text-sm font-semibold rounded-xl px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 text-slate-700 shadow-sm transition-all">
+            @foreach($userRoles as $role)
+                <option value="{{ $role }}">{{ $role }}</option>
+            @endforeach
+        </select>
+    </div>
+@endif
+
 @php
     $navClass = 'flex items-center px-4 py-3 text-sm font-semibold rounded-xl transition-all duration-200 group ' . 
                 'hover:bg-green-50 hover:text-green-700 border border-transparent ';
@@ -50,7 +68,7 @@
 </div>
 
 <!-- Management Section -->
-@role('Admin')
+<div x-show="activeRole === 'Admin'" x-cloak>
     <div class="mb-4">
         <p class="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Institutional Core</p>
         <div class="space-y-1">
@@ -125,7 +143,7 @@
             </a>
         </div>
     </div>
-@endrole
+</div>
 
 <!-- Director Section (Strategic Oversight) -->
 @role('Director')
@@ -150,10 +168,10 @@
             </a>
         </div>
     </div>
-@endrole
+</div>
 
 <!-- Coordinator Section -->
-@role('Program Coordinator')
+<div x-show="activeRole === 'Program Coordinator'" x-cloak>
     <div class="mb-4">
         <p class="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Program</p>
         <div class="space-y-1">
@@ -189,10 +207,10 @@
 
         </div>
     </div>
-@endrole
+</div>
 
 <!-- Supervisor Section -->
-@role('Supervisor')
+<div x-show="activeRole === 'Supervisor'" x-cloak>
     @php
         $pendingSeminarCount = \App\Models\DefenceEvent::where('type', 'seminar')
             ->whereHas('panelMembers', function($q) {
@@ -223,10 +241,10 @@
             </a>
         </div>
     </div>
-@endrole
+</div>
 
 <!-- Student Section -->
-@role('Student')
+<div x-show="activeRole === 'Student'" x-cloak>
     <div class="mb-4">
         <p class="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Research</p>
         <div class="space-y-1">
@@ -236,14 +254,32 @@
             </a>
         </div>
     </div>
-@endrole
+</div>
+
+
+<!-- Examiners Section -->
+<div x-show="['Internal Examiner', 'External Examiner'].includes(activeRole)" x-cloak class="mb-4">
+    <p class="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Examination</p>
+    <div class="space-y-1">
+        <a href="#" class="{{ $navClass }} {{ request()->routeIs('examiner.theses.*') ? $activeClass : $inactiveClass }}">
+            <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-primary-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+            Assigned Theses
+        </a>
+        <a href="{{ route('inbox.index') }}" class="{{ $navClass }} {{ request()->routeIs('inbox.*') ? $activeClass : $inactiveClass }}">
+            <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-primary-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+            Inbox
+        </a>
+    </div>
+</div>
 
 <!-- Reports Section -->
-@hasanyrole('Admin|Director|Program Coordinator')
+<div x-show="['Admin', 'Director', 'Program Coordinator'].includes(activeRole)" x-cloak>
     <div class="mb-6">
         <a href="{{ route('reports.index') }}" class="{{ $navClass }} {{ request()->routeIs('reports.*') ? $activeClass : $inactiveClass }}">
             <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-primary-600 transition-colors {{ request()->routeIs('reports.*') ? '!text-primary-600' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
             Reports
         </a>
     </div>
-@endhasanyrole
+</div>
+
+</div>

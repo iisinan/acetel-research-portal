@@ -3,7 +3,7 @@
 @section('header', 'Dashboard')
 
 @section('content')
-<div class="space-y-8">
+<div x-data="{ activeRole: localStorage.getItem('activeDashboardRole') || '{{ Auth::user()->getRoleNames()->first() ?? 'Student' }}' }" x-init="$watch('activeRole', val => { localStorage.setItem('activeDashboardRole', val); window.dispatchEvent(new CustomEvent('role-changed', {detail: val})); })" @role-changed.window="activeRole = $event.detail" class="space-y-8">
 
     {{-- Welcome Banner --}}
     <div class="relative overflow-hidden rounded-2xl p-8" style="background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); box-shadow: 0 8px 32px rgba(22,163,74,0.25);">
@@ -20,15 +20,33 @@
             <div class="flex items-center gap-3 shrink-0">
                 <div class="px-4 py-2.5 bg-white/15 border border-white/25 rounded-xl flex items-center gap-2.5">
                     <div class="w-2.5 h-2.5 rounded-full bg-green-300 animate-pulse"></div>
-                    <span class="text-sm font-bold text-white uppercase tracking-wider">{{ Auth::user()->getRoleNames()->first() }}</span>
+                    <span class="text-sm font-bold text-white uppercase tracking-wider"><span x-text="activeRole"></span></span>
                 </div>
             </div>
         </div>
     </div>
 
+    @php
+        $userRoles = Auth::user()->getRoleNames();
+        $hasMultipleRoles = $userRoles->count() > 1;
+    @endphp
+
+    @if($hasMultipleRoles)
+    <div class="flex flex-wrap gap-2 mb-6">
+        @foreach($userRoles as $role)
+            <button @click="activeRole = '{{ $role }}'"
+                    :class="activeRole === '{{ $role }}' ? 'bg-green-600 text-white shadow-md' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'"
+                    class="px-4 py-2 rounded-xl text-sm font-bold transition-all">
+                {{ $role }} View
+            </button>
+        @endforeach
+    </div>
+    @endif
+
     {{-- Quick Links / Role-based actions --}}
-    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        @role('Student')
+    
+    @hasrole('Student')
+    <div x-show="activeRole === 'Student'" x-cloak style="display: none;" :style="activeRole === 'Student' ? 'display: grid;' : 'display: none;'" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
         <a href="{{ route('milestones.index') }}" class="group bg-white border border-slate-200 rounded-2xl p-6 hover:border-green-300 hover:shadow-md transition-all">
             <div class="w-11 h-11 bg-green-50 border border-green-100 rounded-xl flex items-center justify-center text-green-600 mb-4 group-hover:bg-green-100 group-hover:scale-110 transition-all">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
@@ -41,24 +59,26 @@
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
             </div>
             <h3 class="font-bold text-slate-800 mb-1">Inbox</h3>
-            <p class="text-xs text-slate-500">Messages from your supervisor</p>
+            <p class="text-xs text-slate-500">My communications</p>
         </a>
-        <a href="{{ route('repository.index') }}" class="group bg-white border border-slate-200 rounded-2xl p-6 hover:border-green-300 hover:shadow-md transition-all">
-            <div class="w-11 h-11 bg-green-50 border border-green-100 rounded-xl flex items-center justify-center text-green-600 mb-4 group-hover:bg-green-100 group-hover:scale-110 transition-all">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.247 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
-            </div>
-            <h3 class="font-bold text-slate-800 mb-1">Repository</h3>
-            <p class="text-xs text-slate-500">Browse published research</p>
-        </a>
-        @endrole
+    </div>
+    @endhasrole
 
-        @role('Supervisor')
+    @hasrole('Supervisor')
+    <div x-show="activeRole === 'Supervisor'" x-cloak style="display: none;" :style="activeRole === 'Supervisor' ? 'display: grid;' : 'display: none;'" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
         <a href="{{ route('supervisor.students.index') }}" class="group bg-white border border-slate-200 rounded-2xl p-6 hover:border-green-300 hover:shadow-md transition-all">
             <div class="w-11 h-11 bg-green-50 border border-green-100 rounded-xl flex items-center justify-center text-green-600 mb-4 group-hover:bg-green-100 group-hover:scale-110 transition-all">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
             </div>
             <h3 class="font-bold text-slate-800 mb-1">My Students</h3>
-            <p class="text-xs text-slate-500">View and manage your students</p>
+            <p class="text-xs text-slate-500">Track student progress</p>
+        </a>
+        <a href="{{ route('supervisor.seminars.index') }}" class="group bg-white border border-slate-200 rounded-2xl p-6 hover:border-green-300 hover:shadow-md transition-all">
+            <div class="w-11 h-11 bg-green-50 border border-green-100 rounded-xl flex items-center justify-center text-green-600 mb-4 group-hover:bg-green-100 group-hover:scale-110 transition-all">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9.5a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
+            </div>
+            <h3 class="font-bold text-slate-800 mb-1">Seminar Exams</h3>
+            <p class="text-xs text-slate-500">Evaluate assigned seminars</p>
         </a>
         <a href="{{ route('inbox.index') }}" class="group bg-white border border-slate-200 rounded-2xl p-6 hover:border-green-300 hover:shadow-md transition-all">
             <div class="w-11 h-11 bg-green-50 border border-green-100 rounded-xl flex items-center justify-center text-green-600 mb-4 group-hover:bg-green-100 group-hover:scale-110 transition-all">
@@ -67,9 +87,11 @@
             <h3 class="font-bold text-slate-800 mb-1">Inbox</h3>
             <p class="text-xs text-slate-500">Student communications</p>
         </a>
-        @endrole
+    </div>
+    @endhasrole
 
-        @role('Program Coordinator')
+    @hasrole('Program Coordinator')
+    <div x-show="activeRole === 'Program Coordinator'" x-cloak style="display: none;" :style="activeRole === 'Program Coordinator' ? 'display: grid;' : 'display: none;'" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
         <a href="{{ route('coordinator.students.index') }}" class="group bg-white border border-slate-200 rounded-2xl p-6 hover:border-green-300 hover:shadow-md transition-all">
             <div class="w-11 h-11 bg-green-50 border border-green-100 rounded-xl flex items-center justify-center text-green-600 mb-4 group-hover:bg-green-100 group-hover:scale-110 transition-all">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
@@ -91,9 +113,30 @@
             <h3 class="font-bold text-slate-800 mb-1">Reports</h3>
             <p class="text-xs text-slate-500">View programme analytics</p>
         </a>
-        @endrole
+    </div>
+    @endhasrole
 
-        @role('Admin')
+    @hasrole('Internal Examiner|External Examiner')
+    <div x-show="['Internal Examiner', 'External Examiner'].includes(activeRole)" x-cloak style="display: none;" :style="['Internal Examiner', 'External Examiner'].includes(activeRole) ? 'display: grid;' : 'display: none;'" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <a href="#" class="group bg-white border border-slate-200 rounded-2xl p-6 hover:border-green-300 hover:shadow-md transition-all">
+            <div class="w-11 h-11 bg-green-50 border border-green-100 rounded-xl flex items-center justify-center text-green-600 mb-4 group-hover:bg-green-100 group-hover:scale-110 transition-all">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </div>
+            <h3 class="font-bold text-slate-800 mb-1">Assigned Theses</h3>
+            <p class="text-xs text-slate-500">Review thesis submissions</p>
+        </a>
+        <a href="{{ route('inbox.index') }}" class="group bg-white border border-slate-200 rounded-2xl p-6 hover:border-green-300 hover:shadow-md transition-all">
+            <div class="w-11 h-11 bg-green-50 border border-green-100 rounded-xl flex items-center justify-center text-green-600 mb-4 group-hover:bg-green-100 group-hover:scale-110 transition-all">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            </div>
+            <h3 class="font-bold text-slate-800 mb-1">Inbox</h3>
+            <p class="text-xs text-slate-500">Communications</p>
+        </a>
+    </div>
+    @endhasrole
+
+    @hasrole('Admin')
+    <div x-show="activeRole === 'Admin'" x-cloak style="display: none;" :style="activeRole === 'Admin' ? 'display: grid;' : 'display: none;'" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
         <a href="{{ route('admin.users.index') }}" class="group bg-white border border-slate-200 rounded-2xl p-6 hover:border-green-300 hover:shadow-md transition-all">
             <div class="w-11 h-11 bg-green-50 border border-green-100 rounded-xl flex items-center justify-center text-green-600 mb-4 group-hover:bg-green-100 group-hover:scale-110 transition-all">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
@@ -115,8 +158,8 @@
             <h3 class="font-bold text-slate-800 mb-1">Audit Logs</h3>
             <p class="text-xs text-slate-500">System activity and events</p>
         </a>
-        @endrole
     </div>
+    @endhasrole
 
     {{-- Info Card --}}
     <div class="bg-white border border-green-100 rounded-2xl p-8 shadow-sm">
