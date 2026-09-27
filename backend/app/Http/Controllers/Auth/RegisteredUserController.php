@@ -208,7 +208,11 @@ class RegisteredUserController extends Controller
                     ]
                 );
                 if ($ieUser->wasRecentlyCreated && !str_contains($ieEmail, '@examiner.acetel.edu.ng')) {
-                    \Illuminate\Support\Facades\Mail::to($ieEmail)->send(new \App\Mail\WelcomeUser($ieUser, $plainIePassword));
+                    try {
+                        \Illuminate\Support\Facades\Mail::to($ieEmail)->send(new \App\Mail\WelcomeUser($ieUser, $plainIePassword));
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::error("Failed to send welcome email to {$ieEmail}: " . $e->getMessage());
+                    }
                 }
                 if (!$ieUser->hasRole('Internal Examiner')) {
                     $ieUser->assignRole('Internal Examiner');
@@ -241,7 +245,11 @@ class RegisteredUserController extends Controller
                     ]
                 );
                 if ($eeUser->wasRecentlyCreated && !str_contains($eeEmail, '@external.acetel.edu.ng')) {
-                    \Illuminate\Support\Facades\Mail::to($eeEmail)->send(new \App\Mail\WelcomeUser($eeUser, $plainEePassword));
+                    try {
+                        \Illuminate\Support\Facades\Mail::to($eeEmail)->send(new \App\Mail\WelcomeUser($eeUser, $plainEePassword));
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::error("Failed to send welcome email to {$eeEmail}: " . $e->getMessage());
+                    }
                 }
                 if (!$eeUser->hasRole('External Examiner')) {
                     $eeUser->assignRole('External Examiner');
@@ -294,7 +302,11 @@ class RegisteredUserController extends Controller
                         ]
                     );
                     if ($supUser->wasRecentlyCreated && !str_contains($supEmail, '@supervisor.acetel.edu.ng')) {
-                        \Illuminate\Support\Facades\Mail::to($supEmail)->send(new \App\Mail\WelcomeUser($supUser, $plainSupPassword));
+                        try {
+                            \Illuminate\Support\Facades\Mail::to($supEmail)->send(new \App\Mail\WelcomeUser($supUser, $plainSupPassword));
+                        } catch (\Throwable $e) {
+                            \Illuminate\Support\Facades\Log::error("Failed to send welcome email to {$supEmail}: " . $e->getMessage());
+                        }
                     }
                     if (!$supUser->hasRole('Supervisor')) {
                         $supUser->assignRole('Supervisor');

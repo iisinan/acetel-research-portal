@@ -172,6 +172,24 @@
                         </div>
                         @endif
 
+                        @if(Auth::user()->hasRole('Program Coordinator') && $milestone->template->show_external_examiner_assignment)
+                        <div class="p-4 bg-rose-50 dark:bg-rose-900/10 rounded-lg border border-rose-100 dark:border-rose-900/30 mt-4">
+                            <label for="external_examiner_profile_id" class="block text-xs font-bold text-black dark:text-gray-300 uppercase tracking-wider mb-2 flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                Designate External Examiner
+                            </label>
+                            <select name="external_examiner_profile_id" id="external_examiner_profile_id" class="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-acetel-500 focus:ring-acetel-500 sm:text-sm" required>
+                                <option value="">Select External Examiner...</option>
+                                @foreach($externalExaminers as $examiner)
+                                    <option value="{{ $examiner->id }}" {{ $milestone->thesis->external_examiner_profile_id == $examiner->id ? 'selected' : '' }}>
+                                        {{ $examiner->user->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <p class="mt-1 text-[10px] text-rose-700 italic">This examiner will evaluate the final Viva Voce.</p>
+                        </div>
+                        @endif
+
                         @if($milestone->template->order == 3)
                         <div class="p-4 bg-acetel-50 dark:bg-acetel-900/10 rounded-lg border border-acetel-100 dark:border-acetel-900/30 text-sm text-acetel-800 dark:text-acetel-300">
                             <p class="font-bold mb-1">Communication Assessment</p>

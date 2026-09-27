@@ -37,16 +37,21 @@ class MilestoneReviewController extends Controller
         }
         
         $internalExaminers = [];
+        $externalExaminers = [];
         $availableSupervisors = [];
         
         if (Auth::user()->hasRole('Program Coordinator')) {
             $programId = $milestone->thesis->student->program_id;
             
-            if ($milestone->template->order == 4 || $milestone->template->order == 6) {
+            if ($milestone->template->order == 4 || $milestone->template->order == 6 || $milestone->template->show_internal_examiner_assignment) {
                 $internalExaminers = InternalExaminerProfile::with('user')
                     ->where('program_id', $programId)
                     ->where('active', true)
                     ->get();
+            }
+
+            if ($milestone->template->show_external_examiner_assignment) {
+                $externalExaminers = \App\Models\ExternalExaminerProfile::with('user')->get();
             }
 
             if ($milestone->template->order == 2) {
@@ -61,7 +66,7 @@ class MilestoneReviewController extends Controller
             ->where('status', '!=', 'verified')
             ->get();
         
-        return view('milestones.review', compact('milestone', 'submission', 'internalExaminers', 'availableSupervisors', 'pendingActionItems'));
+        return view('milestones.review', compact('milestone', 'submission', 'internalExaminers', 'externalExaminers', 'availableSupervisors', 'pendingActionItems'));
     }
 
     public function update(Request $request, StudentMilestone $milestone)
@@ -86,6 +91,12 @@ class MilestoneReviewController extends Controller
         if ($milestone->template->show_internal_examiner_assignment) {
             if (Auth::user()->hasRole('Program Coordinator')) {
                 $rules['internal_examiner_profile_id'] = 'required|exists:internal_examiner_profiles,id';
+            }
+        }
+
+        if ($milestone->template->show_external_examiner_assignment) {
+            if (Auth::user()->hasRole('Program Coordinator')) {
+                $rules['external_examiner_profile_id'] = 'required|exists:external_examiner_profiles,id';
             }
         }
 
@@ -226,6 +237,27 @@ class MilestoneReviewController extends Controller
                             }
                         }
                     }
+
+                    if ($template->show_external_examiner_assignment) {
+                        // Update Thesis Project External Examiner
+                        $milestone->thesis->update([
+                            'external_examiner_profile_id' => $request->external_examiner_profile_id
+                        ]);
+
+                        // Automatically add External Examiner as Panel Member to events if they exist
+                        if ($request->external_examiner_profile_id) {
+                            $examinerProfile = \App\Models\ExternalExaminerProfile::find($request->external_examiner_profile_id);
+                            $activeEvent = DefenceEvent::where('thesis_project_id', $milestone->thesis_project_id)->latest()->first();
+                            
+                            if ($examinerProfile && $activeEvent) {
+                                PanelMember::updateOrCreate(
+                                    ['defence_event_id' => $activeEvent->id, 'user_id' => $examinerProfile->user_id],
+                                    ['role' => 'external_examiner', 'invitation_status' => 'accepted']
+                                );
+                            }
+                        }
+                    }
+
                     if ($template->order == 3) {
                         $milestone->communication_log = $request->communication_log;
                     }

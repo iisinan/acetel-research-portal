@@ -554,10 +554,20 @@
                                     if ($milestone->template?->show_internal_examiner_assignment) {
                                         $dynamicSteps[] = [
                                             'id' => 'examiner',
-                                            'label' => 'Examiner',
+                                            'label' => 'Internal Ex.',
                                             'responsible' => 'Admin',
                                             'icon' => 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
                                             'check' => function($m) { return !empty($m->thesis->internal_examiner_profile_id); }
+                                        ];
+                                    }
+
+                                    if ($milestone->template?->show_external_examiner_assignment) {
+                                        $dynamicSteps[] = [
+                                            'id' => 'ext_examiner',
+                                            'label' => 'External Ex.',
+                                            'responsible' => 'Admin',
+                                            'icon' => 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
+                                            'check' => function($m) { return !empty($m->thesis->external_examiner_profile_id); }
                                         ];
                                     }
 
@@ -680,7 +690,8 @@
                                     @php
                                         $hasDefenceDate = $milestone->template?->allow_defence_date;
                                         $hasExaminerAssign = $milestone->template?->show_internal_examiner_assignment;
-                                        $showAdminPanel = $hasDefenceDate || $hasExaminerAssign;
+                                        $hasExternalExaminerAssign = $milestone->template?->show_external_examiner_assignment;
+                                        $showAdminPanel = $hasDefenceDate || $hasExaminerAssign || $hasExternalExaminerAssign;
                                     @endphp
 
                                     @if($showAdminPanel)
@@ -847,6 +858,45 @@
                                             </div>
                                             @endif
 
+                                            @if($hasExternalExaminerAssign && empty($thesis->external_examiner_profile_id))
+                                            <!-- External Examiner Assignment -->
+                                            <div class="p-5 rounded-2xl bg-rose-50/60 border border-rose-100 mt-4">
+                                                <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                                                    <div class="flex items-center gap-3">
+                                                        <div class="w-10 h-10 rounded-xl bg-white border border-rose-200 flex items-center justify-center text-rose-600 shadow-sm shrink-0">
+                                                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                                        </div>
+                                                        <div>
+                                                            <h5 class="text-xs font-bold text-rose-900 uppercase tracking-widest">Assign External Examiner</h5>
+                                                            <p class="text-[9px] font-bold text-rose-500 uppercase tracking-widest mt-0.5">Required before defence</p>
+                                                        </div>
+                                                    </div>
+                                                    <form action="{{ route('theses.assign_external_examiner', $thesis) }}" method="POST" 
+                                                        @submit.prevent="
+                                                            fetch($event.target.action, {
+                                                                method: 'POST',
+                                                                body: new FormData($event.target),
+                                                                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+                                                            }).then(res => res.json()).then(data => {
+                                                                if (data.success) window.refreshMilestone('{{ $milestone->id }}');
+                                                            });
+                                                        " class="flex items-center gap-2 w-full md:w-auto">
+                                                        @csrf
+                                                        <select name="external_examiner_profile_id" required class="flex-1 md:w-52 bg-white border border-rose-200 rounded-xl px-3 py-2.5 text-sm focus:border-rose-500 shadow-sm">
+                                                            <option value="" disabled selected>Select Examiner...</option>
+                                                            @php $externalExaminers = \App\Models\ExternalExaminerProfile::with('user')->get(); @endphp
+                                                            @foreach($externalExaminers as $examiner)
+                                                                <option value="{{ $examiner->id }}">{{ $examiner->user->name ?? 'Unknown' }} ({{ $examiner->institution ?? 'N/A' }})</option>
+                                                            @endforeach
+                                                        </select>
+                                                        <button type="submit" class="px-5 py-2.5 bg-rose-600 text-white text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-rose-700 transition-all shadow-sm shrink-0">
+                                                            Assign
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                            @endif
+
                                             @php
                                                 $isPlagiarismEnabled = $milestone->template?->allow_plagiarism_report;
                                                 $canUploadPlagiarism = $isPlagiarismEnabled && (auth()->user()->hasRole('Admin') || auth()->user()->hasRole($milestone->template?->plagiarism_report_role ?? 'Admin'));
@@ -955,6 +1005,22 @@
                                             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{{ $thesis->internalExaminer->department ?? 'Department' }}</p>
                                         </div>
                                         <a href="{{ route('inbox.compose', ['reply_to' => $thesis->internalExaminer->user_id]) }}" class="p-2.5 bg-gray-50 border border-gray-100 rounded-xl text-gray-400 hover:text-brand-600 hover:bg-brand-50 hover:border-brand-100 transition-all" title="Message Examiner">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                                        </a>
+                                    </div>
+                                @endif
+
+                                @if($milestone->template?->show_external_examiner_assignment && $thesis->externalExaminer)
+                                    <div class="mb-6 flex items-center gap-4 p-5 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                                        <div class="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shrink-0">
+                                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-[9px] font-black text-rose-500 uppercase tracking-[0.2em]">External Examiner</p>
+                                            <p class="text-sm font-bold text-gray-900 truncate">{{ $thesis->externalExaminer->user->name ?? 'Not Available' }}</p>
+                                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{{ $thesis->externalExaminer->institution ?? 'Institution' }}</p>
+                                        </div>
+                                        <a href="{{ route('inbox.compose', ['reply_to' => $thesis->externalExaminer->user_id]) }}" class="p-2.5 bg-gray-50 border border-gray-100 rounded-xl text-gray-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-100 transition-all" title="Message Examiner">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
                                         </a>
                                     </div>

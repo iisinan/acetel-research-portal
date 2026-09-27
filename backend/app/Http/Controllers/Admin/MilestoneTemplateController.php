@@ -257,7 +257,11 @@ class MilestoneTemplateController extends Controller
                 );
                 
                 if ($thesis->student && $thesis->student->user) {
-                    $thesis->student->user->notify(new \App\Notifications\EventScheduled($event));
+                    try {
+                        $thesis->student->user->notify(new \App\Notifications\EventScheduled($event));
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::error("Failed to send EventScheduled notification: " . $e->getMessage());
+                    }
                 }
 
                 $count++;

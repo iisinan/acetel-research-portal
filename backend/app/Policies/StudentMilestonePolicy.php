@@ -48,6 +48,12 @@ class StudentMilestonePolicy
                 ->exists();
         }
 
+        if ($user->hasRole('External Examiner')) {
+            return $user->externalExaminerProfiles()
+                ->where('id', $milestone->thesis->external_examiner_profile_id)
+                ->exists();
+        }
+
         // Program Coordinator can view if assigned to the student's program
         if ($user->hasRole('Program Coordinator')) {
             $student = $milestone->thesis->student;
@@ -80,8 +86,8 @@ class StudentMilestonePolicy
         }
 
         if ($milestone->template->allow_defence_date) {
-            if (!$milestone->defence_date || (\Carbon\Carbon::parse($milestone->defence_date)->endOfDay()->isPast() && $milestone->status !== 'approved')) {
-                \Illuminate\Support\Facades\Log::warning("Policy Failed: Defence date missing or past.");
+            if ($milestone->defence_date && \Carbon\Carbon::parse($milestone->defence_date)->endOfDay()->isPast() && $milestone->status !== 'approved') {
+                \Illuminate\Support\Facades\Log::warning("Policy Failed: Defence date past.");
                 return false;
             }
         }
@@ -151,6 +157,10 @@ class StudentMilestonePolicy
                 if ($user->internalExaminerProfiles()->where('id', $milestone->thesis->internal_examiner_profile_id)->exists()) {
                     return true;
                 }
+            } elseif ($role === 'External Examiner') {
+                if ($user->externalExaminerProfiles()->where('id', $milestone->thesis->external_examiner_profile_id)->exists()) {
+                    return true;
+                }
             } elseif ($user->hasRole($role)) {
                 // Generic role check if no specific scope logic defined
                 return true;
@@ -208,6 +218,12 @@ class StudentMilestonePolicy
                 } elseif ($role === 'Internal Examiner') {
                     if ($user->internalExaminerProfiles()
                         ->where('id', $milestone->thesis->internal_examiner_profile_id)
+                        ->exists()) {
+                        $isAuthorized = true;
+                    }
+                } elseif ($role === 'External Examiner') {
+                    if ($user->externalExaminerProfiles()
+                        ->where('id', $milestone->thesis->external_examiner_profile_id)
                         ->exists()) {
                         $isAuthorized = true;
                     }

@@ -184,6 +184,28 @@ class ThesisController extends Controller
         return redirect()->back()->with('success', 'Internal Examiner assigned successfully.');
     }
 
+    public function assignExternalExaminer(Request $request, ThesisProject $thesis)
+    {
+        $request->validate([
+            'external_examiner_profile_id' => 'required|exists:external_examiner_profiles,id'
+        ]);
+        
+        // Ensure Admin or Program Coordinator
+        if (!Auth::user()->hasAnyRole(['Admin', 'Program Coordinator'])) {
+            abort(403, 'Unauthorized action.');
+        }
+        
+        $thesis->update([
+            'external_examiner_profile_id' => $request->external_examiner_profile_id
+        ]);
+        
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'External Examiner assigned successfully.', 'thesis_id' => $thesis->id]);
+        }
+        
+        return redirect()->back()->with('success', 'External Examiner assigned successfully.');
+    }
+
     public function clearForInternal(Request $request, ThesisProject $thesis)
     {
         // Only Supervisor (authorized via policy usually, but direct check here for safety)

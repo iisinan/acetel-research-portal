@@ -70,25 +70,32 @@ class MilestoneTemplateSeeder extends Seeder
                 'order' => 6,
                 'requires_submission' => true,
                 'requires_approval' => true,
-                'required_approvers' => ['Supervisor', 'Program Coordinator'],
+                'submission_requires_approval' => true,
+                'submission_approver_roles' => ['Supervisor'],
+                'required_approvers' => ['Internal Examiner', 'Program Coordinator'],
                 'allow_defence_date' => true,
                 'defence_type' => 'internal',
                 'defence_date_role' => 'Program Coordinator',
                 'show_internal_examiner_assignment' => true,
-                'description' => 'Internal defence scheduling and outcome recording.'
+                'submission_type' => ['file'],
+                'description' => 'Student submits thesis. Supervisor authorizes. Internal defence scheduling and outcome recording.'
             ],
             [
                 'name' => 'Viva',
                 'slug' => 'viva',
                 'order' => 7,
-                'requires_submission' => false,
+                'requires_submission' => true,
                 'requires_approval' => true,
-                'required_approvers' => ['Internal Examiner', 'Program Coordinator', 'Director'],
+                'submission_requires_approval' => true,
+                'submission_approver_roles' => ['Program Coordinator'],
+                'required_approvers' => ['External Examiner', 'Program Coordinator', 'Director'],
                 'allow_defence_date' => true,
                 'defence_type' => 'external',
                 'defence_date_role' => 'Director',
+                'show_external_examiner_assignment' => true,
                 'is_final_archival' => true,
-                'description' => 'Final Viva / External defence.'
+                'submission_type' => ['file', 'publications'],
+                'description' => 'Student uploads thesis and publications. External examiner assignment and Final Viva.'
             ],
         ];
 

@@ -205,6 +205,9 @@
                                                                 </label>
                                                             </template>
                                                         </div>
+                                                        <div class="p-2 border-t border-slate-100 bg-slate-50 sticky bottom-0">
+                                                            <button type="button" @click.stop="open = false" class="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold uppercase tracking-wider rounded">Done</button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 

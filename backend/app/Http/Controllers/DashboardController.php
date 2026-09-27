@@ -38,8 +38,8 @@ class DashboardController extends Controller
             return $this->supervisorDashboard($user, $data);
         } elseif ($user->hasRole('Program Coordinator')) {
             return (new \App\Http\Controllers\Coordinator\DashboardController())->index($request);
-        } elseif ($user->hasRole('Internal Examiner')) {
-            return $this->internalExaminerDashboard($user, $data);
+        } elseif ($user->hasRole('Internal Examiner') || $user->hasRole('External Examiner')) {
+            return $this->examinerDashboard($user, $data);
         } elseif ($user->hasRole('Director')) {
             return $this->directorDashboard($user, $data);
         } elseif ($user->hasRole('Admin')) {
@@ -186,20 +186,29 @@ class DashboardController extends Controller
         return view('dashboard.supervisor', $data);
     }
 
-    private function internalExaminerDashboard($user, $data = [])
+    private function examinerDashboard($user, $data = [])
     {
-        $examiner = \App\Models\InternalExaminerProfile::where('user_id', $user->id)->first();
+        $roleName = $user->hasRole('External Examiner') ? 'External Examiner' : 'Internal Examiner';
+        
+        if ($roleName === 'External Examiner') {
+            $examiner = \App\Models\ExternalExaminerProfile::where('user_id', $user->id)->first();
+            $data['theses'] = $examiner ? \App\Models\ThesisProject::where('external_examiner_profile_id', $examiner->id)->with('student.user')->get() : collect();
+            $thesisColumn = 'external_examiner_profile_id';
+        } else {
+            $examiner = \App\Models\InternalExaminerProfile::where('user_id', $user->id)->first();
+            $data['theses'] = $examiner ? \App\Models\ThesisProject::where('internal_examiner_profile_id', $examiner->id)->with('student.user')->get() : collect();
+            $thesisColumn = 'internal_examiner_profile_id';
+        }
         
         $data['examiner'] = $examiner;
-        $data['theses'] = $examiner ? \App\Models\ThesisProject::where('internal_examiner_profile_id', $examiner->id)->with('student.user')->get() : collect();
         
-        // Fetch milestones pending internal examiner Review
-        $data['pending_reviews'] = \App\Models\StudentMilestone::whereHas('thesis', function($q) use ($examiner) {
-                $q->where('internal_examiner_profile_id', $examiner?->id);
+        // Fetch milestones pending internal/external examiner Review
+        $data['pending_reviews'] = \App\Models\StudentMilestone::whereHas('thesis', function($q) use ($examiner, $thesisColumn) {
+                $q->where($thesisColumn, $examiner?->id);
             })
             ->where('status', '!=', 'approved')
-            ->whereHas('template', function($q) {
-                $q->whereJsonContains('required_approvers', 'Internal Examiner');
+            ->whereHas('template', function($q) use ($roleName) {
+                $q->whereJsonContains('required_approvers', $roleName);
             })
             ->where(function($q) use ($user) {
                 $q->whereNull('approvals')

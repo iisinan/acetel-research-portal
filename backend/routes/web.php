@@ -104,6 +104,7 @@ Route::middleware('auth')->group(function () {
         Route::patch('/theses/{thesis}', [App\Http\Controllers\ThesisController::class, 'update'])->name('theses.update');
         Route::post('/theses/{thesis}/assign-supervisor', [App\Http\Controllers\ThesisController::class, 'assignSupervisor'])->name('theses.assign_supervisor');
         Route::post('/theses/{thesis}/assign-internal-examiner', [App\Http\Controllers\ThesisController::class, 'assignInternalExaminer'])->name('theses.assign_internal_examiner');
+        Route::post('/theses/{thesis}/assign-external-examiner', [App\Http\Controllers\ThesisController::class, 'assignExternalExaminer'])->name('theses.assign_external_examiner');
         Route::post('/theses/{thesis}/clear-internal', [App\Http\Controllers\ThesisController::class, 'clearForInternal'])->name('theses.clear_internal');
     });
 
@@ -120,8 +121,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/milestones/{milestone}/quick-approve', [MilestoneController::class, 'quickApprove'])->name('milestones.quick_approve');
 
 
-    // Milestone Review (Supervisor, Coordinator, Admin, Director, Internal Examiner)
-    Route::middleware(['role:Supervisor|Program Coordinator|Admin|Director|Internal Examiner'])->group(function () {
+    // Milestone Review (Supervisor, Coordinator, Admin, Director, Internal Examiner, External Examiner)
+    Route::middleware(['role:Supervisor|Program Coordinator|Admin|Director|Internal Examiner|External Examiner'])->group(function () {
         Route::get('/milestones/{milestone}/review', [App\Http\Controllers\MilestoneReviewController::class, 'show'])->name('milestones.review');
         Route::patch('/milestones/{milestone}/review', [App\Http\Controllers\MilestoneReviewController::class, 'update'])->name('milestones.review.update');
         
