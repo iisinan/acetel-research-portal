@@ -32,6 +32,23 @@ class RegisteredUserController extends Controller
         return view('auth.register', compact('programs', 'levels', 'supervisors', 'internalExaminers', 'externalExaminers', 'milestones'));
     }
 
+    public function validateStep1(Request $request)
+    {
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'email' => 'required|string|email|max:255|unique:users',
+            'matric_number' => ['required', 'string', 'max:255', 'unique:student_profiles,student_id_number', new \App\Rules\ValidMatricNumber],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        return response()->json(['success' => true]);
+    }
+
     public function store(Request $request)
     {
         $request->validate([

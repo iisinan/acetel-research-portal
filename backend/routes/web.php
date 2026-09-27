@@ -49,6 +49,7 @@ Route::middleware('guest')->group(function () {
 
     Route::get('/register', [App\Http\Controllers\Auth\RegisteredUserController::class, 'create'])->name('register');
     Route::post('/register', [App\Http\Controllers\Auth\RegisteredUserController::class, 'store']);
+    Route::post('/register/validate-step1', [App\Http\Controllers\Auth\RegisteredUserController::class, 'validateStep1'])->name('register.validate_step1');
     
     // Forgot Password
     Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
