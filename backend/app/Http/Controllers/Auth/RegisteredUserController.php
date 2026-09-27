@@ -459,6 +459,13 @@ class RegisteredUserController extends Controller
                     \Illuminate\Support\Facades\Storage::disk('public')->delete($file);
                 }
             }
+            
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'An error occurred during registration. Please try again. ' . $e->getMessage()
+                ], 500);
+            }
+            
             return back()->withInput()->withErrors(['error' => 'An error occurred during registration. Please try again. ' . $e->getMessage()]);
         }
     }
