@@ -62,20 +62,32 @@ class StudentMilestonePolicy
 
     public function submit(User $user, StudentMilestone $milestone): bool
     {
-        // Only the student owner can submit
+        \Illuminate\Support\Facades\Log::info("Evaluating StudentMilestonePolicy@submit", [
+            'user_id' => $user->id,
+            'has_role' => $user->hasRole('Student'),
+            'user_profile' => $user->studentProfile?->id,
+            'thesis_profile' => $milestone->thesis->student_profile_id,
+            'allow_date' => $milestone->template->allow_defence_date,
+            'defence_date' => $milestone->defence_date,
+            'is_past' => $milestone->defence_date ? \Carbon\Carbon::parse($milestone->defence_date)->endOfDay()->isPast() : null,
+            'req_approval' => $milestone->template->submission_requires_approval,
+            'unlocked' => $milestone->is_submission_unlocked
+        ]);
+
         if (!$user->hasRole('Student') || $milestone->thesis->student_profile_id !== $user->studentProfile?->id) {
+            \Illuminate\Support\Facades\Log::warning("Policy Failed: Not a student or wrong profile.");
             return false;
         }
 
-        // Check if it requires a date to be set first
         if ($milestone->template->allow_defence_date) {
             if (!$milestone->defence_date || (\Carbon\Carbon::parse($milestone->defence_date)->endOfDay()->isPast() && $milestone->status !== 'approved')) {
+                \Illuminate\Support\Facades\Log::warning("Policy Failed: Defence date missing or past.");
                 return false;
             }
         }
 
-        // Check if submission is locked by a gatekeeper
         if ($milestone->template->submission_requires_approval && !$milestone->is_submission_unlocked) {
+            \Illuminate\Support\Facades\Log::warning("Policy Failed: Submission locked.");
             return false;
         }
 

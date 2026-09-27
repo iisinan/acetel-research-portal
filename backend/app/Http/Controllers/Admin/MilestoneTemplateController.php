@@ -225,12 +225,12 @@ class MilestoneTemplateController extends Controller
     public function schedule(Request $request)
     {
         $request->validate([
-            'milestone_ids' => 'required|array',
+            'student_milestone_ids' => 'required|string',
             'start_date' => 'required|date',
             'students_per_day' => 'required|integer|min:1'
         ]);
 
-        $ids = $request->milestone_ids;
+        $ids = array_filter(explode(',', $request->student_milestone_ids));
         $currentDate = \Carbon\Carbon::parse($request->start_date);
         $count = 0;
 
