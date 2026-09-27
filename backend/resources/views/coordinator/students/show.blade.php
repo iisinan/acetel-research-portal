@@ -403,7 +403,7 @@
 
                         {{-- Forms for External Examiner --}}
                         <div x-show="openAssign === 'external'" x-collapse x-cloak class="mt-4 pb-4">
-                            <form action="{{ route('coordinator.students.assign-program', $student->thesis->id ?? 0) }}" method="POST" class="bg-slate-800 p-5 rounded-2xl space-y-4 border border-slate-700">
+                            <form action="{{ route('coordinator.students.assign-external', $student->thesis->id ?? 0) }}" method="POST" class="bg-slate-800 p-5 rounded-2xl space-y-4 border border-slate-700">
                                 @csrf
                                 <div>
                                     <label class="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-2">Select External Examiner</label>
