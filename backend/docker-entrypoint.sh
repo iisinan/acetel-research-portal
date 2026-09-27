@@ -37,10 +37,8 @@ php artisan view:clear    || true
 # ── Schema initialization ────────────────────────────────────────
 if [ -n "$DB_SCHEMA" ] && [ "$DB_SCHEMA" != "public" ]; then
     echo "=== Ensuring PostgreSQL schema '$DB_SCHEMA' exists ==="
-    php -r "\
-        \$pdo = new PDO(getenv('DATABASE_URL') ?: 'pgsql:host=' . getenv('DB_HOST') . ';port=' . getenv('DB_PORT') . ';dbname=' . getenv('DB_DATABASE'), getenv('DB_USERNAME'), getenv('DB_PASSWORD'));\
-        \$pdo->exec('CREATE SCHEMA IF NOT EXISTS "' . getenv('DB_SCHEMA') . '";');\
-    " || echo "WARN: Failed to create schema $DB_SCHEMA"
+    php artisan db:monitor > /dev/null 2>&1 || true # warm up
+    php artisan tinker --execute="DB::statement('CREATE SCHEMA IF NOT EXISTS \"' . env('DB_SCHEMA') . '\"');" || echo "WARN: Failed to create schema $DB_SCHEMA"
 fi
 
 
