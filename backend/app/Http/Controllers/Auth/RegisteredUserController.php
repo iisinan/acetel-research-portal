@@ -58,6 +58,9 @@ class RegisteredUserController extends Controller
             'matric_number' => ['required', 'string', 'max:255', 'unique:student_profiles,student_id_number', new \App\Rules\ValidMatricNumber],
             'program_id' => 'required|exists:programs,id',
             'place_of_work' => 'nullable|string|max:255',
+            'phone_number' => 'required|string|max:20',
+            'gender' => 'required|string|in:Male,Female',
+            'nationality' => 'required|string|max:100',
             'supervisor_ids' => 'nullable|array',
             'supervisor_ids.*' => 'nullable|distinct',
             'new_supervisors' => 'nullable|array',
@@ -183,6 +186,9 @@ class RegisteredUserController extends Controller
                 'level_id' => $levelId,
                 'cohort_id' => $cohort->id,
                 'place_of_work' => $request->place_of_work,
+                'phone_number' => $request->phone_number,
+                'gender' => $request->gender,
+                'nationality' => $request->nationality,
             ]);
 
             // 3b. Handle Internal Examiner
