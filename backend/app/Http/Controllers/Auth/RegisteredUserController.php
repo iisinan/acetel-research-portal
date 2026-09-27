@@ -237,11 +237,15 @@ class RegisteredUserController extends Controller
 
                 if (!empty($submittedSupIds[$i])) {
                     $supId = $submittedSupIds[$i];
-                } elseif (!empty($submittedNewSups[$i]['name']) && !empty($submittedNewSups[$i]['email'])) {
+                } elseif (!empty($submittedNewSups[$i]['name'])) {
                     $newSup = $submittedNewSups[$i];
+                    $supEmail = !empty($newSup['email']) 
+                        ? $newSup['email'] 
+                        : strtolower(preg_replace('/[^a-zA-Z0-9]+/', '.', $newSup['name'])) . '-' . uniqid() . '@supervisor.acetel.edu.ng';
+
                     // Create User
                     $supUser = User::firstOrCreate(
-                        ['email' => $newSup['email']],
+                        ['email' => $supEmail],
                         [
                             'name' => $newSup['name'],
                             'password' => Hash::make(Str::random(12)), // random password
