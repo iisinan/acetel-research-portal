@@ -419,7 +419,7 @@ class RegisteredUserController extends Controller
                                 
                                 $path = null;
                                 if ($request->hasFile("publications.{$index}.file")) {
-                                    $path = $request->file("publications.{$index}.file")->store('publications', 'public');
+                                    $path = $request->file("publications.{$index}.file")->store('publications');
                                     $uploadedFiles[] = $path;
                                 }
                                 
@@ -448,7 +448,7 @@ class RegisteredUserController extends Controller
                             $sm->update(['defence_date' => $request->viva_date]);
                         }
                         if ($request->hasFile('final_thesis_file') && $request->file('final_thesis_file')->getPathname()) {
-                            $path = $request->file('final_thesis_file')->store('theses', 'public');
+                            $path = $request->file('final_thesis_file')->store('theses');
                             $uploadedFiles[] = $path;
                             \App\Models\Submission::create([
                                 'student_milestone_id' => $sm->id,
@@ -466,7 +466,7 @@ class RegisteredUserController extends Controller
                     }
                 } else {
                     if ($template->slug === 'progress_presentation_1' && $request->hasFile('progress_presentation_1_ppt') && $request->file('progress_presentation_1_ppt')->getPathname()) {
-                        $path = $request->file('progress_presentation_1_ppt')->store('presentations', 'public');
+                        $path = $request->file('progress_presentation_1_ppt')->store('presentations');
                         $uploadedFiles[] = $path;
                         \App\Models\Submission::create([
                             'student_milestone_id' => $sm->id,
@@ -482,7 +482,7 @@ class RegisteredUserController extends Controller
                         ]);
                         $sm->update(['status' => 'submitted', 'submitted_at' => now()]);
                     } elseif ($template->slug === 'progress_presentation_2' && $request->hasFile('progress_presentation_2_ppt') && $request->file('progress_presentation_2_ppt')->getPathname()) {
-                        $path = $request->file('progress_presentation_2_ppt')->store('presentations', 'public');
+                        $path = $request->file('progress_presentation_2_ppt')->store('presentations');
                         $uploadedFiles[] = $path;
                         \App\Models\Submission::create([
                             'student_milestone_id' => $sm->id,

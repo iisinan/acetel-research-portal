@@ -29,7 +29,7 @@ class DocumentTemplateController extends Controller
             'version' => 'required|string',
         ]);
 
-        $path = $request->file('file')->store('templates', 'public');
+        $path = $request->file('file')->store('templates');
 
         DocumentTemplate::create([
             'title' => $validated['title'],
@@ -69,7 +69,7 @@ class DocumentTemplateController extends Controller
             if (Storage::disk('public')->exists($template->file_path)) {
                 Storage::disk('public')->delete($template->file_path);
             }
-            $data['file_path'] = $request->file('file')->store('templates', 'public');
+            $data['file_path'] = $request->file('file')->store('templates');
         }
 
         $template->update($data);

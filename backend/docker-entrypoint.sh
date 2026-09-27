@@ -63,6 +63,11 @@ try {
     echo 'Redis: UNAVAILABLE — ' . \$e->getMessage() . PHP_EOL;
 }
 " 2>/dev/null || echo "Redis test skipped"
+
+# ── Start Queue Worker (Background) ──
+echo "=== Starting Background Queue Worker ==="
+php artisan queue:work --sleep=3 --tries=3 &
+
 # ── Start Laravel Octane ─────────────────────────────────────────
 echo "=== Starting application server (Laravel Octane + FrankenPHP) ==="
 export PORT="${PORT:-8000}"

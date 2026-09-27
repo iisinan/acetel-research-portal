@@ -93,7 +93,7 @@ class InboxController extends Controller
         // Handle Attachments
         if ($request->hasFile('attachments')) {
             foreach ($request->file('attachments') as $file) {
-                $path = $file->store('inbox_attachments', 'public');
+                $path = $file->store('inbox_attachments');
                 $message->attachments()->create([
                     'file_path' => $path,
                     'file_name' => $file->getClientOriginalName(),

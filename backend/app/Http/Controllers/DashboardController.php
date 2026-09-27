@@ -13,16 +13,15 @@ class DashboardController extends Controller
 
     public function index(Request $request)
     {
-        try {
-            $user = Auth::user();
-            $data = [];
+        $user = Auth::user();
+        $data = [];
 
-            // Instantiate analytics safely
-            try {
-                $this->analytics = app(\App\Services\DirectorAnalyticsService::class);
-            } catch (\Exception $e) {
-                $this->analytics = null;
-            }
+        // Instantiate analytics safely
+        try {
+            $this->analytics = app(\App\Services\DirectorAnalyticsService::class);
+        } catch (\Exception $e) {
+            $this->analytics = null;
+        }
         
         // Fetch global active announcements and document templates
         $data['announcements'] = \App\Models\Announcement::active()
@@ -48,15 +47,7 @@ class DashboardController extends Controller
 
         // Fallback for other roles or unassigned
         return view('dashboard', ['stats' => []]);
-    } catch (\Exception $e) {
-        return response()->json([
-            'status' => 'Diagnostic Mode',
-            'message' => $e->getMessage(),
-            'file' => $e->getFile(),
-            'line' => $e->getLine()
-        ], 500);
     }
-}
 
     private function getUnreadMessagesCount($user)
     {

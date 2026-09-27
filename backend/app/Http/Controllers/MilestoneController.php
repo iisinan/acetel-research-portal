@@ -355,7 +355,7 @@ class MilestoneController extends Controller
         // Handle PPT Upload
         if (in_array('ppt', $subTypes) && $request->hasFile('ppt')) {
             $pptFile = $request->file('ppt');
-            $pptPath = $pptFile->store('submissions/' . $milestone->thesis_project_id . '/ppt', 'public');
+            $pptPath = $pptFile->store('submissions/' . $milestone->thesis_project_id . '/ppt');
 
             $milestone->submissions()->create([
                 'submitted_by' => Auth::id(),
@@ -375,7 +375,7 @@ class MilestoneController extends Controller
         // Handle Manuscript
         if (in_array('file', $subTypes) && $request->hasFile('file')) {
             $file = $request->file('file');
-            $path = $file->store('submissions/' . $milestone->thesis_project_id, 'public');
+            $path = $file->store('submissions/' . $milestone->thesis_project_id);
 
             $submission = $milestone->submissions()->create([
                 'submitted_by' => Auth::id(),
@@ -403,7 +403,7 @@ class MilestoneController extends Controller
         // Handle Publications
         if ((in_array('publication', $subTypes) || in_array('publications', $subTypes)) && $request->hasFile('publications')) {
             foreach ($request->file('publications') as $pubFile) {
-                $pubPath = $pubFile->store('submissions/' . $milestone->thesis_project_id . '/publications', 'public');
+                $pubPath = $pubFile->store('submissions/' . $milestone->thesis_project_id . '/publications');
                 
                 $milestone->submissions()->create([
                     'submitted_by' => Auth::id(),
@@ -652,7 +652,7 @@ class MilestoneController extends Controller
         $data['uploaded_at'] = now()->toDateTimeString();
         
         if ($request->hasFile('report_file')) {
-            $path = $request->file('report_file')->store('plagiarism_reports', 'public');
+            $path = $request->file('report_file')->store('plagiarism_reports');
             $data['report_url'] = $path;
         }
 
@@ -686,7 +686,7 @@ class MilestoneController extends Controller
         // Find the student's latest manuscript submission to link it
         $manuscript = $milestone->submissions()->where('type', 'manuscript')->latest()->first();
         
-        $path = $request->file('plagiarism_report')->store('plagiarism_reports/' . $milestone->thesis_project_id, 'public');
+        $path = $request->file('plagiarism_report')->store('plagiarism_reports/' . $milestone->thesis_project_id);
         
         // 1. Create a dedicated "Plagiarism Report" submission entry (so it shows in the docs list)
         $plagiarismSubmission = $milestone->submissions()->create([
