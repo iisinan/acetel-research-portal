@@ -245,7 +245,7 @@ class MilestoneTemplateController extends Controller
                     'defence_date' => $currentDate->format('Y-m-d')
                 ]);
 
-                \App\Models\DefenceEvent::updateOrCreate(
+                $event = \App\Models\DefenceEvent::updateOrCreate(
                     [
                         'thesis_project_id' => $thesis->id,
                         'type' => $template->defence_type ?? 'seminar',
@@ -255,6 +255,10 @@ class MilestoneTemplateController extends Controller
                         'schedule_end' => $currentDate->copy()->setHour(10)->setMinute(0),
                     ]
                 );
+                
+                if ($thesis->student && $thesis->student->user) {
+                    $thesis->student->user->notify(new \App\Notifications\EventScheduled($event));
+                }
 
                 $count++;
                 if ($count % $request->students_per_day === 0) {
@@ -301,6 +305,8 @@ class MilestoneTemplateController extends Controller
             'role' => 'Examiner',
             'invitation_status' => 'accepted'
         ]);
+        
+        $supervisor->user->notify(new \App\Notifications\EventScheduled($event));
 
         return back()->with('success', 'Examiner assigned successfully.');
     }
