@@ -190,7 +190,7 @@ class ThesisProject extends Model
             ->whereHas('template', function ($t) { $t->where('is_final_archival', true); })
             ->first();
 
-        return $milestone?->submissions()->where('type', 'manuscript')->latest()->first();
+        return $milestone?->submissions()->latest()->first();
     }
 
     /**
