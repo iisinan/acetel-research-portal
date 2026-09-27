@@ -249,7 +249,7 @@
             <div class="flex items-center justify-between pt-4 border-t border-slate-100">
                 <div class="flex items-center gap-4">
                     <input type="file" multiple id="attachments" name="attachments[]" 
-                        class="hidden" x-ref="attachments" @change="onFileChange($event)">
+                        class="hidden" accept=".pdf" x-ref="attachments" @change="onFileChange($event)">
                     <button type="button" @click="$refs.attachments.click()"
                         class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 text-xs font-black text-slate-700 uppercase tracking-widest transition-all">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>

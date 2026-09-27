@@ -24,7 +24,7 @@ class DocumentTemplateController extends Controller
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
-            'file' => 'required|file|mimes:pdf,doc,docx,odt,ppt,pptx,xls,xlsx,txt,jpg,png,jpeg|max:10240', // 10MB
+            'file' => 'required|file|mimes:pdf|max:10240', // 10MB
             'type' => 'required|string',
             'version' => 'required|string',
         ]);
@@ -51,7 +51,7 @@ class DocumentTemplateController extends Controller
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
-            'file' => 'nullable|file|mimes:pdf,doc,docx,odt,ppt,pptx,xls,xlsx,txt,jpg,png,jpeg|max:10240',
+            'file' => 'nullable|file|mimes:pdf|max:10240',
             'type' => 'required|string',
             'version' => 'required|string',
             'is_active' => 'boolean',

@@ -287,14 +287,14 @@
                     <div x-show="showAttachments" @click.away="showAttachments = false" 
                          x-transition class="absolute bottom-full left-0 mb-4 bg-white rounded-2xl shadow-xl border border-slate-100 p-2 flex flex-col gap-1 w-40 z-50">
                         <label class="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-xl cursor-pointer">
-                            <input type="file" name="file" x-ref="fileInput" class="hidden" @change="sendMessage($event.target.closest('form'))">
+                            <input type="file" name="file" x-ref="fileInput" accept=".pdf" class="hidden" @change="sendMessage($event.target.closest('form'))">
                             <div class="w-8 h-8 rounded-full bg-acetel-500 text-white flex items-center justify-center shadow-md">
                                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"></path></svg>
                             </div>
                             <span class="text-xs font-bold text-slate-700">Photos</span>
                         </label>
                         <label class="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-xl cursor-pointer">
-                            <input type="file" name="file" class="hidden" @change="sendMessage($event.target.closest('form'))">
+                            <input type="file" name="file" accept=".pdf" class="hidden" @change="sendMessage($event.target.closest('form'))">
                             <div class="w-8 h-8 rounded-full bg-[#7f66ff] text-white flex items-center justify-center shadow-md">
                                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 012-2h4.586A1 1 0 0113.293 2.707l5.414 5.414A1 1 0 0119 8.828V16a2 2 0 01-2 2H5a2 2 0 01-2-2V4z"></path></svg>
                             </div>

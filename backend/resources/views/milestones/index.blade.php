@@ -1311,6 +1311,7 @@
                                                                 
                                                                 <div class="relative group/pub">
                                                                     <input type="file" name="publications[]" multiple x-ref="pubInput"
+                                                                        accept=".pdf"
                                                                         class="absolute inset-0 w-full h-full opacity-0 {{ $maxRemaining <= 0 ? 'cursor-not-allowed' : 'cursor-pointer' }} z-20" 
                                                                         {{ $pubCountStored > 0 ? '' : 'required' }}
                                                                         {{ $maxRemaining <= 0 ? 'disabled' : '' }}
@@ -1424,7 +1425,7 @@
                                                                             <input type="number" step="0.1" name="similarity_score" min="0" max="100" placeholder="%" class="w-full pl-3 pr-2 py-1.5 text-xs font-bold border-0 focus:ring-0" required title="Similarity Score (%)">
                                                                         </div>
                                                                         <div class="relative group/plag">
-                                                                            <input type="file" name="report_file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" accept=".pdf,.doc,.docx"
+                                                                            <input type="file" name="report_file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" accept=".pdf"
                                                                                 onchange="this.nextElementSibling.classList.add('bg-brand-50', 'text-brand-600', 'border-brand-200'); this.nextElementSibling.classList.remove('bg-white', 'text-gray-400', 'border-gray-100')">
                                                                             <div class="p-2 bg-white border border-gray-100 rounded-xl text-gray-400 group-hover/plag:border-brand-200 transition-all shadow-sm flex items-center justify-center" title="Attach Report (Optional)">
                                                                                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>

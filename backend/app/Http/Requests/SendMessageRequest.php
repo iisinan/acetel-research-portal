@@ -23,7 +23,7 @@ class SendMessageRequest extends FormRequest
     {
         return [
             'content' => 'required_without:file|nullable|string',
-            'file' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png,zip,xls,xlsx|max:20480',
+            'file' => 'nullable|file|mimes:pdf|max:20480',
             'thesis_project_id' => 'required|exists:thesis_projects,id',
             'student_milestone_id' => 'nullable|exists:student_milestones,id',
             'reply_to_id' => 'nullable|exists:messages,id',
