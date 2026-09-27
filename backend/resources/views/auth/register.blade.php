@@ -452,8 +452,16 @@
                                                    class="w-full rounded-lg border-slate-200 bg-white focus:ring-2 focus:ring-green-500/20 focus:border-green-500 text-sm py-2 px-3">
                                         </div>
                                         <div>
+                                            <input type="text" :name="'publications[' + index + '][authors]'" placeholder="Authors (Optional)"
+                                                   class="w-full rounded-lg border-slate-200 bg-white focus:ring-2 focus:ring-green-500/20 focus:border-green-500 text-sm py-2 px-3">
+                                        </div>
+                                        <div>
                                             <input type="text" :name="'publications[' + index + '][doi]'" placeholder="DOI or Link (Optional)"
                                                    class="w-full rounded-lg border-slate-200 bg-white focus:ring-2 focus:ring-green-500/20 focus:border-green-500 text-sm py-2 px-3">
+                                        </div>
+                                        <div>
+                                            <textarea :name="'publications[' + index + '][abstract]'" placeholder="Publication Abstract (Optional)" rows="2"
+                                                      class="w-full rounded-lg border-slate-200 bg-white focus:ring-2 focus:ring-green-500/20 focus:border-green-500 text-sm py-2 px-3"></textarea>
                                         </div>
                                         <div>
                                             <input type="file" :name="'publications[' + index + '][file]'" accept=".pdf"

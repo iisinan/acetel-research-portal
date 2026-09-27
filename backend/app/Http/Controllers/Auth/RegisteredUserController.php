@@ -70,6 +70,8 @@ class RegisteredUserController extends Controller
             'internal_defence_date' => 'nullable|date',
             'publications' => 'nullable|array',
             'publications.*.title' => 'nullable|string|max:255',
+            'publications.*.authors' => 'nullable|string|max:500',
+            'publications.*.abstract' => 'nullable|string|max:5000',
             'publications.*.doi' => 'nullable|string|max:255',
             'publications.*.file' => 'nullable|file|mimes:pdf|max:10240',
             'progress_presentation_1_ppt' => 'nullable|file|mimes:pdf,ppt,pptx|max:10240',
@@ -164,13 +166,17 @@ class RegisteredUserController extends Controller
                             ? $request->internal_examiner_email 
                             : strtolower(preg_replace('/[^a-zA-Z0-9]+/', '.', $ieName)) . '-' . uniqid() . '@examiner.acetel.edu.ng';
                 
+                $plainIePassword = \Illuminate\Support\Str::random(12);
                 $ieUser = User::firstOrCreate(
                     ['email' => $ieEmail],
                     [
                         'name' => $ieName,
-                        'password' => Hash::make(Str::random(12)),
+                        'password' => Hash::make($plainIePassword),
                     ]
                 );
+                if ($ieUser->wasRecentlyCreated && !str_contains($ieEmail, '@examiner.acetel.edu.ng')) {
+                    \Illuminate\Support\Facades\Mail::to($ieEmail)->send(new \App\Mail\WelcomeUser($ieUser, $plainIePassword));
+                }
                 if (!$ieUser->hasRole('Internal Examiner')) {
                     $ieUser->assignRole('Internal Examiner');
                 }
@@ -193,13 +199,17 @@ class RegisteredUserController extends Controller
                             ? $request->external_examiner_email 
                             : strtolower(preg_replace('/[^a-zA-Z0-9]+/', '.', $eeName)) . '-' . uniqid() . '@external.acetel.edu.ng';
                 
+                $plainEePassword = \Illuminate\Support\Str::random(12);
                 $eeUser = User::firstOrCreate(
                     ['email' => $eeEmail],
                     [
                         'name' => $eeName,
-                        'password' => Hash::make(Str::random(12)),
+                        'password' => Hash::make($plainEePassword),
                     ]
                 );
+                if ($eeUser->wasRecentlyCreated && !str_contains($eeEmail, '@external.acetel.edu.ng')) {
+                    \Illuminate\Support\Facades\Mail::to($eeEmail)->send(new \App\Mail\WelcomeUser($eeUser, $plainEePassword));
+                }
                 if (!$eeUser->hasRole('External Examiner')) {
                     $eeUser->assignRole('External Examiner');
                 }
@@ -242,13 +252,17 @@ class RegisteredUserController extends Controller
                         : strtolower(preg_replace('/[^a-zA-Z0-9]+/', '.', $newSup['name'])) . '-' . uniqid() . '@supervisor.acetel.edu.ng';
 
                     // Create User
+                    $plainSupPassword = \Illuminate\Support\Str::random(12);
                     $supUser = User::firstOrCreate(
                         ['email' => $supEmail],
                         [
                             'name' => $newSup['name'],
-                            'password' => Hash::make(Str::random(12)), // random password
+                            'password' => Hash::make($plainSupPassword),
                         ]
                     );
+                    if ($supUser->wasRecentlyCreated && !str_contains($supEmail, '@supervisor.acetel.edu.ng')) {
+                        \Illuminate\Support\Facades\Mail::to($supEmail)->send(new \App\Mail\WelcomeUser($supUser, $plainSupPassword));
+                    }
                     if (!$supUser->hasRole('Supervisor')) {
                         $supUser->assignRole('Supervisor');
                     }
@@ -366,7 +380,9 @@ class RegisteredUserController extends Controller
                                 
                                 $desc = "Publication";
                                 if (!empty($pubData['title'])) $desc .= ": " . $pubData['title'];
+                                if (!empty($pubData['authors'])) $desc .= " | Authors: " . $pubData['authors'];
                                 if (!empty($pubData['doi'])) $desc .= " (DOI: " . $pubData['doi'] . ")";
+                                if (!empty($pubData['abstract'])) $desc .= "\nAbstract: " . $pubData['abstract'];
 
                                 \App\Models\Submission::create([
                                     'student_milestone_id' => $sm->id,
