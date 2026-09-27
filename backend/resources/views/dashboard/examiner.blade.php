@@ -229,7 +229,7 @@
                                      <h4 class="text-lg font-black text-slate-800 tracking-tight leading-none mb-1 truncate">{{ $event->thesis->student->user->name }}</h4>
                                      <p class="text-xs text-slate-500 font-medium truncate">"{{ $event->thesis->title }}"</p>
                                  </div>
-                                 <a href="{{ route('evaluations.create', ['event' => $event->id]) }}" class="w-full flex items-center justify-center py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-sm">
+                                 <a href="{{ route('evaluations.create', ['defenceEvent' => $event->id]) }}" class="w-full flex items-center justify-center py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-sm">
                                      Submit Grade
                                  </a>
                              </div>

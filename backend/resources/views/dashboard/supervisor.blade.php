@@ -264,7 +264,7 @@
                         <div class="p-4 bg-blue-50/50 border border-blue-100 rounded-2xl">
                              <p class="text-xs font-black text-slate-800 mb-1">{{ $event->defence_type }} Defence</p>
                              <p class="text-[10px] font-bold text-slate-500 mb-3">{{ $event->thesis->student->user->name }}</p>
-                             <a href="{{ route('evaluations.create', ['event' => $event->id]) }}" class="w-full flex items-center justify-center py-2.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-colors">
+                             <a href="{{ route('evaluations.create', ['defenceEvent' => $event->id]) }}" class="w-full flex items-center justify-center py-2.5 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-colors">
                                  Grade Now
                              </a>
                         </div>
