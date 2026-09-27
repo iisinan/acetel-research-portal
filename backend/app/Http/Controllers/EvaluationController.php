@@ -89,7 +89,7 @@ class EvaluationController extends Controller
     public function show(Evaluation $evaluation)
     {
         // Accessible by the evaluator or coordinator/director
-        if (Auth::id() !== $evaluation->evaluator_id && !Auth::user()->hasRole(['Program Coordinator', 'Director', 'Admin'])) {
+        if (Auth::id() !== $evaluation->evaluator_id && !Auth::user()->hasRole(['Program Coordinator', 'Director', 'Admin']) && Auth::id() !== $evaluation->defenceEvent->thesis->student->user_id) {
             abort(403);
         }
 
@@ -103,7 +103,7 @@ class EvaluationController extends Controller
      */
     public function downloadPdf(Evaluation $evaluation)
     {
-        if (Auth::id() !== $evaluation->evaluator_id && !Auth::user()->hasRole(['Program Coordinator', 'Director', 'Admin'])) {
+        if (Auth::id() !== $evaluation->evaluator_id && !Auth::user()->hasRole(['Program Coordinator', 'Director', 'Admin']) && Auth::id() !== $evaluation->defenceEvent->thesis->student->user_id) {
             abort(403);
         }
 
