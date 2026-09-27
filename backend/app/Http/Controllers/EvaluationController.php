@@ -15,8 +15,8 @@ class EvaluationController extends Controller
     public function create(DefenceEvent $defenceEvent)
     {
         // Must be a panel member
-        $isPanelMember = $defenceEvent->panelMembers()->where('user_id', Auth::id())->exists();
-        if (!$isPanelMember) {
+        $isAuthorized = $defenceEvent->isAuthorizedEvaluator(Auth::id());
+        if (!$isAuthorized) {
             abort(403, 'You are not a panel member for this defence event.');
         }
 
@@ -39,8 +39,8 @@ class EvaluationController extends Controller
      */
     public function store(Request $request, DefenceEvent $defenceEvent)
     {
-        $isPanelMember = $defenceEvent->panelMembers()->where('user_id', Auth::id())->exists();
-        if (!$isPanelMember) {
+        $isAuthorized = $defenceEvent->isAuthorizedEvaluator(Auth::id());
+        if (!$isAuthorized) {
             abort(403);
         }
 
