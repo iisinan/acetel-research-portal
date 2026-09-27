@@ -1,4 +1,4 @@
-<div x-data="{ activeRole: localStorage.getItem('activeDashboardRole') || '{{ Auth::user()->getRoleNames()->first() ?? 'Student' }}' }" @role-changed.window="activeRole = $event.detail" x-init="$watch('activeRole', val => { localStorage.setItem('activeDashboardRole', val); window.dispatchEvent(new CustomEvent('role-changed', {detail: val})); })">
+<div x-data="{ activeRole: localStorage.getItem('activeDashboardRole') || '{{ Auth::user()->getRoleNames()->first() ?? 'Student' }}' }" @@role-changed.window="activeRole = $event.detail" x-init="$watch('activeRole', val => { localStorage.setItem('activeDashboardRole', val); window.dispatchEvent(new CustomEvent('role-changed', {detail: val})); })">
 
 @php
     $userRoles = Auth::user()->getRoleNames();
@@ -169,6 +169,7 @@
         </div>
     </div>
 </div>
+@endrole
 
 <!-- Coordinator Section -->
 <div x-show="activeRole === 'Program Coordinator'" x-cloak>

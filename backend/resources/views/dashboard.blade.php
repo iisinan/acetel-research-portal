@@ -3,7 +3,7 @@
 @section('header', 'Dashboard')
 
 @section('content')
-<div x-data="{ activeRole: localStorage.getItem('activeDashboardRole') || '{{ Auth::user()->getRoleNames()->first() ?? 'Student' }}' }" x-init="$watch('activeRole', val => { localStorage.setItem('activeDashboardRole', val); window.dispatchEvent(new CustomEvent('role-changed', {detail: val})); })" @role-changed.window="activeRole = $event.detail" class="space-y-8">
+<div x-data="{ activeRole: localStorage.getItem('activeDashboardRole') || '{{ Auth::user()->getRoleNames()->first() ?? 'Student' }}' }" x-init="$watch('activeRole', val => { localStorage.setItem('activeDashboardRole', val); window.dispatchEvent(new CustomEvent('role-changed', {detail: val})); })" @@role-changed.window="activeRole = $event.detail" class="space-y-8">
 
     {{-- Welcome Banner --}}
     <div class="relative overflow-hidden rounded-2xl p-8" style="background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); box-shadow: 0 8px 32px rgba(22,163,74,0.25);">

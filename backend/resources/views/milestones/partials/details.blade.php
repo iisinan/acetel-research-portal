@@ -362,11 +362,11 @@
                             </form>
                         </div>
                     @endif
-                    @endif
                 @else
                     <div class="bg-white border border-slate-100 shadow-xl shadow-slate-200/40 p-10 rounded-[2.5rem] flex flex-col items-center justify-center text-center">
                         <div class="w-12 h-12 bg-slate-50 border border-slate-200 text-slate-400 rounded-xl flex items-center justify-center mb-4">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+
                         </div>
                         <h3 class="text-lg font-bold text-slate-900 tracking-tight mb-2">No Document Upload Required</h3>
                         <p class="text-sm font-medium text-slate-500 max-w-sm">This specific phase does not require any file submissions to proceed.</p>
