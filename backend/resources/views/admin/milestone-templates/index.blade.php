@@ -92,7 +92,7 @@
                                     @endif
 
                                     <!-- Dropdown Date Picker -->
-                                    <div x-show="showDatePicker" @click.away="showDatePicker = false" @click.stop class="absolute right-0 mt-2 p-4 bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-200/50 z-50 w-64" style="display: none;">
+                                    <div x-show="showDatePicker" @click.outside="showDatePicker = false" @click.stop class="absolute right-0 mt-2 p-4 bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-200/50 z-50 w-64" style="display: none;">
                                         <form action="{{ route('admin.milestone-templates.set-date', $template->id) }}" method="POST" class="flex flex-col gap-3">
                                             @csrf
                                             <input type="date" name="global_defence_date" x-model="localDate" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500" required>
@@ -190,7 +190,7 @@
                                                         <svg class="w-3 h-3 text-slate-400 absolute right-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                                                     </div>
 
-                                                    <div x-show="open" @click.away="open = false" x-transition class="absolute right-0 w-64 mt-1 bg-white border border-indigo-100 rounded-lg shadow-xl max-h-60 overflow-y-auto z-50" style="display: none;">
+                                                    <div x-show="open" @click.outside="open = false" x-transition class="absolute right-0 w-64 mt-1 bg-white border border-indigo-100 rounded-lg shadow-xl max-h-60 overflow-y-auto z-50" style="display: none;">
                                                         <div class="p-2 sticky top-0 bg-slate-50 border-b border-slate-100 flex justify-between gap-2 z-10">
                                                             <button type="button" @click.stop="selected = options.map(o => o.id)" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 uppercase tracking-wider px-2 py-1 bg-indigo-50 hover:bg-indigo-100 rounded flex-1">Select All</button>
                                                             <button type="button" @click.stop="selected = []" class="text-[10px] font-bold text-slate-500 hover:text-slate-700 uppercase tracking-wider px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded flex-1">Clear</button>
