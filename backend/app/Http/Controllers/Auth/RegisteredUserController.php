@@ -59,7 +59,7 @@ class RegisteredUserController extends Controller
             'progress_presentation_1_ppt' => 'nullable|file|mimes:pdf|max:10240',
             'progress_presentation_2_ppt' => 'nullable|file|mimes:pdf|max:10240',
             'thesis_title' => 'nullable|string|max:255',
-            'thesis_abstract' => 'nullable|string',
+            'thesis_abstract' => 'nullable|string|max:5000',
             'internal_examiner_id' => 'nullable',
             'internal_examiner_name' => 'nullable|string|max:255',
             'internal_examiner_email' => 'nullable|email|max:255',
@@ -71,6 +71,8 @@ class RegisteredUserController extends Controller
 
         DB::beginTransaction();
         try {
+            $uploadedFiles = [];
+            
             // 1. Parse Matric Number for Year and Batch (e.g. ACE2310008)
             $matric = strtoupper($request->matric_number);
             
@@ -250,6 +252,17 @@ class RegisteredUserController extends Controller
                 }
             }
 
+            // Remove duplicate supervisors if user bypasses frontend validation
+            $uniqueSups = [];
+            $seenIds = [];
+            foreach ($finalSups as $sup) {
+                if (!in_array($sup['id'], $seenIds)) {
+                    $uniqueSups[] = $sup;
+                    $seenIds[] = $sup['id'];
+                }
+            }
+            $finalSups = $uniqueSups;
+
             foreach ($finalSups as $sup) {
                 SupervisionAssignment::create([
                     'thesis_project_id' => $thesis->id,
@@ -317,8 +330,9 @@ class RegisteredUserController extends Controller
                         if ($request->has('internal_defence_date')) {
                             $sm->update(['defence_date' => $request->internal_defence_date]);
                         }
-                        if ($request->has('publications')) {
-                            foreach ($request->input('publications', []) as $index => $pubData) {
+                        if ($request->has('publications') && is_array($request->input('publications'))) {
+                            foreach ($request->input('publications') as $index => $pubData) {
+                                if (!is_array($pubData)) continue;
                                 if (empty($pubData['title']) && empty($pubData['doi']) && !$request->hasFile("publications.{$index}.file")) {
                                     continue;
                                 }
@@ -326,6 +340,7 @@ class RegisteredUserController extends Controller
                                 $path = null;
                                 if ($request->hasFile("publications.{$index}.file")) {
                                     $path = $request->file("publications.{$index}.file")->store('publications', 'public');
+                                    $uploadedFiles[] = $path;
                                 }
                                 
                                 $desc = "Publication";
@@ -352,6 +367,7 @@ class RegisteredUserController extends Controller
                         }
                         if ($request->hasFile('final_thesis_file') && $request->file('final_thesis_file')->getPathname()) {
                             $path = $request->file('final_thesis_file')->store('theses', 'public');
+                            $uploadedFiles[] = $path;
                             \App\Models\Submission::create([
                                 'student_milestone_id' => $sm->id,
                                 'version' => 1,
@@ -369,6 +385,7 @@ class RegisteredUserController extends Controller
                 } else {
                     if ($template->slug === 'progress_presentation_1' && $request->hasFile('progress_presentation_1_ppt') && $request->file('progress_presentation_1_ppt')->getPathname()) {
                         $path = $request->file('progress_presentation_1_ppt')->store('presentations', 'public');
+                        $uploadedFiles[] = $path;
                         \App\Models\Submission::create([
                             'student_milestone_id' => $sm->id,
                             'version' => 1,
@@ -384,6 +401,7 @@ class RegisteredUserController extends Controller
                         $sm->update(['status' => 'submitted', 'submitted_at' => now()]);
                     } elseif ($template->slug === 'progress_presentation_2' && $request->hasFile('progress_presentation_2_ppt') && $request->file('progress_presentation_2_ppt')->getPathname()) {
                         $path = $request->file('progress_presentation_2_ppt')->store('presentations', 'public');
+                        $uploadedFiles[] = $path;
                         \App\Models\Submission::create([
                             'student_milestone_id' => $sm->id,
                             'version' => 1,
@@ -411,6 +429,11 @@ class RegisteredUserController extends Controller
 
         } catch (\Throwable $e) {
             DB::rollBack();
+            if (isset($uploadedFiles) && is_array($uploadedFiles)) {
+                foreach ($uploadedFiles as $file) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($file);
+                }
+            }
             return back()->withInput()->withErrors(['error' => 'An error occurred during registration. Please try again. ' . $e->getMessage()]);
         }
     }
