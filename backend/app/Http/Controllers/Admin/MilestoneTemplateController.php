@@ -355,12 +355,18 @@ class MilestoneTemplateController extends Controller
         }
 
         // Notify the examiners once
-        foreach ($supervisors as $supervisor) {
-            $supervisor->user->notify(new \App\Notifications\EventScheduled(
-                \App\Models\DefenceEvent::where('type', $template->defence_type ?? 'seminar')
-                    ->latest()
-                    ->first()
-            ));
+        try {
+            $latestEvent = \App\Models\DefenceEvent::where('type', $template->defence_type ?? 'seminar')
+                ->latest()
+                ->first();
+                
+            if ($latestEvent) {
+                foreach ($supervisors as $supervisor) {
+                    $supervisor->user->notify(new \App\Notifications\EventScheduled($latestEvent));
+                }
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Notification failed in assignExaminerGlobal: ' . $e->getMessage());
         }
         
         $names = $supervisors->map(fn($s) => $s->user->name)->implode(', ');
