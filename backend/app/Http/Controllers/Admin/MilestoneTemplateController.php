@@ -11,9 +11,29 @@ class MilestoneTemplateController extends Controller
 {
     public function index()
     {
-        $templates = MilestoneTemplate::with('program')->with(['studentMilestones' => function($q) { $q->whereIn('status', ['in_progress', 'submitted', 'revision_required'])->with(['thesis.student.user', 'thesis.defenceEvents.panelMembers.user', 'submissions']); }])->orderBy('order')->get();
+        $user = auth()->user();
+        $isCoordinator = $user->hasRole('Program Coordinator');
+        $coordinatorProgramId = null;
+
+        if ($isCoordinator) {
+            $coordinatorProfile = $user->coordinatorProfiles()->where('active', true)->first();
+            $coordinatorProgramId = $coordinatorProfile ? $coordinatorProfile->program_id : -1;
+        }
+
+        $templates = MilestoneTemplate::with('program')
+            ->with(['studentMilestones' => function($q) use ($isCoordinator, $coordinatorProgramId) { 
+                $q->whereIn('status', ['in_progress', 'submitted', 'revision_required'])
+                  ->with(['thesis.student.user', 'thesis.defenceEvents.panelMembers.user', 'thesis.defenceEvents.evaluations', 'submissions']); 
+                
+                if ($isCoordinator) {
+                    $q->whereHas('thesis.student', function($sq) use ($coordinatorProgramId) {
+                        $sq->where('program_id', $coordinatorProgramId);
+                    });
+                }
+            }])->orderBy('order')->get();
+            
         $supervisors = \App\Models\SupervisorProfile::with('user')->get();
-        return view('admin.milestone-templates.index', compact('templates', 'supervisors'));
+        return view('admin.milestone-templates.index', compact('templates', 'supervisors', 'isCoordinator'));
     }
 
     public function create()
@@ -287,10 +307,26 @@ class MilestoneTemplateController extends Controller
 
     public function exportStudents(MilestoneTemplate $template)
     {
-        $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+        $user = auth()->user();
+        $isCoordinator = $user->hasRole('Program Coordinator');
+        $coordinatorProgramId = null;
+
+        if ($isCoordinator) {
+            $coordinatorProfile = $user->coordinatorProfiles()->where('active', true)->first();
+            $coordinatorProgramId = $coordinatorProfile ? $coordinatorProfile->program_id : -1;
+        }
+
+        $query = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
             ->whereIn('status', ['in_progress', 'submitted', 'revision_required'])
-            ->with('thesis.student.user')
-            ->get();
+            ->with(['thesis.student.user', 'thesis.defenceEvents.evaluations']);
+            
+        if ($isCoordinator) {
+            $query->whereHas('thesis.student', function($sq) use ($coordinatorProgramId) {
+                $sq->where('program_id', $coordinatorProgramId);
+            });
+        }
+        
+        $milestones = $query->get();
             
         $fileName = 'students_' . $template->slug . '.csv';
         $headers = [
@@ -301,18 +337,37 @@ class MilestoneTemplateController extends Controller
             "Expires" => "0"
         ];
 
-        $columns = ['Name', 'Matric Number', 'Status', 'Date Scheduled'];
+        $columns = ['Name', 'Matric Number', 'Status', 'Date Scheduled', 'Score'];
 
         $callback = function() use($milestones, $columns) {
             $file = fopen('php://output', 'w');
             fputcsv($file, $columns);
 
             foreach ($milestones as $milestone) {
+                $avgScore = 'N/A';
+                if ($template->slug === 'seminar_as_a_course') {
+                    $event = current($milestone->thesis->defenceEvents->where('type', $template->defence_type ?? 'seminar')->all());
+                    if ($event && $event->evaluations->count() > 0) {
+                        $total = 0;
+                        $count = 0;
+                        foreach($event->evaluations as $eval) {
+                            if (isset($eval->score['total'])) {
+                                $total += $eval->score['total'];
+                                $count++;
+                            }
+                        }
+                        if ($count > 0) {
+                            $avgScore = round($total / $count, 1);
+                        }
+                    }
+                }
+
                 fputcsv($file, [
                     $milestone->thesis->student->user->name ?? '',
                     $milestone->thesis->student->matric_number ?? '',
                     $milestone->status,
-                    $milestone->defence_date ?? 'Not Scheduled'
+                    $milestone->defence_date ?? 'Not Scheduled',
+                    $avgScore
                 ]);
             }
             fclose($file);
