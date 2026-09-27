@@ -356,8 +356,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _logout();
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
-    }
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Network error: Unable to reach ACETEL server."), backgroundColor: AppTheme.error));
+      }
   }
 
   Future<void> _logout() async {
