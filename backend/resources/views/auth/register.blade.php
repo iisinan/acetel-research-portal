@@ -861,10 +861,7 @@
                 if (currentQ.subStepNo) {
                     this.showingSubStepNo = true;
                 } else {
-                    this.isSubmitting = true;
-                    setTimeout(() => {
-                        this.$el.closest('form').submit();
-                    }, 100);
+                    this.submitForm();
                 }
             },
             
@@ -948,10 +945,7 @@
                     }
                 }
                 
-                this.isSubmitting = true;
-                setTimeout(() => {
-                    this.$el.closest('form').submit();
-                }, 100);
+                this.submitForm();
             },
             
             recordMilestoneAndNext(id) {
@@ -963,10 +957,7 @@
                     this.showingSubStep = false;
                     this.milestoneStep++;
                 } else {
-                    this.isSubmitting = true;
-                    setTimeout(() => {
-                        this.$el.closest('form').submit();
-                    }, 100);
+                    this.submitForm();
                 }
             },
             
@@ -975,6 +966,49 @@
                     this.form.supervisor_ids = this.form.supervisor_ids.filter(v => v !== id);
                 } else {
                     this.form.supervisor_ids.push(id);
+                }
+            },
+            
+            async submitForm() {
+                this.isSubmitting = true;
+                this.errorMessage = '';
+                
+                let formElement = document.getElementById('registrationForm');
+                let formData = new FormData(formElement);
+                
+                try {
+                    let response = await fetch(formElement.action, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        // Registration successful! Redirect to dashboard.
+                        window.location.href = '{{ route("dashboard") }}';
+                    } else if (response.status === 422) {
+                        let data = await response.json();
+                        if (data.errors) {
+                            let errorMsg = Object.values(data.errors)[0][0];
+                            this.errorMessage = errorMsg;
+                        } else {
+                            this.errorMessage = data.message || 'Validation failed. Please check your inputs.';
+                        }
+                        this.isSubmitting = false;
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    } else {
+                        let data = await response.json().catch(() => ({}));
+                        this.errorMessage = data.message || 'An unexpected error occurred during submission.';
+                        this.isSubmitting = false;
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                } catch (e) {
+                    this.errorMessage = 'Network error during submission. Please try again.';
+                    this.isSubmitting = false;
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                 }
             }
         };
