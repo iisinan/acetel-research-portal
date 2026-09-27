@@ -135,6 +135,11 @@ class MilestoneTemplate extends Model
         }
     }
 
+    public function studentMilestones()
+    {
+        return $this->hasMany(StudentMilestone::class, 'milestone_template_id');
+    }
+
     public function program()
     {
         return $this->belongsTo(Program::class);

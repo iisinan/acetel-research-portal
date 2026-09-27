@@ -70,6 +70,10 @@ Route::post('/operations/flush', [SystemOperationController::class, 'flushFailed
 use App\Http\Controllers\Admin\MilestoneTemplateController;
 Route::resource('milestone-templates', MilestoneTemplateController::class)->only(['index', 'show']);
 Route::post('milestone-templates/{template}/date', [MilestoneTemplateController::class, 'setDate'])->name('milestone-templates.set-date');
+    Route::post('milestone-templates/schedule', [MilestoneTemplateController::class, 'schedule'])->name('milestone-templates.schedule');
+    Route::post('milestone-templates/{milestone}/assign-examiner', [MilestoneTemplateController::class, 'assignExaminer'])->name('milestone-templates.assign-examiner');
+    Route::get('milestone-templates/{template}/export-students', [MilestoneTemplateController::class, 'exportStudents'])->name('milestone-templates.export-students');
+
 
 use App\Http\Controllers\Admin\BulkScheduleController;
 Route::get('bulk-schedule', [BulkScheduleController::class, 'index'])->name('bulk-schedule.index');
@@ -82,6 +86,3 @@ Route::post('students/{student}/sync-milestones', [StudentMilestoneController::c
 
 
 use App\Http\Controllers\Admin\SeminarController;
-Route::get('seminars', [SeminarController::class, 'index'])->name('seminars.index');
-Route::post('seminars/schedule', [SeminarController::class, 'schedule'])->name('seminars.schedule');
-Route::post('seminars/{milestone}/assign-examiner', [SeminarController::class, 'assignExaminer'])->name('seminars.assign-examiner');

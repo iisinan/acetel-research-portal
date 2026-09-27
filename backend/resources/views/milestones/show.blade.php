@@ -373,6 +373,7 @@
                             </form>
                         </div>
                     @endif
+                    @endif
                 @else
                     <div class="bg-white border border-gray-100 shadow-sm p-10 rounded-3xl flex flex-col items-center justify-center text-center">
                         <div class="w-12 h-12 bg-gray-50 border border-gray-200 text-gray-400 rounded-xl flex items-center justify-center mb-4">
