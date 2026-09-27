@@ -314,11 +314,12 @@ class MilestoneTemplateController extends Controller
     public function assignExaminerGlobal(Request $request, $templateId)
     {
         $request->validate([
-            'supervisor_profile_id' => 'required|exists:supervisor_profiles,id'
+            'supervisor_profile_ids' => 'required|array',
+            'supervisor_profile_ids.*' => 'exists:supervisor_profiles,id'
         ]);
 
         $template = MilestoneTemplate::findOrFail($templateId);
-        $supervisor = \App\Models\SupervisorProfile::with('user')->findOrFail($request->supervisor_profile_id);
+        $supervisors = \App\Models\SupervisorProfile::with('user')->whereIn('id', $request->supervisor_profile_ids)->get();
 
         $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
             ->whereIn('status', ['in_progress', 'submitted', 'revision_required'])
@@ -341,24 +342,29 @@ class MilestoneTemplateController extends Controller
 
             \App\Models\PanelMember::where('defence_event_id', $event->id)->where('role', 'Examiner')->delete();
 
-            \App\Models\PanelMember::create([
-                'defence_event_id' => $event->id,
-                'user_id' => $supervisor->user_id,
-                'role' => 'Examiner',
-                'invitation_status' => 'accepted'
-            ]);
+            foreach ($supervisors as $supervisor) {
+                \App\Models\PanelMember::create([
+                    'defence_event_id' => $event->id,
+                    'user_id' => $supervisor->user_id,
+                    'role' => 'Examiner',
+                    'invitation_status' => 'accepted'
+                ]);
+            }
 
             $assignedCount++;
         }
 
-        // Notify the examiner once
-        $supervisor->user->notify(new \App\Notifications\EventScheduled(
-            \App\Models\DefenceEvent::where('type', $template->defence_type ?? 'seminar')
-                ->latest()
-                ->first()
-        ));
-
-        return back()->with('success', "Examiner {$supervisor->user->name} assigned to all {$assignedCount} students successfully.");
+        // Notify the examiners once
+        foreach ($supervisors as $supervisor) {
+            $supervisor->user->notify(new \App\Notifications\EventScheduled(
+                \App\Models\DefenceEvent::where('type', $template->defence_type ?? 'seminar')
+                    ->latest()
+                    ->first()
+            ));
+        }
+        
+        $names = $supervisors->map(fn($s) => $s->user->name)->implode(', ');
+        return back()->with('success', "Examiners ($names) assigned to all {$assignedCount} students successfully.");
     }
 
     public function exportStudents(MilestoneTemplate $template)

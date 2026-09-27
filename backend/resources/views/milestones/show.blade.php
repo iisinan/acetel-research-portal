@@ -282,13 +282,13 @@
                                 @if(in_array('ppt', $milestone->template->submission_type))
                                 <div>
                                     <label class="block text-sm font-semibold text-slate-700 mb-2">
-                                        Upload Presentation Slide Deck (PDF Only, Select one or more)
+                                        Upload Presentation Slide Deck (PDF Only)
                                     </label>
                                     <div class="relative w-full">
-                                        <input type="file" name="ppt[]" accept=".pdf" multiple class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                        <input type="file" name="ppt" accept=".pdf" required class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
                                             @change="
-                                                const files = $event.target.files;
-                                                document.getElementById('ppt-name').textContent = files.length > 0 ? files.length + ' files selected' : 'Click or drop to select PPT';
+                                                const file = $event.target.files[0];
+                                                document.getElementById('ppt-name').textContent = file ? file.name : 'Click or drop to select PPT';
                                             "/>
                                         <div class="w-full flex flex-col items-center justify-center gap-3 px-4 py-8 bg-slate-50 border-2 border-slate-200 border-dashed rounded-2xl hover:border-emerald-300 hover:bg-emerald-50/50 transition-colors">
                                             <div class="w-10 h-10 rounded-full bg-white text-slate-400 flex items-center justify-center shadow-xl shadow-slate-200/40">
