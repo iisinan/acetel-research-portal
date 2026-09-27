@@ -587,8 +587,8 @@
                     <div x-show="getCurrentSubStepNoType() === 'progress_presentation_1_schedule'" x-cloak>
                         <div class="mb-6 space-y-4">
                             <div>
-                                <label class="block text-sm font-bold text-slate-700 mb-1.5">Upload Progress Presentation 1 (PDF/PPT)</label>
-                                <input type="file" name="progress_presentation_1_ppt" accept=".pdf,.ppt,.pptx"
+                                <label class="block text-sm font-bold text-slate-700 mb-1.5">Upload Progress Presentation 1 (PDF)</label>
+                                <input type="file" name="progress_presentation_1_ppt" accept=".pdf"
                                        class="w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 transition-colors">
                             </div>
                         </div>
@@ -597,8 +597,8 @@
                     <div x-show="getCurrentSubStepNoType() === 'progress_presentation_2_schedule'" x-cloak>
                         <div class="mb-6 space-y-4">
                             <div>
-                                <label class="block text-sm font-bold text-slate-700 mb-1.5">Upload Progress Presentation 2 (PDF/PPT)</label>
-                                <input type="file" name="progress_presentation_2_ppt" accept=".pdf,.ppt,.pptx"
+                                <label class="block text-sm font-bold text-slate-700 mb-1.5">Upload Progress Presentation 2 (PDF)</label>
+                                <input type="file" name="progress_presentation_2_ppt" accept=".pdf"
                                        class="w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 transition-colors">
                             </div>
                         </div>
