@@ -125,7 +125,6 @@
 
     <!-- AlpineJS Modals -->
     <!-- Internal Examiner Modal -->
-    <template x-teleport="body">
         <div x-show="showInternalModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm">
             <div @click.away="showInternalModal = false" class="bg-white rounded-[2.5rem] border border-slate-100 shadow-2xl w-full max-w-lg overflow-hidden animate-in-up">
                 <div class="px-10 py-8 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
@@ -163,10 +162,8 @@
                 </form>
             </div>
         </div>
-    </template>
 
     <!-- External Examiner Modal -->
-    <template x-teleport="body">
         <div x-show="showExternalModal" x-cloak class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm outline-none">
             <div @click.away="showExternalModal = false" class="bg-white rounded-[2.5rem] border border-slate-100 shadow-2xl w-full max-w-lg overflow-hidden animate-in-up flex flex-col md:max-h-[90vh]">
                 <div class="px-10 py-8 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between shrink-0">
@@ -202,6 +199,5 @@
                 </form>
             </div>
         </div>
-    </template>
 </div>
 @endsection
