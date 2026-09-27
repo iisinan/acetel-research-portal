@@ -118,7 +118,7 @@
 
     @hasrole('Internal Examiner|External Examiner')
     <div x-show="['Internal Examiner', 'External Examiner'].includes(activeRole)" x-cloak style="display: none;" :style="['Internal Examiner', 'External Examiner'].includes(activeRole) ? 'display: grid;' : 'display: none;'" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        <a href="#" class="group bg-white border border-slate-200 rounded-2xl p-6 hover:border-green-300 hover:shadow-md transition-all">
+        <a href="{{ route('examiner.theses.index') }}" class="group bg-white border border-slate-200 rounded-2xl p-6 hover:border-green-300 hover:shadow-md transition-all">
             <div class="w-11 h-11 bg-green-50 border border-green-100 rounded-xl flex items-center justify-center text-green-600 mb-4 group-hover:bg-green-100 group-hover:scale-110 transition-all">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             </div>
