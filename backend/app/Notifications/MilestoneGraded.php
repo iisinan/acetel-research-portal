@@ -14,19 +14,11 @@ class MilestoneGraded extends Notification implements ShouldQueue
 
     protected $milestone;
 
-    /**
-     * Create a new notification instance.
-     */
     public function __construct(StudentMilestone $milestone)
     {
         $this->milestone = $milestone;
     }
 
-    /**
-     * Get the notification's delivery channels.
-     *
-     * @return array<int, string>
-     */
     public function via(object $notifiable): array
     {
         return ['mail', 'database'];
@@ -35,27 +27,15 @@ class MilestoneGraded extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         $isCleared = in_array(strtolower($this->milestone->status), ['approved', 'completed', 'cleared']);
-        $mail = (new MailMessage)
-                    ->subject(($isCleared ? 'Institutional Clearance: ' : 'Milestone Review: ') . $this->milestone->template->name)
-                    ->greeting('Dear Scholar,');
-
-        if ($isCleared) {
-            $mail->line('You have officially been **cleared** for the following academic milestone:');
-            $mail->line('**' . $this->milestone->template->name . '**');
-        } else {
-            $mail->line('Your submission for the following milestone has been evaluated: **' . $this->milestone->template->name . '**');
-            $mail->line('Current Status: ' . ucfirst($this->milestone->status));
-        }
-
-        return $mail->action('View Formal Feedback', url('/dashboard'))
-                    ->line('Please adhere to the designated academic protocols moving forward.');
+        
+        return (new MailMessage)
+            ->subject(($isCleared ? 'Institutional Clearance: ' : 'Milestone Evaluation: ') . $this->milestone->template->name)
+            ->markdown('emails.milestone-graded', [
+                'milestone' => $this->milestone,
+                'isCleared' => $isCleared
+            ]);
     }
 
-    /**
-     * Get the array representation of the notification.
-     *
-     * @return array<string, mixed>
-     */
     public function toArray(object $notifiable): array
     {
         return [

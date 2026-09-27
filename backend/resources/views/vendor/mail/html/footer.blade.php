@@ -11,7 +11,7 @@
     </table>
 
     <!-- Logo row -->
-    <img src="https://thesis.acetel.edu.ng/images/acetel-logo.jpeg"
+    <img src="https://aceteltms.nou.edu.ng/images/acetel-logo.jpeg"
          alt="ACETEL"
          width="36"
          height="36"

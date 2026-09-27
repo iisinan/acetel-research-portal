@@ -1,4 +1,8 @@
-@extends('layouts.dashboard')
+import re
+
+path = '/Users/sinan/Herd/Thesis Monotoring system/backend/resources/views/supervisor/seminars/index.blade.php'
+
+new_content = """@extends('layouts.dashboard')
 
 @section('content')
 <div class="space-y-10 pb-10">
@@ -105,3 +109,7 @@
     </div>
 </div>
 @endsection
+"""
+
+with open(path, 'w') as f:
+    f.write(new_content)

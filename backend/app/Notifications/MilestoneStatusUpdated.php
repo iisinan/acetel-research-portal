@@ -12,9 +12,6 @@ class MilestoneStatusUpdated extends Notification implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
-    /**
-     * Create a new notification instance.
-     */
     protected $milestone;
 
     public function __construct($milestone)
@@ -22,33 +19,21 @@ class MilestoneStatusUpdated extends Notification implements ShouldQueue
         $this->milestone = $milestone;
     }
 
-    /**
-     * Get the notification's delivery channels.
-     *
-     * @return array<int, string>
-     */
     public function via(object $notifiable): array
     {
         return ['database', 'mail'];
     }
 
-    /**
-     * Get the mail representation of the notification.
-     */
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-                    ->subject('Milestone Status Updated: ' . $this->milestone->template->name)
-                    ->line('The status of your milestone "' . $this->milestone->template->name . '" has been updated to: ' . ucfirst(str_replace('_', ' ', $this->milestone->status)))
-                    ->action('View Milestone', url('/milestones/' . $this->milestone->id))
-                    ->line('Thank you for using our system!');
+            ->subject('Milestone Status Updated: ' . $this->milestone->template->name)
+            ->markdown('emails.milestone-graded', [
+                'milestone' => $this->milestone,
+                'isCleared' => in_array(strtolower($this->milestone->status), ['approved', 'completed', 'cleared'])
+            ]);
     }
 
-    /**
-     * Get the array representation of the notification.
-     *
-     * @return array<string, mixed>
-     */
     public function toArray(object $notifiable): array
     {
         return [

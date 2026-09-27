@@ -315,7 +315,10 @@ class MilestoneController extends Controller
         ];
 
         if (in_array('ppt', $subTypes)) {
-            $rules['ppt'] = ['required', 'file', 'mimes:pdf', 'max:51200'];
+            $existingCount = $milestone->submissions()->where('type', 'ppt')->count();
+            $maxAllowed = 5 - $existingCount;
+            $rules['ppt'] = [($existingCount > 0 ? 'nullable' : 'required'), 'array', 'min:1', "max:{$maxAllowed}"];
+            $rules['ppt.*'] = 'file|mimes:pdf|max:51200';
         }
 
         if (in_array('file', $subTypes)) {
@@ -354,22 +357,23 @@ class MilestoneController extends Controller
 
         // Handle PPT Upload
         if (in_array('ppt', $subTypes) && $request->hasFile('ppt')) {
-            $pptFile = $request->file('ppt');
-            $pptPath = $pptFile->store('submissions/' . $milestone->thesis_project_id . '/ppt', 'public');
+            foreach ($request->file('ppt') as $pptFile) {
+                $pptPath = $pptFile->store('submissions/' . $milestone->thesis_project_id . '/ppt', 'public');
 
-            $milestone->submissions()->create([
-                'submitted_by' => Auth::id(),
-                'type' => 'ppt',
-                'file_url' => $pptPath,
-                'file_meta' => [
-                    'original_name' => $pptFile->getClientOriginalName(),
-                    'mime_type' => $pptFile->getMimeType(),
-                    'size' => $pptFile->getSize(),
-                ],
-                'checksum' => md5_file($pptFile->getRealPath()),
-                'description' => 'Presentation Slide Deck',
-                'version' => $milestone->submissions()->where('type', 'ppt')->count() + 1,
-            ]);
+                $milestone->submissions()->create([
+                    'submitted_by' => Auth::id(),
+                    'type' => 'ppt',
+                    'file_url' => $pptPath,
+                    'file_meta' => [
+                        'original_name' => $pptFile->getClientOriginalName(),
+                        'mime_type' => $pptFile->getMimeType(),
+                        'size' => $pptFile->getSize(),
+                    ],
+                    'checksum' => md5_file($pptFile->getRealPath()),
+                    'description' => 'Presentation Slide Deck',
+                    'version' => $milestone->submissions()->where('type', 'ppt')->count() + 1,
+                ]);
+            }
         }
 
         // Handle Manuscript

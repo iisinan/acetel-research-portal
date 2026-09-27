@@ -2,7 +2,7 @@
 <tr>
 <td class="header">
 <a href="{{ $url }}" style="display: inline-block; text-decoration: none;">
-    <img src="https://thesis.acetel.edu.ng/images/acetel-logo.jpeg"
+    <img src="https://aceteltms.nou.edu.ng/images/acetel-logo.jpeg"
          class="logo"
          alt="ACETEL Logo"
          width="80"
