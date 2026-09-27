@@ -181,7 +181,7 @@
             @endif
 
             <!-- Submission Form -->
-            @if(in_array($milestone->status, ['not_started', 'revision_required']))
+            @if(in_array($milestone->status, ['not_started', 'in_progress', 'revision_required']))
                 @if($milestone->template->requires_submission)
                     @if($hasDefenceDateAllowed && (!$defenceDate || $isDateExpired))
                         <div class="overflow-hidden rounded-3xl bg-white border border-gray-100 shadow-sm p-10 flex flex-col items-center justify-center text-center">

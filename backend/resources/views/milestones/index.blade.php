@@ -1237,7 +1237,7 @@
                                                                 <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
                                                                     PPT / Presentation Slide Deck (Mandatory)
                                                                 </label>
-                                                                <input type="file" name="ppt" accept=".ppt,.pptx,.pdf,.key,.odp"
+                                                                <input type="file" name="ppt" accept=".pdf"
                                                                     class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" required 
                                                                     @change="pptLoaded = !!$event.target.files[0]">
                                                                 <div class="px-6 py-6 bg-white rounded-3xl border border-gray-100 border-dotted flex flex-col items-center justify-center gap-2 group-hover/ppt:border-brand-500 transition-all shadow-sm"
@@ -1258,8 +1258,7 @@
                                                                         {{ count($milestone->template?->submission_type) > 1 ? 'Thesis Manuscript' : 'Working Document' }} (Mandatory)
                                                                     @endif
                                                                 </label>
-                                                                <input type="file" name="file" 
-                                                                    @if($milestone->template?->is_final_archival) accept="application/pdf" @endif
+                                                                <input type="file" name="file" accept=".pdf"
                                                                     class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" required 
                                                                     @change="fileLoaded = !!$event.target.files[0]">
                                                                 <div class="px-6 py-6 bg-white rounded-3xl border border-gray-100 border-dotted flex flex-col items-center justify-center gap-2 group-hover/ms:border-brand-500 transition-all shadow-sm"

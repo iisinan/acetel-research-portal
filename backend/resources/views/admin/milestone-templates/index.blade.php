@@ -31,7 +31,7 @@
                 </thead>
                 
                     @forelse($templates as $template)
-                    <tbody x-data="{ expanded: false, selectAll: false, selected: [] }" class="divide-y divide-slate-50 border-t border-slate-50">
+                    <tbody x-data="{ expanded: false, showStudents: false, selectAll: false, selected: [], search: '' }" class="divide-y divide-slate-50 border-t border-slate-50">
                     <tr class="hover:bg-slate-50/30 transition-colors group cursor-pointer" data-id="{{ $template->id }}" @click="if(!$event.target.closest('button') && !$event.target.closest('a') && !$event.target.closest('input') && !$event.target.closest('form')) expanded = !expanded">
                         <td class="px-10 py-7 text-center">
                             <div class="flex flex-col items-center gap-2">
@@ -108,22 +108,87 @@
                     <tr x-cloak x-show="expanded" x-transition class="bg-slate-50/30">
                         <td colspan="5" class="p-6">
                             <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 cursor-default" @click.stop>
-                                <div class="flex items-center justify-between mb-6">
-                                    <div>
-                                        <h3 class="text-sm font-bold text-slate-900">Active Students at this Stage</h3>
-                                        <p class="text-xs text-slate-500">{{ $template->studentMilestones->count() }} students currently processing this milestone.</p>
+                                
+                                {{-- Summary Cards --}}
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Students</p>
+                                        <p class="text-2xl font-black text-slate-900">{{ $template->studentMilestones->count() }}</p>
                                     </div>
-                                    <div class="flex gap-3">
-                                        <a href="{{ isset($isCoordinator) && $isCoordinator ? route('coordinator.milestone-templates.export-students', $template->id) : route('admin.milestone-templates.export-students', $template->id) }}" class="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
-                                            Export CSV
-                                        </a>
+                                    <div class="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
+                                        <p class="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">Scheduled</p>
+                                        <p class="text-2xl font-black text-emerald-700">{{ $template->studentMilestones->filter(fn($m) => !empty($m->defence_date))->count() }}</p>
+                                    </div>
+                                    <div class="bg-amber-50 rounded-xl p-4 border border-amber-100">
+                                        <p class="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1">Not Scheduled</p>
+                                        <p class="text-2xl font-black text-amber-700">{{ $template->studentMilestones->filter(fn($m) => empty($m->defence_date))->count() }}</p>
                                     </div>
                                 </div>
 
-                                @if($template->studentMilestones->count() > 0)
-                                @if(!isset($isCoordinator) || !$isCoordinator)
-                                <div class="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                    <form action="{{ isset($isCoordinator) && $isCoordinator ? '#' : route('admin.milestone-templates.schedule') }}" method="POST" class="flex gap-4 items-end">
+                                {{-- Actions Row --}}
+                                <div class="flex flex-wrap items-center gap-3 mb-6">
+                                    <a href="{{ isset($isCoordinator) && $isCoordinator ? route('coordinator.milestone-templates.export-students', $template->id) : route('admin.milestone-templates.export-students', $template->id) }}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                        Export CSV
+                                    </a>
+
+                                    @if($template->studentMilestones->count() > 0)
+                                        <button @click="showStudents = !showStudents; if(showStudents) $nextTick(() => $refs.searchInput?.focus())" 
+                                            class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                                            :class="showStudents ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                            <span x-text="showStudents ? 'Hide Students' : 'View Student Details'"></span>
+                                        </button>
+                                    @endif
+                                </div>
+
+                                {{-- Global Examiner Assignment (Seminar only, Admin only) --}}
+                                @if($template->slug === 'seminar_as_a_course' && (!isset($isCoordinator) || !$isCoordinator))
+                                    @php
+                                        $firstEvent = $template->studentMilestones->first() 
+                                            ? current($template->studentMilestones->first()->thesis->defenceEvents->where('type', $template->defence_type ?? 'seminar')->all()) 
+                                            : null;
+                                        $currentExaminer = $firstEvent ? current($firstEvent->panelMembers->where('role', 'Examiner')->all()) : null;
+                                    @endphp
+                                    <div class="mb-6 bg-indigo-50/50 border border-indigo-100 rounded-xl p-4">
+                                        <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center flex-shrink-0">
+                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                                                </div>
+                                                <div>
+                                                    <p class="text-xs font-black text-indigo-900 uppercase tracking-wider">Seminar Examiner</p>
+                                                    <p class="text-[10px] text-indigo-600 mt-0.5">
+                                                        @if($currentExaminer)
+                                                            Currently: <strong>{{ $currentExaminer->user->name }}</strong>
+                                                        @else
+                                                            No examiner assigned yet.
+                                                        @endif
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <form action="{{ route('admin.milestone-templates.assign-examiner-global', $template->id) }}" method="POST" class="flex items-center gap-2 sm:ml-auto">
+                                                @csrf
+                                                <select name="supervisor_profile_id" required class="block py-1.5 pl-3 pr-8 text-xs border-indigo-200 bg-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 rounded-lg">
+                                                    <option value="">Select Examiner</option>
+                                                    @foreach($supervisors as $sup)
+                                                        <option value="{{ $sup->id }}" {{ $currentExaminer && $currentExaminer->user_id == $sup->user_id ? 'selected' : '' }}>
+                                                            {{ $sup->user->name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                                <button type="submit" class="text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                                                    Assign to All
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                @endif
+
+                                {{-- Schedule Form (Admin only) --}}
+                                @if($template->studentMilestones->count() > 0 && (!isset($isCoordinator) || !$isCoordinator))
+                                <div x-show="showStudents" x-cloak class="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <form action="{{ route('admin.milestone-templates.schedule') }}" method="POST" class="flex flex-wrap gap-4 items-end">
                                         @csrf
                                         <template x-for="id in selected">
                                             <input type="hidden" name="milestone_ids[]" :value="id">
@@ -143,101 +208,111 @@
                                             </button>
                                         </div>
                                         <div class="ml-auto text-xs text-slate-500 self-center">
-                                            Select students below to schedule.
+                                            <span x-text="selected.length"></span> student(s) selected.
                                         </div>
                                     </form>
                                 </div>
                                 @endif
 
-                                <div class="overflow-x-auto border border-slate-100 rounded-xl">
-                                    <table class="w-full text-left text-sm">
-                                        <thead class="bg-slate-50 border-b border-slate-100">
-                                            <tr>
-                                                @if(!isset($isCoordinator) || !$isCoordinator)<th class="px-4 py-3"><input type="checkbox" x-model="selectAll" @change="selected = selectAll ? [{{ $template->studentMilestones->map(fn($m) => "'" . $m->id . "'")->implode(',') }}] : []" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500"></th>@endif
-                                                <th class="px-4 py-3 font-semibold text-slate-700">Student</th>
-                                                <th class="px-4 py-3 font-semibold text-slate-700">Status</th>
-                                                <th class="px-4 py-3 font-semibold text-slate-700">Date</th>
-                                                @if($template->slug === 'seminar_as_a_course')
-                                                <th class="px-4 py-3 font-semibold text-slate-700">Examiner</th>
-                                                <th class="px-4 py-3 font-semibold text-slate-700">PPT</th>
-                                                <th class="px-4 py-3 font-semibold text-slate-700">Score</th>
-                                                @endif
-                                            </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-slate-100">
-                                            @foreach($template->studentMilestones as $sm)
-                                                @php
-                                                    $event = current($sm->thesis->defenceEvents->where('type', $template->defence_type ?? 'seminar')->all());
-                                                    $examiner = $event ? current($event->panelMembers->where('role', 'Examiner')->all()) : null;
-                                                    $avgScore = null;
-                                                    if ($event && $event->evaluations->count() > 0) {
-                                                        $total = 0;
-                                                        $count = 0;
-                                                        foreach($event->evaluations as $eval) {
-                                                            if (isset($eval->score['total'])) {
-                                                                $total += $eval->score['total'];
-                                                                $count++;
-                                                            }
-                                                        }
-                                                        if ($count > 0) {
-                                                            $avgScore = round($total / $count, 1);
-                                                        }
-                                                    }
-                                                @endphp
-                                                <tr class="hover:bg-slate-50/50 transition-colors">
-                                                    @if(!isset($isCoordinator) || !$isCoordinator)<td class="px-4 py-3">
-                                                        <input type="checkbox" :value="'{{ $sm->id }}'" x-model="selected" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
-                                                    </td>@endif
-                                                    <td class="px-4 py-3">
-                                                        <div class="font-medium text-slate-900">{{ $sm->thesis->student->user->name ?? 'N/A' }}</div>
-                                                        <div class="text-xs text-slate-500">{{ $sm->thesis->student->matric_number ?? 'N/A' }}</div>
-                                                    </td>
-                                                    <td class="px-4 py-3">
-                                                        <span class="px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">{{ ucfirst(str_replace('_', ' ', $sm->status)) }}</span>
-                                                    </td>
-                                                    <td class="px-4 py-3 text-slate-600 text-xs">
-                                                        {{ $sm->defence_date ? \Carbon\Carbon::parse($sm->defence_date)->format('M d, Y') : 'Not scheduled' }}
-                                                    </td>
-                                                    @if($template->slug === 'seminar_as_a_course')
-                                                    <td class="px-4 py-3">
+                                {{-- Student List (hidden until "View Student Details" is clicked) --}}
+                                <div x-show="showStudents" x-cloak x-transition>
+                                    @if($template->studentMilestones->count() > 0)
+                                    {{-- Search --}}
+                                    <div class="mb-4">
+                                        <div class="relative">
+                                            <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                            <input x-ref="searchInput" x-model="search" type="text" placeholder="Search by name or matric number..." class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
+                                        </div>
+                                    </div>
+
+                                    <div class="overflow-hidden border border-slate-100 rounded-xl">
+                                        <div class="max-h-[400px] overflow-y-auto">
+                                            <table class="w-full text-left text-sm">
+                                                <thead class="bg-slate-50 border-b border-slate-100 sticky top-0 z-10">
+                                                    <tr>
                                                         @if(!isset($isCoordinator) || !$isCoordinator)
-                                                        <form action="{{ route('admin.milestone-templates.assign-examiner', $sm->id) }}" method="POST" class="flex items-center gap-2">
-                                                            @csrf
-                                                            <select name="supervisor_profile_id" required class="block w-full py-1 pl-2 pr-8 text-xs border-slate-300 focus:outline-none focus:ring-brand-500 focus:border-brand-500 rounded-md">
-                                                                <option value="">Select Examiner</option>
-                                                                @foreach($supervisors as $sup)
-                                                                    <option value="{{ $sup->id }}" {{ $examiner && $examiner->user_id == $sup->user_id ? 'selected' : '' }}>
-                                                                        {{ $sup->user->name }}
-                                                                    </option>
-                                                                @endforeach
-                                                            </select>
-                                                            <button type="submit" class="text-white bg-green-600 hover:bg-green-700 px-2 py-1 rounded text-xs font-bold">Set</button>
-                                                        </form>
-                                                        @else
-                                                            <span class="text-xs text-slate-700">{{ $examiner ? $examiner->user->name : 'Not assigned' }}</span>
+                                                        <th class="px-4 py-3 w-10">
+                                                            <input type="checkbox" x-model="selectAll" @change="selected = selectAll ? [{{ $template->studentMilestones->map(fn($m) => "'" . $m->id . "'")->implode(',') }}] : []" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                                                        </th>
                                                         @endif
-                                                    </td>
-                                                    <td class="px-4 py-3 text-xs">
-                                                        @if($sm->submissions->count() > 0)
-                                                            <a href="{{ Storage::url($sm->submissions->first()->file_url) }}" target="_blank" class="text-indigo-600 hover:underline">Download</a>
-                                                        @else
-                                                            <span class="text-slate-400">Not uploaded</span>
+                                                        <th class="px-4 py-3 font-semibold text-slate-700">Student</th>
+                                                        <th class="px-4 py-3 font-semibold text-slate-700">Status</th>
+                                                        <th class="px-4 py-3 font-semibold text-slate-700">Date</th>
+                                                        @if($template->slug === 'seminar_as_a_course')
+                                                        <th class="px-4 py-3 font-semibold text-slate-700">PPT</th>
+                                                        <th class="px-4 py-3 font-semibold text-slate-700">Score</th>
                                                         @endif
-                                                    </td>
-                                                    <td class="px-4 py-3 text-xs font-bold">
-                                                        @if($avgScore !== null)
-                                                            <span class="text-emerald-600">{{ $avgScore }}</span>
-                                                        @else
-                                                            <span class="text-slate-400">-</span>
-                                                        @endif
-                                                    </td>
-                                                    @endif
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-slate-100">
+                                                    @foreach($template->studentMilestones as $sm)
+                                                        @php
+                                                            $event = current($sm->thesis->defenceEvents->where('type', $template->defence_type ?? 'seminar')->all());
+                                                            $avgScore = null;
+                                                            if ($event && $event->evaluations->count() > 0) {
+                                                                $total = 0;
+                                                                $count = 0;
+                                                                foreach($event->evaluations as $eval) {
+                                                                    if (isset($eval->score['total'])) {
+                                                                        $total += $eval->score['total'];
+                                                                        $count++;
+                                                                    }
+                                                                }
+                                                                if ($count > 0) {
+                                                                    $avgScore = round($total / $count, 1);
+                                                                }
+                                                            }
+                                                            $studentName = $sm->thesis->student->user->name ?? 'N/A';
+                                                            $matricNo = $sm->thesis->student->matric_number ?? 'N/A';
+                                                        @endphp
+                                                        <tr class="hover:bg-slate-50/50 transition-colors" 
+                                                            x-show="!search || '{{ strtolower($studentName) }}'.includes(search.toLowerCase()) || '{{ strtolower($matricNo) }}'.includes(search.toLowerCase())">
+                                                            @if(!isset($isCoordinator) || !$isCoordinator)
+                                                            <td class="px-4 py-3">
+                                                                <input type="checkbox" :value="'{{ $sm->id }}'" x-model="selected" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                                                            </td>
+                                                            @endif
+                                                            <td class="px-4 py-3">
+                                                                <div class="font-medium text-slate-900">{{ $studentName }}</div>
+                                                                <div class="text-xs text-slate-500">{{ $matricNo }}</div>
+                                                            </td>
+                                                            <td class="px-4 py-3">
+                                                                <span class="px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">{{ ucfirst(str_replace('_', ' ', $sm->status)) }}</span>
+                                                            </td>
+                                                            <td class="px-4 py-3 text-slate-600 text-xs">
+                                                                {{ $sm->defence_date ? \Carbon\Carbon::parse($sm->defence_date)->format('M d, Y') : 'Not scheduled' }}
+                                                            </td>
+                                                            @if($template->slug === 'seminar_as_a_course')
+                                                            <td class="px-4 py-3 text-xs">
+                                                                @if($sm->submissions->count() > 0)
+                                                                    <a href="{{ Storage::url($sm->submissions->first()->file_url) }}" target="_blank" class="text-indigo-600 hover:underline">Download</a>
+                                                                @else
+                                                                    <span class="text-slate-400">Not uploaded</span>
+                                                                @endif
+                                                            </td>
+                                                            <td class="px-4 py-3 text-xs font-bold">
+                                                                @if($avgScore !== null)
+                                                                    <span class="text-emerald-600">{{ $avgScore }}</span>
+                                                                @else
+                                                                    <span class="text-slate-400">-</span>
+                                                                @endif
+                                                            </td>
+                                                            @endif
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    @else
+                                    <div class="text-center py-8 text-slate-500 text-sm">
+                                        No active students currently at this milestone.
+                                    </div>
+                                    @endif
                                 </div>
-                                @else
+
+                                {{-- Empty state when no students and panel is expanded --}}
+                                @if($template->studentMilestones->count() === 0)
                                 <div class="text-center py-8 text-slate-500 text-sm">
                                     No active students currently at this milestone.
                                 </div>
@@ -265,5 +340,3 @@
     </div>
 </div>
 @endsection
-</tbody>
-</table>
