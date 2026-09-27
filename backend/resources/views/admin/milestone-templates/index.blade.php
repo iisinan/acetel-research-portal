@@ -167,10 +167,8 @@
                                                     </p>
                                                 </div>
                                             </div>
-                                            <form action="{{ route('admin.milestone-templates.assign-examiner-global', $template->id) }}" method="POST" class="flex items-center gap-2 sm:ml-auto overflow-visible relative" @submit="if(selected.length === 0) { alert('Please select at least one examiner.'); $event.preventDefault(); }">
-                                                @csrf
-                                                <!-- Alpine component for multiselect -->
-                                                <div x-data="{
+                                            <form action="{{ route('admin.milestone-templates.assign-examiner-global', $template->id) }}" method="POST" class="flex items-center gap-2 sm:ml-auto overflow-visible relative" 
+                                                x-data="{
                                                     options: [
                                                         @foreach($supervisors as $sup)
                                                             { id: '{{ $sup->id }}', name: '{{ addslashes($sup->user->name) }}' }{{ !$loop->last ? ',' : '' }}
@@ -183,7 +181,11 @@
                                                         if (this.selected.length === 1) return this.options.find(o => o.id == this.selected[0])?.name || '';
                                                         return this.selected.length + ' selected';
                                                     }
-                                                }" class="relative w-48 z-50">
+                                                }"
+                                                @submit="if(selected.length === 0) { alert('Please select at least one examiner.'); $event.preventDefault(); }">
+                                                @csrf
+                                                <!-- Alpine component for multiselect -->
+                                                <div class="relative w-48 z-50">
                                                     
                                                     <div @click="open = !open" class="block w-full py-1.5 pl-3 pr-8 text-xs border border-indigo-200 bg-white rounded-lg cursor-pointer flex items-center justify-between">
                                                         <span class="truncate text-slate-700" x-text="selectedNames"></span>
