@@ -6,6 +6,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\RepositoryController;
 
 Route::get('/', function () {
+    if (request()->has('ping')) return 'pong';
+
     if (request()->has('debug_logs_xyz')) {
         $logPath = storage_path('logs/laravel.log');
         if (file_exists($logPath)) {
@@ -14,6 +16,7 @@ Route::get('/', function () {
         return 'No logs found.';
     }
 
+    try {
     $announcements = \Illuminate\Support\Facades\Cache::remember('public_announcements', 60 * 15, function() {
         return \App\Models\Announcement::active()
             ->orderByRaw('COALESCE(starts_at, created_at) DESC')
@@ -37,7 +40,7 @@ Route::get('/', function () {
         }
     });
     
-    return view('welcome', compact('announcements', 'stats'));
+    return view('welcome', compact('announcements', 'stats')); } catch (\Throwable $e) { return response((string) $e, 500); }
 });
 
 // Institutional Research Repository (Public)
