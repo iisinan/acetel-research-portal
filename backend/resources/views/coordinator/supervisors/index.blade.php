@@ -82,6 +82,13 @@
                                             <div>
                                                 <p class="text-sm font-bold text-slate-900 leading-none group-hover:text-acetel-600 transition-colors">{{ $supervisor->user->name }}</p>
                                                 <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1.5">{{ $supervisor->user->email }}</p>
+                                                <div class="flex flex-wrap gap-1 mt-2">
+                                                    @foreach($supervisor->user->getRoleNames() as $role)
+                                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-brand-50 text-brand-700 text-[8px] font-black uppercase tracking-wider border border-brand-100">
+                                                            {{ $role }}
+                                                        </span>
+                                                    @endforeach
+                                                </div>
                                             </div>
                                         </div>
                                     </td>

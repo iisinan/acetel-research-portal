@@ -7,12 +7,18 @@
 
 @if($hasMultipleRoles)
     <div class="px-4 mb-6">
-        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Switch Role</label>
-        <select x-model="activeRole" class="w-full bg-slate-50 border border-slate-200 text-sm font-semibold rounded-xl px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500 text-slate-700 shadow-sm transition-all">
+        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">My Roles</label>
+        <div class="flex flex-col gap-1.5">
             @foreach($userRoles as $role)
-                <option value="{{ $role }}">{{ $role }}</option>
+                <button @click="activeRole = '{{ $role }}'"
+                        :class="activeRole === '{{ $role }}' ? 'bg-green-600 text-white shadow-md' : 'bg-slate-50 text-slate-600 hover:bg-green-50 hover:text-green-700'"
+                        class="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all border border-transparent flex items-center justify-between"
+                        :class="activeRole === '{{ $role }}' ? 'border-green-700' : 'border-slate-200'">
+                    <span>{{ $role }}</span>
+                    <svg x-show="activeRole === '{{ $role }}'" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4"/></svg>
+                </button>
             @endforeach
-        </select>
+        </div>
     </div>
 @endif
 

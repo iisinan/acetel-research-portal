@@ -69,6 +69,10 @@ class ExaminerPoolController extends Controller
             'program_id' => $coordinatorProfile->program_id,
         ]);
 
+        if (!$supervisor->user->hasRole('Internal Examiner')) {
+            $supervisor->user->assignRole('Internal Examiner');
+        }
+
         return back()->with('success', 'Supervisor added to examiner pool.');
     }
 
@@ -90,7 +94,7 @@ class ExaminerPoolController extends Controller
                 'is_active' => true,
             ]);
 
-            $user->assignRole('Supervisor'); // Or a specific 'Examiner' role if defined
+            $user->assignRole('External Examiner');
 
             ExternalExaminerProfile::create([
                 'user_id' => $user->id,
@@ -121,6 +125,10 @@ class ExaminerPoolController extends Controller
             'institution' => $request->institution,
             'expertise' => $supervisor->specialization,
         ]);
+
+        if (!$supervisor->user->hasRole('External Examiner')) {
+            $supervisor->user->assignRole('External Examiner');
+        }
 
         return back()->with('success', 'Supervisor upgraded to External Examiner.');
     }
