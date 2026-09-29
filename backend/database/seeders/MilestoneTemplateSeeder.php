@@ -67,22 +67,9 @@ class MilestoneTemplateSeeder extends Seeder
                 'description' => 'Second progress report document upload and supervisor validation.'
             ],
             [
-                'name' => 'Progress Presentation',
-                'slug' => 'progress_presentation',
-                'order' => 6,
-                'requires_submission' => true,
-                'submission_type' => ['ppt'],
-                'requires_approval' => true,
-                'required_approvers' => ['Supervisor', 'Program Coordinator'],
-                'allow_defence_date' => true,
-                'defence_type' => 'progress',
-                'defence_date_role' => 'Program Coordinator',
-                'description' => 'Student presents progress. Committee evaluates and grades.'
-            ],
-            [
                 'name' => 'Internal defence',
                 'slug' => 'internal_defence',
-                'order' => 7,
+                'order' => 6,
                 'requires_submission' => true,
                 'requires_approval' => true,
                 'submission_requires_approval' => true,
@@ -98,7 +85,7 @@ class MilestoneTemplateSeeder extends Seeder
             [
                 'name' => 'Viva',
                 'slug' => 'viva',
-                'order' => 8,
+                'order' => 7,
                 'requires_submission' => true,
                 'requires_approval' => true,
                 'submission_requires_approval' => true,
