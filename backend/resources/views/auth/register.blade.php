@@ -397,19 +397,15 @@
                         </div>
                     </div>
 
-                    <div x-show="getCurrentSubStepType() === 'progress_presentation_1_details'" x-cloak>
-                        <div class="mb-6">
-                            <label class="block text-sm font-bold text-slate-700 mb-1.5">Date of Progress Presentation 1</label>
-                            <input type="date" name="progress_presentation_1_date"
-                                   class="w-full rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-green-500/20 focus:border-green-500 text-sm font-medium py-3 px-4 transition-colors">
+                    <div x-show="getCurrentSubStepType() === 'progress_report_1_details'" x-cloak>
+                        <div class="mb-6 p-4 bg-green-50 rounded-xl border border-green-200">
+                            <p class="text-sm font-semibold text-green-800">✓ Your Progress Report 1 has been recorded as completed. Click "Save & Continue" to proceed.</p>
                         </div>
                     </div>
 
-                    <div x-show="getCurrentSubStepType() === 'progress_presentation_2_details'" x-cloak>
-                        <div class="mb-6">
-                            <label class="block text-sm font-bold text-slate-700 mb-1.5">Date of Progress Presentation 2</label>
-                            <input type="date" name="progress_presentation_2_date"
-                                   class="w-full rounded-xl border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-green-500/20 focus:border-green-500 text-sm font-medium py-3 px-4 transition-colors">
+                    <div x-show="getCurrentSubStepType() === 'progress_report_2_details'" x-cloak>
+                        <div class="mb-6 p-4 bg-green-50 rounded-xl border border-green-200">
+                            <p class="text-sm font-semibold text-green-800">✓ Your Progress Report 2 has been recorded as completed. Click "Save & Continue" to proceed.</p>
                         </div>
                     </div>
 
@@ -698,8 +694,8 @@
                 { id: serverMilestones.find(m => m.slug === 'seminar_as_a_course')?.id, text: "Have you completed your", highlight: "Seminar Course", textAfter: "?", subStep: "grade", title: "Seminar Course Grade", desc: "Since you have completed your Seminar Course, please provide your grade below.", btnText: "Save Grade & Continue" },
                 { id: serverMilestones.find(m => m.slug === 'supervisors_assigned')?.id, text: "Has your", highlight: "Supervisory Committee", textAfter: " been assigned?", subStep: "supervisors", title: "Assign Supervisors", desc: "Since your committee is assigned, please select them below.", btnText: "Save Supervisors & Continue" },
                 { id: serverMilestones.find(m => m.slug === 'proposal_defence')?.id, text: "Have you completed your", highlight: "Proposal Defence", textAfter: "?", subStep: "proposal_defence_details", title: "Proposal Defence Details", desc: "Please provide the date of your Proposal Defence, and your approved Thesis Title & Abstract.", btnText: "Save Details & Continue" },
-                { id: serverMilestones.find(m => m.slug === 'progress_presentation_1')?.id, text: "Have you completed your", highlight: "Progress Presentation 1", textAfter: "?", subStep: "progress_presentation_1_details", subStepNo: "progress_presentation_1_schedule", title: "Progress Presentation 1 Details", desc: "Please provide the date of your Progress Presentation 1.", btnText: "Save Date & Continue" },
-                { id: serverMilestones.find(m => m.slug === 'progress_presentation_2')?.id, text: "Have you completed your", highlight: "Progress Presentation 2", textAfter: "?", subStep: "progress_presentation_2_details", subStepNo: "progress_presentation_2_schedule", title: "Progress Presentation 2 Details", desc: "Please provide the date of your Progress Presentation 2.", btnText: "Save Date & Continue" },
+                { id: serverMilestones.find(m => m.slug === 'progress_report_1')?.id, text: "Have you completed your", highlight: "Progress Report 1", textAfter: "?", subStep: "progress_report_1_details", title: "Progress Report 1 Details", desc: "Please confirm you have completed and submitted your first progress report.", btnText: "Save & Continue" },
+                { id: serverMilestones.find(m => m.slug === 'progress_report_2')?.id, text: "Have you completed your", highlight: "Progress Report 2", textAfter: "?", subStep: "progress_report_2_details", title: "Progress Report 2 Details", desc: "Please confirm you have completed and submitted your second progress report.", btnText: "Save & Continue" },
                 { id: serverMilestones.find(m => m.slug === 'internal_defence')?.id, text: "Have you completed your", highlight: "Internal Defence", textAfter: "?", subStep: "internal_defence_details", title: "Internal Defence Details", desc: "Since you have completed your Internal Defence, please provide the date, select your internal examiner, and upload your publication.", btnText: "Save Details & Continue" },
                 { id: serverMilestones.find(m => m.slug === 'viva')?.id, text: "Have you completed your", highlight: "Viva", textAfter: "?", subStep: "viva_details", title: "Viva Details", desc: "Since you have completed your Viva, please provide the date, select your external examiner, and upload your final thesis.", btnText: "Save & Complete Registration" }
             ],
@@ -920,7 +916,7 @@
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                         return;
                     }
-                } else if (type === 'proposal_defence_details' || type === 'progress_presentation_1_details' || type === 'progress_presentation_2_details' || type === 'internal_defence_details' || type === 'viva_details') {
+                } else if (type === 'proposal_defence_details' || type === 'internal_defence_details' || type === 'viva_details') {
                     let activeBlock = document.querySelector('[x-show="getCurrentSubStepType() === \'' + type + '\'"]');
                     if (activeBlock) {
                         let dateInput = activeBlock.querySelector('input[type="date"]');
