@@ -174,6 +174,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/evaluations/{evaluation}', [\App\Http\Controllers\EvaluationController::class, 'show'])->name('evaluations.show');
     Route::get('/evaluations/{evaluation}/pdf', [\App\Http\Controllers\EvaluationController::class, 'downloadPdf'])->name('evaluations.pdf');
 
+    // Meetings
+    Route::get('/meeting/{milestone}', [\App\Http\Controllers\MeetingController::class, 'join'])->name('meeting.join');
+
     // Action Items
     Route::post('/action-items/{actionItem}/complete', [\App\Http\Controllers\ActionItemController::class, 'complete'])->name('action-items.complete');
     Route::post('/action-items/{actionItem}/verify', [\App\Http\Controllers\ActionItemController::class, 'verify'])->name('action-items.verify');

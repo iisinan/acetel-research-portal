@@ -91,9 +91,17 @@
                                         </div>
                                     </td>
                                     <td class="px-8 py-7 text-right align-middle">
-                                        <button type="submit" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 {{ $evaluation ? 'bg-slate-900 hover:bg-slate-800' : 'bg-emerald-600 hover:bg-emerald-700' }} text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm">
-                                            {{ $evaluation ? 'Update Score' : 'Save Marks' }}
-                                        </button>
+                                        <div class="flex flex-col gap-2 items-end">
+                                            @if($milestone)
+                                                <a href="{{ route('meeting.join', $milestone) }}" target="_blank" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-brand-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm w-max">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                                    Join Virtual Room
+                                                </a>
+                                            @endif
+                                            <button type="submit" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 {{ $evaluation ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-emerald-600 hover:bg-emerald-700 text-white' }} rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm w-max">
+                                                {{ $evaluation ? 'Update Score' : 'Save Marks' }}
+                                            </button>
+                                        </div>
                                     </td>
                                 </form>
                             </tr>
