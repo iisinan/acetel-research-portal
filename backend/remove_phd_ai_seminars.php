@@ -9,9 +9,11 @@ use App\Models\StudentMilestone;
 use App\Models\Program;
 use App\Models\StudentProfile;
 
-$programs = Program::where('name', 'LIKE', '%PhD%')
-    ->where('name', 'LIKE', '%Artificial Intelligence%')
-    ->get();
+$programs = Program::where(function($q) {
+    $q->where('name', 'ILIKE', '%PhD%')
+      ->orWhere('name', 'ILIKE', '%Doctor of Philosophy%');
+})->where('name', 'ILIKE', '%Artificial Intelligence%')
+  ->get();
 
 if ($programs->isEmpty()) {
     echo "No PhD Artificial Intelligence programs found.\n";

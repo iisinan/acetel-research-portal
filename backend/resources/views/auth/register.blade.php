@@ -703,8 +703,11 @@
 
                 if (this.form.program_id) {
                     const prog = serverPrograms.find(p => p.id == this.form.program_id);
-                    if (prog && prog.name.toLowerCase().includes('phd') && prog.name.toLowerCase().includes('artificial intelligence')) {
-                        allQuestions = allQuestions.filter(q => q.highlight !== 'Seminar Course');
+                    if (prog) {
+                        const name = prog.name.toLowerCase();
+                        if ((name.includes('phd') || name.includes('doctor of philosophy')) && name.includes('artificial intelligence')) {
+                            allQuestions = allQuestions.filter(q => q.highlight !== 'Seminar Course');
+                        }
                     }
                 }
                 
