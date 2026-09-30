@@ -7,6 +7,10 @@ use App\Http\Requests\LoginRequest;
 use App\Services\AuthService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Support\Str;
 use App\Models\LoginActivity;
 
 class AuthController extends Controller
@@ -131,24 +135,50 @@ class AuthController extends Controller
     public function processForgotPassword(Request $request)
     {
         $request->validate(['email' => 'required|email']);
-        
-        $user = \App\Models\User::where('email', $request->email)->first();
-        if ($user) {
-            $password = 'ACETEL-' . rand(100000, 999999);
-            
-            $user->update([
-                'password' => \Illuminate\Support\Facades\Hash::make($password),
-                'must_change_password' => true,
-            ]);
 
-            try {
-                \Illuminate\Support\Facades\Mail::to($user->email)
-                    ->send(new \App\Mail\PasswordResetDispatched($user, $password));
-            } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error('Forgot password email failed for ' . $user->email . ': ' . $e->getMessage());
-            }
+        $status = Password::sendResetLink($request->only('email'));
+
+        if ($status === Password::RESET_LINK_SENT) {
+            return back()->with('status', 'If this email belongs to an active institutional account, a password reset link has been dispatched to it.');
         }
 
-        return back()->with('status', 'If this email belongs to an active institutional account, a password reset link has been dispatched to it.');
+        return back()->withErrors(['email' => __($status)]);
+    }
+
+    public function showResetPassword(Request $request, $token)
+    {
+        return view('auth.reset-password', [
+            'token' => $token,
+            'email' => $request->email,
+        ]);
+    }
+
+    public function processResetPassword(Request $request)
+    {
+        $request->validate([
+            'token'                 => 'required',
+            'email'                 => 'required|email',
+            'password'              => 'required|min:8|confirmed',
+        ]);
+
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function ($user, $password) {
+                $user->forceFill([
+                    'password'            => Hash::make($password),
+                    'must_change_password' => false,
+                ])->setRememberToken(Str::random(60));
+
+                $user->save();
+
+                event(new PasswordReset($user));
+            }
+        );
+
+        if ($status === Password::PASSWORD_RESET) {
+            return redirect()->route('login')->with('status', 'Password reset successfully. Please log in with your new password.');
+        }
+
+        return back()->withErrors(['email' => [__($status)]]);
     }
 }
