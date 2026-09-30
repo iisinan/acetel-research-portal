@@ -23,7 +23,7 @@ class MilestoneTemplateController extends Controller
         $templates = MilestoneTemplate::with('program')
             ->with(['studentMilestones' => function($q) use ($isCoordinator, $coordinatorProgramId) { 
                 $q->whereIn('status', ['in_progress', 'submitted', 'revision_required'])
-                  ->with(['thesis.student.user', 'thesis.defenceEvents.panelMembers.user', 'thesis.defenceEvents.evaluations', 'submissions']); 
+                  ->with(['thesis.student.user', 'thesis.student.cohort', 'thesis.defenceEvents.panelMembers.user', 'thesis.defenceEvents.evaluations', 'submissions']); 
                 
                 if ($isCoordinator) {
                     $q->whereHas('thesis.student', function($sq) use ($coordinatorProgramId) {
@@ -33,7 +33,8 @@ class MilestoneTemplateController extends Controller
             }])->orderBy('order')->get();
             
         $supervisors = \App\Models\SupervisorProfile::with('user')->get();
-        return view('admin.milestone-templates.index', compact('templates', 'supervisors', 'isCoordinator'));
+        $cohorts = \App\Models\Cohort::all();
+        return view('admin.milestone-templates.index', compact('templates', 'supervisors', 'isCoordinator', 'cohorts'));
     }
 
     public function create()
@@ -360,21 +361,15 @@ class MilestoneTemplateController extends Controller
 
         // Notify the examiners once
         try {
-            $latestEvent = \App\Models\DefenceEvent::where('type', $template->defence_type ?? 'seminar')
-                ->latest()
-                ->first();
-                
-            if ($latestEvent) {
-                foreach ($supervisors as $supervisor) {
-                    $supervisor->user->notify(new \App\Notifications\EventScheduled($latestEvent));
-                }
+            foreach ($supervisors as $supervisor) {
+                $supervisor->user->notify(new \App\Notifications\ExaminerNominated($template, $request->custom_message, $assignedCount));
             }
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('Notification failed in assignExaminerGlobal: ' . $e->getMessage());
         }
         
         $names = $supervisors->map(fn($s) => $s->user->name)->implode(', ');
-        return back()->with('success', "Examiners ($names) assigned to all {$assignedCount} students successfully.");
+        return back()->with('success', "Examiners ($names) assigned to all {$assignedCount} students and notified successfully.");
     }
 
     public function exportStudents(MilestoneTemplate $template)

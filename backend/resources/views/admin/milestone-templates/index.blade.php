@@ -31,7 +31,7 @@
                 </thead>
                 
                     @forelse($templates as $template)
-                    <tbody x-data="{ expanded: false, showStudents: false, selectAll: false, selected: [], search: '' }" class="divide-y divide-slate-50 border-t border-slate-50">
+                    <tbody x-data="{ expanded: false, showStudents: false, selectAll: false, selected: [], search: '', cohortFilter: '' }" class="divide-y divide-slate-50 border-t border-slate-50">
                     <tr class="hover:bg-slate-50/30 transition-colors group cursor-pointer" data-id="{{ $template->id }}" @click="if(!$event.target.closest('button') && !$event.target.closest('a') && !$event.target.closest('input') && !$event.target.closest('form')) expanded = !expanded">
                         <td class="px-10 py-7 text-center">
                             <div class="flex flex-col items-center gap-2">
@@ -184,20 +184,20 @@
                                                 }"
                                                 @submit="if(selected.length === 0) { alert('Please select at least one examiner.'); $event.preventDefault(); }">
                                                 @csrf
+                                                
                                                 <!-- Alpine component for multiselect -->
                                                 <div class="relative w-48 z-50">
-                                                    
                                                     <div @click="open = !open" class="block w-full py-1.5 pl-3 pr-8 text-xs border border-indigo-200 bg-white rounded-lg cursor-pointer flex items-center justify-between">
                                                         <span class="truncate text-slate-700" x-text="selectedNames"></span>
                                                         <svg class="w-3 h-3 text-slate-400 absolute right-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                                                     </div>
 
-                                                    <div x-show="open" @click.outside="open = false" x-transition class="absolute right-0 w-64 mt-1 bg-white border border-indigo-100 rounded-lg shadow-xl max-h-60 overflow-y-auto z-50" style="display: none;">
+                                                    <div x-show="open" @click.outside="open = false" x-transition class="absolute right-0 w-64 mt-1 bg-white border border-indigo-100 rounded-lg shadow-xl overflow-y-auto z-50" style="display: none;">
                                                         <div class="p-2 sticky top-0 bg-slate-50 border-b border-slate-100 flex justify-between gap-2 z-10">
                                                             <button type="button" @click.stop="selected = options.map(o => o.id)" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 uppercase tracking-wider px-2 py-1 bg-indigo-50 hover:bg-indigo-100 rounded flex-1">Select All</button>
                                                             <button type="button" @click.stop="selected = []" class="text-[10px] font-bold text-slate-500 hover:text-slate-700 uppercase tracking-wider px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded flex-1">Clear</button>
                                                         </div>
-                                                        <div class="py-1">
+                                                        <div class="py-1 max-h-40 overflow-y-auto">
                                                             <template x-for="option in options" :key="option.id">
                                                                 <label class="flex items-center px-3 py-2 hover:bg-indigo-50 cursor-pointer">
                                                                     <input type="checkbox" :value="option.id" x-model="selected" name="supervisor_profile_ids[]" class="rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 mr-2 w-3.5 h-3.5">
@@ -205,7 +205,8 @@
                                                                 </label>
                                                             </template>
                                                         </div>
-                                                        <div class="p-2 border-t border-slate-100 bg-slate-50 sticky bottom-0">
+                                                        <div class="p-2 border-t border-slate-100 bg-slate-50">
+                                                            <textarea name="custom_message" placeholder="Custom Message (Optional)..." rows="2" class="w-full text-xs p-1 mb-2 border border-slate-200 rounded-md focus:ring-indigo-500 focus:border-indigo-500"></textarea>
                                                             <button type="button" @click.stop="open = false" class="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold uppercase tracking-wider rounded">Done</button>
                                                         </div>
                                                     </div>
@@ -251,11 +252,19 @@
                                 {{-- Student List (hidden until "View Student Details" is clicked) --}}
                                 <div x-show="showStudents" x-cloak x-transition>
                                     @if($template->studentMilestones->count() > 0)
-                                    {{-- Search --}}
-                                    <div class="mb-4">
-                                        <div class="relative">
+                                    {{-- Search and Filter --}}
+                                    <div class="mb-4 flex flex-col md:flex-row gap-4">
+                                        <div class="relative flex-1">
                                             <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                                             <input x-ref="searchInput" x-model="search" type="text" placeholder="Search by name or matric number..." class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
+                                        </div>
+                                        <div class="w-full md:w-64">
+                                            <select x-model="cohortFilter" class="w-full py-2.5 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
+                                                <option value="">All Cohorts (Sets/Batches)</option>
+                                                @foreach($cohorts as $cohort)
+                                                    <option value="{{ $cohort->id }}">{{ $cohort->name }} ({{ $cohort->intake_year }})</option>
+                                                @endforeach
+                                            </select>
                                         </div>
                                     </div>
 
@@ -266,7 +275,12 @@
                                                     <tr>
                                                         @if(!isset($isCoordinator) || !$isCoordinator)
                                                         <th class="px-4 py-3 w-10">
-                                                            <input type="checkbox" x-model="selectAll" @change="selected = selectAll ? [{{ $template->studentMilestones->map(fn($m) => "'" . $m->id . "'")->implode(',') }}] : []" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                                                            <input type="checkbox" x-model="selectAll" 
+                                                                @change="if(selectAll) { 
+                                                                    let visibleRows = Array.from($root.querySelectorAll('tr[data-milestone-id]')).filter(row => row.style.display !== 'none'); 
+                                                                    selected = visibleRows.map(row => row.getAttribute('data-milestone-id')); 
+                                                                } else { selected = []; }" 
+                                                                class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
                                                         </th>
                                                         @endif
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Student</th>
@@ -297,10 +311,11 @@
                                                                 }
                                                             }
                                                             $studentName = $sm->thesis->student->user->name ?? 'N/A';
-                                                            $matricNo = $sm->thesis->student->matric_number ?? 'N/A';
+                                                            $matricNo = $sm->thesis->student->student_id_number ?? 'N/A';
+                                                            $cohortId = $sm->thesis->student->cohort_id ?? '';
                                                         @endphp
-                                                        <tr class="hover:bg-slate-50/50 transition-colors" 
-                                                            x-show="!search || '{{ strtolower($studentName) }}'.includes(search.toLowerCase()) || '{{ strtolower($matricNo) }}'.includes(search.toLowerCase())">
+                                                        <tr data-milestone-id="{{ $sm->id }}" class="hover:bg-slate-50/50 transition-colors" 
+                                                            x-show="(cohortFilter === '' || cohortFilter == '{{ $cohortId }}') && (!search || '{{ strtolower($studentName) }}'.includes(search.toLowerCase()) || '{{ strtolower($matricNo) }}'.includes(search.toLowerCase()))">
                                                             @if(!isset($isCoordinator) || !$isCoordinator)
                                                             <td class="px-4 py-3">
                                                                 <input type="checkbox" :value="'{{ $sm->id }}'" x-model="selected" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
