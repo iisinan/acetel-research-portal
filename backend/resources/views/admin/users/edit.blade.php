@@ -175,6 +175,28 @@
                                 @error('level_id') <p class="text-red-500 text-xs mt-1.5 font-medium">{{ $message }}</p> @enderror
                             </div>
                         </div>
+
+                        <!-- Milestone Management -->
+                        @if($user->studentProfile && $user->studentProfile->thesis)
+                        <div class="col-span-6 p-4 bg-slate-50 rounded-xl border border-slate-200 mt-6">
+                            <h4 class="text-sm font-bold text-black mb-1">Milestone Management</h4>
+                            <p class="text-xs text-slate-500 mb-4">Administratively promote or demote this student's thesis progress. The student will be notified.</p>
+                            <div class="flex gap-3">
+                                <button type="button" 
+                                    onclick="if(confirm('Are you sure you want to demote this student to the previous milestone?')) { document.getElementById('demote-form').submit(); }"
+                                    class="px-4 py-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold border border-red-200 hover:bg-red-100 transition flex items-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                                    Demote Milestone
+                                </button>
+                                <button type="button" 
+                                    onclick="if(confirm('Are you sure you want to promote this student to the next milestone?')) { document.getElementById('promote-form').submit(); }"
+                                    class="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold border border-emerald-200 hover:bg-emerald-100 transition flex items-center gap-2">
+                                    Promote Milestone
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                        @endif
                     </div>
 
 
@@ -238,6 +260,14 @@
             <form id="reset-password-form" action="{{ route('admin.users.reset_password', $user) }}" method="POST" class="hidden">
                 @csrf
             </form>
+            @if($user->studentProfile && $user->studentProfile->thesis)
+            <form id="promote-form" action="{{ route('admin.students.promote-milestone', $user->studentProfile) }}" method="POST" class="hidden">
+                @csrf
+            </form>
+            <form id="demote-form" action="{{ route('admin.students.demote-milestone', $user->studentProfile) }}" method="POST" class="hidden">
+                @csrf
+            </form>
+            @endif
         </div>
     </div>
 </div>
