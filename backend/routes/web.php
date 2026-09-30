@@ -176,6 +176,7 @@ Route::middleware('auth')->group(function () {
 
     // Meetings
     Route::get('/meeting/{milestone}', [\App\Http\Controllers\MeetingController::class, 'join'])->name('meeting.join');
+    Route::get('/meeting/event/{event}', [\App\Http\Controllers\MeetingController::class, 'joinEvent'])->name('meeting.join_event');
 
     // Action Items
     Route::post('/action-items/{actionItem}/complete', [\App\Http\Controllers\ActionItemController::class, 'complete'])->name('action-items.complete');
