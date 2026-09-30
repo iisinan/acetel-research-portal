@@ -268,15 +268,36 @@
 
             {{-- Sequential Execution Roadmap --}}
             <div class="space-y-6">
-                <div class="flex items-center justify-between px-4">
+                <div class="flex flex-col sm:flex-row items-center justify-between px-4 gap-4">
                     <h3 class="text-xl font-black text-slate-900 tracking-tight">Sequential Execution Roadmap</h3>
-                    <form action="{{ route('admin.students.sync-milestones', $student) }}" method="POST">
-                        @csrf
-                        <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-brand-600 transition-colors flex items-center gap-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                            Re-sync Milestones
-                        </button>
-                    </form>
+                    
+                    <div class="flex items-center gap-4">
+                        <form action="{{ route('admin.students.demote-milestone', $student) }}" method="POST" onsubmit="return confirm('Are you sure you want to demote this student to the previous milestone?');">
+                            @csrf
+                            <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-700 transition-colors flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                                Demote
+                            </button>
+                        </form>
+
+                        <form action="{{ route('admin.students.promote-milestone', $student) }}" method="POST" onsubmit="return confirm('Are you sure you want to promote this student to the next milestone?');">
+                            @csrf
+                            <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:text-emerald-700 transition-colors flex items-center gap-1">
+                                Promote
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                            </button>
+                        </form>
+
+                        <div class="w-px h-4 bg-slate-200"></div>
+
+                        <form action="{{ route('admin.students.sync-milestones', $student) }}" method="POST">
+                            @csrf
+                            <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-brand-600 transition-colors flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                Re-sync
+                            </button>
+                        </form>
+                    </div>
                 </div>
 
                 <div class="space-y-6 relative">

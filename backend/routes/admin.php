@@ -22,6 +22,8 @@ Route::post('/users/{user}/reset-password', [UserManagementController::class, 'r
 
 Route::get('/students/{student}', [StudentController::class, 'show'])->name('students.show');
 Route::post('/students/{student}/assign-examiner', [StudentController::class, 'assignInternalExaminer'])->name('students.assign-examiner');
+Route::post('/students/{student}/promote-milestone', [StudentController::class, 'promoteMilestone'])->name('students.promote-milestone');
+Route::post('/students/{student}/demote-milestone', [StudentController::class, 'demoteMilestone'])->name('students.demote-milestone');
 
 use App\Http\Controllers\Admin\InternalExaminerController;
 Route::resource('internal-examiners', InternalExaminerController::class);
