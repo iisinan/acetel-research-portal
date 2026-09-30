@@ -7,7 +7,7 @@
 @section('content')
 <div class="space-y-8 animate-in-up">
     <!-- Header Summary Card -->
-    <div class="relative overflow-hidden rounded-[2.5rem] p-10 bg-grad-premium border border-white/20 shadow-premium group">
+    <div class="relative overflow-hidden rounded-[2.5rem] p-6 md:p-10 bg-grad-premium border border-white/20 shadow-premium group">
         <div class="absolute top-0 right-0 -mt-24 -mr-24 w-80 h-80 bg-white/10 blur-[100px] rounded-full group-hover:bg-white/15 transition-all duration-1000"></div>
         <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
             <div>
@@ -38,11 +38,11 @@
     <!-- Candidates Grid/List -->
     <div class="grid grid-cols-1 gap-6">
         @forelse($assignments as $assignment)
-            <div class="group relative glass p-8 rounded-[2.5rem] border border-slate-100 hover:border-primary-200 hover:shadow-premium transition-all duration-500 hover:-translate-y-1 bg-white">
-                <div class="flex flex-col lg:flex-row items-center gap-8">
+            <div class="group relative glass p-5 md:p-8 rounded-[2.5rem] border border-slate-100 hover:border-primary-200 hover:shadow-premium transition-all duration-500 hover:-translate-y-1 bg-white">
+                <div class="flex flex-col lg:flex-row items-start lg:items-center gap-5 md:gap-8">
                     <!-- Identity Section -->
-                    <div class="flex items-center gap-8 flex-1 w-full min-w-0">
-                        <div class="relative">
+                    <div class="flex items-center gap-4 md:gap-8 flex-1 w-full min-w-0">
+                        <div class="relative shrink-0">
                             <div class="w-24 h-24 rounded-3xl bg-green-50 border border-green-100 flex items-center justify-center text-green-600 text-4xl font-black shadow-inner group-hover:bg-green-600 group-hover:text-white group-hover:rotate-3 transition-all duration-500 overflow-hidden">
                                 {{ substr($assignment->thesis->student->user->name, 0, 1) }}
                             </div>
@@ -52,7 +52,7 @@
                         </div>
                         <div class="min-w-0 flex-1">
                             <div class="flex flex-wrap items-center gap-4 mb-3">
-                                <h3 class="text-2xl font-black text-slate-900 tracking-tighter">{{ $assignment->thesis->student->user->name }}</h3>
+                                <h3 class="text-lg md:text-2xl font-black text-slate-900 tracking-tighter">{{ $assignment->thesis->student->user->name }}</h3>
                                 <div class="flex items-center gap-2">
                                     <span class="px-3 py-1 bg-green-50 text-[10px] font-black text-green-600 rounded-full border border-green-100 uppercase tracking-widest">{{ $assignment->thesis->student->program->code ?? 'N/A' }}</span>
                                     <span class="px-3 py-1 bg-slate-50 text-[10px] font-black text-slate-500 rounded-full border border-slate-100 uppercase tracking-widest">{{ $assignment->role }}</span>

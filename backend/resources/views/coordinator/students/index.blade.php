@@ -13,7 +13,7 @@
                 </div>
                 <span class="text-[10px] font-black uppercase tracking-[0.3em]">Students</span>
             </div>
-            <h1 class="text-4xl font-black text-slate-900 tracking-tight">Student List</h1>
+            <h1 class="text-2xl md:text-4xl font-black text-slate-900 tracking-tight">Student List</h1>
             <p class="mt-2 text-sm font-medium text-slate-500">List of all students and their supervision status.</p>
         </div>
         <div class="flex items-center gap-3 flex-wrap">

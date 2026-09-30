@@ -362,10 +362,15 @@ class RegisteredUserController extends Controller
             $templates = MilestoneTemplate::orderBy('order')->get();
             $completedIds = $request->completed_milestones ?? [];
 
+            $programName = strtolower(Program::find($request->program_id)->name ?? '');
+            $isPhdAI = str_contains($programName, 'phd') && str_contains($programName, 'artificial intelligence');
+
             // Determine the active milestone: the first template (by order) that is NOT completed.
             // All completed ones → 'approved'. The first non-completed → 'in_progress'. The rest → 'not_started'.
             $activeMilestoneId = null;
             foreach ($templates as $template) {
+                if ($isPhdAI && $template->slug === 'seminar_as_a_course') continue;
+                
                 if (!in_array($template->id, $completedIds)) {
                     $activeMilestoneId = $template->id;
                     break;
@@ -373,6 +378,8 @@ class RegisteredUserController extends Controller
             }
 
             foreach ($templates as $template) {
+                if ($isPhdAI && $template->slug === 'seminar_as_a_course') continue;
+
                 $isCompleted = in_array($template->id, $completedIds);
                 $isActive    = ($template->id === $activeMilestoneId);
 

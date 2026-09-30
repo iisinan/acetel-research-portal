@@ -8,7 +8,7 @@
                 </a>
                 <span class="text-[10px] font-black uppercase tracking-[0.3em]">Milestone Details</span>
             </div>
-            <h1 class="text-4xl font-black text-slate-900 tracking-tight">{{ $milestone->template->name }}</h1>
+            <h1 class="text-2xl md:text-4xl font-black text-slate-900 tracking-tight">{{ $milestone->template->name }}</h1>
             <p class="mt-2 text-sm font-medium text-slate-500 max-w-2xl">{{ $milestone->template->description }}</p>
         </div>
         <div class="flex items-center gap-4">

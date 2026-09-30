@@ -7,7 +7,7 @@
 @section('content')
 <div class="space-y-8 animate-in-up">
     <!-- Profile & Security Header -->
-    <div class="relative overflow-hidden rounded-[2.5rem] p-10 bg-grad-premium border border-white/20 shadow-premium group">
+    <div class="relative overflow-hidden rounded-[2.5rem] p-6 md:p-10 bg-grad-premium border border-white/20 shadow-premium group">
         <div class="absolute top-0 right-0 -mt-24 -mr-24 w-80 h-80 bg-white/10 blur-[100px] rounded-full group-hover:bg-white/15 transition-all duration-1000"></div>
         <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
             <div>

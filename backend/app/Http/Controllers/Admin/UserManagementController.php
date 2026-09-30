@@ -258,6 +258,15 @@ class UserManagementController extends Controller
     }
 
     /**
+     * Display the specified resource.
+     */
+    public function show(User $user)
+    {
+        $user->load(['roles', 'studentProfile.program', 'studentProfile.cohort', 'supervisorProfile', 'coordinatorProfiles.program', 'internalExaminerProfiles', 'externalExaminerProfiles']);
+        return view('admin.users.show', compact('user'));
+    }
+
+    /**
      * Update the specified resource in storage.
      */
     public function update(Request $request, User $user)

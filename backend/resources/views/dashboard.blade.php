@@ -14,7 +14,7 @@
         <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
             <div>
                 <p class="text-green-200 text-sm font-semibold mb-1 uppercase tracking-wider">Welcome back</p>
-                <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">{{ Auth::user()->name }}</h1>
+                <h1 class="text-xl md:text-3xl font-black text-white tracking-tight">{{ Auth::user()->name }}</h1>
                 <p class="text-green-100/80 text-sm mt-2">Your research dashboard is ready. Stay on track with your thesis journey.</p>
             </div>
             <div class="flex items-center gap-3 shrink-0">

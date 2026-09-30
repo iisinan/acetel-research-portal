@@ -1,56 +1,57 @@
 <?php
 
+require __DIR__.'/vendor/autoload.php';
+$app = require_once __DIR__.'/bootstrap/app.php';
+$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+$kernel->bootstrap();
+
 use App\Models\User;
-use App\Models\SupervisorProfile;
-use App\Models\Program;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Spatie\Permission\Models\Role;
 
-$json = file_get_contents('parsed_supervisors.json');
+$json = file_get_contents('/Users/sinan/.gemini/antigravity/brain/78467d7d-74b5-407c-a6d0-69e95f786748/scratch/clean_supervisors.json');
 $supervisors = json_decode($json, true);
 
 $count = 0;
+$skipped = 0;
+
 foreach ($supervisors as $sup) {
-    if ($sup['name'] === 'Unnamed: 1' || empty($sup['email']) || $sup['email'] === 'Unnamed: 2') {
-        continue;
+    $name = trim($sup['name']);
+    $email = strtolower(trim($sup['email']));
+    
+    // Clean up email
+    $email = rtrim($email, ';)');
+    
+    if (empty($email)) {
+        $slug = Str::slug(str_replace(['Prof', 'Dr', 'Miss', 'Mr', 'Mrs'], '', $name));
+        if (empty($slug)) { $slug = 'supervisor_' . uniqid(); }
+        $email = $slug . '@acetel.dummy.edu.ng';
     }
     
-    $email = strtolower(trim($sup['email']));
-    $name = trim($sup['title'] . ' ' . $sup['name']); // Include title in name for academic context
+    // Validate email format just in case
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        echo "Skipping invalid email: $email\n";
+        $skipped++;
+        continue;
+    }
     
     $user = User::where('email', $email)->first();
     if (!$user) {
         $user = User::create([
-            'name' => trim($name),
+            'name' => $name,
             'email' => $email,
-            'password' => Hash::make(Str::random(12)),
-            'must_change_password' => true,
+            'password' => Hash::make('AcetelSupervisor123#'),
+            'email_verified_at' => now(),
         ]);
         
-        $role = Role::firstOrCreate(['name' => 'Supervisor', 'guard_name' => 'web']);
-        $user->assignRole($role);
-    }
-    
-    $profile = SupervisorProfile::firstOrCreate(
-        ['user_id' => $user->id],
-        [
-            'rank' => strtoupper($sup['rank']),
-            'max_students' => 10,
-            'current_load' => 0,
-            'specialization' => $sup['program'] !== 'Unknown' ? $sup['program'] : null
-        ]
-    );
-    
-    // Optionally link to program
-    if ($sup['program'] !== 'Unknown') {
-        $program = Program::where('name', 'like', '%' . $sup['program'] . '%')->first();
-        if ($program) {
-            $profile->programs()->syncWithoutDetaching([$program->id]);
+        $user->assignRole('Supervisor');
+        $count++;
+    } else {
+        if (!$user->hasRole('Supervisor')) {
+            $user->assignRole('Supervisor');
+            $count++;
         }
     }
-    
-    $count++;
 }
 
-echo "Successfully imported/updated $count supervisors.\n";
+echo "Successfully added/updated $count supervisors. Skipped: $skipped\n";

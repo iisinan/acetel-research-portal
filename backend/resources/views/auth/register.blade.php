@@ -225,10 +225,10 @@
 
                     <div class="flex items-center gap-3 mb-6">
                         <div class="bg-green-100 text-green-700 font-bold text-xs px-3 py-1 rounded-full whitespace-nowrap">
-                            Question <span x-text="milestoneStep"></span> of 7
+                            Question <span x-text="milestoneStep"></span> of <span x-text="questions.length"></span>
                         </div>
                         <div class="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-                            <div class="h-full bg-green-500 transition-all duration-300" :style="'width: ' + ((milestoneStep / 7) * 100) + '%'"></div>
+                            <div class="h-full bg-green-500 transition-all duration-300" :style="'width: ' + ((milestoneStep / questions.length) * 100) + '%'"></div>
                         </div>
                     </div>
 
@@ -690,15 +690,26 @@
 
             // Hardcode the mapping since we know the 7 exact slugs/names the user just asked for
             // Seminar course, Supervisors asigned, proposal defence, progress presentation 1, Progress Presentation 2, Internal defence, and Viva 
-            questions: [
-                { id: serverMilestones.find(m => m.slug === 'seminar_as_a_course')?.id, text: "Have you completed your", highlight: "Seminar Course", textAfter: "?", subStep: "grade", title: "Seminar Course Grade", desc: "Since you have completed your Seminar Course, please provide your grade below.", btnText: "Save Grade & Continue" },
-                { id: serverMilestones.find(m => m.slug === 'supervisors_assigned')?.id, text: "Has your", highlight: "Supervisory Committee", textAfter: " been assigned?", subStep: "supervisors", title: "Assign Supervisors", desc: "Since your committee is assigned, please select them below.", btnText: "Save Supervisors & Continue" },
-                { id: serverMilestones.find(m => m.slug === 'proposal_defence')?.id, text: "Have you completed your", highlight: "Proposal Defence", textAfter: "?", subStep: "proposal_defence_details", title: "Proposal Defence Details", desc: "Please provide the date of your Proposal Defence, and your approved Thesis Title & Abstract.", btnText: "Save Details & Continue" },
-                { id: serverMilestones.find(m => m.slug === 'progress_report_1')?.id, text: "Have you completed your", highlight: "Progress Report 1", textAfter: "?", subStep: "progress_report_1_details", title: "Progress Report 1 Details", desc: "Please confirm you have completed and submitted your first progress report.", btnText: "Save & Continue" },
-                { id: serverMilestones.find(m => m.slug === 'progress_report_2')?.id, text: "Have you completed your", highlight: "Progress Report 2", textAfter: "?", subStep: "progress_report_2_details", title: "Progress Report 2 Details", desc: "Please confirm you have completed and submitted your second progress report.", btnText: "Save & Continue" },
-                { id: serverMilestones.find(m => m.slug === 'internal_defence')?.id, text: "Have you completed your", highlight: "Internal Defence", textAfter: "?", subStep: "internal_defence_details", title: "Internal Defence Details", desc: "Since you have completed your Internal Defence, please provide the date, select your internal examiner, and upload your publication.", btnText: "Save Details & Continue" },
-                { id: serverMilestones.find(m => m.slug === 'viva')?.id, text: "Have you completed your", highlight: "Viva", textAfter: "?", subStep: "viva_details", title: "Viva Details", desc: "Since you have completed your Viva, please provide the date, select your external examiner, and upload your final thesis.", btnText: "Save & Complete Registration" }
-            ],
+            get questions() {
+                let allQuestions = [
+                    { id: serverMilestones.find(m => m.slug === 'seminar_as_a_course')?.id, text: "Have you completed your", highlight: "Seminar Course", textAfter: "?", subStep: "grade", title: "Seminar Course Grade", desc: "Since you have completed your Seminar Course, please provide your grade below.", btnText: "Save Grade & Continue" },
+                    { id: serverMilestones.find(m => m.slug === 'supervisors_assigned')?.id, text: "Has your", highlight: "Supervisory Committee", textAfter: " been assigned?", subStep: "supervisors", title: "Assign Supervisors", desc: "Since your committee is assigned, please select them below.", btnText: "Save Supervisors & Continue" },
+                    { id: serverMilestones.find(m => m.slug === 'proposal_defence')?.id, text: "Have you completed your", highlight: "Proposal Defence", textAfter: "?", subStep: "proposal_defence_details", title: "Proposal Defence Details", desc: "Please provide the date of your Proposal Defence, and your approved Thesis Title & Abstract.", btnText: "Save Details & Continue" },
+                    { id: serverMilestones.find(m => m.slug === 'progress_report_1')?.id, text: "Have you completed your", highlight: "Progress Report 1", textAfter: "?", subStep: "progress_report_1_details", title: "Progress Report 1 Details", desc: "Please confirm you have completed and submitted your first progress report.", btnText: "Save & Continue" },
+                    { id: serverMilestones.find(m => m.slug === 'progress_report_2')?.id, text: "Have you completed your", highlight: "Progress Report 2", textAfter: "?", subStep: "progress_report_2_details", title: "Progress Report 2 Details", desc: "Please confirm you have completed and submitted your second progress report.", btnText: "Save & Continue" },
+                    { id: serverMilestones.find(m => m.slug === 'internal_defence')?.id, text: "Have you completed your", highlight: "Internal Defence", textAfter: "?", subStep: "internal_defence_details", title: "Internal Defence Details", desc: "Since you have completed your Internal Defence, please provide the date, select your internal examiner, and upload your publication.", btnText: "Save Details & Continue" },
+                    { id: serverMilestones.find(m => m.slug === 'viva')?.id, text: "Have you completed your", highlight: "Viva", textAfter: "?", subStep: "viva_details", title: "Viva Details", desc: "Since you have completed your Viva, please provide the date, select your external examiner, and upload your final thesis.", btnText: "Save & Complete Registration" }
+                ];
+
+                if (this.form.program_id) {
+                    const prog = serverPrograms.find(p => p.id == this.form.program_id);
+                    if (prog && prog.name.toLowerCase().includes('phd') && prog.name.toLowerCase().includes('artificial intelligence')) {
+                        allQuestions = allQuestions.filter(q => q.highlight !== 'Seminar Course');
+                    }
+                }
+                
+                return allQuestions;
+            },
 
             
             isPhd() {
@@ -986,7 +997,7 @@
                     this.form.completed_milestones.push(id);
                 }
                 
-                if (this.milestoneStep < 7) {
+                if (this.milestoneStep < this.questions.length) {
                     this.showingSubStep = false;
                     this.milestoneStep++;
                 } else {

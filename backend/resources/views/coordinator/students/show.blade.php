@@ -21,7 +21,7 @@
                     </div>
                     <span class="text-[10px] font-black uppercase tracking-[0.3em]">Student Profile</span>
                 </div>
-                <h1 class="text-4xl font-black text-slate-900 tracking-tight">{{ $student->user->name }}</h1>
+                <h1 class="text-2xl md:text-4xl font-black text-slate-900 tracking-tight">{{ $student->user->name }}</h1>
                 <p class="mt-2 text-sm font-medium text-slate-500">Official student record and progress tracking.</p>
             </div>
         </div>
@@ -39,7 +39,7 @@
         <!-- Main Intel Matrix (Spans 8) -->
         <div class="lg:col-span-8 space-y-10">
             <!-- Identity & Academic Vector -->
-            <div class="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 p-10 relative overflow-hidden group">
+            <div class="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 p-5 md:p-10 relative overflow-hidden group">
                 <div class="absolute top-0 right-0 w-64 h-64 bg-acetel-50 rounded-full blur-[80px] -mr-32 -mt-32 opacity-50 group-hover:opacity-100 transition-opacity duration-1000"></div>
                 
                 <h3 class="text-xl font-black text-slate-900 mb-8 tracking-tight relative z-10 flex items-center gap-3">

@@ -110,7 +110,7 @@
                 </div>
                 <span class="text-xs font-bold uppercase tracking-widest">Verification</span>
             </div>
-            <h1 class="text-4xl font-bold text-gray-900 tracking-tight">
+            <h1 class="text-2xl md:text-4xl font-bold text-gray-900 tracking-tight">
                 @if(auth()->user()->hasRole('Student'))
                     Research Progress
                 @else
@@ -124,10 +124,10 @@
     </div>
 
     <!-- Visual Research Roadmap (Timeline) -->
-    <div class="bg-white border border-gray-100 rounded-3xl p-8 shadow-sm ResearchRoadmapContainer">
-        <div class="flex items-center gap-4 mb-10">
+    <div class="bg-white border border-gray-100 rounded-3xl p-4 md:p-8 shadow-sm ResearchRoadmapContainer">
+        <div class="flex items-center gap-4 mb-6 md:mb-10">
             <div class="w-1.5 h-8 bg-brand-500 rounded-full"></div>
-            <h3 class="text-xl font-bold text-gray-900 tracking-tight">Research Roadmap</h3>
+            <h3 class="text-lg md:text-xl font-bold text-gray-900 tracking-tight">Research Roadmap</h3>
         </div>
 
         <div class="relative px-4">
@@ -215,11 +215,11 @@
                         @else
                             onclick="alert('Institutional Protocol: This milestone is currently locked. You must complete the ongoing phase first.');"
                         @endif
-                        class="w-full text-left flex items-center justify-between px-10 py-10 transition-all duration-300 {{ $isCompleted ? 'cursor-default' : ($isActive || $isPendingMatch ? 'cursor-pointer hover:bg-gray-50/30' : 'cursor-not-allowed') }}"
+                        class="w-full text-left flex items-center justify-between px-4 md:px-10 py-6 md:py-10 transition-all duration-300 {{ $isCompleted ? 'cursor-default' : ($isActive || $isPendingMatch ? 'cursor-pointer hover:bg-gray-50/30' : 'cursor-not-allowed') }}"
                         {{ $isCompleted ? 'disabled' : '' }}>
-                    <div class="flex items-center gap-6">
+                    <div class="flex items-center gap-3 md:gap-6">
                         <div class="relative">
-                            <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-bold shadow-lg shadow-{{ $conf['color'] }}-500/10 border {{ $isCompleted ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-white border-gray-100 text-gray-900' }}">
+                            <div class="w-10 h-10 md:w-14 md:h-14 rounded-2xl flex items-center justify-center text-base md:text-xl font-bold shadow-lg shadow-{{ $conf['color'] }}-500/10 border {{ $isCompleted ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-white border-gray-100 text-gray-900' }}">
                                 {{ $milestone->template?->order }}
                             </div>
                             @if($conf['pulse'])
@@ -230,12 +230,12 @@
                             @endif
                         </div>
                         <div>
-                            <p class="text-lg font-bold text-gray-900 group-hover/milestone:text-brand-600 transition-colors tracking-tight">{{ $milestone->template?->name }} @cannot('view', $milestone) <span class="text-xs font-black text-gray-400 ml-2">🔒</span> @endcannot</p>
-                            <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1.5">{{ $milestone->template?->description }}</p>
+                            <p class="text-sm md:text-lg font-bold text-gray-900 group-hover/milestone:text-brand-600 transition-colors tracking-tight">{{ $milestone->template?->name }} @cannot('view', $milestone) <span class="text-xs font-black text-gray-400 ml-2">🔒</span> @endcannot</p>
+                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1.5 hidden sm:block">{{ $milestone->template?->description }}</p>
                         </div>
                     </div>
                     
-                    <div class="flex items-center gap-8">
+                    <div class="flex items-center gap-2 md:gap-8 shrink-0">
                         @if($milestone->due_date)
                             <div class="hidden lg:flex flex-col items-end">
                                 <span class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">Deadline</span>
