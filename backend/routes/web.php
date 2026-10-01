@@ -181,9 +181,15 @@ Route::middleware('auth')->group(function () {
     // Action Items
     Route::post('/action-items/{actionItem}/complete', [\App\Http\Controllers\ActionItemController::class, 'complete'])->name('action-items.complete');
     Route::post('/action-items/{actionItem}/verify', [\App\Http\Controllers\ActionItemController::class, 'verify'])->name('action-items.verify');
+
     // Document Templates (Resource Center)
     Route::get('/templates/{template}/download', [App\Http\Controllers\Admin\DocumentTemplateController::class, 'download'])->name('templates.download');
     Route::get('/resources', [DashboardController::class, 'resources'])->name('resources.index');
+});
+
+// Utility Route for CSRF Token Refresh (No Auth Required)
+Route::get('/refresh-csrf', function() {
+    return response()->json(['token' => csrf_token()]);
 });
 
 Route::get('/debug/send-test-email', function() {

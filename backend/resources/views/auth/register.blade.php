@@ -1046,6 +1046,65 @@
                         }
                         this.isSubmitting = false;
                         window.scrollTo({ top: 0, behavior: 'smooth' });
+                    } else if (response.status === 419) {
+                        // Session expired (CSRF token mismatch)
+                        this.errorMessage = 'Session expired. Refreshing secure token, please wait...';
+                        try {
+                            let csrfResponse = await fetch('/refresh-csrf', {
+                                headers: {
+                                    'Accept': 'application/json'
+                                }
+                            });
+                            
+                            if (csrfResponse.ok) {
+                                let csrfData = await csrfResponse.json();
+                                let newToken = csrfData.token;
+                                
+                                // Update meta tag
+                                let metaTag = document.querySelector('meta[name="csrf-token"]');
+                                if (metaTag) metaTag.setAttribute('content', newToken);
+                                
+                                // Update form inputs
+                                document.querySelectorAll('input[name="_token"]').forEach(el => el.value = newToken);
+                                
+                                // Update formData
+                                formData.set('_token', newToken);
+                                
+                                this.errorMessage = 'Token refreshed. Retrying submission...';
+                                
+                                // Retry the submission
+                                let retryResponse = await fetch(formElement.action, {
+                                    method: 'POST',
+                                    body: formData,
+                                    headers: {
+                                        'X-Requested-With': 'XMLHttpRequest',
+                                        'Accept': 'application/json'
+                                    }
+                                });
+                                
+                                if (retryResponse.ok) {
+                                    let data = await retryResponse.json().catch(() => ({}));
+                                    window.location.href = data.redirect || '{{ route("dashboard") }}';
+                                    return;
+                                } else if (retryResponse.status === 422) {
+                                    let data = await retryResponse.json();
+                                    if (data.errors) {
+                                        this.errorMessage = Object.values(data.errors)[0][0];
+                                    } else {
+                                        this.errorMessage = data.message || 'Validation failed. Please check your inputs.';
+                                    }
+                                } else {
+                                    let data = await retryResponse.json().catch(() => ({}));
+                                    this.errorMessage = data.message || 'An unexpected error occurred during submission.';
+                                }
+                            } else {
+                                this.errorMessage = 'Could not refresh session. Please refresh the page manually and try again.';
+                            }
+                        } catch (e) {
+                            this.errorMessage = 'Network error during session refresh. Please try again.';
+                        }
+                        this.isSubmitting = false;
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
                     } else {
                         let data = await response.json().catch(() => ({}));
                         this.errorMessage = data.message || 'An unexpected error occurred during submission.';
