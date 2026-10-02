@@ -168,8 +168,14 @@
                                     @php
                                         $isStaff = in_array($role->name, ['Admin', 'Director', 'Program Coordinator']);
                                     @endphp
-                                    <span class="inline-flex items-center px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all {{ $isStaff ? 'bg-slate-900 text-white border-slate-900' : 'bg-green-50 text-green-700 border-green-100' }}">
+                                    <span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all {{ $isStaff ? 'bg-slate-900 text-white border-slate-900' : 'bg-green-50 text-green-700 border-green-100' }}">
                                         {{ $role->name }}
+                                        @if($role->name === 'Supervisor' && $user->supervisorProfile)
+                                            <span class="inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-md bg-green-200 text-green-800 text-[10px]" title="{{ $user->supervisorProfile->assignments_count }} Active Students Supervising">
+                                                {{ $user->supervisorProfile->assignments_count }}
+                                                <svg class="w-2.5 h-2.5 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                                            </span>
+                                        @endif
                                     </span>
                                 @empty
                                     <span class="text-[9px] font-black text-slate-300 uppercase tracking-widest italic">Not Specified</span>
