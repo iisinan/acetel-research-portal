@@ -39,19 +39,24 @@ class MilestoneTemplateSeeder extends Seeder
                 'slug' => 'proposal_defence',
                 'order' => 3,
                 'requires_submission' => true,
+                'submission_type' => ['file'], // Document in PDF format
+                'submission_requires_approval' => false,
+                'submission_approver_roles' => null,
                 'requires_approval' => true,
                 'required_approvers' => ['Supervisor', 'Program Coordinator'],
                 'allow_defence_date' => true,
                 'defence_type' => 'proposal',
                 'defence_date_role' => 'Program Coordinator',
-                'description' => 'Supervisor approval required, followed by Program Coordinator scheduling proposal defence.'
+                'description' => 'Student uploads proposal document. Supervisor approves, then Program Coordinator schedules defence.'
             ],
             [
                 'name' => 'Progress Report 1',
                 'slug' => 'progress_report_1',
                 'order' => 4,
                 'requires_submission' => true,
-                'submission_type' => ['file'],
+                'submission_type' => ['file'], // Document in PDF format
+                'submission_requires_approval' => false,
+                'submission_approver_roles' => null,
                 'requires_approval' => true,
                 'required_approvers' => ['Supervisor'],
                 'description' => 'First progress report document upload and supervisor validation.'
@@ -61,7 +66,9 @@ class MilestoneTemplateSeeder extends Seeder
                 'slug' => 'progress_report_2',
                 'order' => 5,
                 'requires_submission' => true,
-                'submission_type' => ['file'],
+                'submission_type' => ['file'], // Document in PDF format
+                'submission_requires_approval' => false,
+                'submission_approver_roles' => null,
                 'requires_approval' => true,
                 'required_approvers' => ['Supervisor'],
                 'description' => 'Second progress report document upload and supervisor validation.'
@@ -71,32 +78,32 @@ class MilestoneTemplateSeeder extends Seeder
                 'slug' => 'internal_defence',
                 'order' => 6,
                 'requires_submission' => true,
+                'submission_type' => ['file'], // Document in PDF format
+                'submission_requires_approval' => false,
+                'submission_approver_roles' => null,
                 'requires_approval' => true,
-                'submission_requires_approval' => true,
-                'submission_approver_roles' => ['Supervisor'],
-                'required_approvers' => ['Internal Examiner', 'Program Coordinator'],
+                'required_approvers' => ['Supervisor', 'Internal Examiner', 'Program Coordinator'],
                 'allow_defence_date' => true,
                 'defence_type' => 'internal',
                 'defence_date_role' => 'Program Coordinator',
                 'show_internal_examiner_assignment' => true,
-                'submission_type' => ['file'],
-                'description' => 'Student submits thesis. Supervisor authorizes. Internal defence scheduling and outcome recording.'
+                'description' => 'Student submits thesis document. Supervisor approves, then Internal defence scheduling and outcome recording.'
             ],
             [
                 'name' => 'Viva',
                 'slug' => 'viva',
                 'order' => 7,
                 'requires_submission' => true,
-                'requires_approval' => true,
+                'submission_type' => ['file', 'publications'],
                 'submission_requires_approval' => true,
                 'submission_approver_roles' => ['Program Coordinator'],
-                'required_approvers' => ['External Examiner', 'Program Coordinator', 'Director'],
+                'requires_approval' => true,
+                'required_approvers' => ['Program Coordinator', 'External Examiner', 'Director'],
                 'allow_defence_date' => true,
                 'defence_type' => 'external',
                 'defence_date_role' => 'Director',
                 'show_external_examiner_assignment' => true,
                 'is_final_archival' => true,
-                'submission_type' => ['file', 'publications'],
                 'description' => 'Student uploads thesis and publications. External examiner assignment and Final Viva.'
             ],
         ];
