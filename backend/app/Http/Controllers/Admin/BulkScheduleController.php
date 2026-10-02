@@ -29,7 +29,7 @@ class BulkScheduleController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'defence_type' => 'required|in:internal,external,proposal',
+            'defence_type' => 'required|in:internal,external,proposal,seminar,progress_report_1,progress_report_2',
             'defence_date' => 'required|date',
             'student_ids'  => 'required|array|min:1',
             'student_ids.*' => 'exists:student_profiles,id',
@@ -58,6 +58,9 @@ class BulkScheduleController extends Controller
                     if ($request->defence_type === 'proposal' && str_contains($lowerName, 'proposal'))  return true;
                     if ($request->defence_type === 'internal' && (str_contains($lowerName, 'internal') || $m->template->order == 9)) return true;
                     if ($request->defence_type === 'external' && (str_contains($lowerName, 'external') || $m->template->is_final_archival)) return true;
+                    if ($request->defence_type === 'seminar' && str_contains($lowerName, 'seminar')) return true;
+                    if ($request->defence_type === 'progress_report_1' && str_contains($lowerName, 'progress report 1')) return true;
+                    if ($request->defence_type === 'progress_report_2' && str_contains($lowerName, 'progress report 2')) return true;
                 }
 
                 return false;
@@ -83,7 +86,10 @@ class BulkScheduleController extends Controller
         }
 
         $typeName = match($request->defence_type) {
+            'seminar' => 'Seminar',
             'proposal' => 'Proposal',
+            'progress_report_1' => 'Progress Report 1',
+            'progress_report_2' => 'Progress Report 2',
             'internal' => 'Internal',
             'external' => 'External',
             default    => ucfirst($request->defence_type),

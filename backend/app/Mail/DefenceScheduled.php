@@ -27,10 +27,13 @@ class DefenceScheduled extends Mailable implements ShouldQueue
         $this->defenceType = $defenceType;
         $this->defenceDate = $defenceDate;
         $this->defenceTypeLabel = match($defenceType) {
+            'seminar'   => 'Seminar Presentation',
             'proposal'  => 'Proposal Defence',
+            'progress_report_1' => 'Progress Report 1 Presentation',
+            'progress_report_2' => 'Progress Report 2 Presentation',
             'internal'  => 'Internal Defence',
             'external'  => 'External Defence',
-            default     => ucfirst($defenceType) . ' Defence',
+            default     => ucfirst(str_replace('_', ' ', $defenceType)) . ' Defence',
         };
     }
 

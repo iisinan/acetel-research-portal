@@ -34,7 +34,10 @@
                     <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Defence Layer</label>
                     <select name="defence_type" id="defenceType" required
                         class="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-bold rounded-xl p-3 mb-5 focus:ring-acetel-500 focus:border-acetel-500 transition-colors">
+                        <option value="seminar">📚 Seminar as a Course</option>
                         <option value="proposal">📋 Proposal Defence</option>
+                        <option value="progress_report_1">📝 Progress Report 1</option>
+                        <option value="progress_report_2">📝 Progress Report 2</option>
                         <option value="internal">🏛️ Internal Defence</option>
                         <option value="external">🌐 External Defence</option>
                     </select>
