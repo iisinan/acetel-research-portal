@@ -118,19 +118,13 @@
                             </div>
                             
                             @if($existingEvaluation)
-                                <div class="grid grid-cols-2 gap-2">
-                                    <a href="{{ route('meeting.join_event', $event->id) }}" target="_blank" class="block w-full text-center py-2 bg-slate-900 text-brand-400 font-bold rounded-lg hover:bg-slate-800 transition-colors">
-                                        Join Virtual Room
-                                    </a>
+                                <div class="mt-4">
                                     <a href="{{ route('evaluations.show', $existingEvaluation->id) }}" class="block w-full text-center py-2 bg-white border border-green-200 text-green-700 font-bold rounded-lg hover:bg-green-100 transition-colors">
                                         View Evaluation
                                     </a>
                                 </div>
                             @else
-                                <div class="grid grid-cols-2 gap-2">
-                                    <a href="{{ route('meeting.join_event', $event->id) }}" target="_blank" class="block w-full text-center py-2 bg-slate-900 text-brand-400 font-bold rounded-lg hover:bg-slate-800 transition-colors">
-                                        Join Virtual Room
-                                    </a>
+                                <div class="mt-4">
                                     <a href="{{ route('evaluations.create', $event->id) }}" class="block w-full text-center py-2 bg-amber-500 text-white font-bold rounded-lg hover:bg-amber-600 transition-colors shadow-sm">
                                         Submit Evaluation
                                     </a>
