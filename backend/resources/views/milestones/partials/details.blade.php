@@ -27,6 +27,13 @@
                 <span class="text-[10px] font-black {{ $statusBadge['text'] }} uppercase tracking-widest">{{ str_replace('_', ' ', $milestone->status) }}</span>
             </div>
             
+            @if(auth()->id() !== $milestone->thesis->student->user_id)
+            <button type="button" @click="showMessageModal = true; messageRecipient = '{{ addslashes($milestone->thesis->student->user->name) }}'" class="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl shadow-xl shadow-slate-200/40 transition-colors">
+                <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                <span class="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Message Student</span>
+            </button>
+            @endif
+            
             <div class="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-lg font-black text-slate-900 shadow-xl shadow-slate-200/40">
                 0{{ $milestone->template->order }}
             </div>
@@ -491,6 +498,71 @@
                     </div>
                 </div>
             @endif
+            
+            @can('review', $milestone)
+                <div class="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 p-8 mt-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                            <div class="w-1 h-6 bg-indigo-500 rounded-full"></div>
+                            Scholarly Evaluation
+                        </h3>
+                    </div>
+                    
+                    <form action="{{ route('milestones.review.update', $milestone) }}" method="POST" class="space-y-6">
+                        @csrf
+                        @method('PATCH')
+                        
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-3">Institutional Decision</label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <label class="relative flex cursor-pointer rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:border-emerald-500 hover:bg-emerald-50/30 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50/50 has-[:checked]:ring-2 has-[:checked]:ring-emerald-500 transition-all">
+                                    <input type="radio" name="decision" value="approved" class="peer sr-only" required>
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                        </div>
+                                        <div>
+                                            <span class="block text-sm font-black text-slate-900 uppercase tracking-wide">Accept</span>
+                                            <span class="block text-xs font-medium text-slate-500 mt-0.5">Proceed to scheduling</span>
+                                        </div>
+                                    </div>
+                                    <div class="absolute top-4 right-4 text-emerald-500 opacity-0 peer-checked:opacity-100 transition-opacity">
+                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                                    </div>
+                                </label>
+
+                                <label class="relative flex cursor-pointer rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hover:border-rose-500 hover:bg-rose-50/30 has-[:checked]:border-rose-500 has-[:checked]:bg-rose-50/50 has-[:checked]:ring-2 has-[:checked]:ring-rose-500 transition-all">
+                                    <input type="radio" name="decision" value="rejected" class="peer sr-only" required>
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                        </div>
+                                        <div>
+                                            <span class="block text-sm font-black text-slate-900 uppercase tracking-wide">Reject</span>
+                                            <span class="block text-xs font-medium text-slate-500 mt-0.5">Return for revisions</span>
+                                        </div>
+                                    </div>
+                                    <div class="absolute top-4 right-4 text-rose-500 opacity-0 peer-checked:opacity-100 transition-opacity">
+                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Rationale / Explanation</label>
+                            <textarea name="remarks" rows="4" required class="block w-full rounded-xl border-slate-200 bg-slate-50 p-4 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm" placeholder="Please provide detailed feedback explaining why you are accepting or rejecting this submission..."></textarea>
+                        </div>
+
+                        <div class="flex justify-end border-t border-slate-100 pt-6">
+                            <button type="submit" class="inline-flex items-center gap-2 px-8 py-3 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-500/30">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                Register Decision
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            @endcan
         </div>
 
         <!-- Sidebar Info -->
