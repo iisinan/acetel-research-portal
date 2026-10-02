@@ -1,4 +1,4 @@
-<div id="milestone-details-container-{{ $milestone->id }}" class="space-y-6" x-data="{ showMessageModal: false, messageRecipient: '' }">
+<div id="milestone-details-container-{{ $milestone->id }}" class="space-y-6" x-data="{ showMessageModal: false, messageRecipient: '', showUploadForm: {{ in_array($milestone->status, ['submitted', 'in_review']) ? 'false' : 'true' }} }">
     <!-- Sophisticated Header -->
     <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-8">
         <div>
@@ -188,7 +188,7 @@
             @endif
 
             <!-- Submission Form -->
-            @if(in_array($milestone->status, ['not_started', 'in_progress', 'revision_required']))
+            @if(in_array($milestone->status, ['not_started', 'in_progress', 'revision_required', 'submitted', 'in_review']))
                 @if($milestone->template->requires_submission)
                     @if($hasDefenceDateAllowed && $isDateExpired)
                         <div class="overflow-hidden rounded-[2.5rem] bg-white border border-slate-100 shadow-xl shadow-slate-200/40 p-10 flex flex-col items-center justify-center text-center">
@@ -248,11 +248,16 @@
                             @endcan
                         </div>
                     @else
-                        <div class="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 p-8">
-                            <h3 class="text-lg font-bold text-slate-900 tracking-tight mb-6 flex items-center gap-2">
-                                <div class="w-1 h-6 bg-emerald-500 rounded-full"></div>
-                                Submission Upload
-                            </h3>
+                        <div x-show="showUploadForm" x-transition class="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 p-8">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                                    <div class="w-1 h-6 bg-emerald-500 rounded-full"></div>
+                                    Submission Upload
+                                </h3>
+                                <button type="button" @click="showUploadForm = false" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full transition-colors" x-show="!{{ in_array($milestone->status, ['not_started', 'in_progress', 'revision_required']) ? 'true' : 'false' }}">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                </button>
+                            </div>
                             
                             @if($milestone->is_submission_unlocked)
                                 <div class="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center gap-4">
@@ -419,10 +424,18 @@
             <!-- Submission History -->
             @if($milestone->submissions->count() > 0)
                 <div class="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 p-8 mt-6">
-                    <h3 class="text-lg font-bold text-slate-900 tracking-tight mb-6 flex items-center gap-2">
-                        <div class="w-1 h-6 bg-emerald-500 rounded-full"></div>
-                        Submission History
-                    </h3>
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                        <h3 class="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                            <div class="w-1 h-6 bg-emerald-500 rounded-full"></div>
+                            Submission History
+                        </h3>
+                        @if(auth()->user()->hasRole('Student') && in_array($milestone->status, ['submitted', 'in_review']))
+                        <button type="button" @click="showUploadForm = true" class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition-colors w-fit">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                            Upload New Version
+                        </button>
+                        @endif
+                    </div>
                     
                     <div class="relative pl-6 border-l-2 border-slate-100 py-2">
                         @foreach($milestone->submissions->sortByDesc('created_at') as $submission)
