@@ -112,7 +112,7 @@ class UserController extends Controller
     public function index()
     {
         $users = User::with(['roles', 'supervisorProfile.assignments' => function ($q) {
-            $q->where('status', 'active');
+            $q->where('status', 'active')->with('thesis.student.user');
         }])->latest()->paginate(20);
         return view('admin.users.index', compact('users'));
     }

@@ -171,10 +171,38 @@
                                     <span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all {{ $isStaff ? 'bg-slate-900 text-white border-slate-900' : 'bg-green-50 text-green-700 border-green-100' }}">
                                         {{ $role->name }}
                                         @if($role->name === 'Supervisor' && $user->supervisorProfile)
-                                            <span class="inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-md bg-green-200 text-green-800 text-[10px]" title="{{ $user->supervisorProfile->assignments->count() }} Active Students Supervising">
-                                                {{ $user->supervisorProfile->assignments->count() }}
-                                                <svg class="w-2.5 h-2.5 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                                            </span>
+                                            <div class="relative" x-data="{ open: false }" @click.away="open = false" @mouseleave="open = false">
+                                                <button type="button" @mouseenter="open = true" @click="open = !open" class="inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-md bg-green-200 text-green-800 hover:bg-green-300 text-[10px] transition-colors focus:outline-none shadow-sm cursor-pointer" title="View Students">
+                                                    {{ $user->supervisorProfile->assignments->count() }}
+                                                    <svg class="w-2.5 h-2.5 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                                                </button>
+                                                
+                                                <div x-show="open" 
+                                                     x-transition:enter="transition ease-out duration-200"
+                                                     x-transition:enter-start="opacity-0 translate-y-1"
+                                                     x-transition:enter-end="opacity-100 translate-y-0"
+                                                     x-transition:leave="transition ease-in duration-150"
+                                                     x-transition:leave-start="opacity-100 translate-y-0"
+                                                     x-transition:leave-end="opacity-0 translate-y-1"
+                                                     class="absolute z-[60] left-1/2 -translate-x-1/2 top-full mt-2 w-56 bg-white rounded-xl shadow-2xl border border-slate-100 overflow-hidden" style="display: none;">
+                                                    <div class="px-4 py-2 bg-slate-900 text-white flex items-center justify-between">
+                                                        <span class="text-[9px] font-black uppercase tracking-widest text-slate-300">Supervising</span>
+                                                        <span class="text-[10px] font-black text-green-400">{{ $user->supervisorProfile->assignments->count() }}</span>
+                                                    </div>
+                                                    <div class="max-h-48 overflow-y-auto custom-scrollbar">
+                                                        @forelse($user->supervisorProfile->assignments as $assignment)
+                                                            <div class="px-4 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
+                                                                <p class="text-xs font-bold text-slate-700 truncate capitalize">{{ strtolower($assignment->thesis?->student?->user?->name ?? 'Unknown Student') }}</p>
+                                                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{{ $assignment->thesis?->student?->student_id_number ?? 'No Matric No' }}</p>
+                                                            </div>
+                                                        @empty
+                                                            <div class="px-4 py-5 text-center">
+                                                                <p class="text-[10px] font-bold text-slate-400 italic">No active students.</p>
+                                                            </div>
+                                                        @endforelse
+                                                    </div>
+                                                </div>
+                                            </div>
                                         @endif
                                     </span>
                                 @empty
