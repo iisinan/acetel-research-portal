@@ -32,6 +32,7 @@ class MilestoneTemplateSeeder extends Seeder
                 'requires_submission' => false,
                 'requires_approval' => true,
                 'required_approvers' => ['Program Coordinator'],
+                'show_supervisor_assignment' => true,
                 'description' => 'Program Coordinator assigns supervisors based on level (MSc: 2, PhD: 3).'
             ],
             [

@@ -1,0 +1,17 @@
+--- backend/routes/web.php
++++ backend/routes/web.php
+@@ -19,6 +19,7 @@
+     }
+ 
++    try {
+     $announcements = \Illuminate\Support\Facades\Cache::remember('public_announcements', 60 * 15, function() {
+         return \App\Models\Announcement::active()
+             ->orderByRaw('COALESCE(starts_at, created_at) DESC')
+             ->take(5)
+@@ -37,6 +38,9 @@
+         return view('welcome', compact('announcements', 'stats'));
++    } catch (\Throwable $e) {
++        return response((string) $e, 500);
++    }
+ });
+ 

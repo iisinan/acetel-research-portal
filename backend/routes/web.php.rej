@@ -1,0 +1,10 @@
+@@ -35,6 +36,9 @@
+         return view('welcome', compact('announcements', 'stats'));
++    } catch (\Throwable $e) {
++        return response((string) $e, 500);
++    }
+ });
+ 
+ 
+ 
+ 

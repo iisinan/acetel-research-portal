@@ -80,7 +80,7 @@
             <div class="px-8 pb-8 md:px-12 md:pb-12 pt-0">
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     @foreach($pending_reviews as $review)
-                    <a href="{{ route('admin.students.show', $review->thesis->student_profile_id) }}#milestone-{{$review->id}}" class="block bg-amber-800/40 border border-amber-500/30 rounded-[2rem] p-6 hover:bg-amber-800/80 transition-all group backdrop-blur-md relative overflow-hidden">
+                    <a href="{{ route('coordinator.students.show', $review->thesis->student_profile_id) }}#milestone-{{$review->id}}" class="block bg-amber-800/40 border border-amber-500/30 rounded-[2rem] p-6 hover:bg-amber-800/80 transition-all group backdrop-blur-md relative overflow-hidden">
                         <div class="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                         <div class="flex items-start gap-4 relative z-10">
                             <div class="w-12 h-12 rounded-[1.2rem] bg-amber-500/20 text-amber-100 flex items-center justify-center font-black text-lg border border-amber-400/30 group-hover:scale-110 transition-transform shadow-inner shrink-0">
@@ -100,7 +100,7 @@
                                     <span>Approve</span>
                                     <svg class="w-3 h-3 group-hover/approve:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                                 </button>
-                                <a href="{{ route('admin.students.show', $review->thesis->student_profile_id) }}#milestone-{{$review->id}}" class="px-4 py-2 bg-white/10 hover:bg-white text-white hover:text-amber-700 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-white/10 hover:border-white">
+                                <a href="{{ route('coordinator.students.show', $review->thesis->student_profile_id) }}#milestone-{{$review->id}}" class="px-4 py-2 bg-white/10 hover:bg-white text-white hover:text-amber-700 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-white/10 hover:border-white">
                                     Review
                                 </a>
                             </div>

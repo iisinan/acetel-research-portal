@@ -52,6 +52,20 @@ class MilestoneWorkflowService
             return "Submission Gated: Post-submission authorization is required before clearance.";
         }
 
+        // Structural Requirements
+        if ($template->show_supervisor_assignment && $milestone->thesis->assignments()->where('status', 'active')->count() === 0) {
+            return "Structural Block: Supervisors must be assigned before approval.";
+        }
+        if ($template->show_internal_examiner_assignment && empty($milestone->thesis->internal_examiner_profile_id)) {
+            return "Structural Block: Internal Examiner must be assigned before approval.";
+        }
+        if ($template->show_external_examiner_assignment && empty($milestone->thesis->external_examiner_profile_id)) {
+            return "Structural Block: External Examiner must be assigned before approval.";
+        }
+        if ($template->allow_defence_date && (empty($milestone->defence_date) || empty($milestone->date_approved_at))) {
+            return "Structural Block: Defence date must be scheduled and authorized before approval.";
+        }
+
         // 3. Role Sequence
         $requiredRoles = $template->required_approvers ?? [];
         if ($role && in_array($role, $requiredRoles)) {
@@ -175,6 +189,12 @@ class MilestoneWorkflowService
         $requiredRoles = $template->required_approvers ?? [];
         $approvals = collect($milestone->approvals ?? []);
         
+        // Ensure structural requirements are met before allowing final clearance
+        if ($template->show_supervisor_assignment && $milestone->thesis->assignments()->where('status', 'active')->count() === 0) return false;
+        if ($template->show_internal_examiner_assignment && empty($milestone->thesis->internal_examiner_profile_id)) return false;
+        if ($template->show_external_examiner_assignment && empty($milestone->thesis->external_examiner_profile_id)) return false;
+        if ($template->allow_defence_date && (empty($milestone->defence_date) || empty($milestone->date_approved_at))) return false;
+
         // 1. Role-based check
         foreach ($requiredRoles as $role) {
             if ($role === 'Supervisor') {

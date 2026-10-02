@@ -259,7 +259,12 @@ class DashboardController extends Controller
                           WHERE value->>'user_id' = ?
                       )", [$user->id]);
                 })
-                ->whereNotNull('submitted_at')
+                ->where(function($q) {
+                    $q->whereNotNull('submitted_at')
+                      ->orWhereHas('template', function($sq) {
+                          $sq->where('requires_submission', false);
+                      });
+                })
                 ->with(['thesis.student.user', 'template'])
                 ->latest()
                 ->get();
