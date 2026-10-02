@@ -461,10 +461,16 @@
                                                 </div>
                                             @endif
                                         </div>
-                                        <a href="{{ Storage::url($submission->file_url) }}" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors shadow-xl shadow-slate-200/40 w-fit">
+                                        <button type="button"
+                                            @click.prevent="$dispatch('open-document-preview', { 
+                                                url: '{{ Storage::url($submission->file_url) }}', 
+                                                title: 'Submission v.0{{ $submission->version }}',
+                                                type: '{{ str_ends_with(strtolower($submission->file_url), \'.pdf\') ? \'pdf\' : \'document\' }}'
+                                            })"
+                                            class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors shadow-xl shadow-slate-200/40 w-fit">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                                             View Document
-                                        </a>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
