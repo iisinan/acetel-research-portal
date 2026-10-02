@@ -317,6 +317,14 @@ class MilestoneReviewController extends Controller
                         ]);
                     }
                 }
+            } elseif ($decision === 'rejected' && !empty($request->remarks)) {
+                \App\Models\ActionItem::create([
+                    'feedback_id' => $feedback->id,
+                    'thesis_project_id' => $milestone->thesis_project_id,
+                    'assigned_to' => $milestone->thesis->student->user_id,
+                    'content' => $request->remarks,
+                    'status' => 'pending'
+                ]);
             }
         }
 
