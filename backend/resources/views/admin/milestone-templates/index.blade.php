@@ -362,7 +362,9 @@
                                                             </td>
                                                             @endif
                                                             <td class="px-4 py-3">
-                                                                <div class="font-medium text-slate-900">{{ $studentName }}</div>
+                                                                <a href="{{ route('admin.students.show', $sm->thesis->student->id) }}" class="font-medium text-brand-600 hover:text-brand-700 hover:underline block">
+                                                                    {{ $studentName }}
+                                                                </a>
                                                                 <div class="text-xs text-slate-500">{{ $matricNo }}</div>
                                                             </td>
                                                             <td class="px-4 py-3">
