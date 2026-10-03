@@ -364,7 +364,26 @@
                                                                 <div class="text-xs text-slate-500">{{ $matricNo }}</div>
                                                             </td>
                                                             <td class="px-4 py-3">
-                                                                <span class="px-2 py-1 rounded-md text-xs font-bold {{ $statusColor }}">{{ $detailedStatus }}</span>
+                                                                @if($latestSub && $latestSub->file_url)
+                                                                    <button type="button" 
+                                                                        @click.prevent="$dispatch('open-document-preview', { 
+                                                                            url: '{{ Storage::url($latestSub->file_url) }}', 
+                                                                            title: '{{ addslashes($studentName) }} - {{ addslashes($template->name) }} (v.0{{ $latestSub->version }})',
+                                                                            type: '{{ str_ends_with(strtolower($latestSub->file_url), '.pdf') ? 'pdf' : (in_array(pathinfo($latestSub->file_url, PATHINFO_EXTENSION), ['jpg','jpeg','png','webp']) ? 'image' : 'other') }}'
+                                                                        })"
+                                                                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold {{ $statusColor }} cursor-pointer hover:opacity-90 hover:shadow-sm active:scale-95 transition-all text-left group"
+                                                                        title="Click to preview uploaded document">
+                                                                        <span>{{ $detailedStatus }}</span>
+                                                                        <svg class="w-3.5 h-3.5 opacity-70 group-hover:opacity-100 transition-opacity shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                                        </svg>
+                                                                    </button>
+                                                                @else
+                                                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-bold {{ $statusColor }}">
+                                                                        {{ $detailedStatus }}
+                                                                    </span>
+                                                                @endif
                                                             </td>
                                                             <td class="px-4 py-3 text-slate-600 text-xs">
                                                                 {{ $sm->defence_date ? \Carbon\Carbon::parse($sm->defence_date)->format('M d, Y') : 'Not scheduled' }}
