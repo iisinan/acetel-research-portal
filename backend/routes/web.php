@@ -249,31 +249,30 @@ Route::get('/phpinfo', function() {
         'memory_limit' => ini_get('memory_limit'),
     ];
 });
-R o u t e : : g e t ( " / c l e a n u p - s e m i n a r - s u p e r v i s o r s " ,   f u n c t i o n   ( )   { 
-         $ s t u d e n t s   =   \ A p p \ M o d e l s \ S t u d e n t P r o f i l e : : w i t h ( [ " t h e s i s . a s s i g n m e n t s " ,   " t h e s i s . m i l e s t o n e s . t e m p l a t e " ] ) - > g e t ( ) ; 
-         $ r e m o v e d C o u n t   =   0 ; 
-         
-         f o r e a c h   ( $ s t u d e n t s   a s   $ s t u d e n t )   { 
-                 i f   ( ! $ s t u d e n t - > t h e s i s )   c o n t i n u e ; 
-                 
-                 $ s h o u l d R e m o v e   =   f a l s e ; 
-                 
-                 i f   ( $ s t u d e n t - > i s S e m i n a r C o u r s e L e v e l ( ) )   { 
-                         $ s h o u l d R e m o v e   =   t r u e ; 
-                 }   e l s e   { 
-                         $ m 1   =   $ s t u d e n t - > t h e s i s - > m i l e s t o n e s - > f i r s t W h e r e ( " t e m p l a t e . s l u g " ,   " s e m i n a r _ a s _ a _ c o u r s e " ) ; 
-                         $ m 2   =   $ s t u d e n t - > t h e s i s - > m i l e s t o n e s - > f i r s t W h e r e ( " t e m p l a t e . o r d e r " ,   2 ) ; 
-                         
-                         i f   ( $ m 1   & &   $ m 1 - > s t a t u s   ! = =   " a p p r o v e d "   & &   ( ! $ m 2   | |   $ m 2 - > s t a t u s   = = =   " p e n d i n g " ) )   { 
-                                 $ s h o u l d R e m o v e   =   t r u e ; 
-                         } 
-                 } 
- 
-                 i f   ( $ s h o u l d R e m o v e   & &   $ s t u d e n t - > t h e s i s - > a s s i g n m e n t s - > c o u n t ( )   >   0 )   { 
-                         \ A p p \ M o d e l s \ S u p e r v i s i o n A s s i g n m e n t : : w h e r e ( " t h e s i s _ p r o j e c t _ i d " ,   $ s t u d e n t - > t h e s i s - > i d ) - > d e l e t e ( ) ; 
-                         $ r e m o v e d C o u n t + + ; 
-                 } 
-         } 
-         r e t u r n   " R e m o v e d   s u p e r v i s o r s   f r o m   { $ r e m o v e d C o u n t }   s e m i n a r   s t u d e n t s . " ; 
- } ) ;  
- 
+Route::get('/cleanup-seminar-supervisors', function () {
+    $students = \App\Models\StudentProfile::with(['thesis.assignments', 'thesis.milestones.template'])->get();
+    $removedCount = 0;
+
+    foreach ($students as $student) {
+        if (!$student->thesis) continue;
+
+        $shouldRemove = false;
+
+        if ($student->isSeminarCourseLevel()) {
+            $shouldRemove = true;
+        } else {
+            $m1 = $student->thesis->milestones->firstWhere('template.slug', 'seminar_as_a_course');
+            $m2 = $student->thesis->milestones->firstWhere('template.order', 2);
+
+            if ($m1 && $m1->status !== 'approved' && (!$m2 || $m2->status === 'pending')) {
+                $shouldRemove = true;
+            }
+        }
+
+        if ($shouldRemove && $student->thesis->assignments->count() > 0) {
+            \App\Models\SupervisionAssignment::where('thesis_project_id', $student->thesis->id)->delete();
+            $removedCount++;
+        }
+    }
+    return "Removed supervisors from {$removedCount} seminar students.";
+});
