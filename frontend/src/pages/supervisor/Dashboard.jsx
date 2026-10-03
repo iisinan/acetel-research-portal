@@ -17,12 +17,19 @@ export default function SupervisorDashboard() {
   const students       = data?.students ?? [];
   const pending        = data?.pending_reviews ?? [];
 
+  const handleAcceptUpload = (milestoneId) => {
+    api.post(`/milestones/${milestoneId}/accept-upload`)
+      .then(() => {
+        api.get('/supervisor/students').then(r => setData(r.data));
+      })
+      .catch(err => alert('Failed to accept upload: ' + err.message));
+  };
+
   const handleReview = (milestoneId, decision) => {
     if (decision === 'rejected' && !window.confirm('Are you sure you want to reject this submission?')) return;
     
     api.post(`/milestones/${milestoneId}/review`, { decision, remarks: '' })
       .then(() => {
-        // Refresh data
         api.get('/supervisor/students').then(r => setData(r.data));
       })
       .catch(err => alert('Failed to submit review: ' + err.message));
@@ -64,19 +71,30 @@ export default function SupervisorDashboard() {
             <table>
               <thead><tr><th>Student</th><th>Milestone</th><th>Submitted</th><th></th></tr></thead>
               <tbody>
-                {pending.map(m => (
-                  <tr key={m.id}>
-                    <td style={{ fontWeight: 700 }}>{m.thesis?.student?.user?.name ?? '—'}</td>
-                    <td>{m.template?.name}</td>
-                    <td style={{ color: 'var(--slate-400)' }}>{m.submitted_at ? new Date(m.submitted_at).toLocaleDateString() : '—'}</td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => handleReview(m.id, 'accepted')} className="btn" style={{ padding: '4px 12px', fontSize: '11px', backgroundColor: 'var(--green-500)', color: 'white' }}>Accept</button>
-                        <button onClick={() => handleReview(m.id, 'rejected')} className="btn" style={{ padding: '4px 12px', fontSize: '11px', backgroundColor: '#fee2e2', color: '#b91c1c' }}>Reject</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {pending.map(m => {
+                  const latestSub = m.submissions?.[m.submissions.length - 1];
+                  const isUploadAccepted = latestSub?.feedback?.decision === 'approved';
+                  
+                  return (
+                    <tr key={m.id}>
+                      <td style={{ fontWeight: 700 }}>{m.thesis?.student?.user?.name ?? '—'}</td>
+                      <td>{m.template?.name}</td>
+                      <td style={{ color: 'var(--slate-400)' }}>{m.submitted_at ? new Date(m.submitted_at).toLocaleDateString() : '—'}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          {!isUploadAccepted ? (
+                            <>
+                              <button onClick={() => handleAcceptUpload(m.id)} className="btn" style={{ padding: '4px 12px', fontSize: '11px', backgroundColor: 'var(--green-500)', color: 'white' }}>Accept Upload</button>
+                              <button onClick={() => handleReview(m.id, 'rejected')} className="btn" style={{ padding: '4px 12px', fontSize: '11px', backgroundColor: '#fee2e2', color: '#b91c1c' }}>Reject Upload</button>
+                            </>
+                          ) : (
+                            <button onClick={() => handleReview(m.id, 'approved')} className="btn" style={{ padding: '4px 12px', fontSize: '11px', backgroundColor: 'var(--green-600)', color: 'white' }}>Approve Milestone</button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

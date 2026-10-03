@@ -191,6 +191,21 @@ Route::middleware(['auth:sanctum'])->group(function () {
         return app(MilestoneController::class)->store($request, \App\Models\StudentMilestone::findOrFail($milestoneId));
     });
 
+    Route::post('/milestones/{milestone}/accept-upload', function (Request $request, $milestoneId) {
+        $milestone = \App\Models\StudentMilestone::findOrFail($milestoneId);
+        $submission = $milestone->submissions()->latest()->first();
+        if ($submission) {
+            \App\Models\Feedback::create([
+                'submission_id' => $submission->id,
+                'decision' => 'approved',
+                'remarks' => 'Upload accepted by supervisor.',
+                'created_by' => Auth::id(),
+            ]);
+        }
+        Cache::flush();
+        return response()->json(['success' => true]);
+    });
+
     Route::post('/milestones/{milestone}/review', function (Request $request, $milestoneId) {
         // Invalidate all dashboard caches (reviewer could be anyone)
         Cache::flush(); // safe — file cache is cheap to rebuild
@@ -222,8 +237,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
             $pending = StudentMilestone::whereHas('thesis.assignments', fn ($q) =>
                 $q->where('supervisor_profile_id', $supervisor->id)->where('status','active')
-            )->where('status','submitted')->whereNotNull('submitted_at')
-             ->with(['thesis.student.user','template'])->latest()->get();
+            )->whereIn('status',['submitted', 'partially_approved'])->whereNotNull('submitted_at')
+             ->with(['thesis.student.user','template', 'submissions.feedback'])->latest()->get();
 
             return ['students' => $students, 'pending_reviews' => $pending];
         }));
