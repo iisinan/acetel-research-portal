@@ -34,7 +34,18 @@
                 <h3 class="text-xl font-bold text-slate-900">{{ $user->name }}</h3>
                 <div class="mt-3 flex flex-wrap justify-center gap-2">
                     @foreach($user->roles as $role)
-                        <span class="px-3 py-1 bg-slate-100 text-slate-700 rounded-lg text-[10px] font-black uppercase tracking-wider">{{ $role->name }}</span>
+                        @php
+                            $badgeStyle = match($role->name) {
+                                'Supervisor' => 'bg-emerald-50 text-emerald-800 border-emerald-200',
+                                'Program Coordinator' => 'bg-blue-50 text-blue-800 border-blue-200',
+                                'Internal Examiner' => 'bg-purple-50 text-purple-800 border-purple-200',
+                                'External Examiner' => 'bg-amber-50 text-amber-800 border-amber-200',
+                                'Admin' => 'bg-slate-900 text-white border-slate-900',
+                                'Director' => 'bg-indigo-900 text-white border-indigo-900',
+                                default => 'bg-slate-100 text-slate-700 border-slate-200',
+                            };
+                        @endphp
+                        <span class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border {{ $badgeStyle }}">{{ $role->name }}</span>
                     @endforeach
                 </div>
             </div>
@@ -78,9 +89,10 @@
             @endif
 
             @if($user->hasRole('Supervisor') && $user->supervisorProfile)
-                <div class="space-y-6">
+                <div class="space-y-4">
+                    <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest">Research Supervisor Profile</h4>
                     <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                        <div class="grid grid-cols-2 gap-6">
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-6">
                             <div>
                                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Staff ID</p>
                                 <p class="text-base font-bold text-slate-800">{{ $user->supervisorProfile->staff_id }}</p>
@@ -90,22 +102,63 @@
                                 <p class="text-sm font-medium text-slate-800">{{ $user->supervisorProfile->rank ?? 'N/A' }}</p>
                             </div>
                             <div>
-                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Capacity</p>
-                                <p class="text-sm font-medium text-slate-800">{{ $user->supervisorProfile->current_load }} / {{ $user->supervisorProfile->max_students }}</p>
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Supervision Load</p>
+                                <p class="text-sm font-medium text-slate-800">{{ $user->supervisorProfile->assignments->count() }} / {{ $user->supervisorProfile->max_students }} Candidates</p>
                             </div>
                         </div>
+                        @if($user->supervisorProfile->programs->isNotEmpty())
+                            <div class="mt-4 pt-4 border-t border-slate-200/60">
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Supervised Programs</p>
+                                <div class="flex flex-wrap gap-2">
+                                    @foreach($user->supervisorProfile->programs as $sp)
+                                        <span class="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-bold">{{ $sp->name }} ({{ $sp->code }})</span>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
                     </div>
                 </div>
             @endif
 
             @if($user->hasRole('Program Coordinator') && $user->coordinatorProfiles->isNotEmpty())
                 <div class="space-y-4">
-                    <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest">Coordinated Programs</h4>
+                    <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest">Program Coordination Scope</h4>
                     <div class="grid gap-3">
-                        @foreach($user->coordinatorProfiles as $cp)
-                            <div class="px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
-                                <span class="text-sm font-medium text-slate-800">{{ $cp->program->name ?? 'N/A' }}</span>
-                                <span class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded-md text-[9px] font-black uppercase tracking-wider">Active</span>
+                        @foreach($user->coordinatorProfiles->unique('program_id') as $cp)
+                            <div class="px-4 py-3 bg-blue-50/40 rounded-xl border border-blue-100 flex items-center justify-between">
+                                <span class="text-sm font-bold text-slate-800">{{ $cp->program->name ?? 'N/A' }} ({{ $cp->program->code ?? '' }})</span>
+                                <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-md text-[9px] font-black uppercase tracking-wider">Active Scope</span>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
+            @if($user->hasRole('Internal Examiner') && $user->internalExaminerProfiles->isNotEmpty())
+                <div class="space-y-4">
+                    <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest">Internal Examination Appointments</h4>
+                    <div class="grid gap-3">
+                        @foreach($user->internalExaminerProfiles->unique('program_id') as $ip)
+                            <div class="px-4 py-3 bg-purple-50/40 rounded-xl border border-purple-100 flex items-center justify-between">
+                                <span class="text-sm font-bold text-slate-800">{{ $ip->program->name ?? 'N/A' }} ({{ $ip->program->code ?? '' }})</span>
+                                <span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-md text-[9px] font-black uppercase tracking-wider">Internal Examiner</span>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
+            @if($user->hasRole('External Examiner') && $user->externalExaminerProfiles->isNotEmpty())
+                <div class="space-y-4">
+                    <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest">External Examination Appointments</h4>
+                    <div class="grid gap-3">
+                        @foreach($user->externalExaminerProfiles->unique('program_id') as $ep)
+                            <div class="px-4 py-3 bg-amber-50/40 rounded-xl border border-amber-100 flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-bold text-slate-800">{{ $ep->program->name ?? 'N/A' }} ({{ $ep->program->code ?? '' }})</p>
+                                    <p class="text-[10px] text-slate-500 font-semibold mt-0.5">Institution: {{ $ep->institution ?? 'External Institution' }}</p>
+                                </div>
+                                <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-md text-[9px] font-black uppercase tracking-wider">External Examiner</span>
                             </div>
                         @endforeach
                     </div>

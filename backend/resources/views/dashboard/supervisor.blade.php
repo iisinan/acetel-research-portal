@@ -37,24 +37,35 @@
     switchTab(tab) {
         this.activeTab = tab;
         localStorage.setItem('facultyDashboardTab', tab);
+        let role = null;
+        if (tab === 'supervision') role = 'Supervisor';
+        else if (tab === 'coordination') role = 'Program Coordinator';
+        else if (tab === 'internal_exam') role = 'Internal Examiner';
+        else if (tab === 'external_exam') role = 'External Examiner';
+        if (role) {
+            window.dispatchEvent(new CustomEvent('role-changed', {detail: role}));
+        }
     }
 }" 
-@role-changed.window="
+x-on:role-changed.window="
     if ($event.detail === 'Supervisor') activeTab = 'supervision';
     else if ($event.detail === 'Program Coordinator') activeTab = 'coordination';
     else if ($event.detail === 'Internal Examiner') activeTab = 'internal_exam';
     else if ($event.detail === 'External Examiner') activeTab = 'external_exam';
 "
 x-init="
+    @if($facultyRoleCount > 1)
     const saved = localStorage.getItem('facultyDashboardTab');
     if (saved && ['overview', 'supervision', 'coordination', 'internal_exam', 'external_exam'].includes(saved)) {
-        // verify tab is valid for current role
         if (saved === 'supervision' && {{ $activeFacultyRoles['supervisor'] ? 'true' : 'false' }}) activeTab = saved;
         else if (saved === 'coordination' && {{ $activeFacultyRoles['coordinator'] ? 'true' : 'false' }}) activeTab = saved;
         else if (saved === 'internal_exam' && {{ $activeFacultyRoles['internal_examiner'] ? 'true' : 'false' }}) activeTab = saved;
         else if (saved === 'external_exam' && {{ $activeFacultyRoles['external_examiner'] ? 'true' : 'false' }}) activeTab = saved;
         else if (saved === 'overview') activeTab = saved;
     }
+    @else
+    activeTab = '{{ $defaultTab }}';
+    @endif
 "
 class="space-y-8 animate-in">
 

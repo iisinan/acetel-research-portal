@@ -57,8 +57,12 @@ class MilestoneReviewController extends Controller
 
             if ($milestone->template->order == 2) {
                 $availableSupervisors = SupervisorProfile::with('user')
-                    ->where('program_id', $programId)
-                    ->where('active', true)
+                    ->whereHas('programs', function($q) use ($programId) {
+                        $q->where('programs.id', $programId);
+                    })
+                    ->whereHas('user', function($q) {
+                        $q->where('is_active', true);
+                    })
                     ->get();
             }
         }

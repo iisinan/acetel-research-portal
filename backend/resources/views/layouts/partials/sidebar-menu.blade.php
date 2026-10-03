@@ -1,9 +1,23 @@
-<div x-data="{ activeRole: localStorage.getItem('activeDashboardRole') || '{{ Auth::user()->getRoleNames()->first() ?? 'Student' }}' }" @@role-changed.window="activeRole = $event.detail" x-init="$watch('activeRole', val => { localStorage.setItem('activeDashboardRole', val); window.dispatchEvent(new CustomEvent('role-changed', {detail: val})); })">
-
 @php
     $userRoles = Auth::user()->getRoleNames();
     $hasMultipleRoles = $userRoles->count() > 1;
+    $rolesJson = json_encode($userRoles->values());
+    $primaryRole = $userRoles->first() ?? 'Student';
 @endphp
+
+<div x-data="{ 
+    roles: {{ $rolesJson }},
+    activeRole: '' 
+}" 
+x-on:role-changed.window="if (roles.includes($event.detail)) activeRole = $event.detail" 
+x-init="
+    const saved = localStorage.getItem('activeDashboardRole');
+    activeRole = (saved && roles.includes(saved)) ? saved : '{{ $primaryRole }}';
+    $watch('activeRole', val => { 
+        localStorage.setItem('activeDashboardRole', val); 
+        window.dispatchEvent(new CustomEvent('role-changed', {detail: val})); 
+    });
+">
 
 @if($hasMultipleRoles)
     <div class="px-4 mb-6">
@@ -11,9 +25,8 @@
         <div class="flex flex-col gap-1.5">
             @foreach($userRoles as $role)
                 <button @click="activeRole = '{{ $role }}'"
-                        :class="activeRole === '{{ $role }}' ? 'bg-green-600 text-white shadow-md' : 'bg-slate-50 text-slate-600 hover:bg-green-50 hover:text-green-700'"
-                        class="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all border border-transparent flex items-center justify-between"
-                        :class="activeRole === '{{ $role }}' ? 'border-green-700' : 'border-slate-200'">
+                        :class="activeRole === '{{ $role }}' ? 'bg-green-600 text-white border-green-700 shadow-md' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-green-50 hover:text-green-700'"
+                        class="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-between">
                     <span>{{ $role }}</span>
                     <svg x-show="activeRole === '{{ $role }}'" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4"/></svg>
                 </button>
