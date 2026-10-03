@@ -153,19 +153,21 @@ class ThesisService
                 $q->where('order', 2);
             })->first();
 
-            if ($milestone && $milestone->status !== 'approved') {
+            if ($milestone && $milestone->status !== 'approved' && Auth::user()?->hasRole('Admin')) {
                 $milestone->update([
                     'status' => 'approved',
                     'approved_at' => now(),
                     'approvals' => [
-                        'system' => [
+                        'Admin:' . Auth::id() => [
                             'user_id' => Auth::id(),
                             'user_name' => Auth::user()->name,
-                            'role' => 'Program Coordinator',
+                            'role' => 'Admin',
                             'approved_at' => now()->toDateTimeString()
                         ]
                     ]
                 ]);
+
+                app(\App\Services\MilestoneWorkflowService::class)->afterApproval($milestone);
 
                 // Log a system message in the milestones chat
                 (new \App\Services\MessageService())->sendMessage(

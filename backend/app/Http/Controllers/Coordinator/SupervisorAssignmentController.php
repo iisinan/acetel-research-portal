@@ -46,13 +46,13 @@ class SupervisorAssignmentController extends Controller
                 ]);
             }
 
-            // Mark Milestone 2 as approved
+            // If the acting user is an Admin, approve Milestone 2 and advance student
             $m2 = $thesis->milestones()->whereHas('template', fn($q) => $q->where('order', 2))->first();
-            if ($m2) {
+            if ($m2 && auth()->user()->hasRole('Admin')) {
                 $m2->update([
                     'status' => 'approved',
                     'approved_at' => now(),
-                    'approvals' => ['Program Coordinator' => ['user_id' => auth()->id(), 'approved_at' => now()->toDateTimeString()]]
+                    'approvals' => ['Admin:' . auth()->id() => ['user_id' => auth()->id(), 'role' => 'Admin', 'approved_at' => now()->toDateTimeString()]]
                 ]);
                 $this->workflowService->afterApproval($m2);
             }
@@ -141,7 +141,7 @@ class SupervisorAssignmentController extends Controller
 
             DB::commit();
 
-            return redirect()->back()->with('success', 'Supervisors assigned and milestone cleared.');
+            return redirect()->back()->with('success', auth()->user()->hasRole('Admin') ? 'Supervisors assigned and milestone approved successfully.' : 'Supervisors assigned successfully. Awaiting Administrator approval to advance milestone.');
         } catch (\Exception $e) {
             DB::rollBack();
             return redirect()->back()->with('error', $e->getMessage());
