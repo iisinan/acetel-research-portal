@@ -190,8 +190,16 @@ class StudentMilestonePolicy
             return false;
         }
 
+        // Admin Override (God Mode)
+        if ($user->hasRole('Admin')) {
+            $workflowService = app(\App\Services\MilestoneWorkflowService::class);
+            if ($workflowService->canApprove($milestone, $user, 'Admin')) {
+                return true;
+            }
+        }
+
         foreach ($requiredRoles as $role) {
-            // Admin can fulfill any required role check
+            // Check if user has this required role
             $isAuthorized = $user->hasRole('Admin');
             
             if (!$isAuthorized && !$user->hasRole($role)) {

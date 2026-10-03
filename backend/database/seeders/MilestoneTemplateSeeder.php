@@ -44,7 +44,7 @@ class MilestoneTemplateSeeder extends Seeder
                 'submission_requires_approval' => false,
                 'submission_approver_roles' => null,
                 'requires_approval' => true,
-                'required_approvers' => ['Supervisor', 'Program Coordinator'],
+                'required_approvers' => ['Supervisor'],
                 'allow_defence_date' => true,
                 'defence_type' => 'proposal',
                 'defence_date_role' => 'Program Coordinator',

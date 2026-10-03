@@ -147,6 +147,10 @@ class MilestoneReviewController extends Controller
                     }
                 }
             }
+            
+            if (!$roleFilled && $user->hasRole('Admin')) {
+                $roleFilled = 'Admin';
+            }
 
             if ($roleFilled) {
                 // Requirement: Post Submission Approval must be granted before Institutional Clearance.

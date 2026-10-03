@@ -226,7 +226,7 @@ class MilestoneController extends Controller
         } elseif ($user->hasRole('Director') && in_array('Director', $requiredRoles)) {
             $roleFilled = 'Director';
         } elseif ($user->hasRole('Admin')) {
-            $roleFilled = !empty($requiredRoles) ? $requiredRoles[0] : 'Admin';
+            $roleFilled = 'Admin';
         }
 
         if (!$roleFilled) {

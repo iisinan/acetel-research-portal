@@ -195,6 +195,11 @@ class MilestoneWorkflowService
         if ($template->show_external_examiner_assignment && empty($milestone->thesis->external_examiner_profile_id)) return false;
         if ($template->allow_defence_date && (empty($milestone->defence_date) || empty($milestone->date_approved_at))) return false;
 
+        // 0. God Mode bypass: if Admin approved, it's approved.
+        if ($approvals->where('role', 'Admin')->isNotEmpty()) {
+            return true;
+        }
+
         // 1. Role-based check
         foreach ($requiredRoles as $role) {
             if ($role === 'Supervisor') {
