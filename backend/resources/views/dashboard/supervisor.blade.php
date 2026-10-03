@@ -136,12 +136,6 @@
                         <div class="mt-5 pt-4 border-t border-slate-50 flex items-center justify-between relative z-10">
                             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ $review->submitted_at ? $review->submitted_at->diffForHumans() : 'Recently' }}</span>
                             <div class="flex items-center gap-2">
-                                <button 
-                                    @click.prevent="approveMilestone($event, '{{ $review->id }}')" 
-                                    class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-amber-500/30 flex items-center gap-2 group/approve">
-                                    <span>Approve</span>
-                                    <svg class="w-3 h-3 group-hover/approve:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                </button>
                                 <a href="{{ route('theses.show', ['thesis' => $review->thesis_project_id, 'expanded' => $review->id]) }}#milestone-{{$review->id}}" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all">
                                     Review
                                 </a>
