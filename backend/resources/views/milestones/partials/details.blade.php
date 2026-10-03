@@ -114,46 +114,21 @@
                 @endif
 
                 @if($defenceDate && !$isDateExpired)
-                    <div class="bg-white rounded-[2.5rem] border {{ $isApproved ? 'border-emerald-100' : 'border-amber-200' }} shadow-xl shadow-slate-200/40 p-6 sm:p-8 mb-6">
+                    <div class="bg-white rounded-[2.5rem] border border-blue-100 shadow-xl shadow-slate-200/40 p-6 sm:p-8 mb-6">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                         <div class="flex items-center gap-4">
-                            <div class="w-12 h-12 rounded-xl {{ $isApproved ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100' }} border flex items-center justify-center flex-shrink-0">
+                            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 border-blue-100 border flex items-center justify-center flex-shrink-0">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                                 </svg>
                             </div>
                             <div>
-                                <p class="text-xs font-bold uppercase tracking-wider {{ $isApproved ? 'text-emerald-700' : 'text-amber-700' }} mb-1">
-                                    {{ $isApproved ? 'Approved Defence Date' : 'Scheduled Defence Date (Pending Approval)' }}
+                                <p class="text-xs font-bold uppercase tracking-wider text-blue-700 mb-1">
+                                    Scheduled Defence Date
                                 </p>
                                 <h3 class="text-xl font-bold text-slate-900 tracking-tight">{{ $defenceDate->format('l, F j, Y') }}</h3>
-                                @if($isApproved)
-                                    <p class="text-xs text-slate-500 mt-1">Approved on {{ $milestone->date_approved_at->format('M d, Y') }}</p>
-                                @endif
                             </div>
                         </div>
-
-                        @if($isApproved)
-                            <!-- Meeting Link removed as requested -->
-                        @elseif(!$isApproved && !auth()->user()->hasRole('Student'))
-                            <div class="flex flex-col sm:flex-row items-center gap-3 shrink-0">
-                                <form action="{{ route('milestones.approve_date', $milestone) }}" method="POST">
-                                    @csrf
-                                    <button type="submit" onclick="return confirm('Are you sure you want to approve this date? This action cannot be undone.')" 
-                                            class="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-xl shadow-slate-200/40">
-                                        Approve Date
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                                    </button>
-                                </form>
-                            </div>
-                        @elseif(!$isApproved && auth()->user()->hasRole('Student'))
-                            <div class="flex flex-col gap-3 shrink-0">
-                                <div class="px-3 py-1.5 bg-amber-50 rounded-lg border border-amber-100 flex items-center gap-2 max-w-xs text-xs font-medium text-amber-800 leading-tight">
-                                    <svg class="w-4 h-4 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                                    Awaiting authorization from your assigned committee.
-                                </div>
-                            </div>
-                        @endif
                     </div>
                 </div>
                 @endif

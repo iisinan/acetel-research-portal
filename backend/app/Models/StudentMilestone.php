@@ -148,17 +148,16 @@ class StudentMilestone extends Model
             if ($hasExaminer) $completedTasks++;
         }
 
-        // 6. Date Authorization
+        // 6. Defence Date Scheduled
         if ($this->template?->allow_defence_date) {
-            $isDateApproved = !is_null($this->date_approved_at);
+            $isDateSet = !is_null($this->defence_date);
             $tasks[] = [
                 'id' => 'date_authorization',
-                'name' => 'Defence Date Authorized',
-                'completed' => $isDateApproved,
-                'action_type' => $this->defence_date ? 'approve_date' : 'none',
-                'action_label' => 'Authorize Date'
+                'name' => 'Defence Date Scheduled',
+                'completed' => $isDateSet,
+                'action_type' => 'none',
             ];
-            if ($isDateApproved) $completedTasks++;
+            if ($isDateSet) $completedTasks++;
         }
 
         // 7. Clearance Approvals

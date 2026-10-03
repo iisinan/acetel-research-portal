@@ -62,8 +62,8 @@ class MilestoneWorkflowService
         if ($template->show_external_examiner_assignment && empty($milestone->thesis->external_examiner_profile_id)) {
             return "Structural Block: External Examiner must be assigned before approval.";
         }
-        if ($template->allow_defence_date && (empty($milestone->defence_date) || empty($milestone->date_approved_at))) {
-            return "Structural Block: Defence date must be scheduled and authorized before approval.";
+        if ($template->allow_defence_date && empty($milestone->defence_date)) {
+            return "Structural Block: Defence date must be scheduled before approval.";
         }
 
         // 3. Role Sequence
@@ -193,7 +193,7 @@ class MilestoneWorkflowService
         if ($template->show_supervisor_assignment && $milestone->thesis->assignments()->where('status', 'active')->count() === 0) return false;
         if ($template->show_internal_examiner_assignment && empty($milestone->thesis->internal_examiner_profile_id)) return false;
         if ($template->show_external_examiner_assignment && empty($milestone->thesis->external_examiner_profile_id)) return false;
-        if ($template->allow_defence_date && (empty($milestone->defence_date) || empty($milestone->date_approved_at))) return false;
+        if ($template->allow_defence_date && empty($milestone->defence_date)) return false;
 
         // 0. God Mode bypass: if Admin approved, it's approved.
         if ($approvals->where('role', 'Admin')->isNotEmpty()) {
@@ -235,10 +235,6 @@ class MilestoneWorkflowService
             }
         }
 
-        // 3. Date Approval Check (If admin set a defence date, it must be approved)
-        if ($template->allow_defence_date && $milestone->defence_date && is_null($milestone->date_approved_at)) {
-            return false;
-        }
 
         return true;
     }
