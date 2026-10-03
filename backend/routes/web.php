@@ -134,6 +134,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/milestones/{milestone}/plagiarism', [MilestoneController::class, 'uploadMilestonePlagiarism'])->name('milestones.upload_plagiarism');
     Route::post('/milestones/{milestone}/approve-date', [MilestoneController::class, 'approveDate'])->name('milestones.approve_date');
     Route::post('/milestones/{milestone}/quick-approve', [MilestoneController::class, 'quickApprove'])->name('milestones.quick_approve');
+    Route::post('/milestones/{milestone}/accept-upload', [MilestoneController::class, 'acceptUpload'])->name('milestones.accept_upload');
 
 
     // Milestone Review (Supervisor, Coordinator, Admin, Director, Internal Examiner, External Examiner)

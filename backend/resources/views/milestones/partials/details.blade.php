@@ -442,16 +442,35 @@
                                                 </div>
                                             @endif
                                         </div>
-                                        <button type="button"
-                                            @click.prevent="$dispatch('open-document-preview', { 
-                                                url: '{{ Storage::url($submission->file_url) }}', 
-                                                title: 'Submission v.0{{ $submission->version }}',
-                                                type: '{{ str_ends_with(strtolower($submission->file_url), '.pdf') ? 'pdf' : 'document' }}'
-                                            })"
-                                            class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors shadow-xl shadow-slate-200/40 w-fit">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                            View Document
-                                        </button>
+                                        <div class="flex items-center gap-2">
+                                            <button type="button"
+                                                @click.prevent="$dispatch('open-document-preview', { 
+                                                    url: '{{ Storage::url($submission->file_url) }}', 
+                                                    title: 'Submission v.0{{ $submission->version }}',
+                                                    type: '{{ str_ends_with(strtolower($submission->file_url), '.pdf') ? 'pdf' : 'document' }}'
+                                                })"
+                                                class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors shadow-xl shadow-slate-200/40 w-fit">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                                View Document
+                                            </button>
+                                            
+                                            @if(auth()->user()->hasRole(['Supervisor', 'Admin']))
+                                                @if(!$submission->feedback || $submission->feedback->decision !== 'approved')
+                                                    <form action="{{ route('milestones.accept_upload', $milestone) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to accept this document?');">
+                                                        @csrf
+                                                        <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-600 transition-colors shadow-xl shadow-emerald-500/20">
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                                                            Accept Upload
+                                                        </button>
+                                                    </form>
+                                                @else
+                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                                                        Upload Accepted
+                                                    </span>
+                                                @endif
+                                            @endif
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -461,13 +480,20 @@
             @endif
             
             @can('review', $milestone)
-                <div class="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 p-8 mt-6">
-                    <div class="flex items-center justify-between mb-6">
-                        <h3 class="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                            <div class="w-1 h-6 bg-indigo-500 rounded-full"></div>
-                            Scholarly Evaluation
-                        </h3>
-                    </div>
+                @php
+                    $isUploadAccepted = !$milestone->template->requires_submission || 
+                                        ($milestone->submissions->last() && 
+                                         $milestone->submissions->last()->feedback && 
+                                         $milestone->submissions->last()->feedback->decision === 'approved');
+                @endphp
+                @if($isUploadAccepted)
+                    <div class="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 p-8 mt-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                                <div class="w-1 h-6 bg-indigo-500 rounded-full"></div>
+                                Scholarly Evaluation
+                            </h3>
+                        </div>
                     
                     <form action="{{ route('milestones.review.update', $milestone) }}" method="POST" class="space-y-6">
                         @csrf
@@ -523,6 +549,7 @@
                         </div>
                     </form>
                 </div>
+                @endif
             @endcan
         </div>
 

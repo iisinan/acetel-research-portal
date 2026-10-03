@@ -113,6 +113,20 @@ class MilestoneController extends Controller
     /**
      * Institutional Override/Quick Approval for specific clearance tasks.
      */
+    public function acceptUpload(Request $request, StudentMilestone $milestone)
+    {
+        $submission = $milestone->submissions()->latest()->first();
+        if ($submission) {
+            \App\Models\Feedback::create([
+                'submission_id' => $submission->id,
+                'decision' => 'approved',
+                'remarks' => 'Document accepted by supervisor.',
+                'created_by' => Auth::id(),
+            ]);
+        }
+        return back()->with('success', 'Upload accepted successfully. You can now proceed to approve the milestone.');
+    }
+
     public function quickApprove(Request $request, StudentMilestone $milestone)
     {
         $user = Auth::user();
