@@ -53,12 +53,44 @@
                 $canSetDate = auth()->user()->hasRole('Admin') || auth()->user()->hasRole($milestone->template->defence_date_role ?? 'Program Coordinator');
             @endphp
 
+            @php
+                $latestSubForBanner = $milestone->submissions->sortByDesc('created_at')->first();
+                $isUploadAccepted = $latestSubForBanner && $latestSubForBanner->feedback && $latestSubForBanner->feedback->decision === 'approved';
+                $isScheduled = $defenceDate && !$isDateExpired;
+            @endphp
+
+            {{-- 1. If upload is accepted and NOT yet scheduled, tell student to await schedule --}}
+            @if($isUploadAccepted && !$isScheduled && auth()->user()->hasRole('Student'))
+                <div class="overflow-hidden rounded-[2rem] bg-emerald-50 border border-emerald-200 shadow-xl shadow-slate-200/40 relative mb-6">
+                    <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-emerald-500"></div>
+                    <div class="p-6 sm:p-7">
+                        <div class="flex items-start gap-4">
+                            <div class="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center flex-shrink-0 text-emerald-600 shadow-sm">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                            </div>
+                            <div>
+                                <div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-emerald-200/70 text-emerald-800 text-[10px] font-black uppercase tracking-wider mb-1.5">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                                    Upload Accepted
+                                </div>
+                                <h3 class="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-snug">
+                                    Your upload has been accepted. Please await your presentation schedule.
+                                </h3>
+                                <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                                    The administration is currently preparing your presentation session. Once scheduled, your date, time, and Zoom meeting link will appear right here.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             @if($hasDefenceDateAllowed)
                 @if(!$defenceDate || $isDateExpired)
                     @if($canSetDate)
                         <div class="bg-white rounded-[2.5rem] border border-indigo-100 shadow-xl shadow-slate-200/40 p-6 sm:p-8 mb-6 relative overflow-hidden">
                             <div class="absolute inset-0 bg-gradient-to-br from-indigo-50/50 to-white pointer-events-none"></div>
-                            <div class="relative flex flex-col sm:flex-row items-center justify-between gap-6">
+                            <div class="relative flex flex-col gap-5">
                                 <div class="flex items-center gap-4">
                                     <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center flex-shrink-0">
                                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
@@ -68,12 +100,12 @@
                                             {{ $isDateExpired ? 'Schedule Expired' : 'Schedule Presentation' }}
                                         </h3>
                                         <p class="text-xs font-bold text-slate-500 mt-1 uppercase tracking-wider">
-                                            {{ $isDateExpired ? 'The previous date passed. Please set a new date.' : 'Set a date for this milestone to become active.' }}
+                                            {{ $isDateExpired ? 'The previous date passed. Please set a new date and link.' : 'Set the date, time, and meeting link for this presentation.' }}
                                         </p>
                                     </div>
                                 </div>
 
-                                <form x-data="{ scheduling: false, localDate: '' }" @submit.prevent="
+                                <form x-data="{ scheduling: false, localDate: '', localTime: '', localLink: '' }" @submit.prevent="
                                     scheduling = true;
                                     fetch('{{ route('milestones.set_defence_date', $milestone) }}', {
                                         method: 'POST',
@@ -82,7 +114,7 @@
                                             'X-CSRF-TOKEN': '{{ csrf_token() }}',
                                             'Accept': 'application/json'
                                         },
-                                        body: JSON.stringify({ defence_date: localDate })
+                                        body: JSON.stringify({ defence_date: localDate, defence_time: localTime, meeting_link: localLink })
                                     })
                                     .then(res => res.json())
                                     .then(data => {
@@ -93,18 +125,37 @@
                                         }
                                     })
                                     .finally(() => scheduling = false)
-                                " class="w-full sm:w-auto">
-                                    <div class="relative group/input flex flex-col sm:flex-row gap-3">
-                                        <input type="date" 
-                                            name="defence_date" 
-                                            x-model="localDate"
-                                            class="px-4 py-3 rounded-xl border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 w-full sm:w-auto" 
-                                            required>
-                                        
+                                " class="w-full">
+                                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Presentation Date</label>
+                                            <input type="date" 
+                                                name="defence_date" 
+                                                x-model="localDate"
+                                                class="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 w-full" 
+                                                required>
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Time (Optional)</label>
+                                            <input type="time" 
+                                                name="defence_time" 
+                                                x-model="localTime"
+                                                class="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 w-full">
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Zoom / Meeting Link (Optional)</label>
+                                            <input type="url" 
+                                                name="meeting_link" 
+                                                x-model="localLink"
+                                                placeholder="https://zoom.us/j/..."
+                                                class="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 w-full">
+                                        </div>
+                                    </div>
+                                    <div class="flex justify-end">
                                         <button type="submit" 
                                             :disabled="scheduling || !localDate"
-                                            class="px-6 py-3 bg-indigo-600 text-white text-xs font-black uppercase tracking-[0.2em] rounded-xl hover:bg-indigo-700 active:scale-95 transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 disabled:opacity-50">
-                                            <span x-text="scheduling ? 'Saving...' : 'Set Date'"></span>
+                                            class="px-6 py-2.5 bg-indigo-600 text-white text-xs font-black uppercase tracking-[0.2em] rounded-xl hover:bg-indigo-700 active:scale-95 transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 disabled:opacity-50">
+                                            <span x-text="scheduling ? 'Saving...' : 'Authorize Schedule'"></span>
                                         </button>
                                     </div>
                                 </form>
@@ -114,23 +165,52 @@
                 @endif
 
                 @if($defenceDate && !$isDateExpired)
-                    <div class="bg-white rounded-[2.5rem] border border-blue-100 shadow-xl shadow-slate-200/40 p-6 sm:p-8 mb-6">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                        <div class="flex items-center gap-4">
-                            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 border-blue-100 border flex items-center justify-center flex-shrink-0">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                </svg>
+                    <div class="bg-white rounded-[2.5rem] border border-emerald-100 shadow-xl shadow-slate-200/40 p-6 sm:p-8 mb-6 relative overflow-hidden">
+                        <div class="absolute inset-0 bg-gradient-to-r from-emerald-50/40 via-white to-blue-50/30 pointer-events-none"></div>
+                        <div class="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
+                            <div class="flex items-start sm:items-center gap-4">
+                                <div class="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center flex-shrink-0 shadow-sm">
+                                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                                            Scheduled Presentation
+                                        </span>
+                                    </div>
+                                    <h3 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                                        {{ $defenceDate->format('l, F j, Y') }}
+                                        @if($milestone->defence_time)
+                                            <span class="text-emerald-700 font-extrabold text-lg sm:text-xl ml-1">
+                                                at {{ \Carbon\Carbon::parse($milestone->defence_time)->format('g:i A') }}
+                                            </span>
+                                        @endif
+                                    </h3>
+                                    <p class="text-xs font-medium text-slate-500 mt-1">
+                                        {{ $milestone->defence_location ?: 'Online Presentation Session' }}
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <p class="text-xs font-bold uppercase tracking-wider text-blue-700 mb-1">
-                                    Scheduled Defence Date
-                                </p>
-                                <h3 class="text-xl font-bold text-slate-900 tracking-tight">{{ $defenceDate->format('l, F j, Y') }}</h3>
-                            </div>
+
+                            @if($milestone->meeting_link)
+                                <div class="flex items-center gap-3">
+                                    <a href="{{ $milestone->meeting_link }}" target="_blank" rel="noopener noreferrer"
+                                        class="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-emerald-600/30 hover:shadow-xl hover:shadow-emerald-600/40 active:scale-95 group">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                        </svg>
+                                        <span>Join Presentation Meeting</span>
+                                        <svg class="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                        </svg>
+                                    </a>
+                                </div>
+                            @endif
                         </div>
                     </div>
-                </div>
                 @endif
             @endif
 
@@ -496,6 +576,18 @@
                                                             Upload Rejected
                                                         </span>
                                                     @endif
+                                                @endif
+                                            @else
+                                                @if($submission->feedback && $submission->feedback->decision === 'approved')
+                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                                                        Upload Accepted
+                                                    </span>
+                                                @elseif($submission->feedback && $submission->feedback->decision === 'revision_required')
+                                                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                                        Upload Rejected
+                                                    </span>
                                                 @endif
                                             @endif
                                         </div>

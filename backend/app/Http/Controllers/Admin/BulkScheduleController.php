@@ -31,6 +31,8 @@ class BulkScheduleController extends Controller
         $request->validate([
             'defence_type' => 'required|in:internal,external,proposal,seminar,progress_report_1,progress_report_2',
             'defence_date' => 'required|date',
+            'defence_time' => 'nullable|string|max:20',
+            'meeting_link' => 'nullable|url|max:500',
             'student_ids'  => 'required|array|min:1',
             'student_ids.*' => 'exists:student_profiles,id',
         ]);
@@ -68,6 +70,8 @@ class BulkScheduleController extends Controller
 
             foreach ($milestonesToUpdate as $milestone) {
                 $milestone->defence_date = $request->defence_date;
+                $milestone->defence_time = $request->defence_time;
+                $milestone->meeting_link = $request->meeting_link;
                 $milestone->save();
                 $updatedCount++;
             }

@@ -45,6 +45,16 @@
                     {{-- Date --}}
                     <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Scheduled Date</label>
                     <input type="date" name="defence_date" id="defenceDate" required
+                        class="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-bold rounded-xl p-3 mb-4 focus:ring-acetel-500 focus:border-acetel-500 shadow-inner transition-colors">
+
+                    {{-- Time --}}
+                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Scheduled Time <span class="text-slate-400 font-normal">(Optional)</span></label>
+                    <input type="time" name="defence_time" id="defenceTime"
+                        class="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-bold rounded-xl p-3 mb-4 focus:ring-acetel-500 focus:border-acetel-500 shadow-inner transition-colors">
+
+                    {{-- Zoom / Meeting Link --}}
+                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Zoom / Meeting Link <span class="text-slate-400 font-normal">(Optional)</span></label>
+                    <input type="url" name="meeting_link" id="meetingLink" placeholder="https://zoom.us/j/..."
                         class="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-bold rounded-xl p-3 mb-6 focus:ring-acetel-500 focus:border-acetel-500 shadow-inner transition-colors">
 
                     {{-- Counter --}}

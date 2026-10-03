@@ -25,7 +25,9 @@ class StudentMilestone extends Model
         'approvals',
         'remark',
         'defence_date',
+        'defence_time',
         'defence_location',
+        'meeting_link',
         'communication_log',
         'date_approved_at',
         'date_approved_by'

@@ -605,7 +605,9 @@ class MilestoneController extends Controller
         \Illuminate\Support\Facades\Log::info("Attempting to set defence date for milestone: {$milestone->id} by user: " . Auth::user()->name);
 
         $request->validate([
-            'defence_date' => 'required|date'
+            'defence_date' => 'required|date',
+            'defence_time' => 'nullable|string|max:20',
+            'meeting_link' => 'nullable|url|max:500',
         ]);
 
         if (!Auth::user()->hasAnyRole(['Admin', 'Director', 'Program Coordinator'])) {
@@ -614,6 +616,8 @@ class MilestoneController extends Controller
         }
 
         $milestone->defence_date = $request->defence_date;
+        $milestone->defence_time = $request->defence_time;
+        $milestone->meeting_link = $request->meeting_link;
         
         // Auto-approve the date if set by an authorized official
         if (Auth::user()->hasAnyRole(['Admin', 'Director', 'Program Coordinator'])) {
