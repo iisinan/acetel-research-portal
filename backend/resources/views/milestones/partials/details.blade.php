@@ -27,8 +27,8 @@
                 <span class="text-[10px] font-black {{ $statusBadge['text'] }} uppercase tracking-widest">{{ str_replace('_', ' ', $milestone->status) }}</span>
             </div>
             
-            @if(auth()->id() !== $milestone->thesis->student->user_id)
-            <button type="button" @click="showMessageModal = true; messageRecipient = '{{ addslashes($milestone->thesis->student->user->name) }}'" class="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl shadow-xl shadow-slate-200/40 transition-colors">
+            @if(auth()->id() !== $milestone->thesis->student->user_id && $milestone->template->has_chat)
+            <button type="button" @click="showMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($milestone->thesis->student->user->name) }}" class="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl shadow-xl shadow-slate-200/40 transition-colors">
                 <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
                 <span class="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Message Student</span>
             </button>
@@ -607,7 +607,7 @@
                         <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Assigned Committee</p>
                         @foreach($supervisors as $supervisor)
                             <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-slate-200 hover:bg-white transition-colors cursor-pointer"
-                                @if($milestone->template->has_chat) @click="showMessageModal = true; messageRecipient = '{{ addslashes($supervisor->user->name) }}'" @endif>
+                                @if($milestone->template->has_chat) @click="showMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($supervisor->user->name) }}" @endif>
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-emerald-600 text-sm font-bold shadow-xl shadow-slate-200/40">
                                         {{ substr($supervisor->user->name, 0, 1) }}
@@ -630,7 +630,7 @@
                         <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Program Coordinator</p>
                         @foreach($coordinators as $coordinator)
                             <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-slate-200 hover:bg-white transition-colors cursor-pointer"
-                                @if($milestone->template->has_chat) @click="showMessageModal = true; messageRecipient = '{{ addslashes($coordinator->user->name) }}'" @endif>
+                                @if($milestone->template->has_chat) @click="showMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($coordinator->user->name) }}" @endif>
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-emerald-600 text-sm font-bold shadow-xl shadow-slate-200/40">
                                         {{ substr($coordinator->user->name, 0, 1) }}
@@ -660,6 +660,7 @@
     
     @if($milestone->template->has_chat)
     <!-- Alpine JS Modal for Messaging -->
+    <template x-teleport="body">
     <div x-show="showMessageModal" class="fixed z-50 inset-0 overflow-y-auto" style="display: none;" x-cloak>
         <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
             <div x-show="showMessageModal" 
@@ -712,5 +713,6 @@
             </div>
         </div>
     </div>
+    </template>
     @endif
 </div>
