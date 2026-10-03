@@ -236,8 +236,12 @@ class UserController extends Controller
             'must_change_password' => true,
         ]);
 
-        \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\PasswordResetDispatched($user, $password));
+        try {
+            \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\PasswordResetDispatched($user, $password));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Password reset mail failed for {$user->email}: " . $e->getMessage());
+        }
 
-        return redirect()->back()->with('success', 'User password has been reset to default and credentials dispatched via email.');
+        return redirect()->back()->with('success', "Password for {$user->name} ({$user->email}) has been reset to: {$password} — they will be asked to change it on first login.");
     }
 }

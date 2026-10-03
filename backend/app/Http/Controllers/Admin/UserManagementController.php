@@ -110,6 +110,8 @@ class UserManagementController extends Controller
         
         $password = 'ACETEL-' . rand(100000, 999999);
 
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
@@ -117,12 +119,6 @@ class UserManagementController extends Controller
             'is_active' => $request->has('is_active'),
             'must_change_password' => true,
         ]);
-
-        try {
-            \Illuminate\Support\Facades\Mail::to($user->email)->queue(new \App\Mail\WelcomeUser($user, $password));
-        } catch (\Throwable $e) {
-             \Illuminate\Support\Facades\Log::error("Mail sending failed for user {$user->email}: " . $e->getMessage());
-        }
 
         $user->assignRole($validated['role']);
 
@@ -150,7 +146,7 @@ class UserManagementController extends Controller
                 'rank' => $request->input('rank'),
             ]);
             
-            if ($request->has('program_id')) {
+            if ($request->filled('program_id')) {
                 $profile->programs()->sync([$request->program_id]);
             }
         }
@@ -189,7 +185,7 @@ class UserManagementController extends Controller
         }
 
         // Backward compatibility support for single select (if any)
-        if ($validated['role'] === 'Internal Examiner' && empty($programIds) && $request->has('program_id')) {
+        if ($validated['role'] === 'Internal Examiner' && empty($programIds) && $request->filled('program_id')) {
              \App\Models\InternalExaminerProfile::create([
                 'user_id' => $user->id,
                 'program_id' => $request->program_id,
@@ -197,7 +193,7 @@ class UserManagementController extends Controller
             ]);
         }
 
-        if ($validated['role'] === 'External Examiner' && empty($programIds) && $request->has('program_id')) {
+        if ($validated['role'] === 'External Examiner' && empty($programIds) && $request->filled('program_id')) {
              \App\Models\ExternalExaminerProfile::create([
                 'user_id' => $user->id,
                 'program_id' => $request->program_id,
@@ -227,6 +223,19 @@ class UserManagementController extends Controller
                 ]);
             }
         }        
+            \Illuminate\Support\Facades\DB::commit();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            \Illuminate\Support\Facades\Log::error('User creation failed: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Could not create user: ' . $e->getMessage());
+        }
+
+        try {
+            \Illuminate\Support\Facades\Mail::to($user->email)->queue(new \App\Mail\WelcomeUser($user, $password));
+        } catch (\Throwable $e) {
+             \Illuminate\Support\Facades\Log::error("Mail sending failed for user {$user->email}: " . $e->getMessage());
+        }
+
         return redirect()->route('admin.users.index')->with('success', 'User created successfully.');
     }
 
@@ -366,7 +375,7 @@ class UserManagementController extends Controller
                 ]
             );
             
-            if ($request->has('program_id')) {
+            if ($request->filled('program_id')) {
                 $profile->programs()->sync([$request->program_id]);
             }
         }
@@ -400,7 +409,7 @@ class UserManagementController extends Controller
             }
 
             // support for single select compatibility if multi is empty
-            if (empty($programIds) && $request->has('program_id')) {
+            if (empty($programIds) && $request->filled('program_id')) {
                 if ($validated['role'] === 'Internal Examiner') {
                     \App\Models\InternalExaminerProfile::create([
                         'user_id' => $user->id,
