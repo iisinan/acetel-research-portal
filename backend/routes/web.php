@@ -144,6 +144,9 @@ Route::middleware('auth')->group(function () {
         // Supervisor Student Management
         Route::get('/supervisor/candidates', [App\Http\Controllers\Supervisor\StudentController::class, 'index'])->name('supervisor.students.index');
         
+        // Allow jumping milestones globally
+        Route::post('/students/{student}/set-milestone-global', [\App\Http\Controllers\Admin\StudentController::class, 'setMilestone'])->name('students.set_milestone_global');
+        
         Route::get('/supervisor/seminar-examinations', [App\Http\Controllers\Supervisor\SeminarExaminationController::class, 'index'])->name('supervisor.seminars.index');
         Route::post('/supervisor/seminar-examinations/{event}/score', [App\Http\Controllers\Supervisor\SeminarExaminationController::class, 'storeScore'])->name('supervisor.seminars.score');
         
