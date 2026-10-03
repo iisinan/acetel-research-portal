@@ -435,10 +435,7 @@ class MilestoneTemplateController extends Controller
             $today = now()->toDateString();
             $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
                 ->whereNotNull('defence_date')
-                ->where(function ($q) use ($today) {
-                    $q->where('status', '!=', 'approved')
-                      ->orWhereDate('defence_date', '>=', $today);
-                })
+                ->where('status', '!=', 'approved')
                 ->get();
 
             $thesisIds = $milestones->pluck('thesis_project_id')->filter()->unique();
