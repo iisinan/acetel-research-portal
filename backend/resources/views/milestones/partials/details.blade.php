@@ -136,7 +136,14 @@
 
 
             <!-- Latest Feedback -->
-            @if(($milestone->status === 'revision_required') && $milestone->remark)
+            @if($milestone->status === 'revision_required')
+                @php
+                    $rejectFeedback = \App\Models\Feedback::whereIn('submission_id', $milestone->submissions()->pluck('id'))
+                        ->where('decision', 'revision_required')
+                        ->latest()
+                        ->first();
+                    $rejectedBy = $rejectFeedback ? \App\Models\User::find($rejectFeedback->created_by) : null;
+                @endphp
                 <div class="overflow-hidden rounded-2xl bg-red-50 border border-red-100 shadow-xl shadow-slate-200/40 relative mb-6">
                     <div class="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
                     <div class="p-6">
@@ -145,10 +152,15 @@
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
                             </div>
                             <div>
-                                <h3 class="text-xs font-bold text-red-600 uppercase tracking-wider mb-1">Administrative Feedback Required</h3>
+                                <h3 class="text-xs font-bold text-red-600 uppercase tracking-wider mb-1">Upload Rejected</h3>
                                 <div class="text-sm font-medium text-red-900 leading-relaxed">
-                                    {{ $milestone->remark }}
+                                    Your recent upload was rejected. Please contact
+                                    <strong>{{ $rejectedBy?->name ?? 'your supervisor' }}</strong>
+                                    for more information, or upload a revised document below for another review.
                                 </div>
+                                @if($milestone->remark && !str_starts_with($milestone->remark, 'Document requires revision'))
+                                    <div class="mt-2 text-xs text-red-800"><span class="font-bold">Comment:</span> {{ $milestone->remark }}</div>
+                                @endif
                             </div>
                         </div>
                     </div>
