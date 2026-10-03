@@ -170,9 +170,9 @@
 
                                 <div>
                                     <h4 class="text-sm font-black text-slate-900 leading-snug">
-                                        {{ $user->name ?? 'Candidate' }}
+                                        {{ $user?->name ?? 'Candidate' }}
                                     </h4>
-                                    <p class="text-xs text-slate-500 font-semibold">{{ $student->student_id_number ?? 'N/A' }} &bull; {{ $student->program->name ?? 'Program' }}</p>
+                                    <p class="text-xs text-slate-500 font-semibold">{{ $student->student_id_number ?? 'N/A' }} &bull; {{ $student?->program?->name ?? 'Program' }}</p>
                                 </div>
 
                                 @if($pres->thesis && $pres->thesis->title)
@@ -316,8 +316,8 @@
                                 @php
                                     $student = $sm->thesis?->student;
                                     $user = $student?->user;
-                                    $studentName = $user->name ?? 'Candidate';
-                                    $matricNo = $student->student_id_number ?? 'N/A';
+                                    $studentName = $user?->name ?? 'Candidate';
+                                    $matricNo = $student?->student_id_number ?? 'N/A';
                                     $topic = $sm->thesis?->title ?? 'Topic Pending';
                                     $supervisors = $sm->thesis?->assignments?->map(fn($a) => $a->supervisor?->user?->name)->filter()->implode(', ');
                                     $dateStr = \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d');
@@ -346,7 +346,7 @@
                                                     @endif
                                                 </div>
                                                 <div class="text-[11px] text-slate-500 font-medium">
-                                                    {{ $matricNo }} &bull; {{ $student->program->name ?? 'Program' }}
+                                                    {{ $matricNo }} &bull; {{ $student?->program?->name ?? 'Program' }}
                                                 </div>
                                             </div>
                                         </div>
