@@ -144,4 +144,39 @@ class MilestoneTemplate extends Model
     {
         return $this->belongsTo(Program::class);
     }
+
+    /**
+     * Get active presentation schedules across templates that have not yet passed.
+     */
+    public static function getActivePresentations()
+    {
+        $today = now()->toDateString();
+
+        return static::where('slug', '!=', 'supervisors_assigned')
+            ->where('order', '!=', 2)
+            ->whereHas('studentMilestones', function ($q) use ($today) {
+                $q->whereNotNull('defence_date')
+                  ->whereDate('defence_date', '>=', $today)
+                  ->where('status', '!=', 'approved');
+            })
+            ->with(['studentMilestones' => function ($q) use ($today) {
+                $q->whereNotNull('defence_date')
+                  ->whereDate('defence_date', '>=', $today)
+                  ->where('status', '!=', 'approved');
+            }])
+            ->orderBy('order')
+            ->get();
+    }
+
+    /**
+     * Presentation display title for sidebar and tabs.
+     */
+    public function getPresentationTitleAttribute(): string
+    {
+        $name = trim($this->name);
+        if (str_ends_with(strtolower($name), 'presentation')) {
+            return $name;
+        }
+        return $name . ' Presentation';
+    }
 }

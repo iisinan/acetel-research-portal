@@ -74,6 +74,7 @@ use App\Http\Controllers\Admin\MilestoneTemplateController;
 Route::resource('milestone-templates', MilestoneTemplateController::class)->only(['index', 'show']);
 Route::post('milestone-templates/{template}/date', [MilestoneTemplateController::class, 'setDate'])->name('milestone-templates.set-date');
     Route::post('milestone-templates/schedule', [MilestoneTemplateController::class, 'schedule'])->name('milestone-templates.schedule');
+    Route::post('milestone-templates/{template}/cancel-schedule', [MilestoneTemplateController::class, 'cancelSchedule'])->name('milestone-templates.cancel-schedule');
     Route::post('milestone-templates/{milestone}/assign-examiner', [MilestoneTemplateController::class, 'assignExaminer'])->name('milestone-templates.assign-examiner');
     Route::post('milestone-templates/{template}/assign-examiner-global', [MilestoneTemplateController::class, 'assignExaminerGlobal'])->name('milestone-templates.assign-examiner-global');
     Route::get('milestone-templates/{template}/export-students', [MilestoneTemplateController::class, 'exportStudents'])->name('milestone-templates.export-students');

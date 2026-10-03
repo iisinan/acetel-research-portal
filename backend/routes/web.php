@@ -190,6 +190,9 @@ Route::middleware('auth')->group(function () {
     // Document Templates (Resource Center)
     Route::get('/templates/{template}/download', [App\Http\Controllers\Admin\DocumentTemplateController::class, 'download'])->name('templates.download');
     Route::get('/resources', [DashboardController::class, 'resources'])->name('resources.index');
+
+    // Milestone Presentations Schedule (Public to Authenticated Users)
+    Route::get('/presentations/{template}', [\App\Http\Controllers\PresentationController::class, 'show'])->name('presentations.show');
 });
 
 // Utility Route for CSRF Token Refresh (No Auth Required)

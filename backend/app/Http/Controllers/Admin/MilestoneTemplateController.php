@@ -309,6 +309,48 @@ class MilestoneTemplateController extends Controller
         }
     }
 
+    public function cancelSchedule(MilestoneTemplate $template)
+    {
+        if (!auth()->user()->hasRole('Admin')) {
+            abort(403, 'Institutional authority required. Only an Administrator can cancel presentation schedules.');
+        }
+
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+                ->whereNotNull('defence_date')
+                ->where('status', '!=', 'approved')
+                ->get();
+
+            $thesisIds = $milestones->pluck('thesis_project_id')->filter()->unique();
+
+            foreach ($milestones as $sm) {
+                $sm->update([
+                    'defence_date' => null,
+                    'defence_time' => null,
+                    'meeting_link' => null,
+                ]);
+
+                $studentUser = $sm->thesis?->student?->user;
+                if ($studentUser) {
+                    \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
+                }
+            }
+
+            $type = $template->defence_type ?? 'seminar';
+            \App\Models\DefenceEvent::whereIn('thesis_project_id', $thesisIds)
+                ->where('type', $type)
+                ->delete();
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            return redirect()->back()->with('success', "Presentation schedule for {$template->name} has been cancelled successfully. All assigned dates, times, and Zoom links have been cleared.");
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            return redirect()->back()->with('error', 'Failed to cancel schedule: ' . $e->getMessage());
+        }
+    }
+
     public function assignExaminer(Request $request, $milestoneId)
     {
         $request->validate([

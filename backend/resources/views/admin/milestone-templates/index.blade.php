@@ -150,6 +150,34 @@
                                             <span x-text="showStudents ? 'Hide Students' : 'View Student Details'"></span>
                                         </button>
                                     @endif
+
+                                    @php
+                                        $scheduledCount = $template->studentMilestones->filter(fn($m) => !empty($m->defence_date) && $m->status !== 'approved')->count();
+                                    @endphp
+
+                                    @if($scheduledCount > 0 && (!isset($isCoordinator) || !$isCoordinator))
+                                        <form action="{{ route('admin.milestone-templates.cancel-schedule', $template->id) }}" method="POST" class="inline">
+                                            @csrf
+                                            <button type="submit" 
+                                                data-confirm="Are you sure you want to cancel the presentation schedule for {{ addslashes($template->name) }}? This will clear all presentation dates, times, and Zoom links for {{ $scheduledCount }} scheduled student(s), and remove the live presentation tab."
+                                                data-confirm-title="Cancel Presentation Schedule"
+                                                data-confirm-type="danger"
+                                                data-confirm-btn="Cancel Schedule"
+                                                class="inline-flex items-center gap-2 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm">
+                                                <svg class="w-3.5 h-3.5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                                <span>Cancel Presentation Schedule</span>
+                                            </button>
+                                        </form>
+
+                                        <a href="{{ route('presentations.show', $template->id) }}" target="_blank" class="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm">
+                                            <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                            </svg>
+                                            <span>View Presentation Page</span>
+                                        </a>
+                                    @endif
                                 </div>
 
                                 {{-- Global Examiner Assignment (Seminar only, Admin only) --}}
