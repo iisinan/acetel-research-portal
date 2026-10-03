@@ -163,7 +163,7 @@
                                     </span>
                                 </td>
                                 <td class="px-6 py-5 text-xs font-semibold text-slate-500">
-                                    {{ $milestone->updated_at->format('M d, Y') }}
+                                    {{ $milestone->updated_at ? $milestone->updated_at->format('M d, Y') : 'N/A' }}
                                 </td>
                                 <td class="px-6 py-5 text-right">
                                     <a href="{{ route('milestones.show', $milestone) }}" class="inline-flex items-center justify-center gap-2 px-4 py-2 bg-white border border-slate-200 text-primary-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-primary-50 hover:border-primary-200 transition-all duration-300 shadow-sm">
@@ -193,7 +193,7 @@
                                 <div class="relative z-10">
                                     <div class="flex justify-between items-start mb-4">
                                         <span class="text-[10px] font-black uppercase tracking-widest text-primary-600 bg-primary-50 px-3 py-1 rounded-full border border-primary-100">{{ $event->type }}</span>
-                                        <span class="text-xs font-bold text-slate-500">{{ $event->event_date->format('M d, Y') }}</span>
+                                        <span class="text-xs font-bold text-slate-500">{{ $event->event_date ? $event->event_date->format('M d, Y') : 'TBD' }}</span>
                                     </div>
                                     <p class="text-sm font-semibold text-slate-700 mb-6 italic">{{ $event->location }}</p>
                                     
