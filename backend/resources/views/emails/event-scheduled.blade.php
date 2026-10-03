@@ -1,6 +1,6 @@
 <x-mail::message>
 
-# Academic Event Scheduled: {{ ucfirst($event->type) }}
+# Academic Event Scheduled: {{ ucfirst(str_replace('_', ' ', $event->type)) }}
 
 Dear **{{ $notifiable->name }}**,
 

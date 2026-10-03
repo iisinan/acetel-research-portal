@@ -112,8 +112,10 @@ return [
     */
 
     'from' => [
-        'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
-        'name' => env('MAIL_FROM_NAME', 'Example'),
+        'address' => env('MAIL_FROM_ADDRESS', 'no-reply@aceteltms.nou.edu.ng'),
+        'name' => (!empty(env('MAIL_FROM_NAME')) && env('MAIL_FROM_NAME') !== 'Example')
+            ? env('MAIL_FROM_NAME')
+            : (env('APP_NAME') && env('APP_NAME') !== 'Laravel' ? env('APP_NAME') : 'ACETEL Thesis Monitoring System'),
     ],
 
 ];
