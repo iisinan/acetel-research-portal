@@ -17,6 +17,17 @@ export default function SupervisorDashboard() {
   const students       = data?.students ?? [];
   const pending        = data?.pending_reviews ?? [];
 
+  const handleReview = (milestoneId, decision) => {
+    if (decision === 'rejected' && !window.confirm('Are you sure you want to reject this submission?')) return;
+    
+    api.post(`/milestones/${milestoneId}/review`, { decision, remarks: '' })
+      .then(() => {
+        // Refresh data
+        api.get('/supervisor/students').then(r => setData(r.data));
+      })
+      .catch(err => alert('Failed to submit review: ' + err.message));
+  };
+
   return (
     <div>
       <div className="hero-banner">
@@ -58,7 +69,12 @@ export default function SupervisorDashboard() {
                     <td style={{ fontWeight: 700 }}>{m.thesis?.student?.user?.name ?? '—'}</td>
                     <td>{m.template?.name}</td>
                     <td style={{ color: 'var(--slate-400)' }}>{m.submitted_at ? new Date(m.submitted_at).toLocaleDateString() : '—'}</td>
-                    <td><span className="badge amber">Review</span></td>
+                    <td>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={() => handleReview(m.id, 'accepted')} className="btn" style={{ padding: '4px 12px', fontSize: '11px', backgroundColor: 'var(--green-500)', color: 'white' }}>Accept</button>
+                        <button onClick={() => handleReview(m.id, 'rejected')} className="btn" style={{ padding: '4px 12px', fontSize: '11px', backgroundColor: '#fee2e2', color: '#b91c1c' }}>Reject</button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
