@@ -32,16 +32,65 @@
             @endif
 
             <form action="{{ route('admin.users.store') }}" method="POST" x-data="{ 
-                role: '{{ old('role') }}',
+                accountCategory: '{{ old('account_category', (old('roles') && in_array('Student', old('roles'))) ? 'student' : ((old('roles') && (in_array('Admin', old('roles')) || in_array('Director', old('roles')))) ? 'administrative' : 'faculty')) }}',
+                selectedRoles: {{ json_encode(old('roles', old('role') ? [old('role')] : ['Supervisor'])) }},
+                adminRole: '{{ old('admin_role', (old('roles') && in_array('Director', old('roles'))) ? 'Director' : 'Admin') }}',
                 programs: {{ old('coordinator_programs') ? json_encode(old('coordinator_programs')) : '[]' }},
+                
+                isFaculty() {
+                    return this.accountCategory === 'faculty';
+                },
+                hasRole(roleName) {
+                    return this.selectedRoles.includes(roleName);
+                },
+                toggleFacultyRole(roleName) {
+                    if (this.selectedRoles.includes(roleName)) {
+                        if (this.selectedRoles.length > 1) {
+                            this.selectedRoles = this.selectedRoles.filter(r => r !== roleName);
+                        }
+                    } else {
+                        this.selectedRoles.push(roleName);
+                    }
+                    if (this.programs.length === 0) {
+                        this.addProgram();
+                    }
+                },
+                setCategory(cat) {
+                    this.accountCategory = cat;
+                    if (cat === 'student') {
+                        this.selectedRoles = ['Student'];
+                    } else if (cat === 'administrative') {
+                        this.selectedRoles = [this.adminRole];
+                    } else {
+                        this.selectedRoles = this.selectedRoles.filter(r => ['Supervisor', 'Program Coordinator', 'Internal Examiner', 'External Examiner'].includes(r));
+                        if (this.selectedRoles.length === 0) {
+                            this.selectedRoles = ['Supervisor'];
+                        }
+                        if (this.programs.length === 0) {
+                            this.addProgram();
+                        }
+                    }
+                },
+                setAdminRole(r) {
+                    this.adminRole = r;
+                    this.selectedRoles = [r];
+                },
                 addProgram() {
                     this.programs.push('');
                 },
                 removeProgram(index) {
                     this.programs.splice(index, 1);
                 }
-            }" x-init="if((role === 'Program Coordinator' || role === 'Internal Examiner' || role === 'External Examiner' || role === 'Supervisor') && programs.length === 0) addProgram()">
+            }" x-init="if(isFaculty() && programs.length === 0) addProgram()">
                 @csrf
+                <input type="hidden" name="account_category" :value="accountCategory">
+                <!-- Hidden inputs for roles[] -->
+                <template x-for="r in selectedRoles" :key="r">
+                    <input type="hidden" name="roles[]" :value="r">
+                </template>
+                <!-- Fallback single role parameter for backward compatibility -->
+                <input type="hidden" name="role" :value="selectedRoles[0] || ''">
+
                 <div class="grid grid-cols-6 gap-6">
                     <!-- Name -->
                     <div class="col-span-6 sm:col-span-3">
@@ -57,29 +106,131 @@
                         @error('email') <p class="text-red-500 text-xs mt-1.5 font-medium">{{ $message }}</p> @enderror
                     </div>
 
-                    <!-- Role -->
-                    <div class="col-span-6 sm:col-span-6">
-                        <label for="role" class="block text-sm font-semibold text-black mb-1">System Role</label>
-                        <select id="role" name="role" x-model="role" 
-                            @change="
-                                if((role === 'Program Coordinator' || role === 'Internal Examiner' || role === 'External Examiner' || role === 'Supervisor')) {
-                                    if(programs.length === 0) addProgram();
-                                } else {
-                                    programs = [];
-                                }
-                            " 
-                            class="block w-full py-2.5 px-4 border border-slate-300 bg-white rounded-xl shadow-sm focus:outline-none focus:ring-acetel-500 focus:border-acetel-500 sm:text-sm font-medium text-black" required>
-                            <option value="">Select an access level...</option>
-                            @foreach($roles as $role)
-                                <option value="{{ $role }}" {{ old('role') == $role ? 'selected' : '' }}>{{ Str::title($role) }}</option>
-                            @endforeach
+                    <!-- Role Category Selection Tabs -->
+                    <div class="col-span-6">
+                        <label class="block text-sm font-semibold text-black mb-2">Account Type & Roles</label>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 p-1.5 bg-slate-100 rounded-2xl border border-slate-200">
+                            <button type="button" @click="setCategory('faculty')"
+                                    :class="accountCategory === 'faculty' ? 'bg-white text-green-700 shadow-sm font-black border border-green-200' : 'text-slate-600 hover:text-black font-semibold'"
+                                    class="py-3 px-4 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all">
+                                <span>🎓 Academic Faculty</span>
+                            </button>
+                            <button type="button" @click="setCategory('student')"
+                                    :class="accountCategory === 'student' ? 'bg-white text-green-700 shadow-sm font-black border border-green-200' : 'text-slate-600 hover:text-black font-semibold'"
+                                    class="py-3 px-4 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all">
+                                <span>🎒 Student Candidate</span>
+                            </button>
+                            <button type="button" @click="setCategory('administrative')"
+                                    :class="accountCategory === 'administrative' ? 'bg-white text-green-700 shadow-sm font-black border border-green-200' : 'text-slate-600 hover:text-black font-semibold'"
+                                    class="py-3 px-4 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all">
+                                <span>🏛️ Administrative</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Academic Faculty Multi-Role Selection Box -->
+                    <div x-show="accountCategory === 'faculty'" x-cloak class="col-span-6 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="text-sm font-black text-black uppercase tracking-wider">Faculty Role Assignments</h4>
+                                <p class="text-xs text-slate-500 mt-0.5">Faculty members can hold one, several, or all four academic roles simultaneously.</p>
+                            </div>
+                            <span class="px-2.5 py-1 bg-green-50 border border-green-200 text-green-700 text-[10px] font-black rounded-lg uppercase tracking-wider">Multi-Role Active</span>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <!-- Role 1: Supervisor -->
+                            <div @click="toggleFacultyRole('Supervisor')"
+                                 :class="hasRole('Supervisor') ? 'bg-emerald-50/70 border-emerald-400 ring-2 ring-emerald-500/20' : 'bg-white border-slate-200 hover:border-slate-300'"
+                                 class="p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-3.5 group select-none">
+                                <div class="mt-0.5">
+                                    <div :class="hasRole('Supervisor') ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white border-slate-300'"
+                                         class="w-5 h-5 rounded-md border flex items-center justify-center transition-colors">
+                                        <svg x-show="hasRole('Supervisor')" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                    </div>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center justify-between">
+                                        <h5 class="text-sm font-black text-slate-800 tracking-tight leading-none">Research Supervisor</h5>
+                                        <span class="text-[9px] font-bold uppercase tracking-widest text-emerald-700 bg-emerald-100/60 px-1.5 py-0.5 rounded">Mentorship</span>
+                                    </div>
+                                    <p class="text-[11px] text-slate-500 mt-1 font-medium leading-relaxed">Directs candidate research, reviews milestones, and guides scholarly progress.</p>
+                                </div>
+                            </div>
+
+                            <!-- Role 2: Program Coordinator -->
+                            <div @click="toggleFacultyRole('Program Coordinator')"
+                                 :class="hasRole('Program Coordinator') ? 'bg-blue-50/70 border-blue-400 ring-2 ring-blue-500/20' : 'bg-white border-slate-200 hover:border-slate-300'"
+                                 class="p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-3.5 group select-none">
+                                <div class="mt-0.5">
+                                    <div :class="hasRole('Program Coordinator') ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-300'"
+                                         class="w-5 h-5 rounded-md border flex items-center justify-center transition-colors">
+                                        <svg x-show="hasRole('Program Coordinator')" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                    </div>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center justify-between">
+                                        <h5 class="text-sm font-black text-slate-800 tracking-tight leading-none">Program Coordinator</h5>
+                                        <span class="text-[9px] font-bold uppercase tracking-widest text-blue-700 bg-blue-100/60 px-1.5 py-0.5 rounded">Management</span>
+                                    </div>
+                                    <p class="text-[11px] text-slate-500 mt-1 font-medium leading-relaxed">Coordinates postgraduate cohorts, manages defences, and approves program clearances.</p>
+                                </div>
+                            </div>
+
+                            <!-- Role 3: Internal Examiner -->
+                            <div @click="toggleFacultyRole('Internal Examiner')"
+                                 :class="hasRole('Internal Examiner') ? 'bg-purple-50/70 border-purple-400 ring-2 ring-purple-500/20' : 'bg-white border-slate-200 hover:border-slate-300'"
+                                 class="p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-3.5 group select-none">
+                                <div class="mt-0.5">
+                                    <div :class="hasRole('Internal Examiner') ? 'bg-purple-600 text-white border-purple-600' : 'bg-white border-slate-300'"
+                                         class="w-5 h-5 rounded-md border flex items-center justify-center transition-colors">
+                                        <svg x-show="hasRole('Internal Examiner')" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                    </div>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center justify-between">
+                                        <h5 class="text-sm font-black text-slate-800 tracking-tight leading-none">Internal Examiner</h5>
+                                        <span class="text-[9px] font-bold uppercase tracking-widest text-purple-700 bg-purple-100/60 px-1.5 py-0.5 rounded">Evaluation</span>
+                                    </div>
+                                    <p class="text-[11px] text-slate-500 mt-1 font-medium leading-relaxed">Assesses thesis manuscripts and serves on internal viva defence panels.</p>
+                                </div>
+                            </div>
+
+                            <!-- Role 4: External Examiner -->
+                            <div @click="toggleFacultyRole('External Examiner')"
+                                 :class="hasRole('External Examiner') ? 'bg-amber-50/70 border-amber-400 ring-2 ring-amber-500/20' : 'bg-white border-slate-200 hover:border-slate-300'"
+                                 class="p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-3.5 group select-none">
+                                <div class="mt-0.5">
+                                    <div :class="hasRole('External Examiner') ? 'bg-amber-600 text-white border-amber-600' : 'bg-white border-slate-300'"
+                                         class="w-5 h-5 rounded-md border flex items-center justify-center transition-colors">
+                                        <svg x-show="hasRole('External Examiner')" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                    </div>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center justify-between">
+                                        <h5 class="text-sm font-black text-slate-800 tracking-tight leading-none">External Examiner</h5>
+                                        <span class="text-[9px] font-bold uppercase tracking-widest text-amber-700 bg-amber-100/60 px-1.5 py-0.5 rounded">External</span>
+                                    </div>
+                                    <p class="text-[11px] text-slate-500 mt-1 font-medium leading-relaxed">Conducts external thesis appraisals and evaluates oral defence sessions.</p>
+                                </div>
+                            </div>
+                        </div>
+                        @error('roles') <p class="text-red-500 text-xs mt-1 font-medium">{{ $message }}</p> @enderror
+                    </div>
+
+                    <!-- Administrative Role Selector -->
+                    <div x-show="accountCategory === 'administrative'" x-cloak class="col-span-6 sm:col-span-6">
+                        <label for="admin_role_select" class="block text-sm font-semibold text-black mb-1">Administrative Privilege</label>
+                        <select id="admin_role_select" x-model="adminRole" @change="setAdminRole(adminRole)"
+                                class="block w-full py-2.5 px-4 border border-slate-300 bg-white rounded-xl shadow-sm focus:outline-none focus:ring-acetel-500 focus:border-acetel-500 sm:text-sm font-medium text-black">
+                            <option value="Admin">System Administrator (Full Governance)</option>
+                            <option value="Director">Center Director (Executive Oversight & Analytics)</option>
                         </select>
-                        @error('role') <p class="text-red-500 text-xs mt-1.5 font-medium">{{ $message }}</p> @enderror
                     </div>
 
                     <!-- Rank (For Supervisors) -->
-                    <div x-show="role === 'Supervisor'" x-cloak class="col-span-6 sm:col-span-6">
-                        <label for="rank" class="block text-sm font-semibold text-black mb-1">Academic Rank</label>
+                    <div x-show="isFaculty() && hasRole('Supervisor')" x-cloak class="col-span-6 sm:col-span-6">
+                        <label for="rank" class="block text-sm font-semibold text-black mb-1">Academic Rank (Supervisor)</label>
                         <select id="rank" name="rank" class="block w-full py-2.5 px-4 border border-slate-300 bg-white rounded-xl shadow-sm focus:outline-none focus:ring-acetel-500 focus:border-acetel-500 sm:text-sm font-medium text-black">
                             <option value="">Select Rank...</option>
                             <option value="Professor">Professor</option>
@@ -92,12 +243,19 @@
                         @error('rank') <p class="text-red-500 text-xs mt-1.5 font-medium">{{ $message }}</p> @enderror
                     </div>
 
+                    <!-- External Institution (For External Examiners) -->
+                    <div x-show="isFaculty() && hasRole('External Examiner')" x-cloak class="col-span-6 sm:col-span-6">
+                        <label for="institution" class="block text-sm font-semibold text-black mb-1">External Home Institution</label>
+                        <input type="text" name="institution" id="institution" placeholder="e.g. University of Lagos, MIT, Oxford"
+                               class="focus:ring-acetel-500 focus:border-acetel-500 block w-full shadow-sm sm:text-sm border-slate-300 rounded-xl px-4 py-2.5 transition-colors">
+                    </div>
+
                     <!-- Program Assignment (Coordinator, Examiners & Supervisor) -->
-                    <div x-show="role === 'Program Coordinator' || role === 'Internal Examiner' || role === 'External Examiner' || role === 'Supervisor'" x-cloak class="col-span-6 space-y-4 pt-6 mt-4 border-t border-slate-100">
+                    <div x-show="isFaculty()" x-cloak class="col-span-6 space-y-4 pt-6 mt-4 border-t border-slate-100">
                         <div class="flex items-center justify-between">
                             <div>
-                                <h3 class="text-lg font-bold leading-6 text-black">Program Assignment</h3>
-                                <p class="text-sm text-black">Assign the programs this coordinator will manage.</p>
+                                <h3 class="text-lg font-bold leading-6 text-black">Program Affiliations</h3>
+                                <p class="text-sm text-black">Assign the academic programs this faculty member is affiliated with across their roles.</p>
                             </div>
                             <button type="button" @click="addProgram()" class="inline-flex items-center px-3 py-1.5 border border-slate-300 shadow-sm text-xs font-bold rounded-lg text-black bg-white hover:bg-slate-50 focus:outline-none transition-colors">
                                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" /></svg>
@@ -125,7 +283,7 @@
                     </div>
 
                     <!-- Student Details Section -->
-                    <div x-show="role === 'Student'" x-cloak class="col-span-6 space-y-6 pt-6 mt-4 border-t border-slate-100">
+                    <div x-show="accountCategory === 'student'" x-cloak class="col-span-6 space-y-6 pt-6 mt-4 border-t border-slate-100">
                         <div>
                             <h3 class="text-lg font-bold leading-6 text-black">Student Info</h3>
                             <p class="text-sm text-black">Provide the academic details for this student account.</p>
@@ -155,7 +313,7 @@
                             <div class="col-span-6 sm:col-span-3">
                                 <label for="program_id" class="block text-sm font-semibold text-black mb-1">Program</label>
                                 <select id="program_id" name="program_id" 
-                                    class="block w-full py-2.5 px-4 border border-slate-300 bg-white rounded-xl shadow-sm focus:outline-none focus:ring-acetel-500 focus:border-acetel-500 sm:text-sm font-medium text-black" :required="role === 'Student'">
+                                    class="block w-full py-2.5 px-4 border border-slate-300 bg-white rounded-xl shadow-sm focus:outline-none focus:ring-acetel-500 focus:border-acetel-500 sm:text-sm font-medium text-black" :required="accountCategory === 'student'">
                                     <option value="">Select Program...</option>
                                     @foreach($programs as $program)
                                         <option value="{{ $program->id }}" {{ old('program_id') == $program->id ? 'selected' : '' }}>{{ $program->name }}</option>
@@ -167,7 +325,7 @@
                             <div class="col-span-6 sm:col-span-3">
                                 <label for="level_id" class="block text-sm font-semibold text-black mb-1">Level</label>
                                 <select id="level_id" name="level_id" 
-                                    class="block w-full py-2.5 px-4 border border-slate-300 bg-white rounded-xl shadow-sm focus:outline-none focus:ring-acetel-500 focus:border-acetel-500 sm:text-sm font-medium text-black" :required="role === 'Student'">
+                                    class="block w-full py-2.5 px-4 border border-slate-300 bg-white rounded-xl shadow-sm focus:outline-none focus:ring-acetel-500 focus:border-acetel-500 sm:text-sm font-medium text-black" :required="accountCategory === 'student'">
                                     <option value="">Select Level...</option>
                                     @foreach($levels as $level)
                                         <option value="{{ $level->id }}" {{ old('level_id') == $level->id ? 'selected' : '' }}>{{ $level->name }}</option>

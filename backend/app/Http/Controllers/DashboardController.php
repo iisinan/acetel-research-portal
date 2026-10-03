@@ -33,12 +33,8 @@ class DashboardController extends Controller
 
         if ($user->hasRole('Student')) {
             return $this->studentDashboard($user, $data);
-        } elseif ($user->hasRole('Supervisor')) {
+        } elseif ($user->hasAnyRole(['Supervisor', 'Program Coordinator', 'Internal Examiner', 'External Examiner'])) {
             return $this->supervisorDashboard($user, $data);
-        } elseif ($user->hasRole('Program Coordinator')) {
-            return (new \App\Http\Controllers\Coordinator\DashboardController())->index($request);
-        } elseif ($user->hasRole('Internal Examiner') || $user->hasRole('External Examiner')) {
-            return $this->examinerDashboard($user, $data);
         } elseif ($user->hasRole('Director')) {
             return $this->directorDashboard($user, $data);
         } elseif ($user->hasRole('Admin')) {
@@ -116,58 +112,278 @@ class DashboardController extends Controller
 
     private function supervisorDashboard($user, $data = [])
     {
-        $supervisor = SupervisorProfile::where('user_id', $user->id)
-            ->with(['assignments.thesis.student.user', 'assignments.thesis.student.program', 'assignments.thesis.milestones'])
-            ->first();
-        
-        $data['supervisor'] = $supervisor;
-        $data['assignments'] = $supervisor ? $supervisor->assignments : collect();
-        
-        // Prepare students collection with progress for the view
-        $data['students'] = $data['assignments']->map(function($a) {
-            $s = $a->thesis->student;
-            if ($s) {
-                $s->overall_progress = $a->thesis->progress_percentage;
-            }
-            return $s;
-        })->filter()->unique('id');
+        $isSupervisor = $user->hasRole('Supervisor');
+        $isCoordinator = $user->hasRole('Program Coordinator');
+        $isInternalExaminer = $user->hasRole('Internal Examiner');
+        $isExternalExaminer = $user->hasRole('External Examiner');
 
-        // Fetch milestones pending supervisor Review
-        $data['pending_reviews'] = \App\Models\StudentMilestone::whereHas('thesis.assignments', function($q) use ($supervisor) {
-                $q->where('supervisor_profile_id', $supervisor?->id)->where('status', 'active');
-            })
-            ->where('status', '!=', 'approved')
-            ->whereHas('template', function($q) {
-                $q->whereJsonContains('required_approvers', 'Supervisor');
-            })
-            ->where(function($q) use ($user) {
-                $q->whereNull('approvals')
-                  ->orWhereRaw("NOT EXISTS (
-                      SELECT 1 FROM jsonb_each(COALESCE(approvals, '{}'::jsonb)) 
-                      WHERE value->>'user_id' = ?
-                  )", [$user->id]);
-            })
-            ->whereNotNull('submitted_at')
-            ->with(['thesis.student.user', 'template'])
-            ->latest()
-            ->get();
+        $activeFacultyRoles = [
+            'supervisor' => $isSupervisor,
+            'coordinator' => $isCoordinator,
+            'internal_examiner' => $isInternalExaminer,
+            'external_examiner' => $isExternalExaminer,
+        ];
+        $facultyRoleCount = count(array_filter($activeFacultyRoles));
+        $data['activeFacultyRoles'] = $activeFacultyRoles;
+        $data['facultyRoleCount'] = $facultyRoleCount;
 
-        $data['pending_evaluations'] = collect();
-        // Check if user has examiner profiles for defence evaluations
-        $internal = \App\Models\InternalExaminerProfile::where('user_id', $user->id)->first();
-        if ($internal) {
-            $data['pending_evaluations'] = \App\Models\DefenceEvent::whereHas('panelMembers', function($q) use ($user) {
-                    $q->where('user_id', $user->id);
-                })->whereDoesntHave('evaluations', function($q) use ($user) {
-                    $q->where('evaluator_id', $user->id);
-                })->with('thesis.student.user')->get();
+        // Determine default tab based on roles
+        if ($facultyRoleCount > 1) {
+            $data['defaultTab'] = 'overview';
+        } elseif ($isSupervisor) {
+            $data['defaultTab'] = 'supervision';
+        } elseif ($isCoordinator) {
+            $data['defaultTab'] = 'coordination';
+        } elseif ($isInternalExaminer) {
+            $data['defaultTab'] = 'internal_exam';
+        } elseif ($isExternalExaminer) {
+            $data['defaultTab'] = 'external_exam';
+        } else {
+            $data['defaultTab'] = 'overview';
         }
 
+        // 1. SUPERVISION TELEMETRY
+        $supervisor = null;
+        $supervisorStudents = collect();
+        $supervisorAssignments = collect();
+        $pendingSupervisorReviews = collect();
+        $pendingSeminars = collect();
+
+        if ($isSupervisor) {
+            $supervisor = SupervisorProfile::where('user_id', $user->id)
+                ->with(['assignments.thesis.student.user', 'assignments.thesis.student.program', 'assignments.thesis.milestones', 'programs'])
+                ->first();
+            
+            $supervisorAssignments = $supervisor ? $supervisor->assignments : collect();
+            
+            $supervisorStudents = $supervisorAssignments->map(function($a) {
+                $s = $a->thesis?->student;
+                if ($s && $a->thesis) {
+                    $s->overall_progress = $a->thesis->progress_percentage;
+                }
+                return $s;
+            })->filter()->unique('id');
+
+            if ($supervisor) {
+                $pendingSupervisorReviews = \App\Models\StudentMilestone::whereHas('thesis.assignments', function($q) use ($supervisor) {
+                        $q->where('supervisor_profile_id', $supervisor->id)->where('status', 'active');
+                    })
+                    ->where('status', '!=', 'approved')
+                    ->whereHas('template', function($q) {
+                        $q->whereJsonContains('required_approvers', 'Supervisor');
+                    })
+                    ->where(function($q) use ($user) {
+                        $q->whereNull('approvals')
+                          ->orWhereRaw("NOT EXISTS (
+                              SELECT 1 FROM jsonb_each(COALESCE(approvals, '{}'::jsonb)) 
+                              WHERE value->>'user_id' = ?
+                          )", [$user->id]);
+                    })
+                    ->whereNotNull('submitted_at')
+                    ->with(['thesis.student.user', 'template'])
+                    ->latest()
+                    ->get();
+            }
+
+            // Pending seminar examinations where supervisor is a panel member
+            $pendingSeminars = \App\Models\DefenceEvent::where('type', 'seminar')
+                ->whereHas('panelMembers', function($q) use ($user) {
+                    $q->where('user_id', $user->id);
+                })
+                ->whereDoesntHave('evaluations', function($q) use ($user) {
+                    $q->where('evaluator_id', $user->id);
+                })
+                ->with(['thesis.student.user'])
+                ->get();
+        }
+
+        $data['supervisor'] = $supervisor;
+        $data['assignments'] = $supervisorAssignments;
+        $data['students'] = $supervisorStudents;
+        $data['pending_reviews'] = $pendingSupervisorReviews;
+        $data['pending_seminars'] = $pendingSeminars;
+
+        // 2. PROGRAM COORDINATION TELEMETRY
+        $coordinatedPrograms = collect();
+        $coordinatorStudents = collect();
+        $coordinatorPendingReviews = collect();
+        $coordinatorUpcomingEvents = collect();
+        $coordinatorClearanceMetrics = ['m1' => 0, 'm2' => 0, 'm6' => 0];
+        $coordinatorStats = ['students' => 0, 'theses' => 0, 'supervisors' => 0, 'pending_reviews' => 0];
+
+        if ($isCoordinator) {
+            $scopes = $user->coordinatorScopes();
+            $allProgramIds = $scopes->pluck('program_id')->unique()->toArray();
+            $allLevelIds = $scopes->pluck('level_id')->unique()->toArray();
+            $coordinatedPrograms = \App\Models\Program::whereIn('id', $allProgramIds)->get();
+
+            $coordinatorStudents = StudentProfile::forCoordinator($user)
+                ->with(['user', 'program', 'level', 'thesis.milestones.template', 'thesis.assignments.supervisor.user'])
+                ->where('enrollment_status', 'active')
+                ->latest()
+                ->take(25)
+                ->get();
+
+            $totalCoordStudents = StudentProfile::forCoordinator($user)->where('enrollment_status', 'active')->count();
+            $totalCoordTheses = \App\Models\ThesisProject::whereHas('student', function($q) use ($user) {
+                $q->forCoordinator($user);
+            })->whereIn('status', ['active', 'proposed'])->count();
+            $totalCoordSupervisors = SupervisorProfile::whereHas('programs', function($q) use ($allProgramIds) {
+                $q->whereIn('programs.id', $allProgramIds);
+            })->count();
+
+            // Coordinator pending milestone clearances
+            $coordinatorPendingReviews = \App\Models\StudentMilestone::whereHas('thesis.student', function($q) use ($user) {
+                    $q->forCoordinator($user);
+                })
+                ->where('status', '!=', 'approved')
+                ->whereHas('template', function($q) {
+                    $q->whereJsonContains('required_approvers', 'Program Coordinator');
+                })
+                ->where(function($q) use ($user) {
+                    $q->whereNull('approvals')
+                      ->orWhereRaw("NOT EXISTS (
+                          SELECT 1 FROM jsonb_each(COALESCE(approvals, '{}'::jsonb)) 
+                          WHERE value->>'user_id' = ?
+                      )", [$user->id]);
+                })
+                ->where(function($q) {
+                    $q->whereNotNull('submitted_at')
+                      ->orWhereHas('template', function($sq) {
+                          $sq->where('requires_submission', false);
+                      });
+                })
+                ->with(['thesis.student.user', 'template'])
+                ->latest()
+                ->get();
+
+            $coordinatorUpcomingEvents = \App\Models\DefenceEvent::whereHas('thesis.student', function($q) use ($user) {
+                    $q->forCoordinator($user);
+                })
+                ->where('schedule_start', '>=', now())
+                ->orderBy('schedule_start')
+                ->take(5)
+                ->get();
+
+            $denom = $totalCoordStudents ?: 1;
+            $coordinatorClearanceMetrics = [
+                'm1' => round((\App\Models\StudentMilestone::whereHas('thesis.student', function($q) use ($user) {
+                        $q->forCoordinator($user);
+                    })->whereHas('template', fn($q) => $q->where('order', 1))->where('status', 'approved')->count() / $denom) * 100),
+                'm2' => round((\App\Models\StudentMilestone::whereHas('thesis.student', function($q) use ($user) {
+                        $q->forCoordinator($user);
+                    })->whereHas('template', fn($q) => $q->where('order', 2))->where('status', 'approved')->count() / $denom) * 100),
+                'm6' => round((\App\Models\StudentMilestone::whereHas('thesis.student', function($q) use ($user) {
+                        $q->forCoordinator($user);
+                    })->whereHas('template', fn($q) => $q->where('order', 6))->where('status', 'approved')->count() / $denom) * 100),
+            ];
+
+            $coordinatorStats = [
+                'students' => $totalCoordStudents,
+                'theses' => $totalCoordTheses,
+                'supervisors' => $totalCoordSupervisors,
+                'pending_reviews' => $coordinatorPendingReviews->count(),
+            ];
+        }
+
+        $data['coordinatedPrograms'] = $coordinatedPrograms;
+        $data['coordinatorStudents'] = $coordinatorStudents;
+        $data['coordinatorPendingReviews'] = $coordinatorPendingReviews;
+        $data['coordinatorUpcomingEvents'] = $coordinatorUpcomingEvents;
+        $data['coordinatorClearanceMetrics'] = $coordinatorClearanceMetrics;
+        $data['coordinatorStats'] = $coordinatorStats;
+
+        // 3. INTERNAL EXAMINATION TELEMETRY
+        $internalTheses = collect();
+        $internalPendingReviews = collect();
+
+        if ($isInternalExaminer) {
+            $internalProfileIds = $user->internalExaminerProfiles()->pluck('id')->toArray();
+            $internalTheses = \App\Models\ThesisProject::whereIn('internal_examiner_profile_id', $internalProfileIds)
+                ->with(['student.user', 'student.program', 'milestones.template'])
+                ->latest()
+                ->get();
+
+            $internalPendingReviews = \App\Models\StudentMilestone::whereHas('thesis', function($q) use ($internalProfileIds) {
+                    $q->whereIn('internal_examiner_profile_id', $internalProfileIds);
+                })
+                ->where('status', '!=', 'approved')
+                ->whereHas('template', function($q) {
+                    $q->whereJsonContains('required_approvers', 'Internal Examiner');
+                })
+                ->where(function($q) use ($user) {
+                    $q->whereNull('approvals')
+                      ->orWhereRaw("NOT EXISTS (
+                          SELECT 1 FROM jsonb_each(COALESCE(approvals, '{}'::jsonb)) 
+                          WHERE value->>'user_id' = ?
+                      )", [$user->id]);
+                })
+                ->whereNotNull('submitted_at')
+                ->with(['thesis.student.user', 'template'])
+                ->latest()
+                ->get();
+        }
+
+        $data['internalTheses'] = $internalTheses;
+        $data['internalPendingReviews'] = $internalPendingReviews;
+
+        // 4. EXTERNAL EXAMINATION TELEMETRY
+        $externalTheses = collect();
+        $externalPendingReviews = collect();
+
+        if ($isExternalExaminer) {
+            $externalProfileIds = $user->externalExaminerProfiles()->pluck('id')->toArray();
+            $externalTheses = \App\Models\ThesisProject::whereIn('external_examiner_profile_id', $externalProfileIds)
+                ->with(['student.user', 'student.program', 'milestones.template'])
+                ->latest()
+                ->get();
+
+            $externalPendingReviews = \App\Models\StudentMilestone::whereHas('thesis', function($q) use ($externalProfileIds) {
+                    $q->whereIn('external_examiner_profile_id', $externalProfileIds);
+                })
+                ->where('status', '!=', 'approved')
+                ->whereHas('template', function($q) {
+                    $q->whereJsonContains('required_approvers', 'External Examiner');
+                })
+                ->where(function($q) use ($user) {
+                    $q->whereNull('approvals')
+                      ->orWhereRaw("NOT EXISTS (
+                          SELECT 1 FROM jsonb_each(COALESCE(approvals, '{}'::jsonb)) 
+                          WHERE value->>'user_id' = ?
+                      )", [$user->id]);
+                })
+                ->whereNotNull('submitted_at')
+                ->with(['thesis.student.user', 'template'])
+                ->latest()
+                ->get();
+        }
+
+        $data['externalTheses'] = $externalTheses;
+        $data['externalPendingReviews'] = $externalPendingReviews;
+
+        // 5. VIVA / ORAL DEFENCE EVALUATIONS (Applicable to Examiners & Panelists)
+        $data['pending_evaluations'] = \App\Models\DefenceEvent::whereHas('panelMembers', function($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })->whereDoesntHave('evaluations', function($q) use ($user) {
+                $q->where('evaluator_id', $user->id);
+            })->with(['thesis.student.user'])->get();
+
+        // 6. GLOBAL MILESTONE TEMPLATES (for milestone jump)
+        $data['milestone_templates'] = \App\Models\MilestoneTemplate::orderBy('order')->get();
+
+        // 7. AGGREGATED STATS MATRIX
         $unreadCounts = $this->getUnreadMessagesCount($user);
+        $totalPendingReviews = $pendingSupervisorReviews->count() + $coordinatorPendingReviews->count() + $internalPendingReviews->count() + $externalPendingReviews->count() + $data['pending_evaluations']->count();
+
         $data['stats'] = [
-            'assigned_students' => $data['students']->count(),
-            'pending_reviews' => $data['pending_reviews']->count(),
-            'total_theses' => $data['assignments']->unique('thesis_project_id')->count(),
+            'assigned_students' => $supervisorStudents->count(),
+            'pending_reviews' => $pendingSupervisorReviews->count(),
+            'total_theses' => $supervisorAssignments->unique('thesis_project_id')->count(),
+            'coordinator_students' => $coordinatorStats['students'],
+            'coordinator_theses' => $coordinatorStats['theses'],
+            'internal_theses' => $internalTheses->count(),
+            'external_theses' => $externalTheses->count(),
+            'total_pending_actions' => $totalPendingReviews,
             'unread_messages' => $unreadCounts['total'],
             'unread_chat' => $unreadCounts['chat'],
             'unread_inbox' => $unreadCounts['inbox'],

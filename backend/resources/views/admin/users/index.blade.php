@@ -166,9 +166,17 @@
                             <div class="flex gap-2 flex-wrap">
                                 @forelse($user->roles as $role)
                                     @php
-                                        $isStaff = in_array($role->name, ['Admin', 'Director', 'Program Coordinator']);
+                                        $badgeStyle = match($role->name) {
+                                            'Supervisor' => 'bg-emerald-50 text-emerald-800 border-emerald-200',
+                                            'Program Coordinator' => 'bg-blue-50 text-blue-800 border-blue-200',
+                                            'Internal Examiner' => 'bg-purple-50 text-purple-800 border-purple-200',
+                                            'External Examiner' => 'bg-amber-50 text-amber-800 border-amber-200',
+                                            'Admin' => 'bg-slate-900 text-white border-slate-900',
+                                            'Director' => 'bg-indigo-900 text-white border-indigo-900',
+                                            default => 'bg-slate-100 text-slate-700 border-slate-200',
+                                        };
                                     @endphp
-                                    <span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all {{ $isStaff ? 'bg-slate-900 text-white border-slate-900' : 'bg-green-50 text-green-700 border-green-100' }}">
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border shadow-xs transition-all {{ $badgeStyle }}">
                                         {{ $role->name }}
                                         @if($role->name === 'Supervisor' && $user->supervisorProfile)
                                             <div x-data="{ open: false }" class="inline-block ml-1">

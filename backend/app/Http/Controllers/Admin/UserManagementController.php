@@ -85,19 +85,32 @@ class UserManagementController extends Controller
         $allowedRoles = [];
 
         if ($creator->hasAnyRole(['Admin', 'Director'])) {
-            // Admin/Director can create everything including themselves
             $allowedRoles = ['Admin', 'Director', 'Program Coordinator', 'Supervisor', 'Internal Examiner', 'External Examiner', 'Student'];
         } elseif ($creator->hasRole('Program Coordinator')) {
             $allowedRoles = ['Supervisor', 'Internal Examiner', 'External Examiner', 'Student'];
         }
 
+        // Support both array 'roles' and fallback single 'role'
+        $roles = $request->input('roles', []);
+        if (empty($roles) && $request->filled('role')) {
+            $roles = [$request->input('role')];
+        }
+        if (is_string($roles)) {
+            $roles = [$roles];
+        }
+        $roles = array_values(array_filter((array) $roles));
+
         $rules = [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'role' => ['required', 'string', Rule::in($allowedRoles)],
+            'roles' => 'required|array|min:1',
+            'roles.*' => ['string', Rule::in($allowedRoles)],
         ];
 
-        if ($request->input('role') === 'Student') {
+        if (in_array('Student', $roles)) {
+            if (count($roles) > 1) {
+                return back()->withInput()->withErrors(['roles' => 'The Student role cannot be combined with faculty or administrative roles.']);
+            }
             $rules = array_merge($rules, [
                 'cohort_id' => 'required|exists:cohorts,id',
                 'program_id' => 'required|exists:programs,id',
@@ -106,123 +119,131 @@ class UserManagementController extends Controller
             ]);
         }
 
+        $request->merge(['roles' => $roles]);
         $validated = $request->validate($rules);
         
         $password = 'ACETEL-' . rand(100000, 999999);
 
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($password),
-            'is_active' => $request->has('is_active'),
-            'must_change_password' => true,
-        ]);
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'password' => Hash::make($password),
+                'is_active' => $request->has('is_active'),
+                'must_change_password' => true,
+            ]);
 
-        $user->assignRole($validated['role']);
+            $user->syncRoles($roles);
 
-        // Handle Coordinator Assignments
-        if ($validated['role'] === 'Program Coordinator' && $request->has('coordinator_programs')) {
-            $levels = \App\Models\Level::all();
-            $programIds = array_unique(array_filter($request->input('coordinator_programs')));
-            foreach ($programIds as $programId) {
-                foreach ($levels as $level) {
-                    \App\Models\CoordinatorProfile::create([
-                        'user_id' => $user->id,
-                        'program_id' => $programId,
-                        'level_id' => $level->id,
-                        'active' => true,
-                    ]);
+            // 1. Program Coordinator Profile Assignment
+            if (in_array('Program Coordinator', $roles)) {
+                $programIds = array_unique(array_filter($request->input('coordinator_programs', [])));
+                if (empty($programIds) && $request->filled('program_id')) {
+                    $programIds = [$request->program_id];
+                }
+                $levels = \App\Models\Level::all();
+                foreach ($programIds as $programId) {
+                    foreach ($levels as $level) {
+                        \App\Models\CoordinatorProfile::firstOrCreate([
+                            'user_id' => $user->id,
+                            'program_id' => $programId,
+                            'level_id' => $level->id,
+                        ], [
+                            'active' => true,
+                        ]);
+                    }
                 }
             }
-        }
 
-        if ($validated['role'] === 'Supervisor') {
-            $profile = $user->supervisorProfile()->create([
-                'staff_id' => 'STF-' . strtoupper(\Illuminate\Support\Str::random(6)),
-                'max_students' => 10,
-                'current_load' => 0,
-                'rank' => $request->input('rank'),
-            ]);
-            
-            if ($request->filled('program_id')) {
-                $profile->programs()->sync([$request->program_id]);
-            }
-        }
-
-        // Handle Examiner & Supervisor Profile Assignments (Multi-Program)
-        $programIds = [];
-        if (in_array($validated['role'], ['Internal Examiner', 'External Examiner', 'Supervisor']) && $request->has('coordinator_programs')) {
-            $programIds = array_unique(array_filter($request->input('coordinator_programs', [])));
-            
-            foreach ($programIds as $programId) {
-                if ($validated['role'] === 'Internal Examiner') {
-                    \App\Models\InternalExaminerProfile::create([
-                        'user_id' => $user->id,
-                        'program_id' => $programId,
-                        'active' => true,
-                    ]);
-                } elseif ($validated['role'] === 'Supervisor') {
-                    $profile = $user->supervisorProfile()->firstOrCreate([
-                        'user_id' => $user->id
-                    ], [
-                        'staff_id' => 'STF-' . strtoupper(\Illuminate\Support\Str::random(6)),
-                        'max_students' => 10,
-                        'current_load' => 0,
-                        'rank' => $request->input('rank'),
-                    ]);
-                    $profile->programs()->syncWithoutDetaching([$programId]);
-                } else {
-                    \App\Models\ExternalExaminerProfile::create([
-                        'user_id' => $user->id,
-                        'program_id' => $programId,
-                        'institution' => 'External Institution',
-                        'active' => true,
-                    ]);
-                }
-            }
-        }
-
-        // Backward compatibility support for single select (if any)
-        if ($validated['role'] === 'Internal Examiner' && empty($programIds) && $request->filled('program_id')) {
-             \App\Models\InternalExaminerProfile::create([
-                'user_id' => $user->id,
-                'program_id' => $request->program_id,
-                'active' => true,
-            ]);
-        }
-
-        if ($validated['role'] === 'External Examiner' && empty($programIds) && $request->filled('program_id')) {
-             \App\Models\ExternalExaminerProfile::create([
-                'user_id' => $user->id,
-                'program_id' => $request->program_id,
-                'institution' => 'External Institution',
-                'active' => true,
-            ]);
-        }
-
-        // Handle Student Profile
-        if ($validated['role'] === 'Student') {
-            $profile = \App\Models\StudentProfile::create([
-                'user_id' => $user->id,
-                'cohort_id' => $validated['cohort_id'],
-                'program_id' => $validated['program_id'],
-                'level_id' => $validated['level_id'],
-                'student_id_number' => $validated['student_id_number'],
-                'enrollment_status' => 'active',
-                'current_semester' => 1,
-            ]);
-
-            // Create initial thesis project for each student safely
-            if ($profile) {
-                $profile->thesis()->create([
-                    'title' => 'Pending Project Initiation',
-                    'abstract' => 'Student has not yet submitted their project proposal details.',
-                    'status' => 'proposed',
+            // 2. Supervisor Profile Assignment
+            if (in_array('Supervisor', $roles)) {
+                $supervisorProfile = $user->supervisorProfile()->firstOrCreate([
+                    'user_id' => $user->id,
+                ], [
+                    'staff_id' => 'STF-' . strtoupper(\Illuminate\Support\Str::random(6)),
+                    'max_students' => 10,
+                    'current_load' => 0,
+                    'rank' => $request->input('rank'),
                 ]);
+
+                if ($request->filled('rank')) {
+                    $supervisorProfile->update(['rank' => $request->input('rank')]);
+                }
+
+                $progIds = array_unique(array_filter($request->input('coordinator_programs', [])));
+                if ($request->filled('program_id')) {
+                    $progIds[] = $request->program_id;
+                }
+                $progIds = array_unique(array_filter($progIds));
+                if (!empty($progIds)) {
+                    $supervisorProfile->programs()->syncWithoutDetaching($progIds);
+                }
             }
-        }        
+
+            // 3. Internal Examiner Profile Assignment
+            if (in_array('Internal Examiner', $roles)) {
+                $internalProgIds = array_unique(array_filter($request->input('coordinator_programs', [])));
+                if (empty($internalProgIds) && $request->filled('program_id')) {
+                    $internalProgIds = [$request->program_id];
+                }
+                if (empty($internalProgIds)) {
+                    $firstProg = \App\Models\Program::first();
+                    if ($firstProg) $internalProgIds = [$firstProg->id];
+                }
+                foreach ($internalProgIds as $progId) {
+                    \App\Models\InternalExaminerProfile::firstOrCreate([
+                        'user_id' => $user->id,
+                        'program_id' => $progId,
+                    ], [
+                        'active' => true,
+                    ]);
+                }
+            }
+
+            // 4. External Examiner Profile Assignment
+            if (in_array('External Examiner', $roles)) {
+                $externalProgIds = array_unique(array_filter($request->input('coordinator_programs', [])));
+                if (empty($externalProgIds) && $request->filled('program_id')) {
+                    $externalProgIds = [$request->program_id];
+                }
+                if (empty($externalProgIds)) {
+                    $firstProg = \App\Models\Program::first();
+                    if ($firstProg) $externalProgIds = [$firstProg->id];
+                }
+                $institution = $request->input('institution', 'External Institution');
+                foreach ($externalProgIds as $progId) {
+                    \App\Models\ExternalExaminerProfile::firstOrCreate([
+                        'user_id' => $user->id,
+                        'program_id' => $progId,
+                    ], [
+                        'institution' => $institution,
+                        'active' => true,
+                    ]);
+                }
+            }
+
+            // 5. Student Profile Assignment
+            if (in_array('Student', $roles)) {
+                $profile = \App\Models\StudentProfile::create([
+                    'user_id' => $user->id,
+                    'cohort_id' => $validated['cohort_id'],
+                    'program_id' => $validated['program_id'],
+                    'level_id' => $validated['level_id'],
+                    'student_id_number' => $validated['student_id_number'],
+                    'enrollment_status' => 'active',
+                    'current_semester' => 1,
+                ]);
+
+                if ($profile) {
+                    $profile->thesis()->create([
+                        'title' => 'Pending Project Initiation',
+                        'abstract' => 'Student has not yet submitted their project proposal details.',
+                        'status' => 'proposed',
+                    ]);
+                }
+            }
+
             \Illuminate\Support\Facades\DB::commit();
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\DB::rollBack();
@@ -233,10 +254,10 @@ class UserManagementController extends Controller
         try {
             \Illuminate\Support\Facades\Mail::to($user->email)->queue(new \App\Mail\WelcomeUser($user, $password));
         } catch (\Throwable $e) {
-             \Illuminate\Support\Facades\Log::error("Mail sending failed for user {$user->email}: " . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error("Mail sending failed for user {$user->email}: " . $e->getMessage());
         }
 
-        return redirect()->route('admin.users.index')->with('success', 'User created successfully.');
+        return redirect()->route('admin.users.index')->with('success', 'User created successfully with assigned role(s).');
     }
 
     /**
@@ -253,17 +274,18 @@ class UserManagementController extends Controller
             $allowedRoles = ['Supervisor', 'Internal Examiner', 'External Examiner', 'Student'];
         }
 
-        // Maintain role if it's already set to something else (e.g. legacy or other admin edits)
-        $currentRole = $user->roles->first()?->name;
-        if ($currentRole && !in_array($currentRole, $allowedRoles)) {
-            $allowedRoles[] = $currentRole;
+        $userRoles = $user->roles->pluck('name')->toArray();
+        foreach ($userRoles as $uRole) {
+            if (!in_array($uRole, $allowedRoles)) {
+                $allowedRoles[] = $uRole;
+            }
         }
 
         $roles = Role::whereIn('name', $allowedRoles)->pluck('name');
         $cohorts = Cohort::latest()->get();
         $programs = Program::all();
         $levels = Level::all();
-        return view('admin.users.edit', compact('user', 'roles', 'cohorts', 'programs', 'levels'));
+        return view('admin.users.edit', compact('user', 'roles', 'userRoles', 'cohorts', 'programs', 'levels'));
     }
 
     /**
@@ -289,19 +311,34 @@ class UserManagementController extends Controller
             $allowedRoles = ['Supervisor', 'Internal Examiner', 'External Examiner', 'Student'];
         }
         
-        // Allow the current role to be validated even if it's not in the restricted set (for students/legacy)
-        $currentRole = $user->roles->first()?->name;
-        if ($currentRole && !in_array($currentRole, $allowedRoles)) {
-            $allowedRoles[] = $currentRole;
+        $currentUserRoles = $user->roles->pluck('name')->toArray();
+        foreach ($currentUserRoles as $uRole) {
+            if (!in_array($uRole, $allowedRoles)) {
+                $allowedRoles[] = $uRole;
+            }
         }
+
+        // Support both array 'roles' and fallback single 'role'
+        $roles = $request->input('roles', []);
+        if (empty($roles) && $request->filled('role')) {
+            $roles = [$request->input('role')];
+        }
+        if (is_string($roles)) {
+            $roles = [$roles];
+        }
+        $roles = array_values(array_filter((array) $roles));
 
         $rules = [
             'name' => 'required|string|max:255',
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
-            'role' => ['required', 'string', Rule::in($allowedRoles)],
+            'roles' => 'required|array|min:1',
+            'roles.*' => ['string', Rule::in($allowedRoles)],
         ];
 
-        if ($request->input('role') === 'Student') {
+        if (in_array('Student', $roles)) {
+            if (count($roles) > 1) {
+                return back()->withInput()->withErrors(['roles' => 'The Student role cannot be combined with faculty or administrative roles.']);
+            }
             $rules = array_merge($rules, [
                 'cohort_id' => 'required|exists:cohorts,id',
                 'program_id' => 'required|exists:programs,id',
@@ -314,120 +351,135 @@ class UserManagementController extends Controller
             $rules['password'] = 'required|string|min:8|confirmed';
         }
 
+        $request->merge(['roles' => $roles]);
         $validated = $request->validate($rules);
 
-        $userData = [
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'is_active' => $request->has('is_active'),
-        ];
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $userData = [
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'is_active' => $request->has('is_active'),
+            ];
 
-        if ($request->filled('password')) {
-            $userData['password'] = Hash::make($validated['password']);
-        }
+            if ($request->filled('password')) {
+                $userData['password'] = Hash::make($validated['password']);
+            }
 
-        $user->update($userData);
-        $user->syncRoles([$validated['role']]);
+            $user->update($userData);
+            $user->syncRoles($roles);
 
-        // Update Coordinator Assignments if applicable
-        if ($validated['role'] === 'Program Coordinator') {
-            // Remove old assignments
-            $user->coordinatorProfiles()->delete();
-
-            // Add new assignments
-            if ($request->has('coordinator_programs')) {
+            // 1. Program Coordinator Profile Sync
+            if (in_array('Program Coordinator', $roles)) {
+                $user->coordinatorProfiles()->delete();
+                $progIds = array_unique(array_filter($request->input('coordinator_programs', [])));
+                if (empty($progIds) && $request->filled('program_id')) {
+                    $progIds = [$request->program_id];
+                }
                 $levels = \App\Models\Level::all();
-                $programIds = array_unique(array_filter($request->input('coordinator_programs')));
-                foreach ($programIds as $programId) {
+                foreach ($progIds as $progId) {
                     foreach ($levels as $level) {
                         \App\Models\CoordinatorProfile::create([
                             'user_id' => $user->id,
-                            'program_id' => $programId,
+                            'program_id' => $progId,
                             'level_id' => $level->id,
                             'active' => true,
                         ]);
                     }
                 }
+            } else {
+                // Remove coordinator profiles if role was unassigned
+                $user->coordinatorProfiles()->delete();
             }
-        }
 
-        // Update Student Profile Details if applicable (Role Student)
-        if ($validated['role'] === 'Student') {
-            $user->studentProfile()->updateOrCreate(
-                ['user_id' => $user->id],
-                [
-                    'cohort_id' => $validated['cohort_id'],
-                    'program_id' => $validated['program_id'],
-                    'level_id' => $validated['level_id'],
-                    'student_id_number' => $validated['student_id_number'],
-                ]
-            );
-        }
-
-        // Handle Supervisor Profile
-        if ($validated['role'] === 'Supervisor') {
-            $profile = $user->supervisorProfile()->updateOrCreate(
-                ['user_id' => $user->id],
-                [
-                    'staff_id' => $user->supervisorProfile?->staff_id ?? 'STF-' . strtoupper(\Illuminate\Support\Str::random(6)),
-                    'max_students' => $user->supervisorProfile?->max_students ?? 10,
-                    'rank' => $request->input('rank'),
-                ]
-            );
-            
-            if ($request->filled('program_id')) {
-                $profile->programs()->sync([$request->program_id]);
+            // 2. Supervisor Profile Sync
+            if (in_array('Supervisor', $roles)) {
+                $supervisorProfile = $user->supervisorProfile()->updateOrCreate(
+                    ['user_id' => $user->id],
+                    [
+                        'staff_id' => $user->supervisorProfile?->staff_id ?? 'STF-' . strtoupper(\Illuminate\Support\Str::random(6)),
+                        'max_students' => $user->supervisorProfile?->max_students ?? 10,
+                        'rank' => $request->input('rank') ?? $user->supervisorProfile?->rank,
+                    ]
+                );
+                
+                $progIds = array_unique(array_filter($request->input('coordinator_programs', [])));
+                if ($request->filled('program_id')) {
+                    $progIds[] = $request->program_id;
+                }
+                $progIds = array_unique(array_filter($progIds));
+                if (!empty($progIds)) {
+                    $supervisorProfile->programs()->sync($progIds);
+                }
             }
-        }
 
-        // Update Examiner & Supervisor Profile Assignments
-        $programIds = [];
-        if (in_array($validated['role'], ['Internal Examiner', 'External Examiner', 'Supervisor'])) {
-             // Remove old profiles for examiners (handled by deletion of entire profile record for clean slate)
-             if ($validated['role'] !== 'Supervisor') {
+            // 3. Internal Examiner Profile Sync
+            if (in_array('Internal Examiner', $roles)) {
                 $user->internalExaminerProfiles()->delete();
+                $progIds = array_unique(array_filter($request->input('coordinator_programs', [])));
+                if (empty($progIds) && $request->filled('program_id')) {
+                    $progIds = [$request->program_id];
+                }
+                if (empty($progIds)) {
+                    $firstProg = \App\Models\Program::first();
+                    if ($firstProg) $progIds = [$firstProg->id];
+                }
+                foreach ($progIds as $progId) {
+                    \App\Models\InternalExaminerProfile::create([
+                        'user_id' => $user->id,
+                        'program_id' => $progId,
+                        'active' => true,
+                    ]);
+                }
+            } else {
+                $user->internalExaminerProfiles()->delete();
+            }
+
+            // 4. External Examiner Profile Sync
+            if (in_array('External Examiner', $roles)) {
                 $user->externalExaminerProfiles()->delete();
-             }
-
-            $programIds = array_unique(array_filter($request->input('coordinator_programs', [])));
-            
-            foreach ($programIds as $programId) {
-                if ($validated['role'] === 'Internal Examiner') {
-                    \App\Models\InternalExaminerProfile::create([
-                        'user_id' => $user->id,
-                        'program_id' => $programId,
-                        'active' => true,
-                    ]);
-                } else {
+                $progIds = array_unique(array_filter($request->input('coordinator_programs', [])));
+                if (empty($progIds) && $request->filled('program_id')) {
+                    $progIds = [$request->program_id];
+                }
+                if (empty($progIds)) {
+                    $firstProg = \App\Models\Program::first();
+                    if ($firstProg) $progIds = [$firstProg->id];
+                }
+                $institution = $request->input('institution', 'External Institution');
+                foreach ($progIds as $progId) {
                     \App\Models\ExternalExaminerProfile::create([
                         'user_id' => $user->id,
-                        'program_id' => $programId,
-                        'institution' => 'External Institution',
+                        'program_id' => $progId,
+                        'institution' => $institution,
                         'active' => true,
                     ]);
                 }
+            } else {
+                $user->externalExaminerProfiles()->delete();
             }
 
-            // support for single select compatibility if multi is empty
-            if (empty($programIds) && $request->filled('program_id')) {
-                if ($validated['role'] === 'Internal Examiner') {
-                    \App\Models\InternalExaminerProfile::create([
-                        'user_id' => $user->id,
-                        'program_id' => $request->program_id,
-                        'active' => true,
-                    ]);
-                } else {
-                    \App\Models\ExternalExaminerProfile::create([
-                        'user_id' => $user->id,
-                        'program_id' => $request->program_id,
-                        'institution' => 'External Institution',
-                        'active' => true,
-                    ]);
-                }
+            // 5. Student Profile Sync
+            if (in_array('Student', $roles)) {
+                $user->studentProfile()->updateOrCreate(
+                    ['user_id' => $user->id],
+                    [
+                        'cohort_id' => $validated['cohort_id'],
+                        'program_id' => $validated['program_id'],
+                        'level_id' => $validated['level_id'],
+                        'student_id_number' => $validated['student_id_number'],
+                    ]
+                );
             }
+
+            \Illuminate\Support\Facades\DB::commit();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            \Illuminate\Support\Facades\Log::error('User update failed: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Could not update user: ' . $e->getMessage());
         }
 
-        return redirect()->route('admin.users.index')->with('success', 'User updated successfully.');
+        return redirect()->route('admin.users.index')->with('success', 'User updated successfully with synchronized roles and profiles.');
     }
 
     /**
