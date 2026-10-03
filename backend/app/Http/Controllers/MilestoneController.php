@@ -56,7 +56,11 @@ class MilestoneController extends Controller
                 ->get()
                 ->sortBy('template.order');
 
-            if ($milestones->isEmpty()) {
+            $templatesCount = \App\Models\MilestoneTemplate::whereNull('program_id')
+                ->orWhere('program_id', $thesis->student->program_id ?? null)
+                ->count();
+
+            if ($milestones->count() < $templatesCount || $milestones->isEmpty()) {
                 $thesis->syncMilestones();
                 $milestones = $thesis->milestones()
                     ->with(['template', 'submissions.submittedBy', 'messages.sender', 'unlockedBy'])

@@ -15,6 +15,15 @@ class StudentController extends Controller
      */
     public function show(StudentProfile $student)
     {
+        if ($student->thesis) {
+            $templatesCount = \App\Models\MilestoneTemplate::whereNull('program_id')
+                ->orWhere('program_id', $student->program_id)->count();
+                
+            if ($student->thesis->milestones()->count() < $templatesCount) {
+                $student->thesis->syncMilestones();
+            }
+        }
+
         $student->load([
             'user', 
             'program', 
