@@ -152,11 +152,118 @@
                                     @endif
 
                                     @php
-                                        $scheduledCount = $template->studentMilestones->filter(fn($m) => !empty($m->defence_date) && $m->status !== 'approved')->count();
+                                        $scheduledMilestones = $template->studentMilestones
+                                            ->filter(fn($m) => !empty($m->defence_date) && $m->status !== 'approved')
+                                            ->sortBy(fn($m) => \Carbon\Carbon::parse($m->defence_date)->format('Y-m-d') . ' ' . ($m->defence_time ?? ''))
+                                            ->values();
+                                        $scheduledCount = $scheduledMilestones->count();
+                                        $existingLink = $scheduledMilestones->first(fn($m) => !empty($m->meeting_link))?->meeting_link;
+                                        $existingTimeRaw = $scheduledMilestones->first(fn($m) => !empty($m->defence_time))?->defence_time;
+                                        $existingTime = $existingTimeRaw ? \Carbon\Carbon::parse($existingTimeRaw)->format('H:i') : null;
+                                        $lastScheduledDate = $scheduledCount > 0 ? \Carbon\Carbon::parse($scheduledMilestones->last()->defence_date)->format('Y-m-d') : null;
                                     @endphp
 
                                     @if($scheduledCount > 0)
                                         @if(!isset($isCoordinator) || !$isCoordinator)
+                                            <button type="button" @click="showStudents = true; $nextTick(() => $refs.scheduleForm?.scrollIntoView({ behavior: 'smooth', block: 'center' }))"
+                                                class="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm">
+                                                <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+                                                <span>Add Students</span>
+                                            </button>
+
+                                            <div x-data="{ editOpen: false }" class="inline">
+                                                <button type="button" @click="editOpen = true"
+                                                    class="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm">
+                                                    <svg class="w-3.5 h-3.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                                    <span>Edit Schedule</span>
+                                                </button>
+
+                                                <template x-teleport="body">
+                                                    <div x-show="editOpen" x-cloak x-transition.opacity class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" @keydown.escape.window="editOpen = false">
+                                                        <div @click.outside="editOpen = false" class="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
+                                                            <form action="{{ route('admin.milestone-templates.update-schedule', $template->id) }}" method="POST" class="flex flex-col min-h-0">
+                                                                @csrf
+                                                                {{-- Header --}}
+                                                                <div class="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4">
+                                                                    <div>
+                                                                        <h3 class="text-lg font-black text-slate-900">Edit {{ $template->presentation_title }} Schedule</h3>
+                                                                        <p class="text-xs text-slate-500 mt-0.5">Change dates, times or meeting links, or remove students. Only students whose slot changes will be notified.</p>
+                                                                    </div>
+                                                                    <button type="button" @click="editOpen = false" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                                                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                                    </button>
+                                                                </div>
+
+                                                                {{-- Apply to all --}}
+                                                                <div class="px-6 py-4 bg-slate-50 border-b border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                                    <div>
+                                                                        <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Apply time to all (optional)</label>
+                                                                        <input type="time" name="apply_time_all" class="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                                                                    </div>
+                                                                    <div>
+                                                                        <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Apply meeting link to all (optional)</label>
+                                                                        <input type="url" name="apply_link_all" placeholder="https://zoom.us/j/..." class="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                                                                    </div>
+                                                                </div>
+
+                                                                {{-- Per-student rows --}}
+                                                                <div class="overflow-y-auto flex-1 min-h-0">
+                                                                    <table class="w-full text-left text-xs">
+                                                                        <thead class="bg-white sticky top-0 z-10 border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                                            <tr>
+                                                                                <th class="px-6 py-3">Student</th>
+                                                                                <th class="px-3 py-3">Date</th>
+                                                                                <th class="px-3 py-3">Time</th>
+                                                                                <th class="px-3 py-3">Meeting Link</th>
+                                                                                <th class="px-6 py-3 text-center">Remove</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody class="divide-y divide-slate-100">
+                                                                            @foreach($scheduledMilestones as $esm)
+                                                                                <tr x-data="{ rm: false }" :class="rm ? 'bg-rose-50/60 opacity-60' : ''">
+                                                                                    <td class="px-6 py-3">
+                                                                                        <div class="font-bold text-slate-900">{{ $esm->thesis?->student?->user?->name ?? 'Candidate' }}</div>
+                                                                                        <div class="text-[11px] text-slate-500">{{ $esm->thesis?->student?->student_id_number ?? 'N/A' }}</div>
+                                                                                    </td>
+                                                                                    <td class="px-3 py-3">
+                                                                                        <input type="date" name="entries[{{ $esm->id }}][defence_date]" value="{{ \Carbon\Carbon::parse($esm->defence_date)->format('Y-m-d') }}" :disabled="rm" required
+                                                                                            class="w-36 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                                                                                    </td>
+                                                                                    <td class="px-3 py-3">
+                                                                                        <input type="time" name="entries[{{ $esm->id }}][defence_time]" value="{{ $esm->defence_time ? \Carbon\Carbon::parse($esm->defence_time)->format('H:i') : '' }}" :disabled="rm"
+                                                                                            class="w-28 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                                                                                    </td>
+                                                                                    <td class="px-3 py-3">
+                                                                                        <input type="url" name="entries[{{ $esm->id }}][meeting_link]" value="{{ $esm->meeting_link }}" placeholder="https://..." :disabled="rm"
+                                                                                            class="w-full min-w-[200px] px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                                                                                    </td>
+                                                                                    <td class="px-6 py-3 text-center">
+                                                                                        <input type="hidden" name="entries[{{ $esm->id }}][remove]" :value="rm ? 1 : 0">
+                                                                                        <button type="button" @click="rm = !rm"
+                                                                                            :class="rm ? 'bg-rose-600 text-white border-rose-600' : 'bg-white text-rose-600 border-rose-200 hover:bg-rose-50'"
+                                                                                            class="px-2.5 py-1 rounded-lg border text-[10px] font-black uppercase tracking-wider transition"
+                                                                                            x-text="rm ? 'Undo' : 'Remove'"></button>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            @endforeach
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+
+                                                                {{-- Footer --}}
+                                                                <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3 bg-white">
+                                                                    <p class="text-[11px] text-slate-400">{{ $scheduledCount }} scheduled student(s). To add more, close this and use <strong>Add Students</strong>.</p>
+                                                                    <div class="flex gap-2">
+                                                                        <button type="button" @click="editOpen = false" class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200">Close</button>
+                                                                        <button type="submit" class="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 shadow-md shadow-amber-600/20">Save Changes</button>
+                                                                    </div>
+                                                                </div>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+
                                             <form action="{{ route('admin.milestone-templates.cancel-schedule', $template->id) }}" method="POST" class="inline">
                                                 @csrf
                                                 <button type="submit" 
@@ -262,7 +369,7 @@
 
                                 {{-- Schedule Form (Admin only) --}}
                                 @if($template->studentMilestones->count() > 0 && (!isset($isCoordinator) || !$isCoordinator))
-                                <div x-show="showStudents" x-cloak class="mb-6 bg-gradient-to-br from-slate-50 via-emerald-50/20 to-white p-5 rounded-2xl border border-emerald-100 shadow-sm">
+                                <div x-ref="scheduleForm" x-show="showStudents" x-cloak class="mb-6 bg-gradient-to-br from-slate-50 via-emerald-50/20 to-white p-5 rounded-2xl border border-emerald-100 shadow-sm">
                                     <form action="{{ route('admin.milestone-templates.schedule') }}" method="POST">
                                         @csrf
                                         <template x-for="id in selected">
@@ -278,10 +385,10 @@
                                                 </div>
                                                 <div>
                                                     <h4 class="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                                                        <span>Generate Presentation Schedule</span>
+                                                        <span>{{ $scheduledCount > 0 ? 'Add Students to Schedule' : 'Generate Presentation Schedule' }}</span>
                                                         <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">Automated</span>
                                                     </h4>
-                                                    <p class="text-xs text-slate-500 font-medium">Batch assign defence dates, presentation time, and Zoom meeting link to selected students.</p>
+                                                    <p class="text-xs text-slate-500 font-medium">{{ $scheduledCount > 0 ? 'Select unscheduled students below and add them to the existing schedule. Fields are pre-filled from the current schedule.' : 'Batch assign defence dates, presentation time, and Zoom meeting link to selected students.' }}</p>
                                                 </div>
                                             </div>
                                             <div class="flex items-center gap-2">
@@ -300,7 +407,7 @@
                                                     <span>Start Date</span>
                                                     <span class="text-red-500">*</span>
                                                 </label>
-                                                <input type="date" name="start_date" required 
+                                                <input type="date" name="start_date" required value="{{ $lastScheduledDate ?? '' }}"
                                                     class="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-sm transition">
                                             </div>
                                             <div>
@@ -308,7 +415,7 @@
                                                     <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                                     <span>Start Time</span>
                                                 </label>
-                                                <input type="time" name="start_time" value="09:00" 
+                                                <input type="time" name="start_time" value="{{ $existingTime ?? '09:00' }}" 
                                                     class="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-sm transition">
                                             </div>
                                             <div>
@@ -325,7 +432,7 @@
                                                     <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                                                     <span>Zoom / Meeting Link</span>
                                                 </label>
-                                                <input type="url" name="meeting_link" placeholder="https://zoom.us/j/..." 
+                                                <input type="url" name="meeting_link" value="{{ $existingLink ?? '' }}" placeholder="https://zoom.us/j/..." 
                                                     class="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-medium text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-sm transition">
                                             </div>
                                         </div>
