@@ -127,6 +127,24 @@ class MilestoneController extends Controller
         return back()->with('success', 'Upload accepted successfully. You can now proceed to approve the milestone.');
     }
 
+    public function rejectUpload(Request $request, StudentMilestone $milestone)
+    {
+        $submission = $milestone->submissions()->latest()->first();
+        if ($submission) {
+            \App\Models\Feedback::create([
+                'submission_id' => $submission->id,
+                'decision' => 'revision_required',
+                'remarks' => 'Document requires revision. Please check supervisor notes and upload a new version.',
+                'created_by' => Auth::id(),
+            ]);
+            
+            // Note: If we want the student to be able to resubmit, we also need to unlock the milestone submission.
+            // Or change the milestone status to 'revision_required'
+            $milestone->update(['status' => 'revision_required', 'remark' => 'Document requires revision.']);
+        }
+        return back()->with('success', 'Upload rejected successfully. The student has been notified to revise it.');
+    }
+
     public function quickApprove(Request $request, StudentMilestone $milestone)
     {
         $user = Auth::user();
