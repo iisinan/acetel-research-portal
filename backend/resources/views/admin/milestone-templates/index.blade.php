@@ -232,28 +232,87 @@
 
                                 {{-- Schedule Form (Admin only) --}}
                                 @if($template->studentMilestones->count() > 0 && (!isset($isCoordinator) || !$isCoordinator))
-                                <div x-show="showStudents" x-cloak class="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                    <form action="{{ route('admin.milestone-templates.schedule') }}" method="POST" class="flex flex-wrap gap-4 items-end">
+                                <div x-show="showStudents" x-cloak class="mb-6 bg-gradient-to-br from-slate-50 via-emerald-50/20 to-white p-5 rounded-2xl border border-emerald-100 shadow-sm">
+                                    <form action="{{ route('admin.milestone-templates.schedule') }}" method="POST">
                                         @csrf
                                         <template x-for="id in selected">
                                             <input type="hidden" name="milestone_ids[]" :value="id">
                                         </template>
-                                        
-                                        <div>
-                                            <label class="block text-xs font-bold text-slate-700 mb-1">Start Date</label>
-                                            <input type="date" name="start_date" required class="px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:ring-brand-500 focus:border-brand-500">
+
+                                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-100">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-9 h-9 rounded-xl bg-emerald-600/10 text-emerald-700 flex items-center justify-center font-bold">
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                                    </svg>
+                                                </div>
+                                                <div>
+                                                    <h4 class="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                                                        <span>Generate Presentation Schedule</span>
+                                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">Automated</span>
+                                                    </h4>
+                                                    <p class="text-xs text-slate-500 font-medium">Batch assign defence dates, presentation time, and Zoom meeting link to selected students.</p>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-colors"
+                                                    :class="selected.length > 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'">
+                                                    <span class="w-2 h-2 rounded-full" :class="selected.length > 0 ? 'bg-emerald-600 animate-pulse' : 'bg-slate-400'"></span>
+                                                    <span x-text="selected.length + ' student' + (selected.length === 1 ? '' : 's') + ' selected'"></span>
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <label class="block text-xs font-bold text-slate-700 mb-1">Students / Day</label>
-                                            <input type="number" name="students_per_day" value="5" min="1" required class="w-24 px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:ring-brand-500 focus:border-brand-500">
+
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                                            <div>
+                                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                                                    <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                                    <span>Start Date</span>
+                                                    <span class="text-red-500">*</span>
+                                                </label>
+                                                <input type="date" name="start_date" required 
+                                                    class="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-sm transition">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                                                    <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                    <span>Start Time</span>
+                                                </label>
+                                                <input type="time" name="start_time" value="09:00" 
+                                                    class="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-sm transition">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                                                    <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                                                    <span>Students / Day</span>
+                                                    <span class="text-red-500">*</span>
+                                                </label>
+                                                <input type="number" name="students_per_day" value="5" min="1" required 
+                                                    class="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-sm transition">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                                                    <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                                    <span>Zoom / Meeting Link</span>
+                                                </label>
+                                                <input type="url" name="meeting_link" placeholder="https://zoom.us/j/..." 
+                                                    class="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-medium text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-sm transition">
+                                            </div>
                                         </div>
-                                        <div>
-                                            <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-bold transition-colors" :disabled="selected.length === 0" :class="{'opacity-50 cursor-not-allowed': selected.length === 0}">
-                                                Generate Schedule
+
+                                        <div class="mt-4 pt-3.5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                                            <p class="text-xs text-slate-400 font-medium flex items-center gap-1.5">
+                                                <svg class="w-4 h-4 text-emerald-600/70 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                <span>Weekends are automatically skipped. Only supervisor-approved candidates will be scheduled.</span>
+                                            </p>
+                                            <button type="submit" 
+                                                class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/20 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none" 
+                                                :disabled="selected.length === 0">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                                </svg>
+                                                <span>Generate Schedule</span>
                                             </button>
-                                        </div>
-                                        <div class="ml-auto text-xs text-slate-500 self-center">
-                                            <span x-text="selected.length"></span> student(s) selected.
                                         </div>
                                     </form>
                                 </div>
@@ -295,7 +354,7 @@
                                                         @endif
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Student</th>
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Status</th>
-                                                        <th class="px-4 py-3 font-semibold text-slate-700">Date</th>
+                                                        <th class="px-4 py-3 font-semibold text-slate-700">Schedule & Meeting</th>
                                                         @if($template->slug === 'seminar_as_a_course')
                                                         <th class="px-4 py-3 font-semibold text-slate-700">PPT</th>
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Score</th>
@@ -386,7 +445,36 @@
                                                                 @endif
                                                             </td>
                                                             <td class="px-4 py-3 text-slate-600 text-xs">
-                                                                {{ $sm->defence_date ? \Carbon\Carbon::parse($sm->defence_date)->format('M d, Y') : 'Not scheduled' }}
+                                                                @if($sm->defence_date)
+                                                                    <div class="font-bold text-slate-800 flex items-center gap-1.5">
+                                                                        <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                                                        </svg>
+                                                                        <span>{{ \Carbon\Carbon::parse($sm->defence_date)->format('M d, Y') }}</span>
+                                                                    </div>
+                                                                    @if($sm->defence_time)
+                                                                        <div class="text-[11px] text-emerald-700 font-semibold mt-0.5 flex items-center gap-1 pl-5">
+                                                                            <svg class="w-3 h-3 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                                            </svg>
+                                                                            <span>{{ \Carbon\Carbon::parse($sm->defence_time)->format('g:i A') }}</span>
+                                                                        </div>
+                                                                    @endif
+                                                                    @if($sm->meeting_link)
+                                                                        <div class="mt-1 pl-5">
+                                                                            <a href="{{ $sm->meeting_link }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[10px] font-bold transition-colors">
+                                                                                <svg class="w-3 h-3 text-blue-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                                                                </svg>
+                                                                                <span>Zoom Link</span>
+                                                                            </a>
+                                                                        </div>
+                                                                    @endif
+                                                                @else
+                                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-400">
+                                                                        Not scheduled
+                                                                    </span>
+                                                                @endif
                                                             </td>
                                                             @if($template->slug === 'seminar_as_a_course')
                                                             <td class="px-4 py-3 text-xs">

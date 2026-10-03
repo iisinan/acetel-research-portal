@@ -228,12 +228,24 @@ class MilestoneTemplateController extends Controller
         $request->validate([
             'milestone_ids' => 'required|array',
             'start_date' => 'required|date',
+            'start_time' => 'nullable|string|max:20',
+            'meeting_link' => 'nullable|url|max:500',
             'students_per_day' => 'required|integer|min:1'
         ]);
 
         $ids = $request->milestone_ids;
         $currentDate = \Carbon\Carbon::parse($request->start_date);
         $count = 0;
+
+        $hour = 10;
+        $minute = 0;
+        if ($request->filled('start_time')) {
+            $timeParts = explode(':', $request->start_time);
+            if (count($timeParts) >= 2) {
+                $hour = (int)$timeParts[0];
+                $minute = (int)$timeParts[1];
+            }
+        }
 
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
@@ -246,19 +258,31 @@ class MilestoneTemplateController extends Controller
                     continue; // Skip if supervisor hasn't approved
                 }
                 
-                $milestone->update([
+                $updateData = [
                     'defence_date' => $currentDate->format('Y-m-d')
-                ]);
+                ];
+                if ($request->filled('start_time')) {
+                    $updateData['defence_time'] = $request->start_time;
+                }
+                if ($request->filled('meeting_link')) {
+                    $updateData['meeting_link'] = $request->meeting_link;
+                }
+                $milestone->update($updateData);
+
+                $eventData = [
+                    'schedule_start' => $currentDate->copy()->setHour($hour)->setMinute($minute),
+                    'schedule_end' => $currentDate->copy()->setHour($hour + 1)->setMinute($minute),
+                ];
+                if ($request->filled('meeting_link')) {
+                    $eventData['location'] = $request->meeting_link;
+                }
 
                 $event = \App\Models\DefenceEvent::updateOrCreate(
                     [
                         'thesis_project_id' => $thesis->id,
                         'type' => $template->defence_type ?? 'seminar',
                     ],
-                    [
-                        'schedule_start' => $currentDate->copy()->setHour(9)->setMinute(0),
-                        'schedule_end' => $currentDate->copy()->setHour(10)->setMinute(0),
-                    ]
+                    $eventData
                 );
                 
                 if ($thesis->student && $thesis->student->user) {
@@ -278,7 +302,7 @@ class MilestoneTemplateController extends Controller
                 }
             }
             \Illuminate\Support\Facades\DB::commit();
-            return back()->with('success', 'Scheduled ' . count($ids) . ' presentations successfully.');
+            return back()->with('success', 'Scheduled ' . count($ids) . ' presentations successfully with date, time, and Zoom link.');
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\DB::rollBack();
             return back()->with('error', 'Error scheduling: ' . $e->getMessage());
