@@ -215,7 +215,7 @@
                                 </div>
                             @endcan
                         </div>
-                    @else
+                    @elseif(auth()->user()->hasRole('Student'))
                         <div x-show="showUploadForm" x-transition class="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 p-8">
                             <div class="flex items-center justify-between mb-6">
                                 <h3 class="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
