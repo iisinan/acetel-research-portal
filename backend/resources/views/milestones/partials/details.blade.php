@@ -136,7 +136,7 @@
 
 
             <!-- Latest Feedback -->
-            @if($milestone->status === 'revision_required')
+            @if($milestone->status === 'revision_required' && auth()->user()->hasRole('Student'))
                 @php
                     $rejectFeedback = \App\Models\Feedback::whereIn('submission_id', $milestone->submissions()->pluck('id'))
                         ->where('decision', 'revision_required')
