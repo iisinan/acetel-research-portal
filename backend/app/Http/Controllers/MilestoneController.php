@@ -115,39 +115,72 @@ class MilestoneController extends Controller
      */
     public function acceptUpload(Request $request, StudentMilestone $milestone)
     {
+        $user = Auth::user();
+        if (!$user || (!$user->hasRole('Supervisor') && !$user->hasRole('Admin'))) {
+            abort(403, 'Unauthorized. Only the assigned supervisor or an administrator can review uploaded documents.');
+        }
+
         $submission = $milestone->submissions()->latest()->first();
         if ($submission) {
-            \App\Models\Feedback::create([
-                'submission_id' => $submission->id,
-                'decision' => 'approved',
-                'remarks' => $request->input('remarks', 'Document accepted by supervisor.'),
-                'created_by' => Auth::id(),
-            ]);
+            \App\Models\Feedback::updateOrCreate(
+                ['submission_id' => $submission->id],
+                [
+                    'decision' => 'approved',
+                    'remarks' => $request->input('remarks', 'Document accepted by supervisor.'),
+                    'created_by' => $user->id,
+                ]
+            );
         }
-        $milestone->is_supervisor_approved = true;
-        $milestone->save();
+
+        if (\Illuminate\Support\Facades\Schema::hasColumn('student_milestones', 'is_supervisor_approved')) {
+            $milestone->is_supervisor_approved = true;
+            $milestone->save();
+        }
+
+        // Invalidate student dashboard query cache
+        $studentUser = $milestone->thesis->student?->user;
+        if ($studentUser) {
+            \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
+        }
 
         return back()->with('success', 'Upload accepted successfully.');
     }
 
     public function rejectUpload(Request $request, StudentMilestone $milestone)
     {
+        $user = Auth::user();
+        if (!$user || (!$user->hasRole('Supervisor') && !$user->hasRole('Admin'))) {
+            abort(403, 'Unauthorized. Only the assigned supervisor or an administrator can review uploaded documents.');
+        }
+
         $submission = $milestone->submissions()->latest()->first();
         if ($submission) {
             $remarks = $request->input('remarks', 'Document requires revision. Please check supervisor notes and upload a new version.');
-            \App\Models\Feedback::create([
-                'submission_id' => $submission->id,
-                'decision' => 'revision_required',
-                'remarks' => $remarks,
-                'created_by' => Auth::id(),
-            ]);
+            \App\Models\Feedback::updateOrCreate(
+                ['submission_id' => $submission->id],
+                [
+                    'decision' => 'revision_required',
+                    'remarks' => $remarks,
+                    'created_by' => $user->id,
+                ]
+            );
             
-            $milestone->update([
+            $updates = [
                 'status' => 'revision_required',
                 'remark' => $remarks,
-                'is_supervisor_approved' => false
-            ]);
+            ];
+            if (\Illuminate\Support\Facades\Schema::hasColumn('student_milestones', 'is_supervisor_approved')) {
+                $updates['is_supervisor_approved'] = false;
+            }
+            $milestone->update($updates);
         }
+
+        // Invalidate student dashboard query cache
+        $studentUser = $milestone->thesis->student?->user;
+        if ($studentUser) {
+            \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
+        }
+
         return back()->with('success', 'Upload rejected successfully. The student has been notified to revise it.');
     }
 

@@ -29,6 +29,7 @@ class StudentMilestone extends Model
         'defence_location',
         'meeting_link',
         'communication_log',
+        'is_supervisor_approved',
         'date_approved_at',
         'date_approved_by'
     ];
@@ -36,6 +37,7 @@ class StudentMilestone extends Model
     protected $casts = [
         'due_date' => 'date',
         'is_submission_unlocked' => 'boolean',
+        'is_supervisor_approved' => 'boolean',
         'submission_unlocked_at' => 'datetime',
         'submitted_at' => 'datetime',
         'reviewed_at' => 'datetime',
@@ -64,6 +66,10 @@ class StudentMilestone extends Model
         public function getIsSupervisorApprovedAttribute()
     {
         if ($this->status === 'approved') {
+            return true;
+        }
+
+        if (!empty($this->attributes['is_supervisor_approved'])) {
             return true;
         }
 
