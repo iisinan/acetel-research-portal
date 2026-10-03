@@ -53,6 +53,12 @@ class EvaluationController extends Controller
             'comments' => 'nullable|string|max:2000',
         ]);
 
+        $originality = (int) $validated['score']['originality'];
+        $methodology = (int) $validated['score']['methodology'];
+        $presentation = (int) $validated['score']['presentation'];
+        $qa = (int) $validated['score']['qa'];
+        $total = $originality + $methodology + $presentation + $qa;
+
         $evaluation = Evaluation::updateOrCreate(
             [
                 'defence_event_id' => $defenceEvent->id,
@@ -60,10 +66,11 @@ class EvaluationController extends Controller
             ],
             [
                 'score' => [
-                    'originality' => (int) $validated['score']['originality'],
-                    'methodology' => (int) $validated['score']['methodology'],
-                    'presentation' => (int) $validated['score']['presentation'],
-                    'qa' => (int) $validated['score']['qa'],
+                    'originality' => $originality,
+                    'methodology' => $methodology,
+                    'presentation' => $presentation,
+                    'qa' => $qa,
+                    'total' => $total
                 ],
                 'recommendation' => $validated['recommendation'],
                 'comments' => $validated['comments'],

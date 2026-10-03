@@ -381,7 +381,25 @@
                                         @endif
                                     </td>
                                     <td class="px-4 py-3.5 text-center">
+                                        @php
+                                            $tableEventType = $template->defence_type ?? 'seminar';
+                                            $tableDefEvent = $sm->thesis?->defenceEvents?->where('type', $tableEventType)->first();
+                                            $tableCanEval = $tableDefEvent && $tableDefEvent->isAuthorizedEvaluator(auth()->id());
+                                            $tableEval = $tableCanEval ? $tableDefEvent->evaluations->firstWhere('evaluator_id', auth()->id()) : null;
+                                        @endphp
                                         <div class="flex items-center justify-center gap-1.5 flex-wrap">
+                                            @if($tableCanEval && $isToday)
+                                                @if($tableEval && $tableEval->submitted_at)
+                                                    <a href="{{ route('evaluations.show', $tableEval->id) }}" class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors">
+                                                        <span>Evaluated</span>
+                                                    </a>
+                                                @else
+                                                    <a href="{{ route('evaluations.create', $tableDefEvent->id) }}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors shadow-sm">
+                                                        <span>Score</span>
+                                                    </a>
+                                                @endif
+                                            @endif
+
                                             @if($rowLink)
                                                 <a href="{{ $rowLink }}" target="_blank" rel="noopener noreferrer"
                                                    class="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition-colors">

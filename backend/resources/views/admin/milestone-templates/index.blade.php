@@ -141,6 +141,12 @@
                                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                                         Export CSV
                                     </a>
+                                    @if($template->slug === 'seminar_as_a_course' && (!isset($isCoordinator) || !$isCoordinator))
+                                    <a href="{{ route('admin.milestone-templates.export-examiner-attendance', $template->id) }}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                        Examiner Attendance
+                                    </a>
+                                    @endif
 
                                     @if($template->studentMilestones->count() > 0)
                                         <button @click="showStudents = !showStudents; if(showStudents) $nextTick(() => $refs.searchInput?.focus())" 
@@ -295,7 +301,7 @@
                                         $firstEvent = $template->studentMilestones->first() 
                                             ? current($template->studentMilestones->first()->thesis->defenceEvents->where('type', $template->defence_type ?? 'seminar')->all()) 
                                             : null;
-                                        $currentExaminer = $firstEvent ? current($firstEvent->panelMembers->where('role', 'Examiner')->all()) : null;
+                                        $currentExaminers = $firstEvent ? $firstEvent->panelMembers->where('role', 'Examiner') : collect();
                                     @endphp
                                     <div class="mb-6 bg-indigo-50/50 border border-indigo-100 rounded-xl p-4">
                                         <div class="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -304,10 +310,10 @@
                                                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
                                                 </div>
                                                 <div>
-                                                    <p class="text-xs font-black text-indigo-900 uppercase tracking-wider">Seminar Examiner</p>
+                                                    <p class="text-xs font-black text-indigo-900 uppercase tracking-wider">Seminar Examiner(s)</p>
                                                     <p class="text-[10px] text-indigo-600 mt-0.5">
-                                                        @if($currentExaminer)
-                                                            Currently: <strong>{{ $currentExaminer->user->name }}</strong>
+                                                        @if($currentExaminers->count() > 0)
+                                                            Currently: <strong>{{ $currentExaminers->map(fn($e) => $e->user->name)->implode(', ') }}</strong>
                                                         @else
                                                             No examiner assigned yet.
                                                         @endif

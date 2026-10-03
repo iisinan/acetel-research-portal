@@ -630,4 +630,50 @@ class MilestoneTemplateController extends Controller
 
         return response()->stream($callback, 200, $headers);
     }
+
+    public function exportExaminerAttendance(MilestoneTemplate $template)
+    {
+        $events = \App\Models\DefenceEvent::whereHas('thesis.milestones', function ($q) use ($template) {
+                $q->where('milestone_template_id', $template->id);
+            })
+            ->with(['panelMembers.user', 'evaluations', 'thesis.student.user'])
+            ->get();
+            
+        $fileName = 'examiner_attendance_' . $template->slug . '.csv';
+        $headers = [
+            "Content-type" => "text/csv",
+            "Content-Disposition" => "attachment; filename=$fileName",
+            "Pragma" => "no-cache",
+            "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
+            "Expires" => "0"
+        ];
+
+        $columns = ['Examiner Name', 'Examiner Email', 'Student Evaluated', 'Presentation Date', 'Attendance Status'];
+
+        $callback = function() use($events, $columns) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, $columns);
+
+            foreach ($events as $event) {
+                $studentName = $event->thesis->student->user->name ?? 'Unknown Student';
+                $dateStr = $event->schedule_start ? $event->schedule_start->format('Y-m-d') : 'Unknown Date';
+
+                foreach ($event->panelMembers as $member) {
+                    $hasEvaluated = $event->evaluations->where('evaluator_id', $member->user_id)->count() > 0;
+                    $status = $hasEvaluated ? 'Present' : 'Absent';
+                    
+                    fputcsv($file, [
+                        $member->user->name ?? '',
+                        $member->user->email ?? '',
+                        $studentName,
+                        $dateStr,
+                        $status
+                    ]);
+                }
+            }
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
 }

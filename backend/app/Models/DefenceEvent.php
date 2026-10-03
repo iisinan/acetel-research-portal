@@ -48,19 +48,27 @@ class DefenceEvent extends Model
      */
     public function isAuthorizedEvaluator($userId)
     {
+        // 0. Check if it's a seminar and user is admin
+        if ($this->type === 'seminar') {
+            $user = \App\Models\User::find($userId);
+            if ($user && $user->hasRole('Admin')) {
+                return true;
+            }
+        }
+
         // 1. Check Panel Members
         if ($this->panelMembers()->where('user_id', $userId)->exists()) {
             return true;
         }
 
         // 2. Check Thesis Examiners
-        $thesis = $this->thesis()->with(['internalExaminerProfile.user', 'externalExaminerProfile.user'])->first();
+        $thesis = $this->thesis()->with(['internalExaminer.user', 'externalExaminer.user'])->first();
         
         if ($thesis) {
-            if ($thesis->internalExaminerProfile && $thesis->internalExaminerProfile->user_id == $userId) {
+            if ($thesis->internalExaminer && $thesis->internalExaminer->user_id == $userId) {
                 return true;
             }
-            if ($thesis->externalExaminerProfile && $thesis->externalExaminerProfile->user_id == $userId) {
+            if ($thesis->externalExaminer && $thesis->externalExaminer->user_id == $userId) {
                 return true;
             }
         }
