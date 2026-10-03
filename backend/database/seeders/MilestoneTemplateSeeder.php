@@ -60,6 +60,9 @@ class MilestoneTemplateSeeder extends Seeder
                 'submission_approver_roles' => null,
                 'requires_approval' => true,
                 'required_approvers' => ['Supervisor'],
+                'allow_defence_date' => true,
+                'defence_type' => 'progress_report_1',
+                'defence_date_role' => 'Program Coordinator',
                 'description' => 'First progress report document upload and supervisor validation.'
             ],
             [
@@ -72,6 +75,9 @@ class MilestoneTemplateSeeder extends Seeder
                 'submission_approver_roles' => null,
                 'requires_approval' => true,
                 'required_approvers' => ['Supervisor'],
+                'allow_defence_date' => true,
+                'defence_type' => 'progress_report_2',
+                'defence_date_role' => 'Program Coordinator',
                 'description' => 'Second progress report document upload and supervisor validation.'
             ],
             [

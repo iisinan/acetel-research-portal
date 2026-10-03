@@ -120,7 +120,7 @@ class MilestoneController extends Controller
             \App\Models\Feedback::create([
                 'submission_id' => $submission->id,
                 'decision' => 'approved',
-                'remarks' => 'Document accepted by supervisor.',
+                'remarks' => $request->input('remarks', 'Document accepted by supervisor.'),
                 'created_by' => Auth::id(),
             ]);
         }
@@ -131,16 +131,15 @@ class MilestoneController extends Controller
     {
         $submission = $milestone->submissions()->latest()->first();
         if ($submission) {
+            $remarks = $request->input('remarks', 'Document requires revision. Please check supervisor notes and upload a new version.');
             \App\Models\Feedback::create([
                 'submission_id' => $submission->id,
                 'decision' => 'revision_required',
-                'remarks' => 'Document requires revision. Please check supervisor notes and upload a new version.',
+                'remarks' => $remarks,
                 'created_by' => Auth::id(),
             ]);
             
-            // Note: If we want the student to be able to resubmit, we also need to unlock the milestone submission.
-            // Or change the milestone status to 'revision_required'
-            $milestone->update(['status' => 'revision_required', 'remark' => 'Document requires revision.']);
+            $milestone->update(['status' => 'revision_required', 'remark' => $remarks]);
         }
         return back()->with('success', 'Upload rejected successfully. The student has been notified to revise it.');
     }

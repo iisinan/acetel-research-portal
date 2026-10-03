@@ -240,6 +240,13 @@
                         @endif
 
                         @can('review', $milestone)
+                            @php
+                                $canQuickApprove = !$milestone->template->requires_submission || 
+                                                   ($milestone->submissions->last() && 
+                                                    $milestone->submissions->last()->feedback && 
+                                                    $milestone->submissions->last()->feedback->decision === 'approved');
+                            @endphp
+                            @if($canQuickApprove && $milestone->status !== 'approved')
                             <form action="{{ route('milestones.review.update', $milestone) }}" method="POST" class="inline-block relative z-20" onclick="event.stopPropagation();">
                                 @csrf
                                 @method('PATCH')
@@ -250,6 +257,7 @@
                                     Approve
                                 </button>
                             </form>
+                            @endif
                         @endcan
                         
                         <span class="inline-flex items-center px-4 py-2 rounded-xl bg-{{ $conf['color'] }}-50 text-{{ $conf['color'] }}-700 border border-{{ $conf['color'] }}-100 text-xs font-bold uppercase tracking-widest shadow-sm shadow-{{ $conf['color'] }}-500/5">

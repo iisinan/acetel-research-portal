@@ -74,10 +74,18 @@
                                     Upload Accepted
                                 </div>
                                 <h3 class="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-snug">
-                                    Your upload has been accepted. Please await your presentation schedule.
+                                    @if($hasDefenceDateAllowed)
+                                        Your upload has been accepted. Please await your presentation schedule.
+                                    @else
+                                        Your upload has been accepted by your supervisor.
+                                    @endif
                                 </h3>
                                 <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">
-                                    The administration is currently preparing your presentation session. Once scheduled, your date, time, and Zoom meeting link will appear right here.
+                                    @if($hasDefenceDateAllowed)
+                                        The administration is currently preparing your presentation session. Once scheduled, your date, time, and Zoom meeting link will appear right here.
+                                    @else
+                                        Your submission has been verified and is proceeding for milestone clearance.
+                                    @endif
                                 </p>
                             </div>
                         </div>
@@ -380,7 +388,7 @@
                                 @if(in_array('file', $milestone->template->submission_type))
                                 <div>
                                     <label class="block text-sm font-semibold text-slate-700 mb-2">
-                                        Upload Manuscript (PDF Only)
+                                        Upload {{ $milestone->template->name }} Document (PDF Only)
                                     </label>
                                     <div class="relative w-full">
                                         <input type="file" name="file" accept=".pdf" required class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 

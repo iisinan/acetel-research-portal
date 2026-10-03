@@ -121,9 +121,11 @@ class MilestoneWorkflowService
                 $project->update(['status' => 'proposal_passed']);
                 break;
             case 'progress_presentation_1':
+            case 'progress_report_1':
                 // no specific status update needed, just progress
                 break;
             case 'progress_presentation_2':
+            case 'progress_report_2':
                 // no specific status update needed
                 break;
             case 'internal_defence':
@@ -147,6 +149,19 @@ class MilestoneWorkflowService
                     ]);
                 }
                 break;
+        }
+
+        // Automatically activate the next sequential milestone if it was not started
+        $nextMilestone = $project->milestones()
+            ->select('student_milestones.*')
+            ->join('milestone_templates', 'student_milestones.milestone_template_id', '=', 'milestone_templates.id')
+            ->where('milestone_templates.order', '>', $template->order)
+            ->where('student_milestones.status', '!=', 'approved')
+            ->orderBy('milestone_templates.order', 'asc')
+            ->first();
+
+        if ($nextMilestone && $nextMilestone->status === 'not_started') {
+            $nextMilestone->update(['status' => 'in_progress']);
         }
     }
 
