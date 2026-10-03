@@ -86,6 +86,7 @@
                 </div>
             </div>
 
+            @if(!$thesis->student || !$thesis->student->isSeminarCourseLevel())
             <details class="group mt-4 pt-4 border-t border-slate-100">
                 <summary class="cursor-pointer flex items-center gap-2 font-black text-xs text-primary-600 uppercase tracking-[0.2em] hover:text-primary-800 list-none transition-colors">
                     <svg class="w-4 h-4 transition-transform duration-300 group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
@@ -103,7 +104,7 @@
                         <select name="supervisors[]" multiple class="w-full h-56 rounded-xl border-slate-200 shadow-inner focus:border-primary-500 focus:ring focus:ring-primary-200 p-2 text-sm text-slate-700 custom-scrollbar">
                             @foreach($allSupervisors as $sup)
                                  <option value="{{ $sup->id }}" {{ $thesis->supervisors->pluck('supervisor_profile_id')->contains($sup->id) ? 'selected' : '' }} class="p-2 rounded-lg mb-1 hover:bg-slate-100 focus:bg-primary-50 focus:text-primary-700">
-                                    {{ $sup->user->name }} » Load: {{ $sup->current_load }}/{{ $sup->max_students }}
+                                    {{ $sup->user->name }} &raquo; Load: {{ $sup->current_load }}/{{ $sup->max_students }}
                                 </option>
                             @endforeach
                         </select>
@@ -116,6 +117,7 @@
                     </div>
                 </form>
             </details>
+            @endif
         </x-card>
         @endif
 

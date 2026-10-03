@@ -80,6 +80,17 @@ class StudentProfile extends Model
         return $this->hasOne(ThesisProject::class, 'student_profile_id');
     }
 
+    public function isSeminarCourseLevel()
+    {
+        $levelName = strtolower($this->level->name ?? '');
+        $programName = strtolower($this->program->name ?? '');
+        $degreeType = strtolower($this->program->degree_type ?? '');
+
+        return str_contains($levelName, 'seminar') || 
+               str_contains($programName, 'seminar') || 
+               str_contains($degreeType, 'seminar');
+    }
+
     /**
      * Handle cascade deletions.
      */

@@ -252,7 +252,13 @@
                         </div>
                     @endforelse
 
-                    @if($student->thesis)
+                    @if($student->isSeminarCourseLevel())
+                        <div class="pt-6 border-t border-slate-50">
+                            <div class="p-6 bg-amber-50 rounded-2xl border border-amber-100 text-center">
+                                <p class="text-xs font-bold text-amber-800">Students at the seminar course level do not require a supervisor.</p>
+                            </div>
+                        </div>
+                    @elseif($student->thesis)
                         <div class="pt-6 border-t border-slate-50">
                             <button class="w-full px-6 py-5 bg-slate-900 text-white rounded-3xl text-[10px] font-black uppercase tracking-widest hover:bg-acetel-600 transition-all shadow-xl shadow-slate-900/10 flex items-center justify-center gap-3 group" onclick="document.getElementById('assign-form-container').classList.toggle('hidden')">
                                 <svg class="w-4 h-4 group-hover:rotate-90 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>

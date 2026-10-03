@@ -108,6 +108,10 @@ class ThesisController extends Controller
 
     public function assignSupervisor(AssignSupervisorRequest $request, ThesisProject $thesis)
     {
+        if ($thesis->student && $thesis->student->isSeminarCourseLevel()) {
+            return back()->with('error', 'Students at the seminar course level do not require a supervisor.');
+        }
+
         $this->authorize('assignSupervisor', $thesis);
         
         try {

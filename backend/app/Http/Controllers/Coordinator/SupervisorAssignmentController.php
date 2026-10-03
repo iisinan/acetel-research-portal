@@ -22,6 +22,10 @@ class SupervisorAssignmentController extends Controller
 
     public function store(Request $request, ThesisProject $thesis)
     {
+        if ($thesis->student && $thesis->student->isSeminarCourseLevel()) {
+            return redirect()->back()->with('error', 'Students at the seminar course level do not require a supervisor.');
+        }
+
         $request->validate([
             'supervisor_ids' => 'required|array',
             'supervisor_ids.*' => 'exists:supervisor_profiles,id',

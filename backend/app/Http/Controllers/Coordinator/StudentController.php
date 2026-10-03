@@ -83,6 +83,10 @@ class StudentController extends Controller
 
     public function assignSupervisor(Request $request, StudentProfile $student)
     {
+        if ($student->isSeminarCourseLevel()) {
+            return back()->with('error', 'Students at the seminar course level do not require a supervisor.');
+        }
+
         $user = Auth::user();
         
         if (!$user->hasCoordinatorAccess($student)) {
