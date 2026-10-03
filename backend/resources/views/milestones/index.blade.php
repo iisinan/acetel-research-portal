@@ -206,17 +206,14 @@
             
             <div id="milestone-container-{{ $milestone->id }}" class="group/milestone relative bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden transition-all duration-300 {{ $isActive ? 'hover:shadow-md hover:border-gray-200 ring-2 ring-brand-200' : '' }}">
                 <!-- Milestone Header -->
-                <button type="button"
-                        @if($isCompleted)
+                <div @if($isCompleted)
                             {{-- Past milestones: not clickable --}}
-                            type="button"
                         @elseif($isActive || $isPendingMatch)
                             onclick="toggleMilestone('{{ $milestone->id }}')"
                         @else
                             onclick="alert('Institutional Protocol: This milestone is currently locked. You must complete the ongoing phase first.');"
                         @endif
-                        class="w-full text-left flex items-center justify-between px-4 md:px-10 py-6 md:py-10 transition-all duration-300 {{ $isCompleted ? 'cursor-default' : ($isActive || $isPendingMatch ? 'cursor-pointer hover:bg-gray-50/30' : 'cursor-not-allowed') }}"
-                        {{ $isCompleted ? 'disabled' : '' }}>
+                        class="w-full text-left flex items-center justify-between px-4 md:px-10 py-6 md:py-10 transition-all duration-300 {{ $isCompleted ? '' : ($isActive || $isPendingMatch ? 'cursor-pointer hover:bg-gray-50/30' : 'cursor-not-allowed') }}">
                     <div class="flex items-center gap-3 md:gap-6">
                         <div class="relative">
                             <div class="w-10 h-10 md:w-14 md:h-14 rounded-2xl flex items-center justify-center text-base md:text-xl font-bold shadow-lg shadow-{{ $conf['color'] }}-500/10 border {{ $isCompleted ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-white border-gray-100 text-gray-900' }}">
@@ -242,6 +239,19 @@
                                 <span class="text-sm font-bold text-gray-900">{{ $milestone->due_date->format('M d, Y') }}</span>
                             </div>
                         @endif
+
+                        @can('review', $milestone)
+                            <form action="{{ route('milestones.review.update', $milestone) }}" method="POST" class="inline-block relative z-20" onclick="event.stopPropagation();">
+                                @csrf
+                                @method('PATCH')
+                                <input type="hidden" name="decision" value="approved">
+                                <input type="hidden" name="remarks" value="Approved directly from the roadmap summary.">
+                                <button type="submit" onclick="return confirm('Are you sure you want to officially approve this milestone?')" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-emerald-600 transition-colors shadow-sm cursor-pointer border border-emerald-600">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                                    Approve
+                                </button>
+                            </form>
+                        @endcan
                         
                         <span class="inline-flex items-center px-4 py-2 rounded-xl bg-{{ $conf['color'] }}-50 text-{{ $conf['color'] }}-700 border border-{{ $conf['color'] }}-100 text-xs font-bold uppercase tracking-widest shadow-sm shadow-{{ $conf['color'] }}-500/5">
                             {{ $conf['label'] }}
@@ -255,7 +265,7 @@
                             @endcannot
                         </div>
                     </div>
-                </button>
+                </div>
 
                 <!-- Milestone Body -->
                 <div id="milestone-body-{{ $milestone->id }}" class="milestone-body relative z-10 w-full bg-gray-50/50" style="display:none;">
