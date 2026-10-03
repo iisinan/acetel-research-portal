@@ -73,22 +73,29 @@
     </style>
 </div>
 
-<!-- Live Milestone Presentations (Visible to All Users when a Schedule is Active) -->
+<!-- Milestone Presentations (Visible to All Users when a Schedule is Active) -->
 @php
     $activePresentations = \App\Models\MilestoneTemplate::getActivePresentations();
+    $todayStr = now()->toDateString();
+    $anyLiveToday = $activePresentations->contains(function ($pt) use ($todayStr) {
+        return $pt->studentMilestones
+            ->where('status', '!=', 'approved')
+            ->whereNotNull('defence_date')
+            ->contains(fn($sm) => \Carbon\Carbon::parse($sm->defence_date)->toDateString() === $todayStr);
+    });
 @endphp
 
 @if($activePresentations->isNotEmpty())
-    <div class="mb-6 bg-gradient-to-br from-emerald-50/90 via-emerald-100/40 to-white rounded-2xl p-3 border border-emerald-200 shadow-sm animate-in-up">
+    <div class="mb-6 {{ $anyLiveToday ? 'bg-gradient-to-br from-red-50/80 via-red-100/30 to-white border-red-200' : 'bg-gradient-to-br from-emerald-50/90 via-emerald-100/40 to-white border-emerald-200' }} rounded-2xl p-3 border shadow-sm animate-in-up">
         <div class="flex items-center justify-between px-2 mb-2.5">
-            <p class="text-[10px] font-black text-emerald-800 uppercase tracking-widest flex items-center gap-1.5">
+            <p class="text-[10px] font-black {{ $anyLiveToday ? 'text-red-800' : 'text-emerald-800' }} uppercase tracking-widest flex items-center gap-1.5">
                 <span class="relative flex h-2 w-2">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full {{ $anyLiveToday ? 'bg-red-400' : 'bg-emerald-400' }} opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 {{ $anyLiveToday ? 'bg-red-500' : 'bg-emerald-500' }}"></span>
                 </span>
-                <span>Live Presentations</span>
+                <span>{{ $anyLiveToday ? 'Live Presentations' : 'Scheduled Presentations' }}</span>
             </p>
-            <span class="px-1.5 py-0.5 bg-emerald-600 text-white rounded text-[9px] font-black uppercase tracking-wider">
+            <span class="px-1.5 py-0.5 {{ $anyLiveToday ? 'bg-red-600' : 'bg-emerald-600' }} text-white rounded text-[9px] font-black uppercase tracking-wider">
                 {{ $activePresentations->count() }} Active
             </span>
         </div>
@@ -97,15 +104,43 @@
                 @php
                     $tabName = $presTemplate->presentation_title;
                     $isPresActive = request()->routeIs('presentations.show') && request()->route('template')?->id == $presTemplate->id;
+                    $isLiveToday = $presTemplate->studentMilestones
+                        ->where('status', '!=', 'approved')
+                        ->whereNotNull('defence_date')
+                        ->contains(fn($sm) => \Carbon\Carbon::parse($sm->defence_date)->toDateString() === $todayStr);
                 @endphp
-                <a href="{{ route('presentations.show', $presTemplate->id) }}" 
-                   class="flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group {{ $isPresActive ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30' : 'bg-white/90 text-emerald-950 hover:bg-emerald-600 hover:text-white border border-emerald-100/80 shadow-sm' }}"
+                <a href="{{ route('presentations.show', $presTemplate->id) }}"
+                   class="flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group
+                       {{ $isPresActive
+                           ? ($isLiveToday ? 'bg-red-600 text-white shadow-md shadow-red-600/30' : 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30')
+                           : ('bg-white/90 text-slate-900 border border-slate-100/80 shadow-sm ' . ($isLiveToday ? 'hover:bg-red-600 hover:text-white' : 'hover:bg-emerald-600 hover:text-white'))
+                       }}"
                    title="{{ $tabName }}">
-                    <svg class="w-4 h-4 mr-2.5 shrink-0 {{ $isPresActive ? 'text-white' : 'text-emerald-600 group-hover:text-white' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <svg class="w-4 h-4 mr-2 shrink-0 {{ $isPresActive ? 'text-white' : ($isLiveToday ? 'text-red-500 group-hover:text-white' : 'text-emerald-600 group-hover:text-white') }}"
+                         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
                     </svg>
                     <span class="truncate flex-1">{{ $tabName }}</span>
-                    <svg class="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 transition-opacity {{ $isPresActive ? 'text-white' : 'text-emerald-700 group-hover:text-white' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    @if($isLiveToday)
+                        <span class="ml-1.5 flex items-center px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-red-500 text-white shrink-0 gap-0.5">
+                            <span class="relative flex h-1.5 w-1.5">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-200 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
+                            </span>
+                            Live
+                        </span>
+                    @else
+                        <span class="ml-1.5 flex items-center px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider shrink-0 gap-0.5
+                            {{ $isPresActive ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-white/25 group-hover:text-white' }}">
+                            <svg class="w-2.5 h-2.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            Sched.
+                        </span>
+                    @endif
+                    <svg class="w-3 h-3 opacity-60 group-hover:opacity-100 transition-opacity ml-1 shrink-0
+                        {{ $isPresActive ? 'text-white' : ($isLiveToday ? 'text-red-600 group-hover:text-white' : 'text-emerald-700 group-hover:text-white') }}"
+                         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
                     </svg>
                 </a>
