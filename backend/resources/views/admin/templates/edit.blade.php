@@ -66,7 +66,7 @@
                                 <div class="flex justify-center items-center text-sm text-black">
                                     <label for="file" class="relative cursor-pointer bg-white rounded-md font-bold text-acetel-600 hover:text-acetel-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-acetel-500 px-1">
                                         <span>Select a new file</span>
-                                        <input id="file" name="file" type="file" class="sr-only">
+                                        <input id="file" name="file" type="file" accept=".pdf" class="sr-only">
                                     </label>
                                     <span class="pl-1">or drag and drop here</span>
                                 </div>

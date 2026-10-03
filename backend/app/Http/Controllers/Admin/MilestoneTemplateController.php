@@ -331,7 +331,7 @@ class MilestoneTemplateController extends Controller
         $supervisors = \App\Models\SupervisorProfile::with('user')->whereIn('id', $request->supervisor_profile_ids)->get();
 
         $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
-            ->whereIn('status', ['in_progress', 'submitted', 'revision_required'])
+            ->whereIn('status', ['in_progress', 'submitted', 'revision_required', 'partially_approved'])
             ->with('thesis')
             ->get();
 
@@ -388,7 +388,7 @@ class MilestoneTemplateController extends Controller
         }
 
         $query = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
-            ->whereIn('status', ['in_progress', 'submitted', 'revision_required'])
+            ->whereIn('status', ['in_progress', 'submitted', 'revision_required', 'partially_approved'])
             ->with(['thesis.student.user', 'thesis.defenceEvents.evaluations']);
             
         if ($isCoordinator) {

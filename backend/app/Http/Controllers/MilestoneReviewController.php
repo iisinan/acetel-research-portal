@@ -32,7 +32,8 @@ class MilestoneReviewController extends Controller
         $milestone->load(['template', 'submissions.submittedBy', 'thesis.student.user', 'thesis.student.program', 'thesis.student.level']);
         $submission = $milestone->submissions()->latest()->first();
 
-        if (!$this->workflowService->canApprove($milestone, Auth::user())) {
+        $error = $this->workflowService->canApprove($milestone, Auth::user());
+        if ($error) {
             // Optional: flash message that previous approvals are missing
         }
         
@@ -149,9 +150,10 @@ class MilestoneReviewController extends Controller
 
             if ($roleFilled) {
                 // Requirement: Post Submission Approval must be granted before Institutional Clearance.
-                if (!$this->workflowService->canApprove($milestone, Auth::user(), $roleFilled)) {
+                $error = $this->workflowService->canApprove($milestone, Auth::user(), $roleFilled);
+                if ($error) {
                     return redirect()->route('dashboard')
-                        ->with('error', 'Institutional Clearance cannot be granted until Post Submission Approval has been finalized.');
+                        ->with('error', $error);
                 }
 
                 $approvalKey = $roleFilled . ':' . $user->id;
