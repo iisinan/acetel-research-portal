@@ -203,8 +203,8 @@
                                 </div>
                             </div>
 
-                            @if($milestone->meeting_link)
-                                <div class="flex items-center gap-3">
+                            <div class="flex flex-wrap items-center gap-3">
+                                @if($milestone->meeting_link)
                                     <a href="{{ $milestone->meeting_link }}" target="_blank" rel="noopener noreferrer"
                                         class="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-emerald-600/30 hover:shadow-xl hover:shadow-emerald-600/40 active:scale-95 group">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
@@ -215,8 +215,15 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                         </svg>
                                     </a>
-                                </div>
-                            @endif
+                                @endif
+                                <a href="{{ route('presentations.show', $milestone->milestone_template_id) }}"
+                                    class="inline-flex items-center justify-center gap-2 px-5 py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-95">
+                                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                    </svg>
+                                    <span>Full Presentation Schedule</span>
+                                </a>
+                            </div>
                         </div>
                     </div>
                 @endif

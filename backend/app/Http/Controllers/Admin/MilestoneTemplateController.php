@@ -286,6 +286,7 @@ class MilestoneTemplateController extends Controller
                 );
                 
                 if ($thesis->student && $thesis->student->user) {
+                    \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $thesis->student->user->id);
                     try {
                         $thesis->student->user->notify(new \App\Notifications\EventScheduled($event));
                     } catch (\Throwable $e) {
@@ -317,9 +318,13 @@ class MilestoneTemplateController extends Controller
 
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
+            $today = now()->toDateString();
             $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
                 ->whereNotNull('defence_date')
-                ->where('status', '!=', 'approved')
+                ->where(function ($q) use ($today) {
+                    $q->where('status', '!=', 'approved')
+                      ->orWhereDate('defence_date', '>=', $today);
+                })
                 ->get();
 
             $thesisIds = $milestones->pluck('thesis_project_id')->filter()->unique();
@@ -344,7 +349,7 @@ class MilestoneTemplateController extends Controller
 
             \Illuminate\Support\Facades\DB::commit();
 
-            return redirect()->back()->with('success', "Presentation schedule for {$template->name} has been cancelled successfully. All assigned dates, times, and Zoom links have been cleared.");
+            return redirect()->route('admin.milestone-templates.index')->with('success', "Presentation schedule for {$template->name} has been cancelled successfully. All assigned dates, times, and Zoom links have been cleared.");
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\DB::rollBack();
             return redirect()->back()->with('error', 'Failed to cancel schedule: ' . $e->getMessage());

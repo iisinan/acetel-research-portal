@@ -79,6 +79,7 @@ class BulkScheduleController extends Controller
             // Queue one email per unique student (even if multiple milestones matched)
             if ($milestonesToUpdate->isNotEmpty() && $student->user && !$notifiedUsers->contains($student->user->id)) {
                 $notifiedUsers->push($student->user->id);
+                \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $student->user->id);
 
                 try {
                     Mail::to($student->user->email)

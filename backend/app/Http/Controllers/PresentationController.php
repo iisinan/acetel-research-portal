@@ -11,23 +11,29 @@ class PresentationController extends Controller
 {
     public function show(Request $request, MilestoneTemplate $template)
     {
+        $today = Carbon::today();
+        $todayDateStr = $today->format('Y-m-d');
+
         // Retrieve all scheduled milestones for this template
+        // Include pending scheduled milestones and milestones scheduled for today or future
         $allScheduled = StudentMilestone::where('milestone_template_id', $template->id)
             ->whereNotNull('defence_date')
-            ->where('status', '!=', 'approved')
+            ->where(function ($q) use ($todayDateStr) {
+                $q->where('status', '!=', 'approved')
+                  ->orWhereDate('defence_date', '>=', $todayDateStr);
+            })
             ->with([
                 'thesis.student.user',
                 'thesis.student.program',
                 'thesis.student.cohort',
                 'thesis.assignments.supervisor.user',
+                'thesis.defenceEvents.panelMembers.user',
+                'thesis.defenceEvents.evaluations',
                 'submissions' => fn($q) => $q->latest()
             ])
             ->orderBy('defence_date', 'asc')
             ->orderBy('defence_time', 'asc')
             ->get();
-
-        $today = Carbon::today();
-        $todayDateStr = $today->format('Y-m-d');
 
         // Group by defence date string (Y-m-d)
         $groupedByDate = $allScheduled->groupBy(function($item) {

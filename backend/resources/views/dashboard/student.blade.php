@@ -100,6 +100,57 @@
         </div>
     </div>
 
+    {{-- Scheduled Presentation Banner --}}
+    @php
+        $todayStr = now()->toDateString();
+        $studentSchedMilestone = $milestones->first(function($m) use ($todayStr) {
+            return !empty($m->defence_date) && \Carbon\Carbon::parse($m->defence_date)->format('Y-m-d') >= $todayStr && $m->status !== 'approved';
+        });
+    @endphp
+
+    @if($studentSchedMilestone)
+        @php
+            $isSchedToday = (\Carbon\Carbon::parse($studentSchedMilestone->defence_date)->format('Y-m-d') === $todayStr);
+        @endphp
+        <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-900 via-slate-900 to-emerald-950 text-white p-6 sm:p-8 shadow-xl border border-emerald-500/30">
+            <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+                <div class="space-y-2">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full {{ $isSchedToday ? 'bg-emerald-500 text-slate-950 font-black' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' }} text-[10px] uppercase tracking-wider">
+                        <span class="w-2 h-2 rounded-full {{ $isSchedToday ? 'bg-slate-950 animate-ping' : 'bg-emerald-400 animate-pulse' }}"></span>
+                        <span>{{ $isSchedToday ? "Today's Live Presentation" : 'Scheduled Presentation' }}</span>
+                    </div>
+                    <h3 class="text-xl sm:text-2xl font-black text-white tracking-tight">
+                        {{ $studentSchedMilestone->template->presentation_title }}
+                    </h3>
+                    <p class="text-xs sm:text-sm text-slate-300 font-medium">
+                        Scheduled Date: <strong class="text-white">{{ \Carbon\Carbon::parse($studentSchedMilestone->defence_date)->format('l, F j, Y') }}</strong>
+                        @if($studentSchedMilestone->defence_time)
+                            at <strong class="text-emerald-400">{{ \Carbon\Carbon::parse($studentSchedMilestone->defence_time)->format('g:i A') }}</strong>
+                        @endif
+                    </p>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                    @if($studentSchedMilestone->meeting_link)
+                        <a href="{{ $studentSchedMilestone->meeting_link }}" target="_blank" rel="noopener noreferrer"
+                           class="inline-flex items-center gap-2 px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-emerald-500/20 transition active:scale-95">
+                            <svg class="w-4 h-4 text-slate-950" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                            </svg>
+                            <span>Join Zoom Session</span>
+                        </a>
+                    @endif
+                    <a href="{{ route('presentations.show', $studentSchedMilestone->milestone_template_id) }}"
+                       class="inline-flex items-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold uppercase tracking-wider border border-white/20 transition active:scale-95">
+                        <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        <span>View Presentation Schedule</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    @endif
+
     {{-- Stats Row --}}
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
         @php
@@ -178,7 +229,14 @@
                                     group-hover:shadow-sm">
                                     <div class="min-w-0">
                                         <p class="text-sm font-bold text-slate-800 truncate">{{ $milestone->template->name }}</p>
-                                        @if($milestone->submitted_at)
+                                        @if($milestone->defence_date && !$isApproved)
+                                            <p class="text-xs text-emerald-700 font-bold mt-0.5 flex items-center gap-1">
+                                                <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                                </svg>
+                                                <span>Presentation: {{ \Carbon\Carbon::parse($milestone->defence_date)->format('M d, Y') }} @if($milestone->defence_time) at {{ \Carbon\Carbon::parse($milestone->defence_time)->format('g:i A') }} @endif</span>
+                                            </p>
+                                        @elseif($milestone->submitted_at)
                                             <p class="text-xs text-slate-400 mt-0.5">Submitted {{ $milestone->submitted_at->diffForHumans() }}</p>
                                         @else
                                             <p class="text-xs text-slate-400 mt-0.5">Not yet submitted</p>
@@ -186,6 +244,8 @@
                                     </div>
                                     @if($isApproved)
                                         <span class="shrink-0 px-2.5 py-1 bg-green-100 text-green-700 text-[10px] font-black uppercase tracking-wider rounded-full border border-green-200">Approved</span>
+                                    @elseif($milestone->defence_date && !$isApproved)
+                                        <a href="{{ route('presentations.show', $milestone->milestone_template_id) }}" class="shrink-0 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-wider rounded-full shadow-sm transition">Scheduled</a>
                                     @elseif($isPending)
                                         <span class="shrink-0 px-2.5 py-1 bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-wider rounded-full border border-amber-200">Under Review</span>
                                     @elseif($isRevision)

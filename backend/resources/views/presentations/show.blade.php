@@ -90,6 +90,16 @@
             </div>
             <h3 class="text-base font-black text-slate-800 uppercase tracking-wider">No Active Schedule</h3>
             <p class="text-xs text-slate-500 mt-2 font-medium">All presentations for this milestone have concluded or none have been scheduled yet.</p>
+            <div class="mt-6 flex flex-wrap justify-center gap-3">
+                <a href="{{ route('dashboard') }}" class="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition shadow-sm">
+                    Return to Dashboard
+                </a>
+                @if(auth()->user()->hasRole('Admin'))
+                    <a href="{{ route('admin.milestone-templates.index') }}" class="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition shadow-sm">
+                        Milestone Templates
+                    </a>
+                @endif
+            </div>
         </div>
     @else
 
@@ -147,9 +157,15 @@
                                         </svg>
                                         <span>{{ $pres->defence_time ? \Carbon\Carbon::parse($pres->defence_time)->format('g:i A') : 'Slot ' . ($index + 1) }}</span>
                                     </span>
-                                    <span class="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                        Slot #{{ $index + 1 }}
-                                    </span>
+                                    @if($pres->status === 'approved')
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-green-100 text-green-700 border border-green-200">
+                                            Approved
+                                        </span>
+                                    @else
+                                        <span class="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                            Slot #{{ $index + 1 }}
+                                        </span>
+                                    @endif
                                 </div>
 
                                 <div>
@@ -172,7 +188,14 @@
                                 @endif
                             </div>
 
-                            <div class="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                            @php
+                                $cardEventType = $template->defence_type ?? 'seminar';
+                                $cardDefEvent = $pres->thesis?->defenceEvents?->where('type', $cardEventType)->first();
+                                $cardCanEval = $cardDefEvent && $cardDefEvent->isAuthorizedEvaluator(auth()->id());
+                                $cardEval = $cardCanEval ? $cardDefEvent->evaluations->firstWhere('evaluator_id', auth()->id()) : null;
+                            @endphp
+
+                            <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
                                 @if($latestSub && $latestSub->file_url)
                                     <button type="button" 
                                         @click.prevent="$dispatch('open-document-preview', { 
@@ -191,15 +214,31 @@
                                     <span class="text-[10px] text-slate-400 font-bold uppercase">No Doc</span>
                                 @endif
 
-                                @if($pres->meeting_link || $meetingLink)
-                                    <a href="{{ $pres->meeting_link ?: $meetingLink }}" target="_blank" rel="noopener noreferrer"
-                                       class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition-colors ml-auto">
-                                        <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                                        </svg>
-                                        <span>Join Room</span>
-                                    </a>
-                                @endif
+                                <div class="flex items-center gap-1.5 ml-auto">
+                                    @if($cardCanEval)
+                                        @if($cardEval && $cardEval->submitted_at)
+                                            <a href="{{ route('evaluations.show', $cardEval->id) }}" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-colors">
+                                                <svg class="w-3.5 h-3.5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                <span>Evaluated</span>
+                                            </a>
+                                        @else
+                                            <a href="{{ route('evaluations.create', $cardDefEvent->id) }}" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors shadow-sm">
+                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                                <span>Score</span>
+                                            </a>
+                                        @endif
+                                    @endif
+
+                                    @if($pres->meeting_link || $meetingLink)
+                                        <a href="{{ $pres->meeting_link ?: $meetingLink }}" target="_blank" rel="noopener noreferrer"
+                                           class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition-colors">
+                                            <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                            </svg>
+                                            <span>Join Room</span>
+                                        </a>
+                                    @endif
+                                </div>
                             </div>
                         </div>
                     @endforeach
@@ -302,6 +341,9 @@
                                                     @if($isToday)
                                                         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">Today</span>
                                                     @endif
+                                                    @if($sm->status === 'approved')
+                                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-green-100 text-green-800">Approved</span>
+                                                    @endif
                                                 </div>
                                                 <div class="text-[11px] text-slate-500 font-medium">
                                                     {{ $matricNo }} &bull; {{ $student->program->name ?? 'Program' }}
@@ -353,17 +395,44 @@
                                         @endif
                                     </td>
                                     <td class="px-4 py-3.5 text-center">
-                                        @if($rowLink)
-                                            <a href="{{ $rowLink }}" target="_blank" rel="noopener noreferrer"
-                                               class="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition-colors">
-                                                <svg class="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                                                </svg>
-                                                <span>Zoom Link</span>
-                                            </a>
-                                        @else
-                                            <span class="text-slate-400 text-[11px]">-</span>
-                                        @endif
+                                        @php
+                                            $tableEventType = $template->defence_type ?? 'seminar';
+                                            $tableDefEvent = $sm->thesis?->defenceEvents?->where('type', $tableEventType)->first();
+                                            $tableCanEval = $tableDefEvent && $tableDefEvent->isAuthorizedEvaluator(auth()->id());
+                                            $tableEval = $tableCanEval ? $tableDefEvent->evaluations->firstWhere('evaluator_id', auth()->id()) : null;
+                                        @endphp
+
+                                        <div class="flex items-center justify-center gap-1.5 flex-wrap">
+                                            @if($tableCanEval)
+                                                @if($tableEval && $tableEval->submitted_at)
+                                                    <a href="{{ route('evaluations.show', $tableEval->id) }}" class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors">
+                                                        <span>Evaluated</span>
+                                                    </a>
+                                                @else
+                                                    <a href="{{ route('evaluations.create', $tableDefEvent->id) }}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors shadow-sm">
+                                                        <span>Score</span>
+                                                    </a>
+                                                @endif
+                                            @endif
+
+                                            @if($rowLink)
+                                                <a href="{{ $rowLink }}" target="_blank" rel="noopener noreferrer"
+                                                   class="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition-colors">
+                                                    <svg class="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                                    </svg>
+                                                    <span>Zoom Link</span>
+                                                </a>
+                                            @else
+                                                <span class="text-slate-400 text-[11px]">-</span>
+                                            @endif
+
+                                            @if(auth()->user()->hasRole('Admin'))
+                                                <a href="{{ route('admin.milestone-templates.index') }}" title="Manage Milestones" class="p-1 text-slate-400 hover:text-emerald-600 transition-colors">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                                </a>
+                                            @endif
+                                        </div>
                                     </td>
                                 </tr>
                             @endforeach

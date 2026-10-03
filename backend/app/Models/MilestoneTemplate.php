@@ -156,13 +156,11 @@ class MilestoneTemplate extends Model
             ->where('order', '!=', 2)
             ->whereHas('studentMilestones', function ($q) use ($today) {
                 $q->whereNotNull('defence_date')
-                  ->whereDate('defence_date', '>=', $today)
-                  ->where('status', '!=', 'approved');
+                  ->whereDate('defence_date', '>=', $today);
             })
             ->with(['studentMilestones' => function ($q) use ($today) {
                 $q->whereNotNull('defence_date')
-                  ->whereDate('defence_date', '>=', $today)
-                  ->where('status', '!=', 'approved');
+                  ->whereDate('defence_date', '>=', $today);
             }])
             ->orderBy('order')
             ->get();
