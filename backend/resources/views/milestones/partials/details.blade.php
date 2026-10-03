@@ -1,4 +1,4 @@
-<div id="milestone-details-container-{{ $milestone->id }}" class="space-y-6" x-data="{ showMessageModal: false, messageRecipient: '', showUploadForm: {{ in_array($milestone->status, ['submitted', 'in_review']) ? 'false' : 'true' }} }">
+<div id="milestone-details-container-{{ $milestone->id }}" class="space-y-6" x-data="{ showStudentMessageModal: false, messageRecipient: '', showUploadForm: {{ in_array($milestone->status, ['submitted', 'in_review']) ? 'false' : 'true' }} }">
     <!-- Sophisticated Header -->
     <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-8">
         <div>
@@ -28,7 +28,7 @@
             </div>
             
             @if(auth()->id() !== $milestone->thesis->student->user_id && $milestone->template->has_chat)
-            <button type="button" @click.prevent.stop="showMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($milestone->thesis->student->user->name) }}" class="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl shadow-xl shadow-slate-200/40 transition-colors">
+            <button type="button" @click.prevent.stop="setTimeout(() => { showStudentMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($milestone->thesis->student->user->name) }}; }, 50)" class="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl shadow-xl shadow-slate-200/40 transition-colors">
                 <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
                 <span class="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Message Student</span>
             </button>
@@ -580,7 +580,7 @@
                     <div class="mb-6">
                         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Assigned Internal Examiner</p>
                         <div class="p-4 bg-slate-50 rounded-2xl border border-brand-100 group hover:border-brand-200 hover:bg-white transition-colors cursor-pointer"
-                            @click.prevent.stop="showMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($milestone->thesis->internalExaminer->user->name) }}">
+                            @click.prevent.stop="setTimeout(() => { showStudentMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($milestone->thesis->internalExaminer->user->name) }}; }, 50)">
                             <div class="flex items-center gap-3">
                                 <div class="w-10 h-10 rounded-xl bg-white border border-brand-100 flex items-center justify-center text-brand-600 text-sm font-bold shadow-xl shadow-slate-200/40">
                                     {{ substr($milestone->thesis->internalExaminer->user->name, 0, 1) }}
@@ -607,7 +607,7 @@
                         <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Assigned Committee</p>
                         @foreach($supervisors as $supervisor)
                             <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-slate-200 hover:bg-white transition-colors cursor-pointer"
-                                @if($milestone->template->has_chat) @click.prevent.stop="showMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($supervisor->user->name) }}" @endif>
+                                @if($milestone->template->has_chat) @click.prevent.stop="setTimeout(() => { showStudentMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($supervisor->user->name) }}; }, 50)" @endif>
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-emerald-600 text-sm font-bold shadow-xl shadow-slate-200/40">
                                         {{ substr($supervisor->user->name, 0, 1) }}
@@ -630,7 +630,7 @@
                         <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Program Coordinator</p>
                         @foreach($coordinators as $coordinator)
                             <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-slate-200 hover:bg-white transition-colors cursor-pointer"
-                                @if($milestone->template->has_chat) @click.prevent.stop="showMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($coordinator->user->name) }}" @endif>
+                                @if($milestone->template->has_chat) @click.prevent.stop="setTimeout(() => { showStudentMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($coordinator->user->name) }}; }, 50)" @endif>
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-emerald-600 text-sm font-bold shadow-xl shadow-slate-200/40">
                                         {{ substr($coordinator->user->name, 0, 1) }}
@@ -661,20 +661,20 @@
     @if($milestone->template->has_chat)
     <!-- Alpine JS Modal for Messaging -->
     <template x-teleport="body">
-    <div x-show="showMessageModal" class="fixed z-50 inset-0 overflow-y-auto" style="display: none;" x-cloak>
+    <div x-show="showStudentMessageModal" class="fixed z-50 inset-0 overflow-y-auto" style="display: none;" x-cloak>
         <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-            <div x-show="showMessageModal" 
+            <div x-show="showStudentMessageModal" 
+                 @click.self="setTimeout(() => { showStudentMessageModal = false }, 50)"
                  x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" 
                  x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" 
-                 class="fixed inset-0 transition-opacity bg-slate-900/40 backdrop-blur-sm" aria-hidden="true"></div>
+                 class="fixed inset-0 transition-opacity bg-slate-900/40 backdrop-blur-sm cursor-pointer" aria-hidden="true"></div>
 
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
             
-            <div x-show="showMessageModal" 
+            <div x-show="showStudentMessageModal" 
                  x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" 
                  x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" 
-                 class="inline-block align-bottom bg-white rounded-[2.5rem] text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full border border-slate-100"
-                 @click.away="showMessageModal = false">
+                 class="inline-block align-bottom bg-white rounded-[2.5rem] text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full border border-slate-100 relative z-10">
                  
                 <form action="{{ route('messages.store') }}" method="POST">
                     @csrf
@@ -701,7 +701,7 @@
                         </div>
                     </div>
                     <div class="bg-slate-50 px-6 py-4 sm:px-8 border-t border-slate-100 flex items-center justify-end gap-3">
-                        <button type="button" @click="showMessageModal = false" class="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors shadow-xl shadow-slate-200/40">
+                        <button type="button" @click="showStudentMessageModal = false" class="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors shadow-xl shadow-slate-200/40">
                             Cancel
                         </button>
                         <button type="submit" class="px-5 py-2.5 bg-emerald-600 rounded-xl text-sm font-semibold text-white hover:bg-emerald-700 transition-colors shadow-xl shadow-slate-200/40 flex items-center gap-2">
