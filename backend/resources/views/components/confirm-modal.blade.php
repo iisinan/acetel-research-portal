@@ -63,11 +63,11 @@
              x-transition:leave="ease-in duration-200"
              x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
              x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-             class="relative transform overflow-hidden rounded-[2.5rem] bg-white dark:bg-slate-900 text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-slate-100 dark:border-slate-800"
+             class="relative transform overflow-hidden rounded-[2.5rem] bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-slate-100"
              @click.stop
         >
             <!-- Top Ambient Glow -->
-            <div class="absolute -top-12 -right-12 w-40 h-40 rounded-full blur-3xl opacity-30 pointer-events-none"
+            <div class="absolute -top-12 -right-12 w-40 h-40 rounded-full blur-3xl opacity-15 pointer-events-none"
                  :class="{
                     'bg-rose-500': type === 'danger',
                     'bg-amber-500': type === 'warning',
@@ -81,10 +81,10 @@
                     <!-- Icon Badge with Soft Glow -->
                     <div class="w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 shadow-sm border transition-all duration-300"
                          :class="{
-                            'bg-rose-50 text-rose-600 border-rose-100 ring-8 ring-rose-50/50 dark:bg-rose-950/40 dark:border-rose-900/40 dark:ring-rose-950/20': type === 'danger',
-                            'bg-amber-50 text-amber-600 border-amber-100 ring-8 ring-amber-50/50 dark:bg-amber-950/40 dark:border-amber-900/40 dark:ring-amber-950/20': type === 'warning',
-                            'bg-emerald-50 text-emerald-600 border-emerald-100 ring-8 ring-emerald-50/50 dark:bg-emerald-950/40 dark:border-emerald-900/40 dark:ring-emerald-950/20': type === 'success',
-                            'bg-indigo-50 text-indigo-600 border-indigo-100 ring-8 ring-indigo-50/50 dark:bg-indigo-950/40 dark:border-indigo-900/40 dark:ring-indigo-950/20': type === 'info'
+                            'bg-rose-50 text-rose-600 border-rose-100 ring-8 ring-rose-50/50': type === 'danger',
+                            'bg-amber-50 text-amber-600 border-amber-100 ring-8 ring-amber-50/50': type === 'warning',
+                            'bg-emerald-50 text-emerald-600 border-emerald-100 ring-8 ring-emerald-50/50': type === 'success',
+                            'bg-indigo-50 text-indigo-600 border-indigo-100 ring-8 ring-indigo-50/50': type === 'info'
                          }">
                         <!-- Danger Icon (X / Warning) -->
                         <template x-if="type === 'danger'">
@@ -113,17 +113,17 @@
                     </div>
 
                     <div class="flex-1 min-w-0">
-                        <h3 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-snug" id="confirm-modal-title" x-text="title"></h3>
-                        <p class="mt-2.5 text-sm font-medium text-slate-500 dark:text-slate-400 leading-relaxed" x-text="message"></p>
+                        <h3 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-snug" id="confirm-modal-title" x-text="title"></h3>
+                        <p class="mt-2.5 text-sm font-medium text-slate-500 leading-relaxed" x-text="message"></p>
                     </div>
                 </div>
             </div>
 
             <!-- Footer Action Buttons -->
-            <div class="bg-slate-50/80 dark:bg-slate-800/50 px-8 py-5 sm:px-10 border-t border-slate-100 dark:border-slate-800/80 flex flex-col-reverse sm:flex-row items-center justify-end gap-3">
+            <div class="bg-slate-50/80 px-8 py-5 sm:px-10 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-center justify-end gap-3">
                 <button type="button"
                         @click="cancel()"
-                        class="w-full sm:w-auto px-6 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors shadow-sm"
+                        class="w-full sm:w-auto px-6 py-3 bg-white border border-slate-200 rounded-xl text-xs font-black uppercase tracking-wider text-slate-800 hover:bg-slate-50 transition-colors shadow-sm"
                         x-text="cancelText"
                 >
                     Cancel
