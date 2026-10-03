@@ -104,7 +104,11 @@
             <!-- Footer -->
             <div class="px-8 py-6 bg-slate-50/80 border-t border-slate-200/60 flex justify-between items-center">
                 <button type="button" 
-                    onclick="if(confirm('CRITICAL ACTION: Are you sure you want to permanently delete this program?')) { document.getElementById('delete-program-form').submit(); }"
+                    data-confirm="CRITICAL ACTION: Are you sure you want to permanently delete this academic program? All student cohorts and milestones assigned to this program will be affected."
+                    data-confirm-title="Delete Academic Program"
+                    data-confirm-type="danger"
+                    data-confirm-btn="Delete Program"
+                    onclick="document.getElementById('delete-program-form').submit();"
                     class="inline-flex justify-center px-6 py-3.5 bg-white border-2 border-red-100 hover:border-red-200 rounded-xl font-bold text-red-600 hover:text-red-700 shadow-sm hover:shadow-md transition-all duration-300">
                     Delete Program
                 </button>

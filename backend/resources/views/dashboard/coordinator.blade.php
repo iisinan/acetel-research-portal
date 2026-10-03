@@ -229,7 +229,13 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('coordinatorDashboard', () => ({
         expanded: false,
         async approveMilestone(event, milestoneId) {
-            if (!confirm('Are you sure you want to approve this milestone?')) return;
+            const ok = await window.confirmModal({
+                title: 'Approve Milestone',
+                message: 'Are you sure you want to approve this milestone?',
+                type: 'success',
+                confirmText: 'Approve'
+            });
+            if (!ok) return;
             
             const btn = event.currentTarget;
             const originalHtml = btn.innerHTML;

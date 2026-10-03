@@ -127,7 +127,11 @@
                                             <a href="{{ route('coordinator.supervisors.show', $supervisor) }}" class="inline-flex items-center justify-center p-2 rounded-xl bg-white border border-slate-200 text-slate-400 hover:border-acetel-500 hover:text-acetel-500 hover:shadow-lg hover:shadow-acetel-500/10 transition-all translate-y-0 hover:-translate-y-1" title="View Profile">
                                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                             </a>
-                                            <form action="{{ route('coordinator.supervisors.reset-password', $supervisor) }}" method="POST" class="inline-block" onsubmit="return confirm('Are you sure you want to reset password for {{ $supervisor->user->name }}?');">
+                                            <form action="{{ route('coordinator.supervisors.reset-password', $supervisor) }}" method="POST" class="inline-block"
+                                                data-confirm="Are you sure you want to reset the password for {{ $supervisor->user->name }}? Credentials will be sent via email."
+                                                data-confirm-title="Reset Supervisor Password"
+                                                data-confirm-type="warning"
+                                                data-confirm-btn="Reset Password">
                                                 @csrf
                                                 <button type="submit" class="inline-flex items-center justify-center p-2 rounded-xl bg-slate-50 border border-slate-100 text-slate-400 hover:border-rose-500 hover:text-rose-500 transition-all translate-y-0 hover:-translate-y-1" title="Reset Password">
                                                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>

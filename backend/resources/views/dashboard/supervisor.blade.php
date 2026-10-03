@@ -12,8 +12,14 @@
 
 @push('scripts')
 <script>
-    function jumpMilestoneGlobal(studentId, targetMilestoneId) {
-        if (!confirm('Are you sure you want to change this student\'s milestone? This will reset their progress for future milestones.')) return;
+    async function jumpMilestoneGlobal(studentId, targetMilestoneId) {
+        const ok = await window.confirmModal({
+            title: 'Change Milestone',
+            message: "Are you sure you want to change this student's milestone? This will reset their progress for future milestones.",
+            type: 'warning',
+            confirmText: 'Change Milestone'
+        });
+        if (!ok) return;
         const form = document.getElementById('global-jump-form');
         form.action = '{{ url("students") }}/' + studentId + '/set-milestone-global';
         document.getElementById('global-jump-target').value = targetMilestoneId;
@@ -353,7 +359,13 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('supervisorDashboard', () => ({
         expanded: false,
         async approveMilestone(event, milestoneId) {
-            if (!confirm('Are you sure you want to approve this candidate milestone?')) return;
+            const ok = await window.confirmModal({
+                title: 'Approve Milestone',
+                message: 'Are you sure you want to approve this candidate milestone?',
+                type: 'success',
+                confirmText: 'Approve'
+            });
+            if (!ok) return;
             
             const btn = event.currentTarget;
             const originalHtml = btn.innerHTML;
@@ -401,20 +413,4 @@ document.addEventListener('alpine:init', () => {
 
 
 
-<form id="global-jump-form" method="POST" action="" class="hidden">
-    @csrf
-    <input type="hidden" name="milestone_id" id="global-jump-target">
-</form>
-
-@push('scripts')
-<script>
-    function jumpMilestoneGlobal(studentId, targetMilestoneId) {
-        if (!confirm('Are you sure you want to change this student\'s milestone? This will reset their progress for future milestones.')) return;
-        const form = document.getElementById('global-jump-form');
-        form.action = '{{ url("students") }}/' + studentId + '/set-milestone-global';
-        document.getElementById('global-jump-target').value = targetMilestoneId;
-        form.submit();
-    }
-</script>
-@endpush
 @endsection

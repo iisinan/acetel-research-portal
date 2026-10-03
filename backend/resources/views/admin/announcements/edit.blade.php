@@ -70,7 +70,11 @@
                 <div class="mt-8 pt-6 border-t border-slate-100 flex justify-between items-center">
                      <div>
                          <button type="button" 
-                            onclick="if(confirm('Warning: Are you sure you want to permanently delete this announcement?')) { document.getElementById('delete-announcement-form').submit(); }"
+                            data-confirm="Warning: Are you sure you want to permanently delete this announcement? This action cannot be undone."
+                            data-confirm-title="Delete Announcement"
+                            data-confirm-type="danger"
+                            data-confirm-btn="Delete Announcement"
+                            onclick="document.getElementById('delete-announcement-form').submit();"
                             class="inline-flex justify-center py-2.5 px-4 border border-slate-300 shadow-sm text-sm font-bold rounded-xl text-red-600 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
                             Delete Announcement
                         </button>

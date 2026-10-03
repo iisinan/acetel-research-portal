@@ -210,7 +210,7 @@
                 <div @if($isCompleted || $isActive || $isPendingMatch)
                             onclick="toggleMilestone('{{ $milestone->id }}')"
                         @else
-                            onclick="alert('Institutional Protocol: This milestone is currently locked. You must complete the ongoing phase first.');"
+                            onclick="window.toast.warning('Institutional Protocol: This milestone is currently locked. You must complete the ongoing phase first.');"
                         @endif
                         class="w-full text-left flex items-center justify-between px-4 md:px-10 py-6 md:py-10 transition-all duration-300 {{ ($isCompleted || $isActive || $isPendingMatch) ? 'cursor-pointer hover:bg-gray-50/30' : 'cursor-not-allowed' }}">
                     <div class="flex items-center gap-3 md:gap-6">
@@ -245,7 +245,7 @@
                                 @method('PATCH')
                                 <input type="hidden" name="decision" value="approved">
                                 <input type="hidden" name="remarks" value="Approved directly from the roadmap summary.">
-                                <button type="submit" onclick="return confirm('Are you sure you want to officially approve this milestone?')" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-emerald-600 transition-colors shadow-sm cursor-pointer border border-emerald-600">
+                                <button type="submit" data-confirm="Are you sure you want to officially approve this milestone?" data-confirm-title="Approve Milestone" data-confirm-type="success" data-confirm-btn="Approve" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-emerald-600 transition-colors shadow-sm cursor-pointer border border-emerald-600">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
                                     Approve
                                 </button>

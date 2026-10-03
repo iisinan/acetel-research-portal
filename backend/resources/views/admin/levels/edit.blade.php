@@ -30,7 +30,11 @@
                 <div class="mt-8 pt-6 border-t border-slate-100 flex justify-between items-center">
                      <div>
                          <button type="button" 
-                            onclick="if(confirm('Warning: Are you sure you want to permanently delete this level?')) { document.getElementById('delete-level-form').submit(); }"
+                            data-confirm="Warning: Are you sure you want to permanently delete this degree level? All associated student records and templates may be impacted."
+                            data-confirm-title="Delete Degree Level"
+                            data-confirm-type="danger"
+                            data-confirm-btn="Delete Level"
+                            onclick="document.getElementById('delete-level-form').submit();"
                             class="inline-flex justify-center py-2.5 px-4 border border-slate-300 shadow-sm text-sm font-bold rounded-xl text-red-600 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
                             Delete Level
                         </button>

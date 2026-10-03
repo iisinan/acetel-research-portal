@@ -183,13 +183,21 @@
                             <p class="text-xs text-slate-500 mb-4">Administratively promote or demote this student's thesis progress. The student will be notified.</p>
                             <div class="flex gap-3">
                                 <button type="button" 
-                                    onclick="if(confirm('Are you sure you want to demote this student to the previous milestone?')) { document.getElementById('demote-form').submit(); }"
+                                    data-confirm="Are you sure you want to demote this student to the previous milestone? The student will be notified to revise and re-submit."
+                                    data-confirm-title="Demote Student Milestone"
+                                    data-confirm-type="danger"
+                                    data-confirm-btn="Demote Milestone"
+                                    onclick="document.getElementById('demote-form').submit();"
                                     class="px-4 py-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold border border-red-200 hover:bg-red-100 transition flex items-center gap-2">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
                                     Demote Milestone
                                 </button>
                                 <button type="button" 
-                                    onclick="if(confirm('Are you sure you want to promote this student to the next milestone?')) { document.getElementById('promote-form').submit(); }"
+                                    data-confirm="Are you sure you want to promote this student to the next milestone? This will advance their research stage."
+                                    data-confirm-title="Promote Student Milestone"
+                                    data-confirm-type="success"
+                                    data-confirm-btn="Promote Milestone"
+                                    onclick="document.getElementById('promote-form').submit();"
                                     class="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold border border-emerald-200 hover:bg-emerald-100 transition flex items-center gap-2">
                                     Promote Milestone
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
@@ -232,14 +240,22 @@
                     <div class="flex gap-2">
                         @if(auth()->id() !== $user->id)
                             <button type="button" 
-                                onclick="if(confirm('Warning: Are you sure you want to permanently delete this user?')) { document.getElementById('delete-user-form').submit(); }"
+                                data-confirm="Warning: Are you sure you want to permanently delete this user? All their associated academic records and roles will be removed."
+                                data-confirm-title="Delete User Account"
+                                data-confirm-type="danger"
+                                data-confirm-btn="Delete User"
+                                onclick="document.getElementById('delete-user-form').submit();"
                                 class="inline-flex justify-center py-2.5 px-4 border border-slate-300 shadow-sm text-sm font-bold rounded-xl text-red-600 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
                                 Delete User
                             </button>
                         @endif
 
                         <button type="button" 
-                            onclick="if(confirm('Securely reset password for this user? Credentials will be sent via email.')) { document.getElementById('reset-password-form').submit(); }"
+                            data-confirm="Securely reset password for this user? Temporary credentials will be generated and dispatched via email."
+                            data-confirm-title="Reset User Password"
+                            data-confirm-type="warning"
+                            data-confirm-btn="Reset Password"
+                            onclick="document.getElementById('reset-password-form').submit();"
                             class="inline-flex justify-center py-2.5 px-4 border border-green-300 shadow-sm text-sm font-bold rounded-xl text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
                             Reset Password
                         </button>

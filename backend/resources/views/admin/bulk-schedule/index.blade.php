@@ -272,12 +272,12 @@
     function submitBSF() {
         const n = document.querySelectorAll('.student-cb:checked').length;
         if (n === 0) {
-            alert('Please select at least one candidate before scheduling.');
+            (window.toast ? window.toast.warning('Please select at least one candidate before scheduling.') : alert('Please select at least one candidate before scheduling.'));
             return;
         }
         const date = document.getElementById('defenceDate').value;
         if (!date) {
-            alert('Please select a scheduled date.');
+            (window.toast ? window.toast.warning('Please select a scheduled date.') : alert('Please select a scheduled date.'));
             return;
         }
         document.getElementById('bsf').submit();

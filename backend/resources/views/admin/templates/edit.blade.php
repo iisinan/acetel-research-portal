@@ -81,7 +81,11 @@
                 <div class="mt-8 pt-6 border-t border-slate-100 flex justify-between items-center">
                      <div>
                          <button type="button" 
-                            onclick="if(confirm('CRITICAL ACTION: Are you sure you want to permanently delete this template? Students will no longer be able to download it.')) { document.getElementById('delete-template-form').submit(); }"
+                            data-confirm="CRITICAL ACTION: Are you sure you want to permanently delete this template? Students will no longer be able to download it."
+                            data-confirm-title="Delete Document Template"
+                            data-confirm-type="danger"
+                            data-confirm-btn="Delete Template"
+                            onclick="document.getElementById('delete-template-form').submit();"
                             class="inline-flex justify-center py-2.5 px-4 border border-slate-300 shadow-sm text-sm font-bold rounded-xl text-red-600 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
                             Delete Template
                         </button>

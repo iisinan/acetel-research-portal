@@ -359,7 +359,12 @@
 
         {{-- ACTIONS --}}
         <div class="mt-8 flex items-center justify-between pb-10">
-            <button type="button" onclick="if(confirm('Delete protocol? This action is irrecoverable.')) { document.getElementById('del-form').submit(); }" 
+            <button type="button" 
+                    data-confirm="Are you sure you want to delete this milestone protocol? This action is irrecoverable and may affect associated student milestones."
+                    data-confirm-title="Delete Milestone Protocol"
+                    data-confirm-type="danger"
+                    data-confirm-btn="Trash Protocol"
+                    onclick="document.getElementById('del-form').submit();" 
                     class="text-sm font-black text-rose-500 hover:text-rose-600 px-4 py-2 hover:bg-rose-50 rounded-xl transition-colors">
                 Trash Protocol
             </button>

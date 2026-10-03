@@ -192,7 +192,7 @@
                                                         return this.selected.length + ' selected';
                                                     }
                                                 }"
-                                                @submit="if(selected.length === 0) { alert('Please select at least one examiner.'); $event.preventDefault(); }">
+                                                @submit="if(selected.length === 0) { (window.toast ? window.toast.warning('Please select at least one examiner.') : alert('Please select at least one examiner.')); $event.preventDefault(); }">
                                                 @csrf
                                                 
                                                 <!-- Alpine component for multiselect -->
@@ -461,8 +461,15 @@
 
 @push('scripts')
 <script>
-    function jumpMilestone(studentId, targetSlug) {
-        if (!confirm('Are you sure you want to change this student\'s milestone? This will reset their progress for future milestones.')) return;
+    async function jumpMilestone(studentId, targetSlug) {
+        const ok = await window.confirmModal({
+            title: 'Change Milestone Protocol',
+            message: 'Are you sure you want to change this student\'s milestone? This will reset their progress for future milestones.',
+            type: 'warning',
+            confirmText: 'Change Milestone',
+            cancelText: 'Cancel'
+        });
+        if (!ok) return;
         const form = document.getElementById('global-jump-form');
         form.action = '{{ url("admin/students") }}/' + studentId + '/set-milestone';
         document.getElementById('global-jump-target').value = targetSlug;

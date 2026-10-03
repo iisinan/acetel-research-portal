@@ -274,7 +274,7 @@
                     <div class="flex items-center gap-4">
                         <form action="{{ route('admin.students.set-milestone', $student) }}" method="POST" class="flex items-center gap-2 mr-2">
                             @csrf
-                            <select name="milestone_id" class="text-[10px] font-black uppercase tracking-widest text-slate-600 bg-slate-100 border-none rounded-lg focus:ring-brand-500 cursor-pointer" onchange="if(confirm('Are you sure you want to set the student to this milestone?')) this.form.submit();">
+                            <select name="milestone_id" class="text-[10px] font-black uppercase tracking-widest text-slate-600 bg-slate-100 border-none rounded-lg focus:ring-brand-500 cursor-pointer" onchange="const sel = this; window.confirmModal({ title: 'Change Milestone', message: 'Are you sure you want to set the student to this milestone?', type: 'warning', confirmText: 'Set Milestone' }).then(ok => { if(ok) sel.form.submit(); else sel.selectedIndex = 0; });">
                                 <option value="" disabled selected>Jump to Milestone</option>
                                 @foreach($student->thesis->milestones->sortBy('template.order') as $m)
                                     <option value="{{ $m->id }}">{{ $m->template->order }}. {{ $m->template->name }}</option>
@@ -284,7 +284,7 @@
 
                         <div class="w-px h-4 bg-slate-200"></div>
 
-                        <form action="{{ route('admin.students.demote-milestone', $student) }}" method="POST" onsubmit="return confirm('Are you sure you want to demote this student to the previous milestone?');">
+                        <form action="{{ route('admin.students.demote-milestone', $student) }}" method="POST" data-confirm="Are you sure you want to demote this student to the previous milestone?" data-confirm-title="Demote Student" data-confirm-type="danger" data-confirm-btn="Demote">
                             @csrf
                             <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-700 transition-colors flex items-center gap-1">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
@@ -292,7 +292,7 @@
                             </button>
                         </form>
 
-                        <form action="{{ route('admin.students.promote-milestone', $student) }}" method="POST" onsubmit="return confirm('Are you sure you want to promote this student to the next milestone?');">
+                        <form action="{{ route('admin.students.promote-milestone', $student) }}" method="POST" data-confirm="Are you sure you want to promote this student to the next milestone?" data-confirm-title="Promote Student" data-confirm-type="success" data-confirm-btn="Promote">
                             @csrf
                             <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:text-emerald-700 transition-colors flex items-center gap-1">
                                 Promote
@@ -449,8 +449,14 @@
 <script>
 function studentProfile() {
     return {
-        confirmQuickApprove(event, milestoneId) {
-            if (!confirm('Are you sure you want to grant immediate institutional clearance for this milestone? This action will be logged.')) return;
+        async confirmQuickApprove(event, milestoneId) {
+            const ok = await window.confirmModal({
+                title: 'Institutional Clearance',
+                message: 'Are you sure you want to grant immediate institutional clearance for this milestone? This action will be logged.',
+                type: 'success',
+                confirmText: 'Grant Clearance'
+            });
+            if (!ok) return;
             
             const btn = event.currentTarget;
             const originalHtml = btn.innerHTML;

@@ -119,7 +119,11 @@
 
             <div class="px-8 py-6 bg-slate-50/80 border-t border-slate-200/60 flex flex-col sm:flex-row justify-between items-center gap-4">
                 <button type="button" 
-                    onclick="if(confirm('CRITICAL ACTION: Are you sure you want to permanently delete this cohort? This action cannot be undone.')) { document.getElementById('delete-cohort-form').submit(); }"
+                    data-confirm="CRITICAL ACTION: Are you sure you want to permanently delete this cohort? All linked records will be affected and this action cannot be undone."
+                    data-confirm-title="Delete Academic Cohort"
+                    data-confirm-type="danger"
+                    data-confirm-btn="Delete Cohort"
+                    onclick="document.getElementById('delete-cohort-form').submit();"
                     class="group inline-flex items-center justify-center py-2.5 px-5 border-2 border-red-100 text-sm font-bold rounded-xl text-red-600 bg-red-50 hover:bg-red-600 hover:text-white hover:border-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-300 w-full sm:w-auto">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     Delete Cohort

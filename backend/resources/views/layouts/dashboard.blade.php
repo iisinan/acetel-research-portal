@@ -192,6 +192,7 @@
 
     <x-document-preview-modal />
     <x-toast />
+    <x-confirm-modal />
     <x-force-password-change-modal />
     @stack('scripts')
 </body>

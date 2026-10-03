@@ -107,11 +107,11 @@
                     });
                 } else {
                     const error = await response.json();
-                    alert(error.message || 'Failed to send message');
+                    (window.toast ? window.toast.error(error.message || 'Failed to send message') : alert(error.message || 'Failed to send message'));
                 }
             } catch (error) {
                 console.error('Send Error:', error);
-                alert('Connection error. Please try again.');
+                (window.toast ? window.toast.error('Connection error. Please try again.') : alert('Connection error. Please try again.'));
             } finally {
                 this.isSending = false;
             }

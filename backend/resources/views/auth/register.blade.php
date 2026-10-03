@@ -863,7 +863,8 @@
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                 } catch (e) {
                     this.isSubmitting = false;
-                    alert('JS Error: ' + e.message);
+                    this.errorMessage = 'Error: ' + e.message;
+                    if (window.toast) window.toast.error(e.message);
                 }
             },
 

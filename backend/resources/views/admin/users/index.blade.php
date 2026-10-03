@@ -260,7 +260,11 @@
                         </td>
                         <td class="px-10 py-8 text-right">
                             <div class="flex items-center justify-end gap-2 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500">
-                                <form action="{{ route('admin.users.reset_password', $user) }}" method="POST" class="contents" onsubmit="return confirm('Securely reset password for this user?');">
+                                <form action="{{ route('admin.users.reset_password', $user) }}" method="POST" class="contents"
+                                    data-confirm="Securely reset password for {{ $user->name }}? Credentials will be dispatched to their institutional email address."
+                                    data-confirm-title="Reset User Password"
+                                    data-confirm-type="warning"
+                                    data-confirm-btn="Reset Password">
                                     @csrf
                                     <button type="submit" class="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-green-600 hover:border-green-300 hover:bg-green-50 transition-all" title="Reset Secret">
                                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
