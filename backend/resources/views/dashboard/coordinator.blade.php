@@ -94,12 +94,6 @@
                         <div class="mt-6 pt-5 flex items-center justify-between border-t border-amber-500/20 relative z-10">
                             <span class="text-[9px] font-black text-amber-300/70 uppercase tracking-[0.2em] italic">{{ $review->submitted_at ? $review->submitted_at->diffForHumans() : 'Recently' }}</span>
                             <div class="flex items-center gap-2">
-                                <button 
-                                    @click.prevent="approveMilestone($event, '{{ $review->id }}')" 
-                                    class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-900/20 flex items-center gap-2 group/approve">
-                                    <span>Approve</span>
-                                    <svg class="w-3 h-3 group-hover/approve:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                </button>
                                 <a href="{{ route('coordinator.students.show', $review->thesis->student_profile_id) }}#milestone-{{$review->id}}" class="px-4 py-2 bg-white/10 hover:bg-white text-white hover:text-amber-700 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-white/10 hover:border-white">
                                     Review
                                 </a>
@@ -227,55 +221,7 @@
 <script>
 document.addEventListener('alpine:init', () => {
     Alpine.data('coordinatorDashboard', () => ({
-        expanded: false,
-        async approveMilestone(event, milestoneId) {
-            const ok = await window.confirmModal({
-                title: 'Approve Milestone',
-                message: 'Are you sure you want to approve this milestone?',
-                type: 'success',
-                confirmText: 'Approve'
-            });
-            if (!ok) return;
-            
-            const btn = event.currentTarget;
-            const originalHtml = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = '<svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
-
-            try {
-                const response = await fetch(`/milestones/${milestoneId}/quick-approve`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        type: 'clear_role',
-                        role: '{{ Auth::user()->getRoleNames()->first() }}'
-                    })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    window.toast.success(data.message);
-                    const card = btn.closest('.block');
-                    if (card) {
-                        card.style.opacity = '0';
-                        card.style.transform = 'scale(0.95)';
-                        setTimeout(() => card.remove(), 500);
-                    }
-                } else {
-                    window.toast.error(data.message);
-                    btn.innerHTML = originalHtml;
-                    btn.disabled = false;
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                window.toast.error('AJAX Error occurred.');
-                btn.innerHTML = originalHtml;
-                btn.disabled = false;
-            }
-        }
+        expanded: false
     }));
 });
 </script>

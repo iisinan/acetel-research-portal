@@ -112,10 +112,6 @@
                                 <a href="{{ route('milestones.review', $review->id) }}" class="flex-1 flex items-center justify-center py-3 bg-slate-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
                                     Audit Detail
                                 </a>
-                                {{-- Quick Approve --}}
-                                <button type="button" @click.stop="quickApprove('{{ $review->id }}', $el)" class="px-4 py-3 bg-white border border-amber-200 hover:border-amber-500 text-amber-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -312,61 +308,6 @@ document.addEventListener('alpine:init', () => {
         expanded: false,
         toggleAlerts() {
             this.expanded = !this.expanded;
-        },
-        async quickApprove(milestoneId, btn) {
-            const ok = await window.confirmModal({
-                title: 'Institutional Clearance',
-                message: "As {{ auth()->user()->hasRole('External Examiner') ? 'External Examiner' : 'Internal Examiner' }}, are you authorizing this milestone based on doctoral standards?",
-                type: 'success',
-                confirmText: 'Authorize Clearance'
-            });
-            if (!ok) return;
-            
-            const originalHtml = btn.innerHTML;
-            btn.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
-            btn.disabled = true;
-
-            try {
-                const response = await fetch(`/milestones/${milestoneId}/quick-approve`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        type: 'clear_role',
-                        role: "{{ auth()->user()->hasRole('External Examiner') ? 'External Examiner' : 'Internal Examiner' }}"
-                    })
-                });
-
-                const data = await response.json();
-
-                if (data.success) {
-                    window.toast.success(data.message || 'Institutional Clearance Executed.');
-                    // Remove card with animation
-                    const card = btn.closest('.block');
-                    card.style.opacity = '0';
-                    card.style.transform = 'scale(0.95)';
-                    setTimeout(() => {
-                        card.remove();
-                        // If no more cards, check if we should hide the alert system
-                        const grid = document.querySelector('.grid-cols-1.md\\:grid-cols-2.lg\\:grid-cols-3');
-                        if (grid && !grid.children.length) {
-                            window.location.reload(); // Simple way to refresh counts
-                        }
-                    }, 500);
-                } else {
-                    window.toast.error(data.message || 'Authorization failed.');
-                    btn.innerHTML = originalHtml;
-                    btn.disabled = false;
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                window.toast.error('System Oversight Error occurred.');
-                btn.innerHTML = originalHtml;
-                btn.disabled = false;
-            }
         }
     }));
 });

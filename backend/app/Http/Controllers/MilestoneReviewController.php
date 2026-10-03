@@ -108,185 +108,123 @@ class MilestoneReviewController extends Controller
         $request->validate($rules);
 
         $user = Auth::user();
+        if (!$user->hasRole('Admin')) {
+            abort(403, 'Institutional Protocol: Only an Administrator can approve milestones and advance students.');
+        }
+
         $decision = $request->decision;
         $template = $milestone->template;
-        $requiredRoles = $template->required_approvers ?? ['Program Coordinator'];
         
         if ($decision === 'approved') {
+            $error = $this->workflowService->getApprovalBlockReason($milestone, $user, 'Admin');
+            if ($error) {
+                return redirect()->back()->with('error', $error);
+            }
+
             $approvals = $milestone->approvals ?? [];
-            
-            // Determine which role the user is fulfilling
-            $roleFilled = null;
-            foreach ($requiredRoles as $role) {
-                if ($user->hasRole($role)) {
-                    // Check if this user has already approved in this specific role
-                    $existingKey = $role . ':' . $user->id;
-                    if (isset($approvals[$existingKey])) {
-                        continue;
-                    }
+            $approvalKey = 'Admin:' . $user->id;
+            $approvals[$approvalKey] = [
+                'user_id' => $user->id,
+                'role' => 'Admin',
+                'approved_at' => now()->toDateTimeString(),
+                'remarks' => $request->remarks,
+            ];
+            $milestone->approvals = $approvals;
 
-                    // Extra check for specific authorities
-                    if ($role === 'Program Coordinator') {
-                        if ($user->coordinatorProfiles()->where('active', true)->where('program_id', $milestone->thesis->student->program_id)->exists()) {
-                            $roleFilled = $role;
-                            break;
-                        }
-                    } elseif ($role === 'Supervisor') {
-                        if ($user->supervisorProfile && $milestone->thesis->assignments()->where('supervisor_profile_id', $user->supervisorProfile->id)->where('status', 'active')->exists()) {
-                            $roleFilled = $role;
-                            break;
-                        }
-                    } elseif ($role === 'Internal Examiner') {
-                        if ($user->internalExaminerProfiles()->where('id', $milestone->thesis->internal_examiner_profile_id)->exists()) {
-                            $roleFilled = $role;
-                            break;
-                        }
-                    } elseif ($role === 'Admin') {
-                        $roleFilled = $role;
-                        break;
-                    }
+            // Handle supervisor assignment if milestone 2
+            if ($template->order == 2 && $request->has('supervisor_ids')) {
+                $request->validate([
+                    'supervisor_ids' => 'required|array',
+                    'supervisor_ids.*' => 'exists:supervisor_profiles,id',
+                ]);
+
+                $this->workflowService->validateSupervisorAssignment($milestone->thesis, $request->supervisor_ids);
+
+                $milestone->thesis->assignments()->update(['status' => 'ended', 'ended_at' => now()]);
+
+                foreach ($request->supervisor_ids as $index => $id) {
+                    $assignment = SupervisionAssignment::create([
+                        'thesis_project_id' => $milestone->thesis_project_id,
+                        'supervisor_profile_id' => $id,
+                        'role' => ($index === 0) ? 'primary' : (($index === 1) ? 'secondary' : 'third'),
+                        'order_index' => $index + 1,
+                        'status' => 'active',
+                        'assigned_at' => now(),
+                    ]);
+
+                    $assignment->supervisorProfile->user->notify(new \App\Notifications\SupervisorRoleAssigned($assignment));
                 }
             }
-            
-            if (!$roleFilled && $user->hasRole('Admin')) {
-                $roleFilled = 'Admin';
-            }
 
-            if ($roleFilled) {
-                // Requirement: Post Submission Approval must be granted before Institutional Clearance.
-                $error = $this->workflowService->canApprove($milestone, Auth::user(), $roleFilled);
-                if ($error) {
-                    return redirect()->route('dashboard')
-                        ->with('error', $error);
-                }
-
-                $approvalKey = $roleFilled . ':' . $user->id;
-                $approvals[$approvalKey] = [
-                    'user_id' => $user->id,
-                    'role' => $roleFilled,
-                    'approved_at' => now()->toDateTimeString(),
-                    'remarks' => $request->remarks,
+            if ($template->allow_defence_date && $request->filled('defence_date')) {
+                $milestone->defence_date = $request->defence_date;
+                $milestone->defence_location = $request->defence_location;
+                $milestone->date_approved_at = now();
+                
+                $typeMap = [
+                    'proposal' => 'first_seminar',
+                    'internal' => 'internal_defence',
+                    'external' => 'external_defence'
                 ];
-                
-                $milestone->approvals = $approvals;
+                $type = $typeMap[$template->defence_type ?? 'proposal'] ?? 'first_seminar';
 
-                // Handle PC specific fields for defence/communication
-                if ($roleFilled === 'Program Coordinator') {
-                    if ($template->order == 2) {
-                        $request->validate([
-                            'supervisor_ids' => 'required|array',
-                            'supervisor_ids.*' => 'exists:supervisor_profiles,id',
-                        ]);
-
-                        $this->workflowService->validateSupervisorAssignment($milestone->thesis, $request->supervisor_ids);
-
-                        // Deactivate old assignments if any
-                        $milestone->thesis->assignments()->update(['status' => 'ended', 'ended_at' => now()]);
-
-                        foreach ($request->supervisor_ids as $index => $id) {
-                            $assignment = SupervisionAssignment::create([
-                                'thesis_project_id' => $milestone->thesis_project_id,
-                                'supervisor_profile_id' => $id,
-                                'role' => ($index === 0) ? 'primary' : (($index === 1) ? 'secondary' : 'third'),
-                                'order_index' => $index + 1,
-                                'status' => 'active',
-                                'assigned_at' => now(),
-                            ]);
-
-                            // Notify Supervisor
-                            $assignment->supervisorProfile->user->notify(new \App\Notifications\SupervisorRoleAssigned($assignment));
-                        }
-                    }
-                    if ($template->allow_defence_date) {
-                        $milestone->defence_date = $request->defence_date;
-                        $milestone->defence_location = $request->defence_location;
-                        
-                        if ($request->defence_date) {
-                            $milestone->date_approved_at = now();
-                        }
-                        
-                        // Create official DefenceEvent if date is provided
-                        if ($request->defence_date) {
-                            $typeMap = [
-                                'proposal' => 'first_seminar',
-                                'internal' => 'internal_defence',
-                                'external' => 'external_defence'
-                            ];
-                            $type = $typeMap[$template->defence_type ?? 'proposal'] ?? 'first_seminar';
-
-                            $event = DefenceEvent::updateOrCreate(
-                                ['thesis_project_id' => $milestone->thesis_project_id, 'type' => $type],
-                                [
-                                    'schedule_start' => $request->defence_date . ' 10:00:00', // Default time
-                                    'location' => $request->defence_location ?? 'TBD',
-                                ]
-                            );
-                        }
-                    }
-
-                    if ($template->show_internal_examiner_assignment) {
-                        // Update Thesis Project Internal Examiner
-                        $milestone->thesis->update([
-                            'internal_examiner_profile_id' => $request->internal_examiner_profile_id
-                        ]);
-
-                        // Automatically add Internal Examiner as Panel Member to events if they exist
-                        if ($request->internal_examiner_profile_id) {
-                            $examinerProfile = InternalExaminerProfile::find($request->internal_examiner_profile_id);
-                            $activeEvent = DefenceEvent::where('thesis_project_id', $milestone->thesis_project_id)->latest()->first();
-                            
-                            if ($examinerProfile && $activeEvent) {
-                                PanelMember::updateOrCreate(
-                                    ['defence_event_id' => $activeEvent->id, 'user_id' => $examinerProfile->user_id],
-                                    ['role' => 'internal_examiner', 'invitation_status' => 'accepted']
-                                );
-                            }
-                        }
-                    }
-
-                    if ($template->show_external_examiner_assignment) {
-                        // Update Thesis Project External Examiner
-                        $milestone->thesis->update([
-                            'external_examiner_profile_id' => $request->external_examiner_profile_id
-                        ]);
-
-                        // Automatically add External Examiner as Panel Member to events if they exist
-                        if ($request->external_examiner_profile_id) {
-                            $examinerProfile = \App\Models\ExternalExaminerProfile::find($request->external_examiner_profile_id);
-                            $activeEvent = DefenceEvent::where('thesis_project_id', $milestone->thesis_project_id)->latest()->first();
-                            
-                            if ($examinerProfile && $activeEvent) {
-                                PanelMember::updateOrCreate(
-                                    ['defence_event_id' => $activeEvent->id, 'user_id' => $examinerProfile->user_id],
-                                    ['role' => 'external_examiner', 'invitation_status' => 'accepted']
-                                );
-                            }
-                        }
-                    }
-
-                    if ($template->order == 3) {
-                        $milestone->communication_log = $request->communication_log;
-                    }
-                }
-                
-                // Use the workflow service to check if the milestone is now fully approved
-                if ($this->workflowService->isApprovalThresholdMet($milestone)) {
-                    $milestone->status = 'approved';
-                    $milestone->approved_at = now();
-                    $this->workflowService->afterApproval($milestone);
-                } else {
-                    $milestone->status = 'partially_approved'; 
-                }
-                
-                $milestone->remark = $request->remarks;
-                $milestone->save();
-
-                // Dispatch real-time update
-                $this->workflowService->notifyUpdate($milestone, $user->name . " recorded an approval for: " . $milestone->template->name);
-
-                // Trigger Notification
-                $milestone->thesis->student->user->notify(new \App\Notifications\MilestoneStatusUpdated($milestone));
+                DefenceEvent::updateOrCreate(
+                    ['thesis_project_id' => $milestone->thesis_project_id, 'type' => $type],
+                    [
+                        'schedule_start' => $request->defence_date . ' 10:00:00',
+                        'location' => $request->defence_location ?? 'TBD',
+                    ]
+                );
             }
+
+            if ($template->show_internal_examiner_assignment && $request->filled('internal_examiner_profile_id')) {
+                $milestone->thesis->update([
+                    'internal_examiner_profile_id' => $request->internal_examiner_profile_id
+                ]);
+
+                $examinerProfile = InternalExaminerProfile::find($request->internal_examiner_profile_id);
+                $activeEvent = DefenceEvent::where('thesis_project_id', $milestone->thesis_project_id)->latest()->first();
+                if ($examinerProfile && $activeEvent) {
+                    PanelMember::updateOrCreate(
+                        ['defence_event_id' => $activeEvent->id, 'user_id' => $examinerProfile->user_id],
+                        ['role' => 'internal_examiner', 'invitation_status' => 'accepted']
+                    );
+                }
+            }
+
+            if ($template->show_external_examiner_assignment && $request->filled('external_examiner_profile_id')) {
+                $milestone->thesis->update([
+                    'external_examiner_profile_id' => $request->external_examiner_profile_id
+                ]);
+
+                $examinerProfile = \App\Models\ExternalExaminerProfile::find($request->external_examiner_profile_id);
+                $activeEvent = DefenceEvent::where('thesis_project_id', $milestone->thesis_project_id)->latest()->first();
+                if ($examinerProfile && $activeEvent) {
+                    PanelMember::updateOrCreate(
+                        ['defence_event_id' => $activeEvent->id, 'user_id' => $examinerProfile->user_id],
+                        ['role' => 'external_examiner', 'invitation_status' => 'accepted']
+                    );
+                }
+            }
+
+            if ($template->order == 3 && $request->filled('communication_log')) {
+                $milestone->communication_log = $request->communication_log;
+            }
+
+            // Mark milestone officially approved and trigger advancement of student to next stage
+            $milestone->status = 'approved';
+            $milestone->approved_at = now();
+            $milestone->remark = $request->remarks;
+            $milestone->save();
+
+            // Advance student to next milestone
+            $this->workflowService->afterApproval($milestone);
+
+            // Dispatch real-time update
+            $this->workflowService->notifyUpdate($milestone, $user->name . " officially approved: " . $milestone->template->name);
+
+            // Trigger Notification
+            $milestone->thesis->student->user->notify(new \App\Notifications\MilestoneStatusUpdated($milestone));
         } else {
             // Rejected / Revision Required
             $milestone->update([
@@ -350,7 +288,7 @@ class MilestoneReviewController extends Controller
             ]);
         }
 
-        return redirect()->route('dashboard')
-            ->with('success', 'Milestone review submitted successfully.');
+        return redirect()->back()
+            ->with('success', $decision === 'approved' ? 'Milestone successfully approved and student advanced to the next milestone.' : 'Milestone review submitted successfully.');
     }
 }

@@ -124,7 +124,10 @@ class MilestoneController extends Controller
                 'created_by' => Auth::id(),
             ]);
         }
-        return back()->with('success', 'Upload accepted successfully. You can now proceed to approve the milestone.');
+        $milestone->is_supervisor_approved = true;
+        $milestone->save();
+
+        return back()->with('success', 'Upload accepted successfully.');
     }
 
     public function rejectUpload(Request $request, StudentMilestone $milestone)
@@ -139,7 +142,11 @@ class MilestoneController extends Controller
                 'created_by' => Auth::id(),
             ]);
             
-            $milestone->update(['status' => 'revision_required', 'remark' => $remarks]);
+            $milestone->update([
+                'status' => 'revision_required',
+                'remark' => $remarks,
+                'is_supervisor_approved' => false
+            ]);
         }
         return back()->with('success', 'Upload rejected successfully. The student has been notified to revise it.');
     }
@@ -147,82 +154,45 @@ class MilestoneController extends Controller
     public function quickApprove(Request $request, StudentMilestone $milestone)
     {
         $user = Auth::user();
-        // Allow staff to override
-        if (!$user->hasAnyRole(['Admin', 'Director', 'Program Coordinator', 'Supervisor'])) {
-            return response()->json(['success' => false, 'message' => 'Institutional authority required.'], 403);
-        }
 
-        $type = $request->type;
-        $approvals = $milestone->approvals ?? [];
+        // Institutional Rule: ONLY Admin can approve a milestone and advance a student
+        if (!$user->hasRole('Admin')) {
+            return response()->json(['success' => false, 'message' => 'Institutional authority required. Only an Administrator can approve milestones.'], 403);
+        }
 
         $workflowService = app(\App\Services\MilestoneWorkflowService::class);
-        $roleFilled = $type === 'clear_role' ? $request->role : ($type === 'clear_supervisor' ? 'Supervisor' : null);
-        
-        // Ensure we can actually approve this based on structural constraints
-        if ($type !== 'approve_date') {
-            $error = $workflowService->canApprove($milestone, $user, $roleFilled);
-            if ($error && !str_contains($error, 'Sequence Blocked')) {
-                return response()->json(['success' => false, 'message' => $error], 403);
-            }
+        $error = $workflowService->getApprovalBlockReason($milestone, $user, 'Admin');
+        if ($error) {
+            return response()->json(['success' => false, 'message' => $error], 422);
         }
 
-        if ($type === 'clear_supervisor') {
-            $targetUserId = $request->user_id;
-            $key = 'Supervisor:' . $targetUserId;
-            if (!isset($approvals[$key])) {
-                $approvals[$key] = [
-                    'user_id' => $targetUserId,
-                    'role' => 'Supervisor',
-                    'approved_at' => now()->toDateTimeString(),
-                    'overridden_by' => $user->id,
-                    'overridden_name' => $user->name,
-                    'remarks' => 'Institutional Override',
-                ];
-            }
-        } elseif ($type === 'clear_role') {
-            $role = $request->role;
-            // Key based on role to allow one approval per role
-            $key = 'Role:' . $role;
-            if (!isset($approvals[$key])) {
-                $approvals[$key] = [
-                    'user_id' => $user->id,
-                    'role' => $role,
-                    'approved_at' => now()->toDateTimeString(),
-                    'remarks' => 'Institutional Approval',
-                ];
-            }
-        } elseif ($type === 'approve_date') {
-            $milestone->date_approved_at = now();
-            $milestone->date_approved_by = $user->id;
-        } elseif ($type === 'clear_milestone') {
-            $milestone->status = 'approved';
-            $milestone->approved_at = now();
-            $workflowService = app(\App\Services\MilestoneWorkflowService::class);
-            $workflowService->afterApproval($milestone);
-        }
+        $approvals = $milestone->approvals ?? [];
+        $approvalKey = 'Admin:' . $user->id;
+        $approvals[$approvalKey] = [
+            'user_id' => $user->id,
+            'role' => 'Admin',
+            'approved_at' => now()->toDateTimeString(),
+            'remarks' => $request->remarks ?? 'Approved by Administrator via quick approval.',
+        ];
 
         $milestone->approvals = $approvals;
-        
-        // Use Workflow Service to check if total threshold met
-        $workflowService = app(\App\Services\MilestoneWorkflowService::class);
-        if ($workflowService->isApprovalThresholdMet($milestone)) {
-            $milestone->status = 'approved';
-            $milestone->approved_at = now();
-            $workflowService->afterApproval($milestone);
-        } else {
-            // Milestone is still active but partially cleared
-            if ($milestone->status !== 'approved') {
-                $milestone->status = 'partially_approved';
-            }
-        }
-        
+        $milestone->status = 'approved';
+        $milestone->approved_at = now();
+        $milestone->remark = $request->remarks ?? 'Approved by Administrator via quick approval.';
         $milestone->save();
+
+        // Advance student to next milestone
+        $workflowService->afterApproval($milestone);
+
+        // Notify student & dispatch updates
+        $workflowService->notifyUpdate($milestone, $user->name . " officially approved: " . $milestone->template->name);
+        $milestone->thesis->student->user->notify(new \App\Notifications\MilestoneStatusUpdated($milestone));
 
         return response()->json([
             'success' => true,
-            'message' => 'Clearance granted successfully.',
+            'message' => 'Milestone approved successfully. Student advanced to the next milestone.',
             'milestone_id' => $milestone->id,
-            'is_fully_complete' => $milestone->progress_track['is_fully_complete']
+            'is_fully_complete' => true
         ]);
     }
 
@@ -233,86 +203,45 @@ class MilestoneController extends Controller
     {
         $this->authorize('review', $milestone);
         $user = Auth::user();
-        $template = $milestone->template;
-        $requiredRoles = $template->required_approvers ?? [];
-        
-        // Determine which role the user is fulfilling for this specific milestone
-        $roleFilled = null;
-        if ($user->hasRole('Program Coordinator') && in_array('Program Coordinator', $requiredRoles)) {
-            if ($user->coordinatorProfiles()->where('active', true)->where('program_id', $milestone->thesis->student->program_id)->exists()) {
-                $roleFilled = 'Program Coordinator';
-            }
-        } elseif ($user->hasRole('Supervisor') && in_array('Supervisor', $requiredRoles)) {
-            if ($user->supervisorProfile && $milestone->thesis->assignments()->where('supervisor_profile_id', $user->supervisorProfile->id)->where('status', 'active')->exists()) {
-                $roleFilled = 'Supervisor';
-            }
-        } elseif ($user->hasRole('Internal Examiner') && in_array('Internal Examiner', $requiredRoles)) {
-            if ($user->internalExaminerProfiles()->where('id', $milestone->thesis->internal_examiner_profile_id)->exists()) {
-                $roleFilled = 'Internal Examiner';
-            }
-        } elseif ($user->hasRole('External Examiner') && in_array('External Examiner', $requiredRoles)) {
-            if ($user->externalExaminerProfiles()->where('program_id', $milestone->thesis->student->program_id)->exists()) {
-                $roleFilled = 'External Examiner';
-            }
-        } elseif ($user->hasRole('Director') && in_array('Director', $requiredRoles)) {
-            $roleFilled = 'Director';
-        } elseif ($user->hasRole('Admin')) {
-            $roleFilled = 'Admin';
+
+        // Institutional Rule: ONLY Admin can approve milestones
+        if (!$user->hasRole('Admin')) {
+            return back()->with('error', 'Only an Administrator can approve milestones.');
         }
 
-        if (!$roleFilled) {
-            return back()->with('error', 'You do not have approval authority for this milestone.');
-        }
-
-        // Institutional Sequence Guard: Actions only permitted on Ongoing Milestone
-        $ongoing = $milestone->thesis->milestones()->get()->sortBy(fn($m) => $m->template->order ?? 999)->first(fn($m) => $m->status !== 'approved');
-        if ($ongoing && $ongoing->id !== $milestone->id && !auth()->user()->hasAnyRole(['Admin', 'Director'])) {
-             return back()->with('error', 'Workflow Violation: This milestone is currently locked. Actions must be performed on the ongoing node: ' . $ongoing->template->name);
-        }
-
-        // Requirement: Post Submission Approval must be granted before Institutional Clearance.
-        if (!(new \App\Services\MilestoneWorkflowService())->canApprove($milestone, $user, $roleFilled)) {
-            return back()->with('error', 'Post Submission Approval must be granted before Institutional Clearance can be authorized.');
+        $workflow = app(\App\Services\MilestoneWorkflowService::class);
+        $error = $workflow->getApprovalBlockReason($milestone, $user, 'Admin');
+        if ($error) {
+            return back()->with('error', $error);
         }
 
         // Record the approval
         $approvals = $milestone->approvals ?? [];
-        
-        // Key by Role + User ID to handle multiple people in same role (e.g. Supervisors)
-        $approvalKey = $roleFilled . ':' . $user->id;
-        
+        $approvalKey = 'Admin:' . $user->id;
         $approvals[$approvalKey] = [
             'user_id' => $user->id,
             'user_name' => $user->name,
-            'role' => $roleFilled,
+            'role' => 'Admin',
             'approved_at' => now()->toDateTimeString(),
+            'remarks' => $request->remarks ?? 'Approved by Administrator',
         ];
         
         $milestone->approvals = $approvals;
-
-        $workflow = new \App\Services\MilestoneWorkflowService();
-        if ($workflow->isApprovalThresholdMet($milestone)) {
-            $milestone->status = 'approved';
-            $milestone->approved_at = now();
-            
-            // Trigger after-approval hooks if any
-            $workflow->afterApproval($milestone);
-        } else {
-            $milestone->status = 'partially_approved';
-        }
-
+        $milestone->status = 'approved';
+        $milestone->approved_at = now();
         $milestone->save();
 
+        // Advance student to next milestone
+        $workflow->afterApproval($milestone);
+
         // Dispatch real-time updates to all parties
-        (new \App\Services\MilestoneWorkflowService())->notifyUpdate($milestone, $user->name . " recorded an approval for: " . $milestone->template->name);
+        $workflow->notifyUpdate($milestone, $user->name . " officially approved: " . $milestone->template->name);
 
         // Log a message in the chat about the approval
-        /** @var \App\Models\User $user */
-        $user = Auth::user();
         (new \App\Services\MessageService())->sendMessage(
             $milestone->thesis,
             $user,
-            "✅ Approved this milestone.",
+            "✅ Officially approved this milestone.",
             $milestone->id,
             ['system' => true, 'action' => 'approval']
         );
@@ -320,11 +249,11 @@ class MilestoneController extends Controller
         if ($request->expectsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Approval recorded successfully.',
+                'message' => 'Milestone approved successfully.',
             ]);
         }
 
-        return back()->with('success', 'Approval recorded successfully.');
+        return back()->with('success', 'Milestone approved successfully.');
     }
 
     /**

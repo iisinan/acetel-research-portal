@@ -177,76 +177,23 @@ class StudentMilestonePolicy
             return false;
         }
 
-        // Requirement: Post Submission Approval must be granted before Institutional Clearance.
-        if ($template->submission_requires_approval && !$milestone->is_submission_unlocked) {
+        // Institutional Rule: ONLY Admin can approve milestones and advance students
+        if (!$user->hasRole('Admin')) {
             return false;
         }
 
-        $requiredRoles = $template->required_approvers ?? ['Program Coordinator'];
+        // Admin cannot approve if already approved
+        if ($milestone->status === 'approved') {
+            return false;
+        }
+
+        // Check if Admin has already approved this milestone
         $currentApprovals = collect($milestone->approvals ?? []);
-
-        // Check if this specific user has already approved
-        if ($currentApprovals->where('user_id', $user->id)->isNotEmpty()) {
+        if ($currentApprovals->where('role', 'Admin')->isNotEmpty()) {
             return false;
         }
 
-        // Admin Override (God Mode)
-        if ($user->hasRole('Admin')) {
-            $workflowService = app(\App\Services\MilestoneWorkflowService::class);
-            if ($workflowService->canApprove($milestone, $user, 'Admin')) {
-                return true;
-            }
-        }
-
-        foreach ($requiredRoles as $role) {
-            // Check if user has this required role
-            $isAuthorized = $user->hasRole('Admin');
-            
-            if (!$isAuthorized && !$user->hasRole($role)) {
-                continue;
-            }
-
-            // Authorization logic per role
-            if (!$isAuthorized) {
-                if ($role === 'Program Coordinator') {
-                    $student = $milestone->thesis->student;
-                    if ($user->coordinatorProfiles()
-                        ->where('active', true)
-                        ->where('program_id', $student->program_id)
-                        ->exists()) {
-                        $isAuthorized = true;
-                    }
-                } elseif ($role === 'Supervisor') {
-                    if ($user->supervisorProfile && $milestone->thesis->assignments()
-                        ->where('supervisor_profile_id', $user->supervisorProfile->id)
-                        ->whereIn('status', ['active', 'ended'])
-                        ->exists()) {
-                        $isAuthorized = true;
-                    }
-                } elseif ($role === 'Internal Examiner') {
-                    if ($user->internalExaminerProfiles()
-                        ->where('id', $milestone->thesis->internal_examiner_profile_id)
-                        ->exists()) {
-                        $isAuthorized = true;
-                    }
-                } elseif ($role === 'External Examiner') {
-                    if ($user->externalExaminerProfiles()
-                        ->where('id', $milestone->thesis->external_examiner_profile_id)
-                        ->exists()) {
-                        $isAuthorized = true;
-                    }
-                }
-            }
-
-            if ($isAuthorized) {
-                // Check if it's this role's turn in the sequence
-                $workflowService = app(\App\Services\MilestoneWorkflowService::class);
-                if ($workflowService->canApprove($milestone, $user, $role)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        $workflowService = app(\App\Services\MilestoneWorkflowService::class);
+        return $workflowService->canApprove($milestone, $user, 'Admin');
     }
 }

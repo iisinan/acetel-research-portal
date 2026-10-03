@@ -357,55 +357,7 @@
 <script>
 document.addEventListener('alpine:init', () => {
     Alpine.data('supervisorDashboard', () => ({
-        expanded: false,
-        async approveMilestone(event, milestoneId) {
-            const ok = await window.confirmModal({
-                title: 'Approve Milestone',
-                message: 'Are you sure you want to approve this candidate milestone?',
-                type: 'success',
-                confirmText: 'Approve'
-            });
-            if (!ok) return;
-            
-            const btn = event.currentTarget;
-            const originalHtml = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = '<svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
-
-            try {
-                const response = await fetch(`/milestones/${milestoneId}/quick-approve`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        type: 'clear_role',
-                        role: '{{ Auth::user()->getRoleNames()->first() }}'
-                    })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    window.toast.success(data.message);
-                    const card = btn.closest('.block');
-                    if (card) {
-                        card.style.opacity = '0';
-                        card.style.transform = 'scale(0.95)';
-                        setTimeout(() => card.remove(), 500);
-                    }
-                } else {
-                    window.toast.error(data.message);
-                    btn.innerHTML = originalHtml;
-                    btn.disabled = false;
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                window.toast.error('Oversight error occurred.');
-                btn.innerHTML = originalHtml;
-                btn.disabled = false;
-            }
-        }
+        expanded: false
     }));
 });
 </script>

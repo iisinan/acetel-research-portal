@@ -47,6 +47,17 @@ class MilestoneWorkflowService
             return "Documentation Required: Student has not uploaded the required artifacts for this stage.";
         }
 
+        // Supervisor validation check: If milestone requires supervisor approval, supervisor must have accepted the upload
+        if (in_array('Supervisor', $template->required_approvers ?? [])) {
+            $latestSub = $milestone->submissions()->latest()->first();
+            $isUploadAccepted = $milestone->is_supervisor_approved || 
+                ($latestSub && $latestSub->feedback && $latestSub->feedback->decision === 'approved');
+            
+            if (!$isUploadAccepted) {
+                return "Supervisor Review Required: Supervisor must review and accept the candidate's uploaded document before Admin clearance.";
+            }
+        }
+
         // 2. Submission approval locked
         if ($template->submission_requires_approval && !$milestone->is_submission_unlocked) {
             return "Submission Gated: Post-submission authorization is required before clearance.";
@@ -66,30 +77,9 @@ class MilestoneWorkflowService
             return "Structural Block: Defence date must be scheduled before approval.";
         }
 
-        // 3. Role Sequence
-        $requiredRoles = $template->required_approvers ?? [];
-        if ($role && in_array($role, $requiredRoles)) {
-            $roleIndex = array_search($role, $requiredRoles);
-            $approvals = collect($milestone->approvals ?? []);
-            
-            for ($i = 0; $i < $roleIndex; $i++) {
-                $prevRole = $requiredRoles[$i];
-                if ($prevRole === 'Supervisor') {
-                    $activeSIds = $milestone->thesis->assignments()->where('status', 'active')->pluck('supervisor_profile_id')->toArray();
-                    $uIds = $approvals->where('role', 'Supervisor')->pluck('user_id')->toArray();
-                    $approvedPs = \App\Models\SupervisorProfile::whereIn('user_id', $uIds)->pluck('id')->toArray();
-                    
-                    foreach ($activeSIds as $sid) {
-                        if (!in_array($sid, $approvedPs)) {
-                            return "Awaiting Committee Consensus: Previous clearance from " . $prevRole . " is required.";
-                        }
-                    }
-                } else {
-                    if ($approvals->where('role', $prevRole)->isEmpty()) {
-                        return "Institutional Sequence: Clearance from " . $prevRole . " is required before your authorization.";
-                    }
-                }
-            }
+        // 3. Strict Admin Authorization Check
+        if ($role && $role !== 'Admin') {
+            return "Institutional Authority Required: Only an Administrator can approve milestones.";
         }
 
         return null;
@@ -197,11 +187,11 @@ class MilestoneWorkflowService
 
     /**
      * Check if the required number of approvals (threshold) has been met.
+     * Institutional Rule: ONLY Admin approval satisfies milestone completion and student progression.
      */
     public function isApprovalThresholdMet(StudentMilestone $milestone): bool
     {
         $template = $milestone->template;
-        $requiredRoles = $template->required_approvers ?? [];
         $approvals = collect($milestone->approvals ?? []);
         
         // Ensure structural requirements are met before allowing final clearance
@@ -210,48 +200,12 @@ class MilestoneWorkflowService
         if ($template->show_external_examiner_assignment && empty($milestone->thesis->external_examiner_profile_id)) return false;
         if ($template->allow_defence_date && empty($milestone->defence_date)) return false;
 
-        // 0. God Mode bypass: if Admin approved, it's approved.
+        // ONLY Admin approval satisfies milestone completion and advancement
         if ($approvals->where('role', 'Admin')->isNotEmpty()) {
             return true;
         }
 
-        // 1. Role-based check
-        foreach ($requiredRoles as $role) {
-            if ($role === 'Supervisor') {
-                // Institutional Consensus: ALL assigned supervisors must approve
-                $activeSupervisorIds = $milestone->thesis->assignments()
-                    ->where('status', 'active')
-                    ->pluck('supervisor_profile_id')
-                    ->toArray();
-                
-                $approvedSupervisorIds = $approvals->where('role', 'Supervisor')
-                    ->pluck('user_id')
-                    ->toArray();
-
-                $supervisorProfiles = \App\Models\SupervisorProfile::whereIn('user_id', $approvedSupervisorIds)->pluck('id')->toArray();
-                
-                foreach ($activeSupervisorIds as $id) {
-                    if (!in_array($id, $supervisorProfiles)) {
-                        return false;
-                    }
-                }
-            } else {
-                // Other roles: At least one person in that role must approve
-                if ($approvals->where('role', $role)->isEmpty()) {
-                    return false;
-                }
-            }
-        }
-
-        // 2. Numerical threshold check (if specified)
-        if ($template->approval_threshold > 0) {
-            if ($approvals->count() < $template->approval_threshold) {
-                return false;
-            }
-        }
-
-
-        return true;
+        return false;
     }
 
     /**
