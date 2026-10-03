@@ -14,10 +14,17 @@
 
         <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div class="space-y-3 max-w-3xl">
-                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span>Live Milestone Presentation Schedule</span>
-                </div>
+                @if($todayPresenters->isNotEmpty())
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/20 border border-red-500/40 text-red-300 text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
+                        <span class="w-2 h-2 rounded-full bg-red-400 animate-pulse"></span>
+                        <span>Live Presentation</span>
+                    </div>
+                @else
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                        <span>Scheduled Presentation</span>
+                    </div>
+                @endif
                 <h1 class="text-2xl sm:text-4xl font-black text-white tracking-tight">
                     {{ $presentationTitle }}
                 </h1>
@@ -172,7 +179,7 @@
                                     <h4 class="text-sm font-black text-slate-900 leading-snug">
                                         {{ $user?->name ?? 'Candidate' }}
                                     </h4>
-                                    <p class="text-xs text-slate-500 font-semibold">{{ $student->student_id_number ?? 'N/A' }} &bull; {{ $student?->program?->name ?? 'Program' }}</p>
+                                    <p class="text-xs text-slate-500 font-semibold">{{ $student?->student_id_number ?? 'N/A' }} &bull; {{ $student?->program?->name ?? 'Program' }}</p>
                                 </div>
 
                                 @if($pres->thesis && $pres->thesis->title)
@@ -188,19 +195,12 @@
                                 @endif
                             </div>
 
-                            @php
-                                $cardEventType = $template->defence_type ?? 'seminar';
-                                $cardDefEvent = $pres->thesis?->defenceEvents?->where('type', $cardEventType)->first();
-                                $cardCanEval = $cardDefEvent && $cardDefEvent->isAuthorizedEvaluator(auth()->id());
-                                $cardEval = $cardCanEval ? $cardDefEvent->evaluations->firstWhere('evaluator_id', auth()->id()) : null;
-                            @endphp
-
                             <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
                                 @if($latestSub && $latestSub->file_url)
-                                    <button type="button" 
-                                        @click.prevent="$dispatch('open-document-preview', { 
-                                            url: '{{ Storage::url($latestSub->file_url) }}', 
-                                            title: '{{ addslashes($user->name ?? 'Student') }} - {{ addslashes($template->name) }}',
+                                    <button type="button"
+                                        @click.prevent="$dispatch('open-document-preview', {
+                                            url: '{{ Storage::url($latestSub->file_url) }}',
+                                            title: '{{ addslashes($user?->name ?? 'Student') }} - {{ addslashes($template->name) }}',
                                             type: '{{ str_ends_with(strtolower($latestSub->file_url), '.pdf') ? 'pdf' : 'other' }}'
                                         })"
                                         class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors">
@@ -215,20 +215,6 @@
                                 @endif
 
                                 <div class="flex items-center gap-1.5 ml-auto">
-                                    @if($cardCanEval)
-                                        @if($cardEval && $cardEval->submitted_at)
-                                            <a href="{{ route('evaluations.show', $cardEval->id) }}" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-colors">
-                                                <svg class="w-3.5 h-3.5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                                <span>Evaluated</span>
-                                            </a>
-                                        @else
-                                            <a href="{{ route('evaluations.create', $cardDefEvent->id) }}" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors shadow-sm">
-                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                                <span>Score</span>
-                                            </a>
-                                        @endif
-                                    @endif
-
                                     @if($pres->meeting_link || $meetingLink)
                                         <a href="{{ $pres->meeting_link ?: $meetingLink }}" target="_blank" rel="noopener noreferrer"
                                            class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition-colors">
@@ -395,26 +381,7 @@
                                         @endif
                                     </td>
                                     <td class="px-4 py-3.5 text-center">
-                                        @php
-                                            $tableEventType = $template->defence_type ?? 'seminar';
-                                            $tableDefEvent = $sm->thesis?->defenceEvents?->where('type', $tableEventType)->first();
-                                            $tableCanEval = $tableDefEvent && $tableDefEvent->isAuthorizedEvaluator(auth()->id());
-                                            $tableEval = $tableCanEval ? $tableDefEvent->evaluations->firstWhere('evaluator_id', auth()->id()) : null;
-                                        @endphp
-
                                         <div class="flex items-center justify-center gap-1.5 flex-wrap">
-                                            @if($tableCanEval)
-                                                @if($tableEval && $tableEval->submitted_at)
-                                                    <a href="{{ route('evaluations.show', $tableEval->id) }}" class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors">
-                                                        <span>Evaluated</span>
-                                                    </a>
-                                                @else
-                                                    <a href="{{ route('evaluations.create', $tableDefEvent->id) }}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors shadow-sm">
-                                                        <span>Score</span>
-                                                    </a>
-                                                @endif
-                                            @endif
-
                                             @if($rowLink)
                                                 <a href="{{ $rowLink }}" target="_blank" rel="noopener noreferrer"
                                                    class="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition-colors">

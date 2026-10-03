@@ -25,10 +25,7 @@ class PresentationController extends Controller
             ->with([
                 'thesis.student.user',
                 'thesis.student.program',
-                'thesis.student.cohort',
                 'thesis.assignments.supervisor.user',
-                'thesis.defenceEvents.panelMembers.user',
-                'thesis.defenceEvents.evaluations',
                 'submissions' => fn($q) => $q->latest()
             ])
             ->orderBy('defence_date', 'asc')
