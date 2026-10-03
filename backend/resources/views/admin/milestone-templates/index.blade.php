@@ -288,7 +288,7 @@
                                                             <input type="checkbox" x-model="selectAll" 
                                                                 @change="if(selectAll) { 
                                                                     let visibleRows = Array.from($root.querySelectorAll('tr[data-milestone-id]')).filter(row => row.style.display !== 'none'); 
-                                                                    selected = visibleRows.filter(row => { const cb = row.querySelector('input[type="checkbox"]'); return cb && !cb.disabled; }).map(row => row.getAttribute('data-milestone-id')); 
+                                                                    selected = visibleRows.filter(row => { const cb = row.querySelector('input[type=checkbox]'); return cb && !cb.disabled; }).map(row => row.getAttribute('data-milestone-id')); 
                                                                 } else { selected = []; }" 
                                                                 class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
                                                         </th>
