@@ -306,34 +306,29 @@
                                                 <tbody class="divide-y divide-slate-100">
                                                     @foreach($template->studentMilestones as $sm)
                                                         @php
-                                                            $detailedStatus = ucfirst(str_replace('_', ' ', $sm->status));
-                                                            $statusColor = 'bg-slate-100 text-slate-700';
-                                                            
-                                                            if ($sm->status === 'not_started' || $sm->status === 'in_progress') {
+                                                            $latestSub = $sm->submissions->sortByDesc('created_at')->first();
+                                                            $hasAcceptedUpload = $latestSub && $latestSub->feedback && $latestSub->feedback->decision === 'approved';
+                                                            $hasRejectedUpload = $latestSub && $latestSub->feedback && $latestSub->feedback->decision === 'revision_required';
+                                                            $hasUpload = $latestSub !== null;
+
+                                                            if ($sm->status === 'approved') {
+                                                                $detailedStatus = 'Approved';
+                                                                $statusColor = 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+                                                            } elseif ($hasAcceptedUpload || $sm->is_supervisor_approved) {
+                                                                $detailedStatus = 'Approved by Supervisor';
+                                                                $statusColor = 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+                                                            } elseif ($sm->status === 'revision_required' || $hasRejectedUpload) {
+                                                                $detailedStatus = 'Revision Required';
+                                                                $statusColor = 'bg-rose-100 text-rose-800 border border-rose-200';
+                                                            } elseif ($sm->status === 'submitted' || $hasUpload) {
+                                                                $detailedStatus = 'Doc Uploaded (Pending Review)';
+                                                                $statusColor = 'bg-blue-100 text-blue-700 border border-blue-200';
+                                                            } elseif ($sm->status === 'partially_approved') {
+                                                                $detailedStatus = 'Partially Cleared';
+                                                                $statusColor = 'bg-indigo-100 text-indigo-700';
+                                                            } else {
                                                                 $detailedStatus = 'Awaiting Submission';
                                                                 $statusColor = 'bg-slate-100 text-slate-600';
-                                                            } elseif ($sm->status === 'submitted') {
-                                                                $detailedStatus = 'Doc Uploaded';
-                                                                $statusColor = 'bg-blue-100 text-blue-700';
-                                                            } elseif ($sm->status === 'revision_required') {
-                                                                $detailedStatus = 'Rejected (Revision)';
-                                                                $statusColor = 'bg-red-100 text-red-700';
-                                                            } elseif ($sm->status === 'partially_approved') {
-                                                                if (in_array('Supervisor', $template->required_approvers ?? [])) {
-                                                                    if ($sm->is_supervisor_approved) {
-                                                                        $detailedStatus = 'Supervisor Accepted';
-                                                                        $statusColor = 'bg-indigo-100 text-indigo-700';
-                                                                    } else {
-                                                                        $detailedStatus = 'Pending Supervisor';
-                                                                        $statusColor = 'bg-amber-100 text-amber-700';
-                                                                    }
-                                                                } else {
-                                                                    $detailedStatus = 'Partially Cleared';
-                                                                    $statusColor = 'bg-indigo-100 text-indigo-700';
-                                                                }
-                                                            } elseif ($sm->status === 'approved') {
-                                                                $detailedStatus = 'Fully Accepted';
-                                                                $statusColor = 'bg-emerald-100 text-emerald-700';
                                                             }
                                                             
                                                             $event = current($sm->thesis->defenceEvents->where('type', $template->defence_type ?? 'seminar')->all());

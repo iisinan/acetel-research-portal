@@ -63,9 +63,31 @@ class StudentMilestone extends Model
 
         public function getIsSupervisorApprovedAttribute()
     {
-        if ($this->status === 'approved') return true;
+        if ($this->status === 'approved') {
+            return true;
+        }
+
         $approvals = collect($this->approvals ?? []);
-        return $approvals->where('role', 'Supervisor')->isNotEmpty();
+        if ($approvals->where('role', 'Supervisor')->isNotEmpty()) {
+            return true;
+        }
+
+        // Check if the latest submission document was accepted/approved by supervisor
+        $latestSubmission = $this->relationLoaded('submissions')
+            ? $this->submissions->sortByDesc('created_at')->first()
+            : $this->submissions()->latest()->first();
+
+        if ($latestSubmission) {
+            $feedback = $latestSubmission->relationLoaded('feedback')
+                ? $latestSubmission->feedback
+                : $latestSubmission->feedback;
+
+            if ($feedback && $feedback->decision === 'approved') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function messages()

@@ -23,7 +23,7 @@ class MilestoneTemplateController extends Controller
         $templates = MilestoneTemplate::with('program')
             ->with(['studentMilestones' => function($q) use ($isCoordinator, $coordinatorProgramId) { 
                 $q->whereIn('status', ['in_progress', 'submitted', 'revision_required', 'partially_approved'])
-                  ->with(['thesis.student.user', 'thesis.student.cohort', 'thesis.defenceEvents.panelMembers.user', 'thesis.defenceEvents.evaluations', 'submissions']); 
+                  ->with(['thesis.student.user', 'thesis.student.cohort', 'thesis.defenceEvents.panelMembers.user', 'thesis.defenceEvents.evaluations', 'submissions.feedback']); 
                 
                 if ($isCoordinator) {
                     $q->whereHas('thesis.student', function($sq) use ($coordinatorProgramId) {
@@ -389,7 +389,7 @@ class MilestoneTemplateController extends Controller
 
         $query = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
             ->whereIn('status', ['in_progress', 'submitted', 'revision_required', 'partially_approved'])
-            ->with(['thesis.student.user', 'thesis.defenceEvents.evaluations']);
+            ->with(['thesis.student.user', 'thesis.defenceEvents.evaluations', 'submissions.feedback']);
             
         if ($isCoordinator) {
             $query->whereHas('thesis.student', function($sq) use ($coordinatorProgramId) {
@@ -410,7 +410,7 @@ class MilestoneTemplateController extends Controller
 
         $columns = ['Name', 'Matric Number', 'Status', 'Date Scheduled', 'Score'];
 
-        $callback = function() use($milestones, $columns) {
+        $callback = function() use($milestones, $columns, $template) {
             $file = fopen('php://output', 'w');
             fputcsv($file, $columns);
 
@@ -433,10 +433,12 @@ class MilestoneTemplateController extends Controller
                     }
                 }
 
+                $statusLabel = $milestone->is_supervisor_approved ? 'Approved by Supervisor' : ucfirst(str_replace('_', ' ', $milestone->status));
+
                 fputcsv($file, [
                     $milestone->thesis->student->user->name ?? '',
                     $milestone->thesis->student->matric_number ?? '',
-                    $milestone->status,
+                    $statusLabel,
                     $milestone->defence_date ?? 'Not Scheduled',
                     $avgScore
                 ]);
