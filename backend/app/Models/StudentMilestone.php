@@ -59,6 +59,13 @@ class StudentMilestone extends Model
         return $this->hasMany(Submission::class, 'student_milestone_id')->latest();
     }
 
+        public function getIsSupervisorApprovedAttribute()
+    {
+        if ($this->status === 'approved') return true;
+        $approvals = collect($this->approvals ?? []);
+        return $approvals->where('role', 'Supervisor')->isNotEmpty();
+    }
+
     public function messages()
     {
         return $this->hasMany(Message::class, 'student_milestone_id');

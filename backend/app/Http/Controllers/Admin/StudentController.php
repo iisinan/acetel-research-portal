@@ -113,6 +113,60 @@ class StudentController extends Controller
     /**
      * Demote a student to the previous milestone.
      */
+        public function setMilestone(Request $request, \App\Models\StudentProfile $student)
+    {
+        $request->validate([
+            'milestone_id' => 'required|exists:student_milestones,id'
+        ]);
+
+        if (!$student->thesis) {
+            return back()->with('error', 'Student does not have an active thesis project.');
+        }
+
+        $targetMilestone = $student->thesis->milestones()->with('template')->findOrFail($request->milestone_id);
+        $targetOrder = $targetMilestone->template->order;
+
+        $milestones = $student->thesis->milestones()->with('template')->get();
+
+        foreach ($milestones as $m) {
+            if ($m->template->order < $targetOrder) {
+                $m->update([
+                    'status' => 'approved',
+                    'date_approved_at' => $m->date_approved_at ?? now(),
+                    'approved_at' => $m->approved_at ?? now()
+                ]);
+            } elseif ($m->template->order == $targetOrder) {
+                // If it was already approved, maybe we are demoting TO it, so we mark it in_progress
+                $m->update([
+                    'status' => 'in_progress',
+                    'due_date' => now()->addDays(30)
+                ]);
+            } else {
+                // Future milestones
+                $m->update([
+                    'status' => 'not_started',
+                    'submitted_at' => null,
+                    'approved_at' => null,
+                    'date_approved_at' => null,
+                    'approvals' => null,
+                    'is_submission_unlocked' => false
+                ]);
+            }
+        }
+
+        // Notify student
+        $messageService = new \App\Services\MessageService();
+        $messageService->sendMessage(
+            $student->thesis,
+            auth()->user(),
+            "Institutional Notice: Your thesis progress has been administratively adjusted to the '" . $targetMilestone->template->name . "' milestone.",
+            null,
+            ['administrative_action' => 'set_milestone']
+        );
+
+        return back()->with('success', 'Student milestone has been set successfully.');
+    }
+
     public function demoteMilestone(Request $request, StudentProfile $student)
     {
         if (!$student->thesis) {

@@ -110,7 +110,7 @@
                             <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 cursor-default" @click.stop>
                                 
                                 {{-- Summary Cards --}}
-                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                                <div class="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6">
                                     <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
                                         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Students</p>
                                         <p class="text-2xl font-black text-slate-900">{{ $template->studentMilestones->count() }}</p>
@@ -123,6 +123,16 @@
                                         <p class="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1">Not Scheduled</p>
                                         <p class="text-2xl font-black text-amber-700">{{ $template->studentMilestones->filter(fn($m) => empty($m->defence_date))->count() }}</p>
                                     </div>
+                                    @if(in_array('Supervisor', $template->required_approvers ?? []))
+                                    <div class="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                                        <p class="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-1">Approved by Supervisor</p>
+                                        <p class="text-2xl font-black text-blue-700">{{ $template->studentMilestones->filter(fn($m) => $m->is_supervisor_approved)->count() }}</p>
+                                    </div>
+                                    <div class="bg-rose-50 rounded-xl p-4 border border-rose-100">
+                                        <p class="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1">Pending Supervisor</p>
+                                        <p class="text-2xl font-black text-rose-700">{{ $template->studentMilestones->filter(fn($m) => !$m->is_supervisor_approved)->count() }}</p>
+                                    </div>
+                                    @endif
                                 </div>
 
                                 {{-- Actions Row --}}
@@ -278,7 +288,7 @@
                                                             <input type="checkbox" x-model="selectAll" 
                                                                 @change="if(selectAll) { 
                                                                     let visibleRows = Array.from($root.querySelectorAll('tr[data-milestone-id]')).filter(row => row.style.display !== 'none'); 
-                                                                    selected = visibleRows.map(row => row.getAttribute('data-milestone-id')); 
+                                                                    selected = visibleRows.filter(row => { const cb = row.querySelector('input[type="checkbox"]'); return cb && !cb.disabled; }).map(row => row.getAttribute('data-milestone-id')); 
                                                                 } else { selected = []; }" 
                                                                 class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
                                                         </th>
@@ -295,6 +305,36 @@
                                                 <tbody class="divide-y divide-slate-100">
                                                     @foreach($template->studentMilestones as $sm)
                                                         @php
+                                                            $detailedStatus = ucfirst(str_replace('_', ' ', $sm->status));
+                                                            $statusColor = 'bg-slate-100 text-slate-700';
+                                                            
+                                                            if ($sm->status === 'not_started' || $sm->status === 'in_progress') {
+                                                                $detailedStatus = 'Awaiting Submission';
+                                                                $statusColor = 'bg-slate-100 text-slate-600';
+                                                            } elseif ($sm->status === 'submitted') {
+                                                                $detailedStatus = 'Doc Uploaded';
+                                                                $statusColor = 'bg-blue-100 text-blue-700';
+                                                            } elseif ($sm->status === 'revision_required') {
+                                                                $detailedStatus = 'Rejected (Revision)';
+                                                                $statusColor = 'bg-red-100 text-red-700';
+                                                            } elseif ($sm->status === 'partially_approved') {
+                                                                if (in_array('Supervisor', $template->required_approvers ?? [])) {
+                                                                    if ($sm->is_supervisor_approved) {
+                                                                        $detailedStatus = 'Supervisor Accepted';
+                                                                        $statusColor = 'bg-indigo-100 text-indigo-700';
+                                                                    } else {
+                                                                        $detailedStatus = 'Pending Supervisor';
+                                                                        $statusColor = 'bg-amber-100 text-amber-700';
+                                                                    }
+                                                                } else {
+                                                                    $detailedStatus = 'Partially Cleared';
+                                                                    $statusColor = 'bg-indigo-100 text-indigo-700';
+                                                                }
+                                                            } elseif ($sm->status === 'approved') {
+                                                                $detailedStatus = 'Fully Accepted';
+                                                                $statusColor = 'bg-emerald-100 text-emerald-700';
+                                                            }
+                                                            
                                                             $event = current($sm->thesis->defenceEvents->where('type', $template->defence_type ?? 'seminar')->all());
                                                             $avgScore = null;
                                                             if ($event && $event->evaluations->count() > 0) {
@@ -318,7 +358,7 @@
                                                             x-show="(cohortFilter === '' || cohortFilter == '{{ $cohortId }}') && (!search || '{{ strtolower($studentName) }}'.includes(search.toLowerCase()) || '{{ strtolower($matricNo) }}'.includes(search.toLowerCase()))">
                                                             @if(!isset($isCoordinator) || !$isCoordinator)
                                                             <td class="px-4 py-3">
-                                                                <input type="checkbox" :value="'{{ $sm->id }}'" x-model="selected" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                                                                <input type="checkbox" :value="'{{ $sm->id }}'" x-model="selected" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 disabled:opacity-30 disabled:cursor-not-allowed" @if(in_array('Supervisor', $template->required_approvers ?? []) && !$sm->is_supervisor_approved) disabled title="Awaiting Supervisor Approval" @endif>
                                                             </td>
                                                             @endif
                                                             <td class="px-4 py-3">
@@ -326,7 +366,7 @@
                                                                 <div class="text-xs text-slate-500">{{ $matricNo }}</div>
                                                             </td>
                                                             <td class="px-4 py-3">
-                                                                <span class="px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">{{ ucfirst(str_replace('_', ' ', $sm->status)) }}</span>
+                                                                <span class="px-2 py-1 rounded-md text-xs font-bold {{ $statusColor }}">{{ $detailedStatus }}</span>
                                                             </td>
                                                             <td class="px-4 py-3 text-slate-600 text-xs">
                                                                 {{ $sm->defence_date ? \Carbon\Carbon::parse($sm->defence_date)->format('M d, Y') : 'Not scheduled' }}

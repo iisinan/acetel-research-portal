@@ -242,6 +242,10 @@ class MilestoneTemplateController extends Controller
                 $thesis = $milestone->thesis;
                 $template = $milestone->template;
                 
+                if (in_array('Supervisor', $template->required_approvers ?? []) && !$milestone->is_supervisor_approved) {
+                    continue; // Skip if supervisor hasn't approved
+                }
+                
                 $milestone->update([
                     'defence_date' => $currentDate->format('Y-m-d')
                 ]);
