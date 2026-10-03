@@ -172,28 +172,7 @@ class StudentMilestonePolicy
 
     public function review(User $user, StudentMilestone $milestone): bool
     {
-        $template = $milestone->template;
-        if (!$template || !$template->requires_approval) {
-            return false;
-        }
-
         // Institutional Rule: ONLY Admin can approve milestones and advance students
-        if (!$user->hasRole('Admin')) {
-            return false;
-        }
-
-        // Admin cannot approve if already approved
-        if ($milestone->status === 'approved') {
-            return false;
-        }
-
-        // Check if Admin has already approved this milestone
-        $currentApprovals = collect($milestone->approvals ?? []);
-        if ($currentApprovals->where('role', 'Admin')->isNotEmpty()) {
-            return false;
-        }
-
-        $workflowService = app(\App\Services\MilestoneWorkflowService::class);
-        return $workflowService->canApprove($milestone, $user, 'Admin');
+        return $user->hasRole('Admin');
     }
 }

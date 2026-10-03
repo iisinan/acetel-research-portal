@@ -213,14 +213,21 @@ document.addEventListener('click', async function(e) {
     
     if (ok) {
         el._confirmed = true;
-        const form = el.closest('form');
+        if (el.tagName === 'FORM') {
+            HTMLFormElement.prototype.submit.call(el);
+            return;
+        }
         if (el.tagName === 'A' && el.href) {
             window.location.href = el.href;
-        } else if (form && el.type === 'submit') {
-            form.submit();
-        } else if (el.hasAttribute('onclick')) {
-            el.click();
-        } else {
+            return;
+        }
+        const form = el.closest('form');
+        if (form && (el.type === 'submit' || !el.type)) {
+            form._confirmed = true;
+            HTMLFormElement.prototype.submit.call(form);
+            return;
+        }
+        if (typeof el.click === 'function') {
             el.click();
         }
     }
@@ -257,7 +264,7 @@ document.addEventListener('submit', async function(e) {
     
     if (ok) {
         form._confirmed = true;
-        form.submit();
+        HTMLFormElement.prototype.submit.call(form);
     }
 }, true);
 </script>

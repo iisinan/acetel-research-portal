@@ -43,7 +43,7 @@ class MilestoneWorkflowService
         }
 
         // 1. Missing artifact
-        if ($template->requires_submission && $milestone->submissions()->count() === 0) {
+        if ($template->requires_submission && $milestone->submissions()->count() === 0 && !$user->hasRole('Admin')) {
             return "Documentation Required: Student has not uploaded the required artifacts for this stage.";
         }
 
@@ -53,27 +53,27 @@ class MilestoneWorkflowService
             $isUploadAccepted = $milestone->is_supervisor_approved || 
                 ($latestSub && $latestSub->feedback && $latestSub->feedback->decision === 'approved');
             
-            if (!$isUploadAccepted) {
+            if (!$isUploadAccepted && !$user->hasRole('Admin')) {
                 return "Supervisor Review Required: Supervisor must review and accept the candidate's uploaded document before Admin clearance.";
             }
         }
 
         // 2. Submission approval locked
-        if ($template->submission_requires_approval && !$milestone->is_submission_unlocked) {
+        if ($template->submission_requires_approval && !$milestone->is_submission_unlocked && !$user->hasRole('Admin')) {
             return "Submission Gated: Post-submission authorization is required before clearance.";
         }
 
         // Structural Requirements
-        if ($template->show_supervisor_assignment && $milestone->thesis->assignments()->where('status', 'active')->count() === 0) {
+        if ($template->show_supervisor_assignment && $milestone->thesis->assignments()->where('status', 'active')->count() === 0 && !$user->hasRole('Admin')) {
             return "Structural Block: Supervisors must be assigned before approval.";
         }
-        if ($template->show_internal_examiner_assignment && empty($milestone->thesis->internal_examiner_profile_id)) {
+        if ($template->show_internal_examiner_assignment && empty($milestone->thesis->internal_examiner_profile_id) && !$user->hasRole('Admin')) {
             return "Structural Block: Internal Examiner must be assigned before approval.";
         }
-        if ($template->show_external_examiner_assignment && empty($milestone->thesis->external_examiner_profile_id)) {
+        if ($template->show_external_examiner_assignment && empty($milestone->thesis->external_examiner_profile_id) && !$user->hasRole('Admin')) {
             return "Structural Block: External Examiner must be assigned before approval.";
         }
-        if ($template->allow_defence_date && empty($milestone->defence_date)) {
+        if ($template->allow_defence_date && empty($milestone->defence_date) && !$user->hasRole('Admin')) {
             return "Structural Block: Defence date must be scheduled before approval.";
         }
 
@@ -141,7 +141,10 @@ class MilestoneWorkflowService
                 break;
         }
 
-        // Automatically activate the next sequential milestone if it was not started
+        // Ensure all milestones exist for this project
+        $project->syncMilestones();
+
+        // Automatically activate the next sequential milestone if not already approved
         $nextMilestone = $project->milestones()
             ->select('student_milestones.*')
             ->join('milestone_templates', 'student_milestones.milestone_template_id', '=', 'milestone_templates.id')
@@ -150,7 +153,7 @@ class MilestoneWorkflowService
             ->orderBy('milestone_templates.order', 'asc')
             ->first();
 
-        if ($nextMilestone && $nextMilestone->status === 'not_started') {
+        if ($nextMilestone && $nextMilestone->status !== 'approved') {
             $nextMilestone->update(['status' => 'in_progress']);
         }
     }

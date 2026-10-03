@@ -142,6 +142,15 @@
                             <span class="font-semibold text-sm">{{ session('warning') }}</span>
                         </div>
                     @endif
+
+                    @if (session('error'))
+                        <div class="bg-rose-50 text-rose-800 px-6 py-4 rounded-2xl flex items-center gap-4 border border-rose-200 shadow-sm animate-in-up" role="alert">
+                            <div class="w-10 h-10 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </div>
+                            <span class="font-semibold text-sm">{{ session('error') }}</span>
+                        </div>
+                    @endif
                     
                     @yield('content')
                 </div>

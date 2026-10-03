@@ -500,16 +500,17 @@
                                                                     <div x-show="menuOpen" @click.outside="menuOpen = false" x-cloak class="absolute right-8 top-0 w-56 bg-white rounded-xl shadow-xl border border-slate-100 z-[60] overflow-hidden text-left" style="display: none;">
                                                                         @if((!isset($isCoordinator) || !$isCoordinator) && $sm->status !== 'approved')
                                                                             <div class="p-1.5 border-b border-slate-100">
-                                                                                <form action="{{ route('milestones.review.update', $sm) }}" method="POST"
-                                                                                    data-confirm="Are you sure you want to officially approve this milestone for {{ addslashes($studentName) }} and advance them to the next stage?"
-                                                                                    data-confirm-title="Approve Milestone & Advance"
-                                                                                    data-confirm-type="success"
-                                                                                    data-confirm-btn="Approve & Advance">
+                                                                                <form action="{{ route('milestones.review.update', $sm) }}" method="POST">
                                                                                     @csrf
                                                                                     @method('PATCH')
                                                                                     <input type="hidden" name="decision" value="approved">
                                                                                     <input type="hidden" name="remarks" value="Approved by Administrator from Milestone Template Management.">
-                                                                                    <button type="submit" class="w-full text-left px-3 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors flex items-center gap-2">
+                                                                                    <button type="submit" 
+                                                                                        data-confirm="Are you sure you want to officially approve this milestone for {{ addslashes($studentName) }} and advance them to the next stage?"
+                                                                                        data-confirm-title="Approve Milestone & Advance"
+                                                                                        data-confirm-type="success"
+                                                                                        data-confirm-btn="Approve & Advance"
+                                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors flex items-center gap-2">
                                                                                         <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                                                                             <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
                                                                                         </svg>
