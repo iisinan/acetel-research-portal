@@ -148,36 +148,8 @@ class ThesisService
                 $supervisor->increment('current_load');
             }
 
-            // 4. Auto-Approve Milestone 2 (Supervisor Assignment)
-            $milestone = $project->milestones()->whereHas('template', function($q) {
-                $q->where('order', 2);
-            })->first();
-
-            if ($milestone && $milestone->status !== 'approved' && Auth::user()?->hasRole('Admin')) {
-                $milestone->update([
-                    'status' => 'approved',
-                    'approved_at' => now(),
-                    'approvals' => [
-                        'Admin:' . Auth::id() => [
-                            'user_id' => Auth::id(),
-                            'user_name' => Auth::user()->name,
-                            'role' => 'Admin',
-                            'approved_at' => now()->toDateTimeString()
-                        ]
-                    ]
-                ]);
-
-                app(\App\Services\MilestoneWorkflowService::class)->afterApproval($milestone);
-
-                // Log a system message in the milestones chat
-                (new \App\Services\MessageService())->sendMessage(
-                    $project,
-                    Auth::user(),
-                    "✅ Institutional facilitators authorized. Supervision panel is now active.",
-                    $milestone->id,
-                    ['system' => true, 'action' => 'approval']
-                );
-            }
+            // 4. Try auto-advancing Milestone 2 if both proposal uploaded and supervisors assigned
+            app(\App\Services\MilestoneWorkflowService::class)->tryAutoAdvanceSupervisorsAssigned($project->fresh());
 
             return true;
         });
