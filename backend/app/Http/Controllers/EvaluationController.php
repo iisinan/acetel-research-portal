@@ -45,10 +45,10 @@ class EvaluationController extends Controller
         }
 
         $validated = $request->validate([
-            'score.originality' => 'required|integer|min:0|max:10',
-            'score.methodology' => 'required|integer|min:0|max:10',
-            'score.presentation' => 'required|integer|min:0|max:10',
-            'score.qa' => 'required|integer|min:0|max:10',
+            'score.originality' => 'required|integer|min:0|max:25',
+            'score.methodology' => 'required|integer|min:0|max:25',
+            'score.presentation' => 'required|integer|min:0|max:25',
+            'score.qa' => 'required|integer|min:0|max:25',
             'recommendation' => 'required|in:pass,minor_revisions,major_revisions,fail',
             'comments' => 'nullable|string|max:2000',
         ]);

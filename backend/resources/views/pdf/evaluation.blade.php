@@ -168,19 +168,19 @@
         @endphp
         <div class="score-item">
             <div class="score-label">Originality & Contribution</div>
-            <div class="score-value">{{ $scores['originality'] }} / 10</div>
+            <div class="score-value">{{ $scores['originality'] }} / 25</div>
         </div>
         <div class="score-item">
             <div class="score-label">Methodology & Rigor</div>
-            <div class="score-value">{{ $scores['methodology'] }} / 10</div>
+            <div class="score-value">{{ $scores['methodology'] }} / 25</div>
         </div>
         <div class="score-item">
             <div class="score-label">Presentation Quality</div>
-            <div class="score-value">{{ $scores['presentation'] }} / 10</div>
+            <div class="score-value">{{ $scores['presentation'] }} / 25</div>
         </div>
         <div class="score-item">
             <div class="score-label">Q&A Defense</div>
-            <div class="score-value">{{ $scores['qa'] }} / 10</div>
+            <div class="score-value">{{ $scores['qa'] }} / 25</div>
         </div>
     </div>
 

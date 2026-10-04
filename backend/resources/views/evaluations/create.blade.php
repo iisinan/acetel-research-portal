@@ -81,8 +81,8 @@
                         <p class="text-[10px] font-medium text-slate-500 max-w-sm">Does the thesis provide a novel contribution to the field of study?</p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <input type="number" name="score[originality]" min="0" max="10" required class="w-20 text-center text-lg font-black bg-white border-slate-200 rounded-xl focus:ring-primary-500" placeholder="0-10">
-                        <span class="text-xs font-black text-slate-400">/ 10</span>
+                        <input type="number" name="score[originality]" min="0" max="25" required class="w-20 text-center text-lg font-black bg-white border-slate-200 rounded-xl focus:ring-primary-500" placeholder="0-25">
+                        <span class="text-xs font-black text-slate-400">/ 25</span>
                     </div>
                 </div>
 
@@ -92,8 +92,8 @@
                         <p class="text-[10px] font-medium text-slate-500 max-w-sm">Are the research methods appropriate, correctly applied, and rigorous?</p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <input type="number" name="score[methodology]" min="0" max="10" required class="w-20 text-center text-lg font-black bg-white border-slate-200 rounded-xl focus:ring-primary-500" placeholder="0-10">
-                        <span class="text-xs font-black text-slate-400">/ 10</span>
+                        <input type="number" name="score[methodology]" min="0" max="25" required class="w-20 text-center text-lg font-black bg-white border-slate-200 rounded-xl focus:ring-primary-500" placeholder="0-25">
+                        <span class="text-xs font-black text-slate-400">/ 25</span>
                     </div>
                 </div>
 
@@ -103,8 +103,8 @@
                         <p class="text-[10px] font-medium text-slate-500 max-w-sm">Is the thesis well-written, structured logically, and correctly formatted?</p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <input type="number" name="score[presentation]" min="0" max="10" required class="w-20 text-center text-lg font-black bg-white border-slate-200 rounded-xl focus:ring-primary-500" placeholder="0-10">
-                        <span class="text-xs font-black text-slate-400">/ 10</span>
+                        <input type="number" name="score[presentation]" min="0" max="25" required class="w-20 text-center text-lg font-black bg-white border-slate-200 rounded-xl focus:ring-primary-500" placeholder="0-25">
+                        <span class="text-xs font-black text-slate-400">/ 25</span>
                     </div>
                 </div>
 
@@ -114,8 +114,8 @@
                         <p class="text-[10px] font-medium text-slate-500 max-w-sm">How well did the candidate defend their work against panel questions?</p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <input type="number" name="score[qa]" min="0" max="10" required class="w-20 text-center text-lg font-black bg-white border-slate-200 rounded-xl focus:ring-primary-500" placeholder="0-10">
-                        <span class="text-xs font-black text-slate-400">/ 10</span>
+                        <input type="number" name="score[qa]" min="0" max="25" required class="w-20 text-center text-lg font-black bg-white border-slate-200 rounded-xl focus:ring-primary-500" placeholder="0-25">
+                        <span class="text-xs font-black text-slate-400">/ 25</span>
                     </div>
                 </div>
 

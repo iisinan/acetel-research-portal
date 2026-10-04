@@ -47,19 +47,19 @@
                     
                     <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
                         <span class="text-sm font-black text-slate-700">Originality & Contribution</span>
-                        <span class="text-lg font-black {{ $scores['originality'] >= 7 ? 'text-emerald-600' : ($scores['originality'] >= 5 ? 'text-amber-600' : 'text-rose-600') }}">{{ $scores['originality'] }} / 10</span>
+                        <span class="text-lg font-black {{ $scores['originality'] >= 18 ? 'text-emerald-600' : ($scores['originality'] >= 12 ? 'text-amber-600' : 'text-rose-600') }}">{{ $scores['originality'] }} / 25</span>
                     </div>
                     <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
                         <span class="text-sm font-black text-slate-700">Methodology & Rigor</span>
-                        <span class="text-lg font-black {{ $scores['methodology'] >= 7 ? 'text-emerald-600' : ($scores['methodology'] >= 5 ? 'text-amber-600' : 'text-rose-600') }}">{{ $scores['methodology'] }} / 10</span>
+                        <span class="text-lg font-black {{ $scores['methodology'] >= 18 ? 'text-emerald-600' : ($scores['methodology'] >= 12 ? 'text-amber-600' : 'text-rose-600') }}">{{ $scores['methodology'] }} / 25</span>
                     </div>
                     <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
                         <span class="text-sm font-black text-slate-700">Presentation Quality</span>
-                        <span class="text-lg font-black {{ $scores['presentation'] >= 7 ? 'text-emerald-600' : ($scores['presentation'] >= 5 ? 'text-amber-600' : 'text-rose-600') }}">{{ $scores['presentation'] }} / 10</span>
+                        <span class="text-lg font-black {{ $scores['presentation'] >= 18 ? 'text-emerald-600' : ($scores['presentation'] >= 12 ? 'text-amber-600' : 'text-rose-600') }}">{{ $scores['presentation'] }} / 25</span>
                     </div>
                     <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
                         <span class="text-sm font-black text-slate-700">Q&A Defense</span>
-                        <span class="text-lg font-black {{ $scores['qa'] >= 7 ? 'text-emerald-600' : ($scores['qa'] >= 5 ? 'text-amber-600' : 'text-rose-600') }}">{{ $scores['qa'] }} / 10</span>
+                        <span class="text-lg font-black {{ $scores['qa'] >= 18 ? 'text-emerald-600' : ($scores['qa'] >= 12 ? 'text-amber-600' : 'text-rose-600') }}">{{ $scores['qa'] }} / 25</span>
                     </div>
                 </div>
             </x-card>
