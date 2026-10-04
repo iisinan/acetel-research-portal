@@ -32,7 +32,7 @@ class MilestoneTemplateController extends Controller
                 }
             }])->orderBy('order')->get();
             
-        $supervisors = \App\Models\SupervisorProfile::with('user')->get();
+        $supervisors = \App\Models\SupervisorProfile::with(['user', 'programs'])->get();
         $cohorts = \App\Models\Cohort::all();
         return view('admin.milestone-templates.index', compact('templates', 'supervisors', 'isCoordinator', 'cohorts'));
     }
@@ -474,7 +474,7 @@ class MilestoneTemplateController extends Controller
         ]);
 
         $milestone = \App\Models\StudentMilestone::findOrFail($milestoneId);
-        $supervisor = \App\Models\SupervisorProfile::with('user')->findOrFail($request->supervisor_profile_id);
+        $supervisor = \App\Models\SupervisorProfile::with(['user', 'programs'])->findOrFail($request->supervisor_profile_id);
         $template = $milestone->template;
 
         $event = \App\Models\DefenceEvent::firstOrCreate(
@@ -510,7 +510,7 @@ class MilestoneTemplateController extends Controller
         ]);
 
         $template = MilestoneTemplate::findOrFail($templateId);
-        $supervisors = \App\Models\SupervisorProfile::with('user')->whereIn('id', $request->supervisor_profile_ids)->get();
+        $supervisors = \App\Models\SupervisorProfile::with(['user', 'programs'])->whereIn('id', $request->supervisor_profile_ids)->get();
 
         $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
             ->whereIn('status', ['in_progress', 'submitted', 'revision_required', 'partially_approved'])

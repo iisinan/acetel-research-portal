@@ -322,13 +322,19 @@
                                             </div>
                                             <form action="{{ route('admin.milestone-templates.assign-examiner-global', $template->id) }}" method="POST" class="flex items-center gap-2 sm:ml-auto overflow-visible relative" 
                                                 x-data="{
+                                                    search: '',
                                                     options: [
                                                         @foreach($supervisors as $sup)
-                                                            { id: '{{ $sup->id }}', name: '{{ addslashes($sup->user->name) }}' }{{ !$loop->last ? ',' : '' }}
+                                                            { id: '{{ $sup->id }}', name: '{{ addslashes($sup->user->name) }}', program: '{{ addslashes($sup->programs->first()->code ?? 'N/A') }}' }{{ !$loop->last ? ',' : '' }}
                                                         @endforeach
                                                     ],
                                                     selected: [],
                                                     open: false,
+                                                    get filteredOptions() {
+                                                        if (this.search === '') return this.options;
+                                                        let s = this.search.toLowerCase();
+                                                        return this.options.filter(o => o.name.toLowerCase().includes(s) || o.program.toLowerCase().includes(s));
+                                                    },
                                                     get selectedNames() {
                                                         if (this.selected.length === 0) return 'Select Examiner(s)';
                                                         if (this.selected.length === 1) return this.options.find(o => o.id == this.selected[0])?.name || '';
@@ -346,15 +352,18 @@
                                                     </div>
 
                                                     <div x-show="open" @click.outside="open = false" x-transition class="absolute right-0 w-64 mt-1 bg-white border border-indigo-100 rounded-lg shadow-xl overflow-y-auto z-50" style="display: none;">
-                                                        <div class="p-2 sticky top-0 bg-slate-50 border-b border-slate-100 flex justify-between gap-2 z-10">
-                                                            <button type="button" @click.stop="selected = options.map(o => o.id)" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 uppercase tracking-wider px-2 py-1 bg-indigo-50 hover:bg-indigo-100 rounded flex-1">Select All</button>
-                                                            <button type="button" @click.stop="selected = []" class="text-[10px] font-bold text-slate-500 hover:text-slate-700 uppercase tracking-wider px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded flex-1">Clear</button>
+                                                        <div class="p-2 sticky top-0 bg-slate-50 border-b border-slate-100 z-10 flex flex-col gap-2">
+                                                            <input type="text" x-model="search" placeholder="Search name or programme..." class="w-full text-xs p-1.5 border border-slate-200 rounded-md focus:ring-indigo-500 focus:border-indigo-500" @click.stop>
+                                                            <div class="flex justify-between gap-2">
+                                                                <button type="button" @click.stop="selected = [...new Set([...selected, ...filteredOptions.map(o => o.id)])]" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 uppercase tracking-wider px-2 py-1 bg-indigo-50 hover:bg-indigo-100 rounded flex-1">Select All</button>
+                                                                <button type="button" @click.stop="selected = []" class="text-[10px] font-bold text-slate-500 hover:text-slate-700 uppercase tracking-wider px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded flex-1">Clear</button>
+                                                            </div>
                                                         </div>
                                                         <div class="py-1 max-h-40 overflow-y-auto">
-                                                            <template x-for="option in options" :key="option.id">
+                                                            <template x-for="option in filteredOptions" :key="option.id">
                                                                 <label class="flex items-center px-3 py-2 hover:bg-indigo-50 cursor-pointer">
                                                                     <input type="checkbox" :value="option.id" x-model="selected" name="supervisor_profile_ids[]" class="rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 mr-2 w-3.5 h-3.5">
-                                                                    <span class="text-xs text-slate-700" x-text="option.name"></span>
+                                                                    <span class="text-xs text-slate-700 flex flex-col"><span x-text="option.name"></span><span class="text-[9px] text-slate-400 font-bold tracking-wider" x-text="option.program"></span></span>
                                                                 </label>
                                                             </template>
                                                         </div>
