@@ -193,19 +193,25 @@ class StudentMilestone extends Model
 
         if (in_array($slug, ['proposal_defence', 'progress_report_1', 'progress_report_2'])) {
             $workflow = app(\App\Services\MilestoneWorkflowService::class);
-            $hasPpt = $workflow->hasUploadedPresentation($this);
-            $isSupervisorApproved = $this->is_supervisor_approved;
+            $hasUploaded = $workflow->hasUploadedPresentation($this) || $this->submissions()->exists();
+            $isSupervisorApproved = $workflow->isSupervisorApproved($this);
             $isScheduled = !empty($this->defence_date);
             $presented = ($isScheduled && \Carbon\Carbon::parse($this->defence_date)->startOfDay()->lte(now()->startOfDay()))
                 || $workflow->hasBeenGraded($this);
             $isApproved = $this->status === 'approved';
 
+            $taskName = match($slug) {
+                'proposal_defence' => 'Upload Proposal Document / Presentation',
+                'progress_report_1', 'progress_report_2' => 'Upload Progress Report / Presentation',
+                default => 'Upload Presentation / Document',
+            };
+
             $tasks = [
                 [
                     'id' => 'upload_ppt',
-                    'name' => 'Upload Presentation (PPT)',
-                    'completed' => $hasPpt || $isApproved,
-                    'details' => $hasPpt ? 'Presentation slide deck uploaded' : 'Awaiting presentation upload',
+                    'name' => $taskName,
+                    'completed' => $hasUploaded || $isApproved,
+                    'details' => $hasUploaded ? 'Document / presentation uploaded' : 'Awaiting document upload',
                     'action_type' => 'none',
                 ],
                 [

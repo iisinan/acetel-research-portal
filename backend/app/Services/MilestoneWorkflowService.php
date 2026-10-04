@@ -238,7 +238,7 @@ class MilestoneWorkflowService
     }
 
     /**
-     * Has the student uploaded the presentation artifact (PPT) for this milestone?
+     * Has the student uploaded the presentation artifact (PPT) or document for this milestone?
      */
     public function hasUploadedPresentation(StudentMilestone $milestone): bool
     {
@@ -260,6 +260,11 @@ class MilestoneWorkflowService
             if (str_contains($url, '.ppt') || str_contains($orig, '.ppt')) {
                 return true;
             }
+        }
+
+        // 3. Fallback: Any submission uploaded for this milestone (manuscript, proposal document, etc.)
+        if ($milestone->submissions()->exists()) {
+            return true;
         }
 
         return false;
@@ -286,7 +291,7 @@ class MilestoneWorkflowService
 
         if (in_array($slug, ['proposal_defence', 'progress_report_1', 'progress_report_2'])) {
             if (!$this->hasUploadedPresentation($milestone)) {
-                return 'presentation (PPT) not uploaded';
+                return 'required document/presentation not uploaded';
             }
             if (!$this->isSupervisorApproved($milestone)) {
                 return 'upload not yet approved by supervisor';

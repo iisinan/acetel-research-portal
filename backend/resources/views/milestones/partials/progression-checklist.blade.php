@@ -171,7 +171,31 @@
         @else
             {{-- Proposal Defence / Progress Report 1 / Progress Report 2: 4 Steps --}}
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 pt-6">
-                {{-- Step 1: Upload PPT --}}
+                {{-- Step 1: Upload PPT / Document --}}
+                @php
+                    $hasPptType = $milestone->submissions()->whereIn('type', ['ppt', 'presentation'])->exists();
+                    $hasDocType = $milestone->submissions()->whereIn('type', ['manuscript', 'file'])->exists() || ($milestone->submissions()->exists() && !$hasPptType);
+
+                    $step1Title = match($slug) {
+                        'proposal_defence' => ($hasDocType && !$hasPptType ? 'Upload Proposal Document' : ($hasPptType && !$hasDocType ? 'Upload Presentation (PPT)' : 'Upload Proposal / Presentation')),
+                        'progress_report_1', 'progress_report_2' => ($hasDocType && !$hasPptType ? 'Upload Progress Report' : ($hasPptType && !$hasDocType ? 'Upload Presentation (PPT)' : 'Upload Report / Presentation')),
+                        default => ($hasPptType ? 'Upload Presentation (PPT)' : 'Upload Submission Document'),
+                    };
+
+                    $step1UploadedText = match($slug) {
+                        'proposal_defence' => ($hasDocType && !$hasPptType ? 'Proposal document uploaded by student.' : ($hasPptType && !$hasDocType ? 'Slide deck uploaded by student.' : 'Proposal document / slide deck uploaded.')),
+                        'progress_report_1', 'progress_report_2' => ($hasDocType && !$hasPptType ? 'Progress report uploaded by student.' : ($hasPptType && !$hasDocType ? 'Slide deck uploaded by student.' : 'Progress report / slide deck uploaded.')),
+                        default => 'Submission document uploaded by student.',
+                    };
+
+                    $step1PendingText = match($slug) {
+                        'proposal_defence' => 'Candidate must upload proposal document or presentation slides.',
+                        'progress_report_1', 'progress_report_2' => 'Candidate must upload progress report or presentation slides.',
+                        default => 'Candidate must upload required document or presentation slides.',
+                    };
+
+                    $previewBtnLabel = ($hasPptType && !$hasDocType) ? 'Preview Slides' : 'View Document';
+                @endphp
                 <div class="p-5 rounded-2xl border transition-all {{ $hasPpt ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200' }} flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between mb-3">
@@ -180,13 +204,9 @@
                                 {{ $hasPpt ? 'Uploaded' : 'Pending Upload' }}
                             </span>
                         </div>
-                        <h4 class="text-sm font-bold text-slate-900">Upload Presentation (PPT)</h4>
+                        <h4 class="text-sm font-bold text-slate-900">{{ $step1Title }}</h4>
                         <p class="text-xs text-slate-500 mt-1 mb-3">
-                            @if($hasPpt)
-                                Slide deck uploaded by student.
-                            @else
-                                Candidate must upload presentation slides.
-                            @endif
+                            {{ $hasPpt ? $step1UploadedText : $step1PendingText }}
                         </p>
                     </div>
 
@@ -194,12 +214,12 @@
                         <button type="button" 
                             @click.prevent="$dispatch('open-document-preview', { 
                                 url: '{{ $pptUrl }}', 
-                                title: 'Presentation Slides - {{ addslashes($milestone->thesis->student->user->name) }}', 
-                                type: '{{ str_ends_with(strtolower($pptUrl), '.pdf') ? 'pdf' : 'document' }}' 
+                                title: '{{ addslashes($step1Title) }} - {{ addslashes($milestone->thesis->student->user->name) }}', 
+                                type: '{{ (str_contains(strtolower($pptUrl), '.pdf') || str_contains(strtolower($latestPptSub?->file_meta['mime_type'] ?? ''), 'pdf')) ? 'pdf' : 'document' }}' 
                             })"
                             class="w-full inline-flex items-center justify-center gap-2 px-3 py-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-colors shadow-sm cursor-pointer">
                             <svg class="w-3.5 h-3.5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                            <span>Preview Slides</span>
+                            <span>{{ $previewBtnLabel }}</span>
                         </button>
                     @elseif(auth()->user()->hasRole('Student'))
                         <a href="#artifact-upload-section" class="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold transition-colors">
