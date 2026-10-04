@@ -15,13 +15,9 @@ class PresentationController extends Controller
         $todayDateStr = $today->format('Y-m-d');
 
         // Retrieve all scheduled milestones for this template
-        // Include pending scheduled milestones and milestones scheduled for today or future
         $allScheduled = StudentMilestone::where('milestone_template_id', $template->id)
             ->whereNotNull('defence_date')
-            ->where(function ($q) use ($todayDateStr) {
-                $q->where('status', '!=', 'approved')
-                  ->orWhereDate('defence_date', '>=', $todayDateStr);
-            })
+            ->where('status', '!=', 'approved')
             ->with([
                 'thesis.student.user',
                 'thesis.student.program',
