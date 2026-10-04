@@ -63,6 +63,18 @@ class MilestoneWorkflowService
             return "Submission Gated: Post-submission authorization is required before clearance.";
         }
 
+        // Supervisors Assigned validation: tentative proposal + supervisor allocation
+        if ($template->slug === 'supervisors_assigned') {
+            $hasProposal = $milestone->submissions()->exists();
+            $hasSupervisors = $milestone->thesis->assignments()->where('status', 'active')->exists();
+            if (!$hasProposal && !$user->hasRole('Admin')) {
+                return "Tentative Proposal Required: Candidate must upload their tentative proposal before clearance.";
+            }
+            if (!$hasSupervisors && !$user->hasRole('Admin')) {
+                return "Supervision Required: Programme coordinator must assign supervisors before clearance.";
+            }
+        }
+
         // Structural Requirements
         if ($template->show_supervisor_assignment && $milestone->thesis->assignments()->where('status', 'active')->count() === 0 && !$user->hasRole('Admin')) {
             return "Structural Block: Supervisors must be assigned before approval.";
@@ -98,9 +110,13 @@ class MilestoneWorkflowService
                 $this->activateCommunicationChannels($project);
                 $studentUser = $project->student->user ?? null;
                 if ($studentUser) {
-                    \Illuminate\Support\Facades\Mail::raw("Your 'Seminar as a course' milestone has been marked as done.", function($msg) use ($studentUser) {
-                        $msg->to($studentUser->email)->subject("Milestone Completed: Seminar as a course");
-                    });
+                    try {
+                        \Illuminate\Support\Facades\Mail::raw("Your 'Seminar as a course' milestone has been marked as done.", function($msg) use ($studentUser) {
+                            $msg->to($studentUser->email)->subject("Milestone Completed: Seminar as a course");
+                        });
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::warning('Seminar completion mail failed: ' . $e->getMessage());
+                    }
                 }
                 break;
             case 'supervisors_assigned':
@@ -156,6 +172,155 @@ class MilestoneWorkflowService
         if ($nextMilestone && $nextMilestone->status !== 'approved') {
             $nextMilestone->update(['status' => 'in_progress']);
         }
+
+        // Supervisors Assigned -> Proposal Defence may already be satisfied
+        if ($template->slug !== 'supervisors_assigned') {
+            $this->tryAutoAdvanceSupervisorsAssigned($project->fresh());
+        }
+    }
+
+    /**
+     * Milestones that advance via the admin "End Presentation Session" button.
+     */
+    public const PRESENTATION_GATED_SLUGS = [
+        'seminar_as_a_course',
+        'proposal_defence',
+        'progress_report_1',
+        'progress_report_2',
+    ];
+
+    /**
+     * Has at least one examiner graded this student's presentation for the milestone?
+     */
+    public function hasBeenGraded(StudentMilestone $milestone): bool
+    {
+        $type = $milestone->template?->defence_type;
+        $events = $milestone->thesis?->defenceEvents()
+            ->when($type, fn($q) => $q->where('type', $type))
+            ->withCount('evaluations')
+            ->get() ?? collect();
+
+        if ($events->sum('evaluations_count') > 0) {
+            return true;
+        }
+
+        if (\Illuminate\Support\Facades\Schema::hasTable('seminar_grades')) {
+            if (\Illuminate\Support\Facades\DB::table('seminar_grades')->where('student_milestone_id', $milestone->id)->exists()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Has the student uploaded the presentation artifact (PPT) for this milestone?
+     */
+    public function hasUploadedPresentation(StudentMilestone $milestone): bool
+    {
+        return $milestone->submissions()->where('type', 'ppt')->exists()
+            || $milestone->submissions()->where('description', 'like', '%PPT%')->exists()
+            || $milestone->submissions()->where('description', 'like', '%Presentation%')->exists();
+    }
+
+    /**
+     * Returns null if the student may be advanced when admin ends the presentation
+     * session for this milestone, otherwise a human-readable reason.
+     */
+    public function getEndSessionBlockReason(StudentMilestone $milestone): ?string
+    {
+        $slug = $milestone->template?->slug;
+
+        if (empty($milestone->defence_date)) {
+            return 'not scheduled for presentation';
+        }
+
+        if ($slug === 'seminar_as_a_course') {
+            if (!$this->hasBeenGraded($milestone)) {
+                return 'not yet graded by any examiner';
+            }
+            return null;
+        }
+
+        if (in_array($slug, ['proposal_defence', 'progress_report_1', 'progress_report_2'])) {
+            if (!$this->hasUploadedPresentation($milestone)) {
+                return 'presentation (PPT) not uploaded';
+            }
+            if (!$milestone->is_supervisor_approved) {
+                return 'upload not yet approved by supervisor';
+            }
+            $presented = \Carbon\Carbon::parse($milestone->defence_date)->startOfDay()->lte(now()->startOfDay())
+                || $this->hasBeenGraded($milestone);
+            if (!$presented) {
+                return 'presentation date (' . \Carbon\Carbon::parse($milestone->defence_date)->format('d M Y') . ') has not been reached';
+            }
+            return null;
+        }
+
+        // Internal defence / Viva rules are not yet defined — keep previous behaviour.
+        return null;
+    }
+
+    /**
+     * Mark a milestone approved by the system/admin and run the post-approval workflow.
+     */
+    public function approveAndAdvance(StudentMilestone $milestone, string $note): void
+    {
+        $approvals = $milestone->approvals ?? [];
+        $approvals[] = [
+            'user_id' => auth()->id(),
+            'role' => 'Admin',
+            'note' => $note,
+            'approved_at' => now()->toDateTimeString(),
+        ];
+
+        $milestone->update([
+            'status' => 'approved',
+            'approved_at' => now(),
+            'approvals' => $approvals,
+        ]);
+
+        $this->afterApproval($milestone->fresh());
+
+        $studentUserId = $milestone->thesis?->student?->user_id;
+        if ($studentUserId) {
+            \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUserId);
+        }
+    }
+
+    /**
+     * Supervisors Assigned -> Proposal Defence.
+     * Advances automatically once (a) the student has uploaded a tentative proposal on the
+     * Supervisors Assigned milestone and (b) supervisors have been assigned.
+     */
+    public function tryAutoAdvanceSupervisorsAssigned(?ThesisProject $project): bool
+    {
+        if (!$project) return false;
+
+        $milestone = $project->milestones()
+            ->whereHas('template', fn($q) => $q->where('slug', 'supervisors_assigned'))
+            ->where('status', '!=', 'approved')
+            ->with('template')
+            ->first();
+
+        if (!$milestone) return false;
+
+        // All earlier milestones (e.g. Seminar course) must be completed first.
+        $pendingEarlier = $project->milestones()
+            ->whereHas('template', fn($q) => $q->where('order', '<', $milestone->template->order))
+            ->where('status', '!=', 'approved')
+            ->exists();
+        if ($pendingEarlier) return false;
+
+        $hasProposal = $milestone->submissions()->exists();
+        $hasSupervisors = $project->assignments()->where('status', 'active')->exists();
+
+        if (!$hasProposal || !$hasSupervisors) return false;
+
+        $this->approveAndAdvance($milestone, 'Auto-advanced: tentative proposal uploaded and supervisors assigned.');
+        $this->notifyUpdate($milestone, 'Supervisors assigned and tentative proposal received — advanced to Proposal Defence.');
+
+        return true;
     }
 
     /**

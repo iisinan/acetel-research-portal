@@ -68,6 +68,21 @@
                 @endif
 
                 @if(auth()->user()->hasRole('Admin'))
+                    <form action="{{ route('admin.milestone-templates.end-schedule', $template->id) }}" method="POST" class="w-full">
+                        @csrf
+                        <button type="submit"
+                            data-confirm="Are you sure you want to end the presentation session for {{ addslashes($template->name) }}? Eligible scheduled students who have completed all presentation requirements will be approved and advanced to the next milestone."
+                            data-confirm-title="End Presentation Session"
+                            data-confirm-type="success"
+                            data-confirm-btn="End Session"
+                            class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold transition-all shadow-md active:scale-95">
+                            <svg class="w-4 h-4 text-blue-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>End Presentation Session</span>
+                        </button>
+                    </form>
+
                     <form action="{{ route('admin.milestone-templates.cancel-schedule', $template->id) }}" method="POST" class="w-full">
                         @csrf
                         <button type="submit"

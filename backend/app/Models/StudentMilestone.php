@@ -63,7 +63,7 @@ class StudentMilestone extends Model
         return $this->hasMany(Submission::class, 'student_milestone_id')->latest();
     }
 
-        public function getIsSupervisorApprovedAttribute()
+    public function getIsSupervisorApprovedAttribute()
     {
         if ($this->status === 'approved') {
             return true;
@@ -78,17 +78,16 @@ class StudentMilestone extends Model
             return true;
         }
 
-        // Check if the latest submission document was accepted/approved by supervisor
-        $latestSubmission = $this->relationLoaded('submissions')
-            ? $this->submissions->sortByDesc('created_at')->first()
-            : $this->submissions()->latest()->first();
-
-        if ($latestSubmission) {
-            $feedback = $latestSubmission->relationLoaded('feedback')
-                ? $latestSubmission->feedback
-                : $latestSubmission->feedback;
-
-            if ($feedback && $feedback->decision === 'approved') {
+        // Check if ANY submission document was accepted/approved by supervisor
+        if ($this->relationLoaded('submissions')) {
+            foreach ($this->submissions as $sub) {
+                $fb = $sub->relationLoaded('feedback') ? $sub->feedback : $sub->feedback;
+                if ($fb && $fb->decision === 'approved') {
+                    return true;
+                }
+            }
+        } else {
+            if ($this->submissions()->whereHas('feedback', fn($q) => $q->where('decision', 'approved'))->exists()) {
                 return true;
             }
         }
@@ -140,12 +139,13 @@ class StudentMilestone extends Model
         // 3. Student Submission
         if ($this->template?->requires_submission) {
             $hasSubmission = $this->submissions()->count() > 0;
+            $isTentative = ($this->template->slug === 'supervisors_assigned');
             $tasks[] = [
                 'id' => 'student_submission',
-                'name' => 'Student Submission',
+                'name' => $isTentative ? 'Tentative Proposal Submission' : 'Student Submission',
                 'completed' => $hasSubmission,
                 'action_type' => 'none',
-                'details' => 'Awaiting student upload'
+                'details' => $isTentative ? ($hasSubmission ? 'Tentative proposal received' : 'Awaiting tentative proposal upload') : 'Awaiting student upload'
             ];
             if ($hasSubmission) $completedTasks++;
         }

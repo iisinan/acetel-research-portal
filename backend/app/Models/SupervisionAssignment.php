@@ -39,4 +39,13 @@ class SupervisionAssignment extends Model
     {
         return $this->supervisor();
     }
+
+    protected static function booted()
+    {
+        static::saved(function ($assignment) {
+            if ($assignment->thesis) {
+                (new \App\Services\MilestoneWorkflowService())->tryAutoAdvanceSupervisorsAssigned($assignment->thesis);
+            }
+        });
+    }
 }

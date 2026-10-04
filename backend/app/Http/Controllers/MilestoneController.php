@@ -322,12 +322,21 @@ class MilestoneController extends Controller
             'description' => 'nullable|string|max:1000',
         ];
 
-        if (in_array('ppt', $subTypes)) {
-            $rules['ppt'] = ['required', 'file', 'mimes:pdf', 'max:51200'];
-        }
+        $hasPptSub = $milestone->submissions()->where('type', 'ppt')->exists();
+        $hasFileSub = $milestone->submissions()->whereIn('type', ['file', 'manuscript'])->exists();
 
-        if (in_array('file', $subTypes)) {
-            $rules['file'] = ['required', 'file', 'mimes:pdf', 'max:51200'];
+        if (in_array('ppt', $subTypes) && in_array('file', $subTypes)) {
+            $requirePpt = !$hasPptSub && !$request->hasFile('file');
+            $requireFile = !$hasFileSub && !$request->hasFile('ppt');
+            $rules['ppt'] = [($requirePpt ? 'required' : 'nullable'), 'file', 'mimes:pdf', 'max:51200'];
+            $rules['file'] = [($requireFile ? 'required' : 'nullable'), 'file', 'mimes:pdf', 'max:51200'];
+        } else {
+            if (in_array('ppt', $subTypes)) {
+                $rules['ppt'] = [($hasPptSub ? 'nullable' : 'required'), 'file', 'mimes:pdf', 'max:51200'];
+            }
+            if (in_array('file', $subTypes)) {
+                $rules['file'] = [($hasFileSub ? 'nullable' : 'required'), 'file', 'mimes:pdf', 'max:51200'];
+            }
         }
 
         if (in_array('publication', $subTypes) || in_array('publications', $subTypes)) {
@@ -447,6 +456,9 @@ class MilestoneController extends Controller
         if ($status === 'approved') {
             (new \App\Services\MilestoneWorkflowService())->afterApproval($milestone);
         }
+
+        // Check if Supervisors Assigned milestone is now eligible to auto-advance
+        (new \App\Services\MilestoneWorkflowService())->tryAutoAdvanceSupervisorsAssigned($milestone->thesis);
 
         // Dispatch Real-time events to supervisors and coordinators
         $recipients = collect();

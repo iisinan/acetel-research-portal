@@ -29,18 +29,19 @@ class MilestoneTemplateSeeder extends Seeder
                 'name' => 'Supervisors assigned',
                 'slug' => 'supervisors_assigned',
                 'order' => 2,
-                'requires_submission' => false,
+                'requires_submission' => true,
+                'submission_type' => ['file'],
                 'requires_approval' => true,
                 'required_approvers' => ['Program Coordinator'],
                 'show_supervisor_assignment' => true,
-                'description' => 'Program Coordinator assigns supervisors based on level (MSc: 2, PhD: 3).'
+                'description' => 'Student uploads tentative proposal. Program Coordinator assigns supervisors based on level (MSc: 2, PhD: 3).'
             ],
             [
                 'name' => 'Proposal defence',
                 'slug' => 'proposal_defence',
                 'order' => 3,
                 'requires_submission' => true,
-                'submission_type' => ['file'], // Document in PDF format
+                'submission_type' => ['file', 'ppt'],
                 'submission_requires_approval' => false,
                 'submission_approver_roles' => null,
                 'requires_approval' => true,
@@ -48,14 +49,14 @@ class MilestoneTemplateSeeder extends Seeder
                 'allow_defence_date' => true,
                 'defence_type' => 'proposal',
                 'defence_date_role' => 'Program Coordinator',
-                'description' => 'Student uploads proposal document. Supervisor approves, then Program Coordinator schedules defence.'
+                'description' => 'Student uploads proposal document and PPT. Supervisor approves, then defence is scheduled.'
             ],
             [
                 'name' => 'Progress Report 1',
                 'slug' => 'progress_report_1',
                 'order' => 4,
                 'requires_submission' => true,
-                'submission_type' => ['file'], // Document in PDF format
+                'submission_type' => ['file', 'ppt'],
                 'submission_requires_approval' => false,
                 'submission_approver_roles' => null,
                 'requires_approval' => true,
@@ -63,14 +64,14 @@ class MilestoneTemplateSeeder extends Seeder
                 'allow_defence_date' => true,
                 'defence_type' => 'progress_report_1',
                 'defence_date_role' => 'Program Coordinator',
-                'description' => 'First progress report document upload and supervisor validation.'
+                'description' => 'First progress report document and PPT upload with supervisor validation and presentation.'
             ],
             [
                 'name' => 'Progress Report 2',
                 'slug' => 'progress_report_2',
                 'order' => 5,
                 'requires_submission' => true,
-                'submission_type' => ['file'], // Document in PDF format
+                'submission_type' => ['file', 'ppt'],
                 'submission_requires_approval' => false,
                 'submission_approver_roles' => null,
                 'requires_approval' => true,

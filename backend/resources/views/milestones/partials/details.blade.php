@@ -370,13 +370,23 @@
                             " action="{{ route('milestones.store', $milestone) }}" method="POST" enctype="multipart/form-data" class="space-y-6">
                                 @csrf
                                 
-                                @if(in_array('ppt', $milestone->template->submission_type))
+                                @php
+                                    $subTypes = $milestone->template->submission_type ?? ['file'];
+                                    $bothAllowed = in_array('ppt', $subTypes) && in_array('file', $subTypes);
+                                    $hasPptSub = $milestone->submissions->where('type', 'ppt')->count() > 0;
+                                    $hasFileSub = $milestone->submissions->whereIn('type', ['file', 'manuscript'])->count() > 0;
+                                @endphp
+
+                                @if(in_array('ppt', $subTypes))
                                 <div>
-                                    <label class="block text-sm font-semibold text-slate-700 mb-2">
-                                        Upload Presentation Slide Deck (PDF Only)
+                                    <label class="block text-sm font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                                        <span>Upload Presentation Slide Deck (PDF Only)</span>
+                                        @if($bothAllowed && !$hasPptSub && $hasFileSub)
+                                            <span class="text-xs font-normal text-slate-400">(Optional if manuscript already uploaded)</span>
+                                        @endif
                                     </label>
                                     <div class="relative w-full">
-                                        <input type="file" name="ppt" accept=".pdf" required class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                        <input type="file" name="ppt" accept=".pdf" {{ (!$bothAllowed && !$hasPptSub) ? 'required' : '' }} class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
                                             @change="
                                                 const file = $event.target.files[0];
                                                 document.getElementById('ppt-name-{{ $milestone->id }}').textContent = file ? file.name : 'Click or drop to select PPT';
@@ -392,13 +402,19 @@
                                 </div>
                                 @endif
 
-                                @if(in_array('file', $milestone->template->submission_type))
+                                @if(in_array('file', $subTypes))
                                 <div>
-                                    <label class="block text-sm font-semibold text-slate-700 mb-2">
-                                        Upload {{ $milestone->template->name }} Document (PDF Only)
+                                    <label class="block text-sm font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                                        <span>{{ $milestone->template->slug === 'supervisors_assigned' ? 'Upload Tentative Proposal (PDF Only)' : 'Upload ' . $milestone->template->name . ' Document (PDF Only)' }}</span>
+                                        @if($bothAllowed && !$hasFileSub && $hasPptSub)
+                                            <span class="text-xs font-normal text-slate-400">(Optional if PPT already uploaded)</span>
+                                        @endif
                                     </label>
+                                    @if($milestone->template->slug === 'supervisors_assigned')
+                                        <p class="text-xs text-slate-500 mb-2">Please upload your tentative proposal document for supervisor allocation review.</p>
+                                    @endif
                                     <div class="relative w-full">
-                                        <input type="file" name="file" accept=".pdf" required class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                        <input type="file" name="file" accept=".pdf" {{ (!$bothAllowed && !$hasFileSub) ? 'required' : '' }} class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
                                             @change="
                                                 const file = $event.target.files[0];
                                                 document.getElementById('file-name-{{ $milestone->id }}').textContent = file ? file.name : 'Click or drop to select file';

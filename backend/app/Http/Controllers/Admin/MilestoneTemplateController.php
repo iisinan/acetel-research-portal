@@ -435,30 +435,49 @@ class MilestoneTemplateController extends Controller
             $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
                 ->whereNotNull('defence_date')
                 ->where('status', '!=', 'approved')
+                ->with(['template', 'thesis.student.user'])
                 ->get();
 
             $workflow = new \App\Services\MilestoneWorkflowService();
-            foreach ($milestones as $sm) {
-                $sm->update([
-                    'status' => 'approved'
-                ]);
-                
-                // Trigger workflow to advance the thesis and notify the student
-                $workflow->afterApproval($sm);
+            $advanced = 0;
+            $skipped = [];
 
-                $studentUser = $sm->thesis?->student?->user;
-                if ($studentUser) {
-                    \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
+            foreach ($milestones as $sm) {
+                $reason = $workflow->getEndSessionBlockReason($sm);
+                if ($reason) {
+                    $skipped[] = ($sm->thesis?->student?->user?->name ?? 'Unknown student') . ' — ' . $reason;
+                    continue;
                 }
+
+                $workflow->approveAndAdvance($sm, "Presentation session ended for {$template->name}.");
+                $advanced++;
             }
 
             \Illuminate\Support\Facades\DB::commit();
 
-            // Set a flag to trigger the auto-download in the past presentations view
-            return redirect()->route('admin.past-presentations.index')
-                ->with('success', "Presentation session for {$template->name} has been marked as ended. The records have been archived here.")
-                ->with('auto_download_scores', route('admin.past-presentations.export-scores'))
-                ->with('auto_download_attendance', route('admin.past-presentations.export-attendance'));
+            if ($advanced === 0) {
+                return redirect()->back()
+                    ->with('error', "No student was advanced from {$template->name}. None of the scheduled students met the requirements.")
+                    ->with('skipped_students', $skipped);
+            }
+
+            $msg = "Presentation session for {$template->name} ended: {$advanced} student(s) advanced to the next milestone.";
+            if (count($skipped) > 0) {
+                $msg .= ' ' . count($skipped) . ' student(s) remain scheduled because they did not meet the requirements.';
+            }
+
+            if ($template->slug === 'seminar_as_a_course') {
+                // Set a flag to trigger the auto-download in the past presentations view
+                return redirect()->route('admin.past-presentations.index')
+                    ->with('success', $msg)
+                    ->with('skipped_students', $skipped)
+                    ->with('auto_download_scores', route('admin.past-presentations.export-scores'))
+                    ->with('auto_download_attendance', route('admin.past-presentations.export-attendance'));
+            }
+
+            return redirect()->route('admin.milestone-templates.index')
+                ->with('success', $msg)
+                ->with('skipped_students', $skipped);
 
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\DB::rollBack();
