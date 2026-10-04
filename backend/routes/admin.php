@@ -75,6 +75,9 @@ Route::resource('milestone-templates', MilestoneTemplateController::class)->only
 Route::post('milestone-templates/{template}/date', [MilestoneTemplateController::class, 'setDate'])->name('milestone-templates.set-date');
     Route::post('milestone-templates/schedule', [MilestoneTemplateController::class, 'schedule'])->name('milestone-templates.schedule');
     Route::post('milestone-templates/{template}/end-schedule', [MilestoneTemplateController::class, 'endSchedule'])->name('milestone-templates.end-schedule');
+    Route::get('past-presentations', [\App\Http\Controllers\Admin\PastPresentationController::class, 'index'])->name('past-presentations.index');
+    Route::get('past-presentations/export-scores', [\App\Http\Controllers\Admin\PastPresentationController::class, 'exportScores'])->name('past-presentations.export-scores');
+    Route::get('past-presentations/export-attendance', [\App\Http\Controllers\Admin\PastPresentationController::class, 'exportAttendance'])->name('past-presentations.export-attendance');
     Route::post('milestone-templates/{template}/cancel-schedule', [MilestoneTemplateController::class, 'cancelSchedule'])->name('milestone-templates.cancel-schedule');
     Route::post('milestone-templates/{template}/update-schedule', [MilestoneTemplateController::class, 'updateSchedule'])->name('milestone-templates.update-schedule');
     Route::post('milestone-templates/{milestone}/assign-examiner', [MilestoneTemplateController::class, 'assignExaminer'])->name('milestone-templates.assign-examiner');
@@ -102,4 +105,5 @@ Route::post("seminars/schedule", [SeminarController::class, "schedule"])->name("
 Route::post("seminars/{milestone}/assign-examiner", [SeminarController::class, "assignExaminer"])->name("seminars.assign-examiner");
 Route::post("seminars/{event}/score", [SeminarController::class, "storeScore"])->name("seminars.score");
 Route::get("seminars/attendance", [SeminarController::class, "downloadAttendance"])->name("seminars.attendance");
+
 

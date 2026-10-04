@@ -201,6 +201,9 @@ x-init="
             <a href="{{ route('admin.milestone-templates.index') }}" class="{{ $navClass }} {{ request()->routeIs('admin.milestone-templates.*') ? $activeClass : $inactiveClass }}">
                 <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-primary-600 transition-colors {{ request()->routeIs('admin.milestone-templates.*') ? '!text-primary-600' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
                 Milestone Templates
+            </a>            <a href="{{ route('admin.past-presentations.index') }}" class="{{ $navClass }} {{ request()->routeIs('admin.past-presentations.*') ? $activeClass : $inactiveClass }}">
+                <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-primary-600 transition-colors {{ request()->routeIs('admin.past-presentations.*') ? '!text-primary-600' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                Past Seminar Results
             </a>
             <a href="{{ route('admin.templates.index') }}" class="{{ $navClass }} {{ request()->routeIs('admin.templates.*') ? $activeClass : $inactiveClass }}">
                 <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-primary-600 transition-colors {{ request()->routeIs('admin.templates.*') ? '!text-primary-600' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
@@ -379,3 +382,4 @@ x-init="
 </div>
 
 </div>
+
