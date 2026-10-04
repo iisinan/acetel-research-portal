@@ -371,6 +371,27 @@
             <form method="POST" action="{{ route('inbox.store') }}" enctype="multipart/form-data" class="p-6 space-y-4">
                 @csrf
                 
+                @if(auth()->user()->hasRole('Admin'))
+                {{-- Delivery Method --}}
+                <div class="space-y-1.5 pb-2 border-b border-slate-100">
+                    <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Delivery Method</label>
+                    <div class="flex flex-wrap gap-4">
+                        <label class="flex items-center gap-2 cursor-pointer group">
+                            <input type="radio" name="delivery_method" value="both" checked class="w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500">
+                            <span class="text-sm font-bold text-slate-700 group-hover:text-emerald-600 transition-colors">Both (In-App & Email)</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer group">
+                            <input type="radio" name="delivery_method" value="in_app" class="w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500">
+                            <span class="text-sm font-bold text-slate-700 group-hover:text-emerald-600 transition-colors">In-App Only</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer group">
+                            <input type="radio" name="delivery_method" value="email" class="w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500">
+                            <span class="text-sm font-bold text-slate-700 group-hover:text-emerald-600 transition-colors">Email Only</span>
+                        </label>
+                    </div>
+                </div>
+                @endif
+                
                 {{-- Recipient Select --}}
                 <div class="space-y-1.5">
                     <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500">To</label>
