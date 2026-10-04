@@ -437,10 +437,14 @@ class MilestoneTemplateController extends Controller
                 ->where('status', '!=', 'approved')
                 ->get();
 
+            $workflow = new \App\Services\MilestoneWorkflowService();
             foreach ($milestones as $sm) {
                 $sm->update([
                     'status' => 'approved'
                 ]);
+                
+                // Trigger workflow to advance the thesis and notify the student
+                $workflow->afterApproval($sm);
 
                 $studentUser = $sm->thesis?->student?->user;
                 if ($studentUser) {
