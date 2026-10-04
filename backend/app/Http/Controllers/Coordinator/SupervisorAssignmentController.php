@@ -50,16 +50,8 @@ class SupervisorAssignmentController extends Controller
                 ]);
             }
 
-            // If the acting user is an Admin, approve Milestone 2 and advance student
-            $m2 = $thesis->milestones()->whereHas('template', fn($q) => $q->where('order', 2))->first();
-            if ($m2 && auth()->user()->hasRole('Admin')) {
-                $m2->update([
-                    'status' => 'approved',
-                    'approved_at' => now(),
-                    'approvals' => ['Admin:' . auth()->id() => ['user_id' => auth()->id(), 'role' => 'Admin', 'approved_at' => now()->toDateTimeString()]]
-                ]);
-                $this->workflowService->afterApproval($m2);
-            }
+            // Auto-advance Milestone 2 if tentative proposal was uploaded and supervisors are now assigned
+            $this->workflowService->tryAutoAdvanceSupervisorsAssigned($thesis->fresh());
 
             $studentUser = $thesis->student->user;
             $studentUserId = $studentUser->id;

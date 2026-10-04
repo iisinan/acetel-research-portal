@@ -63,6 +63,9 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Main Column: Submission Area -->
         <div class="lg:col-span-2 space-y-6">
+            {{-- Milestone Progression Checklist & End Presentation Banner --}}
+            @include('milestones.partials.progression-checklist', ['milestone' => $milestone])
+
             <!-- Scheduled Date Section -->
             @php
                 $hasDefenceDateAllowed = $milestone->template->allow_defence_date;
@@ -377,7 +380,7 @@
                             @endcan
                         </div>
                     @elseif(auth()->user()->hasRole('Student'))
-                        <div x-show="showUploadForm" x-transition class="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 p-8">
+                        <div id="artifact-upload-section" x-show="showUploadForm" x-transition class="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 p-8">
                             <div class="flex items-center justify-between mb-6">
                                 <h3 class="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
                                     <div class="w-1 h-6 bg-emerald-500 rounded-full"></div>
@@ -434,13 +437,13 @@
                                 @if(in_array('ppt', $subTypes))
                                 <div>
                                     <label class="block text-sm font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                                        <span>Upload Presentation Slide Deck (PDF Only)</span>
+                                        <span>Upload Presentation Slide Deck (PDF or PPT/PPTX)</span>
                                         @if($bothAllowed && !$hasPptSub && $hasFileSub)
                                             <span class="text-xs font-normal text-slate-400">(Optional if manuscript already uploaded)</span>
                                         @endif
                                     </label>
                                     <div class="relative w-full">
-                                        <input type="file" name="ppt" accept=".pdf" {{ (!$bothAllowed && !$hasPptSub) ? 'required' : '' }} class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                        <input type="file" name="ppt" accept=".pdf,.ppt,.pptx" {{ (!$bothAllowed && !$hasPptSub) ? 'required' : '' }} class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
                                             @change="
                                                 const file = $event.target.files[0];
                                                 document.getElementById('ppt-name-{{ $milestone->id }}').textContent = file ? file.name : 'Click or drop to select PPT';

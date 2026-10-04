@@ -214,6 +214,30 @@ class MilestoneWorkflowService
     }
 
     /**
+     * Has the supervisor approved/accepted the candidate's upload for this milestone?
+     */
+    public function isSupervisorApproved(StudentMilestone $milestone): bool
+    {
+        if ($milestone->is_supervisor_approved) {
+            return true;
+        }
+
+        // Also check if any submission has approved feedback from a supervisor or admin
+        $hasApprovedFeedback = $milestone->submissions()
+            ->whereHas('feedback', fn($q) => $q->where('decision', 'approved'))
+            ->exists();
+
+        if ($hasApprovedFeedback) {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('student_milestones', 'is_supervisor_approved')) {
+                $milestone->update(['is_supervisor_approved' => true]);
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Has the student uploaded the presentation artifact (PPT) for this milestone?
      */
     public function hasUploadedPresentation(StudentMilestone $milestone): bool
@@ -264,7 +288,7 @@ class MilestoneWorkflowService
             if (!$this->hasUploadedPresentation($milestone)) {
                 return 'presentation (PPT) not uploaded';
             }
-            if (!$milestone->is_supervisor_approved) {
+            if (!$this->isSupervisorApproved($milestone)) {
                 return 'upload not yet approved by supervisor';
             }
             $presented = \Carbon\Carbon::parse($milestone->defence_date)->startOfDay()->lte(now()->startOfDay())

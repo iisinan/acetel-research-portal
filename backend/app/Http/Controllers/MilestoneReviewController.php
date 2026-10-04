@@ -112,14 +112,90 @@ class MilestoneReviewController extends Controller
         $request->validate($rules);
 
         $user = Auth::user();
-        if (!$user->hasRole('Admin')) {
-            abort(403, 'Institutional Protocol: Only an Administrator can approve milestones and advance students.');
+        $isSupervisor = $user->hasRole('Supervisor') && !$user->hasRole('Admin');
+
+        if (!$user->hasAnyRole(['Admin', 'Supervisor', 'Program Coordinator'])) {
+            abort(403, 'Institutional Protocol: Unauthorized to review milestones.');
         }
 
         $decision = $request->decision;
         $template = $milestone->template;
+
+        // If a Supervisor is reviewing, handle document acceptance / revision request
+        if ($isSupervisor) {
+            $submission = $milestone->submissions()->latest()->first();
+            if ($submission) {
+                Feedback::updateOrCreate(
+                    ['submission_id' => $submission->id],
+                    [
+                        'decision' => $decision === 'approved' ? 'approved' : 'revision_required',
+                        'remarks' => $request->remarks,
+                        'created_by' => $user->id,
+                    ]
+                );
+            }
+
+            if ($decision === 'approved') {
+                if (\Illuminate\Support\Facades\Schema::hasColumn('student_milestones', 'is_supervisor_approved')) {
+                    $milestone->update(['is_supervisor_approved' => true]);
+                }
+                $this->workflowService->notifyUpdate($milestone, "Supervisor {$user->name} accepted the uploaded document for: {$milestone->template->name}");
+
+                $studentUser = $milestone->thesis->student?->user;
+                if ($studentUser) {
+                    \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
+                }
+
+                return redirect()->back()->with('success', 'Upload accepted by supervisor. The candidate may now proceed with presentation scheduling.');
+            } else {
+                $updates = [
+                    'status' => 'revision_required',
+                    'remark' => $request->remarks,
+                ];
+                if (\Illuminate\Support\Facades\Schema::hasColumn('student_milestones', 'is_supervisor_approved')) {
+                    $updates['is_supervisor_approved'] = false;
+                }
+                $milestone->update($updates);
+                $this->workflowService->notifyUpdate($milestone, "Supervisor {$user->name} requested revisions for: {$milestone->template->name}");
+
+                if ($request->has('action_items') && is_array($request->action_items)) {
+                    foreach ($request->action_items as $item) {
+                        if (!empty($item['content'])) {
+                            \App\Models\ActionItem::create([
+                                'feedback_id' => $submission?->feedback?->id,
+                                'thesis_project_id' => $milestone->thesis_project_id,
+                                'assigned_to' => $milestone->thesis->student->user_id,
+                                'content' => $item['content'],
+                                'due_date' => $item['due_date'] ?? null,
+                                'status' => 'pending'
+                            ]);
+                        }
+                    }
+                }
+
+                $studentUser = $milestone->thesis->student?->user;
+                if ($studentUser) {
+                    \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
+                }
+
+                return redirect()->back()->with('success', 'Revision requested successfully. The student has been notified.');
+            }
+        }
+
+        // Only an Administrator can grant final milestone clearance and advancement
+        if (!$user->hasRole('Admin')) {
+            abort(403, 'Institutional Protocol: Only an Administrator can approve milestones and advance students.');
+        }
         
         if ($decision === 'approved') {
+            // If milestone is gated by presentation, enforce presentation requirements
+            if (in_array($template->slug, \App\Services\MilestoneWorkflowService::PRESENTATION_GATED_SLUGS)) {
+                $endSessionBlockReason = $this->workflowService->getEndSessionBlockReason($milestone);
+                if ($endSessionBlockReason) {
+                    return redirect()->back()->with('error', "Cannot clear {$template->name}: {$endSessionBlockReason}. Please ensure all prerequisites are met and use 'End Presentation'.");
+                }
+            }
+
             $error = $this->workflowService->getApprovalBlockReason($milestone, $user, 'Admin');
             if ($error) {
                 return redirect()->back()->with('error', $error);

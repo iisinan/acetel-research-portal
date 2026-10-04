@@ -369,11 +369,11 @@ class MilestoneController extends Controller
         if (in_array('ppt', $subTypes) && in_array('file', $subTypes)) {
             $requirePpt = !$hasPptSub && !$request->hasFile('file');
             $requireFile = !$hasFileSub && !$request->hasFile('ppt');
-            $rules['ppt'] = [($requirePpt ? 'required' : 'nullable'), 'file', 'mimes:pdf', 'max:51200'];
+            $rules['ppt'] = [($requirePpt ? 'required' : 'nullable'), 'file', 'mimes:pdf,ppt,pptx', 'max:51200'];
             $rules['file'] = [($requireFile ? 'required' : 'nullable'), 'file', 'mimes:pdf', 'max:51200'];
         } else {
             if (in_array('ppt', $subTypes)) {
-                $rules['ppt'] = [($hasPptSub ? 'nullable' : 'required'), 'file', 'mimes:pdf', 'max:51200'];
+                $rules['ppt'] = [($hasPptSub ? 'nullable' : 'required'), 'file', 'mimes:pdf,ppt,pptx', 'max:51200'];
             }
             if (in_array('file', $subTypes)) {
                 $rules['file'] = [($hasFileSub ? 'nullable' : 'required'), 'file', 'mimes:pdf', 'max:51200'];
