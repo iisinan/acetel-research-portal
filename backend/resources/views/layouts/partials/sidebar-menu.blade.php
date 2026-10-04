@@ -278,10 +278,6 @@ x-init="
                 <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-primary-600 transition-colors {{ request()->routeIs('coordinator.students.*') ? '!text-primary-600' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
                 Students
             </a>
-            <a href="{{ route('coordinator.cohorts.index') }}" class="{{ $navClass }} {{ request()->routeIs('coordinator.cohorts.*') ? $activeClass : $inactiveClass }}">
-                <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-primary-600 transition-colors {{ request()->routeIs('coordinator.cohorts.*') ? '!text-primary-600' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.503 7.503 0 1 0-7.516 0c.85.493 1.508 1.333 1.508 2.316V18" /></svg>
-                Cohorts
-            </a>
             <a href="{{ route('coordinator.supervisors.index') }}" class="{{ $navClass }} {{ request()->routeIs('coordinator.supervisors.*') ? $activeClass : $inactiveClass }}">
                 <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-primary-600 transition-colors {{ request()->routeIs('coordinator.supervisors.*') ? '!text-primary-600' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                 Supervisors
@@ -290,24 +286,6 @@ x-init="
                 <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-primary-600 transition-colors {{ request()->routeIs('coordinator.assigned-supervisors.*') ? '!text-primary-600' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
                 Assigned Supervisor
             </a>
-            <a href="{{ route('coordinator.milestones.index') }}" class="{{ $navClass }} {{ request()->routeIs('coordinator.milestones.*') ? $activeClass : $inactiveClass }}">
-                <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-primary-600 transition-colors {{ request()->routeIs('coordinator.milestones.*') ? '!text-primary-600' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3v1.5M3 21v-6m0 0l2.77-.693a9 9 0 016.208.682l.108.054a9 9 0 006.086.71l3.114-.732a48.524 48.524 0 01-.005-10.499l-3.11.732a9 9 0 01-6.085-.711l-.108-.054a9 9 0 00-6.208-.682L3 4.5M3 15V4.5" /></svg>
-                Milestones
-            </a>
-            <a href="{{ route('coordinator.milestone-templates.index') }}" class="{{ $navClass }} {{ request()->routeIs('coordinator.milestone-templates.*') ? $activeClass : $inactiveClass }}">
-                <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-primary-600 transition-colors {{ request()->routeIs('coordinator.milestone-templates.*') ? '!text-primary-600' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                Batch Scheduling
-            </a>
-            <a href="{{ route('coordinator.examiners.index') }}" class="{{ $navClass }} {{ request()->routeIs('coordinator.examiners.*') ? $activeClass : $inactiveClass }}">
-                <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-primary-600 transition-colors {{ request()->routeIs('coordinator.examiners.*') ? '!text-primary-600' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                Examiners Pool
-            </a>
-
-            <a href="{{ route('coordinator.communications.index') }}" class="{{ $navClass }} {{ request()->routeIs('coordinator.communications.*') ? $activeClass : $inactiveClass }}">
-                <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-primary-600 transition-colors {{ request()->routeIs('coordinator.communications.*') ? '!text-primary-600' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
-                Communications
-            </a>
-
         </div>
     </div>
 </div>
@@ -376,7 +354,7 @@ x-init="
 </div>
 
 <!-- Reports Section -->
-<div x-show="['Admin', 'Director', 'Program Coordinator'].includes(activeRole)" x-cloak>
+<div x-show="['Admin', 'Director'].includes(activeRole)" x-cloak>
     <div class="mb-6">
         <a href="{{ route('reports.index') }}" class="{{ $navClass }} {{ request()->routeIs('reports.*') ? $activeClass : $inactiveClass }}">
             <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-primary-600 transition-colors {{ request()->routeIs('reports.*') ? '!text-primary-600' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
