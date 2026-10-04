@@ -14,6 +14,8 @@ class MilestoneController extends Controller
         $user = Auth::user();
         $scopes = $user->coordinatorScopes();
         
+        \Illuminate\Support\Facades\Log::info('MilestoneController@index: User ID ' . $user->id . ' Roles: ' . json_encode($user->getRoleNames()) . ' Scopes count: ' . $scopes->count() . ' Programs: ' . \App\Models\Program::count());
+
         if ($scopes->isEmpty()) {
             return redirect()->route('dashboard')->with('error', 'No active coordinator program assigned. Please contact the administrator.');
         }

@@ -95,9 +95,93 @@ class User extends Authenticatable
      */
     public function coordinatorScopes()
     {
-        return $this->coordinatorProfiles()->where(function ($query) {
-            $query->where('active', true);
-        })->get(['program_id', 'level_id']);
+        // 1. Institutional leadership (Admin & Director) oversees all programs and levels
+        if ($this->hasAnyRole(['Admin', 'Director'])) {
+            $allPrograms = \App\Models\Program::all();
+            return $allPrograms->map(function ($program) {
+                return (object)[
+                    'program_id' => $program->id,
+                    'level_id' => null,
+                ];
+            });
+        }
+
+        if (!$this->hasRole('Program Coordinator')) {
+            return collect();
+        }
+
+        // 2. Auto-heal/provision coordinator profiles if missing or inactive
+        $this->ensureCoordinatorProfiles();
+
+        return $this->coordinatorProfiles()
+            ->where('active', true)
+            ->get(['program_id', 'level_id']);
+    }
+
+    /**
+     * Auto-heal and provision CoordinatorProfile records if missing or inactive.
+     */
+    public function ensureCoordinatorProfiles(): void
+    {
+        if (!$this->hasRole('Program Coordinator')) {
+            return;
+        }
+
+        // If active coordinator profiles already exist, nothing to do
+        if ($this->coordinatorProfiles()->where('active', true)->exists()) {
+            return;
+        }
+
+        // If inactive coordinator profiles exist, activate them
+        if ($this->coordinatorProfiles()->exists()) {
+            $this->coordinatorProfiles()->update(['active' => true]);
+            return;
+        }
+
+        // Fallback 1: Link programs from user's supervisor profile if present
+        $supervisorPrograms = $this->supervisorProfile?->programs;
+        if ($supervisorPrograms && $supervisorPrograms->isNotEmpty()) {
+            $levels = \App\Models\Level::all();
+            foreach ($supervisorPrograms as $prog) {
+                if ($levels->isNotEmpty()) {
+                    foreach ($levels as $lvl) {
+                        \App\Models\CoordinatorProfile::firstOrCreate([
+                            'user_id' => $this->id,
+                            'program_id' => $prog->id,
+                            'level_id' => $lvl->id,
+                        ], ['active' => true]);
+                    }
+                } else {
+                    \App\Models\CoordinatorProfile::firstOrCreate([
+                        'user_id' => $this->id,
+                        'program_id' => $prog->id,
+                        'level_id' => null,
+                    ], ['active' => true]);
+                }
+            }
+            return;
+        }
+
+        // Fallback 2: Link all existing programs in the system
+        $allPrograms = \App\Models\Program::all();
+        $levels = \App\Models\Level::all();
+        foreach ($allPrograms as $prog) {
+            if ($levels->isNotEmpty()) {
+                foreach ($levels as $lvl) {
+                    \App\Models\CoordinatorProfile::firstOrCreate([
+                        'user_id' => $this->id,
+                        'program_id' => $prog->id,
+                        'level_id' => $lvl->id,
+                    ], ['active' => true]);
+                }
+            } else {
+                \App\Models\CoordinatorProfile::firstOrCreate([
+                    'user_id' => $this->id,
+                    'program_id' => $prog->id,
+                    'level_id' => null,
+                ], ['active' => true]);
+            }
+        }
     }
 
     /**
@@ -113,20 +197,21 @@ class User extends Authenticatable
             return false;
         }
 
-        return $this->coordinatorProfiles()
-            ->where(function ($query) use ($student) {
-                $query->where('active', true)
-                    ->where('program_id', $student->program_id);
-                
-                // Optional Level check if coordination is level-specific
-                if ($student->level_id) {
-                    $query->where(function($q) use ($student) {
-                         $q->whereNull('level_id')
-                           ->orWhere('level_id', $student->level_id);
-                    });
-                }
-            })
-            ->exists();
+        $scopes = $this->coordinatorScopes();
+        if ($scopes->isEmpty()) {
+            return false;
+        }
+
+        return $scopes->contains(function ($scope) use ($student) {
+            $matchesProgram = ($scope->program_id == $student->program_id);
+            if (!$matchesProgram) {
+                return false;
+            }
+            if (!empty($scope->level_id) && !empty($student->level_id)) {
+                return $scope->level_id == $student->level_id;
+            }
+            return true;
+        });
     }
 
     public function creator()
