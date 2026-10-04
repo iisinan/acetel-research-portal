@@ -12,18 +12,20 @@ class MilestoneController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $coordinatorProfile = $user->coordinatorProfiles()->where('active', true)->first();
+        $scopes = $user->coordinatorScopes();
         
-        if (!$coordinatorProfile) {
-            abort(403, 'No active coordinator profile found.');
+        if ($scopes->isEmpty()) {
+            return redirect()->route('dashboard')->with('error', 'No active coordinator program assigned. Please contact the administrator.');
         }
 
+        $isAdminOrDirector = $user->hasAnyRole(['Admin', 'Director']);
+        $programIds = $scopes->pluck('program_id')->unique()->toArray();
+
         $query = StudentMilestone::query()
-            ->whereHas('thesis.student', function($q) use ($coordinatorProfile) {
-                $q->where('program_id', $coordinatorProfile->program_id);
-                if ($coordinatorProfile->level_id) {
-                    $q->where('level_id', $coordinatorProfile->level_id);
-                }
+            ->when(!$isAdminOrDirector, function ($q) use ($programIds) {
+                $q->whereHas('thesis.student', function($sq) use ($programIds) {
+                    $sq->whereIn('program_id', $programIds);
+                });
             })
             ->with(['thesis.student.user', 'template', 'submissions']);
 

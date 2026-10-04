@@ -18,15 +18,17 @@ class ExaminerPoolController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $coordinatorProfile = $user->coordinatorProfiles()->where('active', true)->first();
+        $scopes = $user->coordinatorScopes();
         
-        if (!$coordinatorProfile) {
-            abort(403, 'No active coordinator profile found.');
+        if ($scopes->isEmpty()) {
+            abort(403, 'NO ACTIVE COORDINATOR PROFILE FOUND.');
         }
+
+        $programIds = $scopes->pluck('program_id')->unique()->toArray();
 
         // Internal Examiners (Supervisors from this program who are also examiners)
         $internalExaminers = InternalExaminerProfile::with('user')
-            ->where('program_id', $coordinatorProfile->program_id)
+            ->whereIn('program_id', $programIds)
             ->get();
 
         // External Examiners
@@ -34,11 +36,11 @@ class ExaminerPoolController extends Controller
 
         // Potential internal examiners (Supervisors in this program not yet examiners)
         $potentialInternal = SupervisorProfile::with('user')
-            ->whereHas('programs', function($q) use ($coordinatorProfile) {
-                $q->where('programs.id', $coordinatorProfile->program_id);
+            ->whereHas('programs', function($q) use ($programIds) {
+                $q->whereIn('programs.id', $programIds);
             })
-            ->whereDoesntHave('user.internalExaminerProfiles', function($q) use ($coordinatorProfile) {
-                $q->where('program_id', $coordinatorProfile->program_id);
+            ->whereDoesntHave('user.internalExaminerProfiles', function($q) use ($programIds) {
+                $q->whereIn('program_id', $programIds);
             })
             ->get();
 
@@ -57,16 +59,20 @@ class ExaminerPoolController extends Controller
 
         $supervisor = SupervisorProfile::with('programs')->findOrFail($request->supervisor_id);
         
-        // Ensure same program
         $user = Auth::user();
+        if ($user->hasRole('Program Coordinator')) {
+            $user->ensureCoordinatorProfiles();
+        }
         $coordinatorProfile = $user->coordinatorProfiles()->where('active', true)->first();
-        if (!$supervisor->programs->contains($coordinatorProfile->program_id)) {
+        if (!$user->hasAnyRole(['Admin', 'Director']) && (!$coordinatorProfile || !$supervisor->programs->contains($coordinatorProfile->program_id))) {
              abort(403, 'Unauthorized. Supervisor is not in your program.');
         }
 
+        $progId = $coordinatorProfile ? $coordinatorProfile->program_id : $supervisor->programs->first()?->id;
+
         InternalExaminerProfile::firstOrCreate([
             'user_id' => $supervisor->user_id,
-            'program_id' => $coordinatorProfile->program_id,
+            'program_id' => $progId,
         ]);
 
         if (!$supervisor->user->hasRole('Internal Examiner')) {

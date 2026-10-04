@@ -14,14 +14,14 @@ class CohortController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $activeProfiles = $user->coordinatorProfiles()->where('active', true)->get();
+        $scopes = $user->coordinatorScopes();
 
-        if ($activeProfiles->isEmpty()) {
+        if ($scopes->isEmpty()) {
             return redirect()->route('dashboard')->with('error', 'No active coordinator profile found.');
         }
 
-        $programIds = $activeProfiles->pluck('program_id')->unique()->toArray();
-        $levelIds = $activeProfiles->pluck('level_id')->unique()->toArray();
+        $programIds = $scopes->pluck('program_id')->unique()->toArray();
+        $levelIds = $scopes->pluck('level_id')->filter()->unique()->toArray();
 
         // Fetch all cohorts so coordinators can register new students into them
         $cohorts = Cohort::withCount(['students' => function ($q) use ($user) {
@@ -83,14 +83,22 @@ class CohortController extends Controller
     public function show(Cohort $cohort)
     {
         $user = Auth::user();
+        if ($user->hasRole('Program Coordinator')) {
+            $user->ensureCoordinatorProfiles();
+        }
         $activeProfiles = $user->coordinatorProfiles()->where('active', true)->get();
 
-        if ($activeProfiles->isEmpty()) {
+        if ($activeProfiles->isEmpty() && !$user->hasAnyRole(['Admin', 'Director'])) {
             return redirect()->route('dashboard')->with('error', 'No active coordinator profile found.');
         }
 
-        $programIds = $activeProfiles->pluck('program_id')->unique()->toArray();
-        $levelIds = $activeProfiles->pluck('level_id')->unique()->toArray();
+        if ($user->hasAnyRole(['Admin', 'Director']) && $activeProfiles->isEmpty()) {
+            $programIds = \App\Models\Program::pluck('id')->toArray();
+            $levelIds = \App\Models\Level::pluck('id')->toArray();
+        } else {
+            $programIds = $activeProfiles->pluck('program_id')->unique()->toArray();
+            $levelIds = $activeProfiles->pluck('level_id')->unique()->toArray();
+        }
 
         $students = StudentProfile::where('cohort_id', $cohort->id)
             ->whereIn('program_id', $programIds)

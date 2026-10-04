@@ -19,7 +19,7 @@ class SupervisorController extends Controller
         $scopes = $user->coordinatorScopes();
         
         if ($scopes->isEmpty()) {
-            abort(403, 'No active coordinator profile found.');
+            return redirect()->route('dashboard')->with('error', 'No active coordinator program assigned. Please contact the administrator.');
         }
 
         $programIds = $scopes->pluck('program_id')->unique()->toArray();
@@ -58,6 +58,9 @@ class SupervisorController extends Controller
     {
         $user = Auth::user();
         $scopes = $user->coordinatorScopes();
+        if ($scopes->isEmpty()) {
+            return redirect()->route('dashboard')->with('error', 'No active coordinator program assigned. Please contact the administrator.');
+        }
         $programIds = $scopes->pluck('program_id')->unique()->toArray();
         $programs = \App\Models\Program::whereIn('id', $programIds)->get();
 
@@ -131,9 +134,9 @@ class SupervisorController extends Controller
          $programIds = $scopes->pluck('program_id')->unique()->toArray();
          
          $supervisorProgramIds = $supervisor->programs()->pluck('programs.id')->toArray();
-         $coordinatorProgramIds = $user->coordinatorScopes()->pluck('program_id')->toArray();
+         $coordinatorProgramIds = $scopes->pluck('program_id')->toArray();
          
-         if (empty(array_intersect($supervisorProgramIds, $coordinatorProgramIds))) {
+         if (!$user->hasAnyRole(['Admin', 'Director']) && empty(array_intersect($supervisorProgramIds, $coordinatorProgramIds))) {
              abort(403, 'Protocol Authorization: Supervisor is outside your assigned program scope.');
          }
          
@@ -400,7 +403,7 @@ class SupervisorController extends Controller
         $allowedProgramIds = $user->coordinatorScopes()->pluck('program_id')->unique()->toArray();
         
         if (empty($allowedProgramIds)) {
-            abort(403, 'No active coordinator programs found.');
+            return redirect()->route('dashboard')->with('error', 'No active coordinator programs found.');
         }
 
         $request->validate([

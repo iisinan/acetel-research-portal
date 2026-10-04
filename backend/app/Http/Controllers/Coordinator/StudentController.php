@@ -47,7 +47,8 @@ class StudentController extends Controller
         $students = $query->paginate(15)->withQueryString();
         $userScopes = $user->coordinatorScopes();
         $programs = \App\Models\Program::whereIn('id', $userScopes->pluck('program_id'))->get();
-        $levels = \App\Models\Level::whereIn('id', $userScopes->pluck('level_id'))->get();
+        $levelIds = $userScopes->pluck('level_id')->filter()->unique()->toArray();
+        $levels = !empty($levelIds) ? \App\Models\Level::whereIn('id', $levelIds)->get() : \App\Models\Level::all();
         
         return view('coordinator.students.index', compact('students', 'programs', 'levels'));
     }
