@@ -300,10 +300,20 @@ class MilestoneWorkflowService
 
         $this->afterApproval($milestone->fresh());
 
+        $type = $milestone->template?->defence_type;
+        if ($type && $milestone->thesis_project_id) {
+            \App\Models\DefenceEvent::where('thesis_project_id', $milestone->thesis_project_id)
+                ->where('type', $type)
+                ->whereNull('outcome')
+                ->update(['outcome' => 'completed']);
+        }
+
         $studentUserId = $milestone->thesis?->student?->user_id;
         if ($studentUserId) {
             \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUserId);
         }
+
+        $this->notifyUpdate($milestone, $note);
     }
 
     /**

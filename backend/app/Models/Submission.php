@@ -48,6 +48,12 @@ class Submission extends Model
      */
     protected static function booted()
     {
+        static::saved(function ($submission) {
+            if ($submission->milestone?->thesis) {
+                (new \App\Services\MilestoneWorkflowService())->tryAutoAdvanceSupervisorsAssigned($submission->milestone->thesis);
+            }
+        });
+
         static::deleting(function ($submission) {
             if ($submission->file_url) {
                 \Illuminate\Support\Facades\Storage::delete($submission->file_url);

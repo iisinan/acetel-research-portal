@@ -176,7 +176,19 @@
                                                 class="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 w-full">
                                         </div>
                                     </div>
-                                    <div class="flex justify-end">
+                                    <div class="flex items-center justify-between">
+                                        @if(auth()->user()->hasRole('Admin') && $milestone->status !== 'approved' && $isDateExpired)
+                                            <button type="button" 
+                                                onclick="if (confirm('Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis->student->user->name) }}? If all requirements are met, the candidate will be advanced to the next milestone.')) { document.getElementById('end-pres-form-expired-{{ $milestone->id }}').submit(); }"
+                                                class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-[0.2em] rounded-xl active:scale-95 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer">
+                                                <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                <span>End Presentation</span>
+                                            </button>
+                                        @else
+                                            <div></div>
+                                        @endif
                                         <button type="submit" 
                                             :disabled="scheduling || !localDate"
                                             class="px-6 py-2.5 bg-indigo-600 text-white text-xs font-black uppercase tracking-[0.2em] rounded-xl hover:bg-indigo-700 active:scale-95 transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 disabled:opacity-50">
@@ -184,6 +196,11 @@
                                         </button>
                                     </div>
                                 </form>
+                                @if(auth()->user()->hasRole('Admin') && $milestone->status !== 'approved' && $isDateExpired)
+                                    <form id="end-pres-form-expired-{{ $milestone->id }}" action="{{ route('milestones.end_presentation', $milestone) }}" method="POST" class="hidden">
+                                        @csrf
+                                    </form>
+                                @endif
                             </div>
                         </div>
                     @endif

@@ -25,7 +25,23 @@
                 }">
                 <span id="milestone-status-text">{{ ucfirst(str_replace('_', ' ', $milestone->status)) }}</span>
             </x-badge>
-            
+
+            @if(Auth::user()->hasRole('Admin') && $milestone->status !== 'approved' && (!empty($milestone->defence_date) || in_array($milestone->template?->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2'])))
+                <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST" class="inline">
+                    @csrf
+                    <button type="submit" 
+                        data-confirm="Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis->student->user->name) }}? If all requirements are met (presentation conducted, PPT uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
+                        data-confirm-title="End Presentation Session"
+                        data-confirm-type="success"
+                        data-confirm-btn="End Presentation"
+                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-md transition-all active:scale-95">
+                        <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>End Presentation</span>
+                    </button>
+                </form>
+            @endif
         </div>
     </div>
 
