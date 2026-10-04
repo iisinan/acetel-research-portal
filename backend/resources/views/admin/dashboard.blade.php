@@ -70,12 +70,12 @@
                     <div class="max-h-[350px] overflow-y-auto custom-scrollbar divide-y divide-slate-50">
                         @foreach($m9Alerts as $alert)
                         <div class="px-6 py-5 hover:bg-amber-50 transition-colors group/alert relative">
-                            <a href="{{ route('milestones.index', ['thesis_id' => $alert->thesis->id]) }}#milestone-{{$alert->id}}">
+                            <a href="{{ route('milestones.index', ['thesis_id' => $alert->thesis?->id ?? 0]) }}#milestone-{{$alert->id}}">
                                 <div class="flex items-center justify-between mb-2">
-                                    <span class="font-black text-slate-800 text-sm tracking-tight">{{ $alert->thesis->student->user->name ?? 'Student' }}</span>
+                                    <span class="font-black text-slate-800 text-sm tracking-tight">{{ $alert->thesis?->student?->user?->name ?? 'Student' }}</span>
                                     <span class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md {{ $alert->status === 'submitted' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700' }}">{{ str_replace('_', ' ', $alert->status) }}</span>
                                 </div>
-                                <span class="text-xs text-slate-500 font-medium line-clamp-1 italic pr-12">{{ $alert->thesis->title }}</span>
+                                <span class="text-xs text-slate-500 font-medium line-clamp-1 italic pr-12">{{ $alert->thesis?->title ?? 'Unknown Thesis' }}</span>
                                 <div class="text-[9px] uppercase font-bold text-slate-400 tracking-widest mt-3 flex items-center gap-2">
                                     <svg class="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                     Updated {{ $alert->updated_at->diffForHumans() }}
@@ -207,9 +207,9 @@
                                 {{-- User Avatar --}}
                                 <div class="relative shrink-0">
                                     <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-green-100 to-green-200 border border-green-200 flex items-center justify-center text-green-700 font-black text-sm shadow-sm group-hover:scale-105 transition-transform">
-                                        {{ substr($login->user->name ?? '?', 0, 1) }}
+                                        {{ substr($login->user?->name ?? '?', 0, 1) }}
                                     </div>
-                                    @if(!$login->logout_at && $login->login_at->diffInHours(now()) < 24)
+                                    @if(!$login?->logout_at && $login?->login_at->diffInHours(now()) < 24)
                                         <span class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full shadow-sm"></span>
                                     @endif
                                 </div>
@@ -217,7 +217,7 @@
                                 {{-- Login Details --}}
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center gap-3 mb-1">
-                                        <p class="text-sm font-bold text-slate-800 truncate group-hover:text-green-700 transition-colors">{{ $login->user->name ?? 'Unknown' }}</p>
+                                        <p class="text-sm font-bold text-slate-800 truncate group-hover:text-green-700 transition-colors">{{ $login->user?->name ?? 'Unknown' }}</p>
                                         <span class="text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest
                                             {{ $login->user?->getRoleNames()?->first() === 'Admin' ? 'bg-red-50 text-red-600 border border-red-100' : '' }}
                                             {{ $login->user?->getRoleNames()?->first() === 'Student' ? 'bg-blue-50 text-blue-600 border border-blue-100' : '' }}
@@ -230,23 +230,23 @@
                                     <div class="flex items-center gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                                         <span class="flex items-center gap-1">
                                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
-                                            {{ $login->ip_address ?? 'localhost' }}
+                                            {{ $login?->ip_address ?? 'localhost' }}
                                         </span>
                                         <span class="flex items-center gap-1">
-                                            @if($login->device_type === 'mobile')
+                                            @if($login?->device_type === 'mobile')
                                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
                                             @else
                                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                                             @endif
-                                            {{ $login->browser ?? 'N/A' }} · {{ $login->platform ?? 'N/A' }}
+                                            {{ $login?->browser ?? 'N/A' }} · {{ $login?->platform ?? 'N/A' }}
                                         </span>
                                     </div>
                                 </div>
 
                                 {{-- Timestamp --}}
                                 <div class="text-right shrink-0">
-                                    <p class="text-xs font-bold text-slate-500 italic">{{ $login->login_at->diffForHumans() }}</p>
-                                    <p class="text-[9px] font-bold text-slate-300 uppercase tracking-wider mt-0.5">{{ $login->login_at->format('M d, H:i') }}</p>
+                                    <p class="text-xs font-bold text-slate-500 italic">{{ $login?->login_at->diffForHumans() }}</p>
+                                    <p class="text-[9px] font-bold text-slate-300 uppercase tracking-wider mt-0.5">{{ $login?->login_at->format('M d, H:i') }}</p>
                                 </div>
                             </div>
                         </div>
@@ -290,17 +290,17 @@
                                                   <svg class="w-5 h-5 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                                              </div>
                                              <div>
-                                                 <p class="text-sm font-bold text-slate-800 group-hover:text-green-700 transition-colors leading-none mb-1">{{ $log->action }}</p>
-                                                 <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">{{ $log->ip_address ?? '127.0.0.1' }}</p>
+                                                 <p class="text-sm font-bold text-slate-800 group-hover:text-green-700 transition-colors leading-none mb-1">{{ $log?->action }}</p>
+                                                 <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">{{ $log?->ip_address ?? '127.0.0.1' }}</p>
                                              </div>
                                          </div>
                                     </td>
                                     <td class="px-6 py-5">
-                                        <p class="text-sm font-bold text-slate-700 leading-none mb-1 truncate max-w-[150px]">{{ $log->user->name ?? 'SYSTEM' }}</p>
-                                        <p class="text-[9px] font-bold text-green-600 uppercase tracking-widest leading-none">{{ $log->user->getRoleNames()->first() ?? 'CORE' }}</p>
+                                        <p class="text-sm font-bold text-slate-700 leading-none mb-1 truncate max-w-[150px]">{{ $log->user?->name ?? 'SYSTEM' }}</p>
+                                        <p class="text-[9px] font-bold text-green-600 uppercase tracking-widest leading-none">{{ $log->user ? $log->user->getRoleNames()->first() : 'CORE' }}</p>
                                     </td>
                                     <td class="px-6 py-5 text-right">
-                                         <span class="text-xs font-bold text-slate-400 italic">{{ $log->created_at->diffForHumans() }}</span>
+                                         <span class="text-xs font-bold text-slate-400 italic">{{ $log?->created_at->diffForHumans() }}</span>
                                     </td>
                                 </tr>
                             @empty
@@ -335,25 +335,25 @@
                             <div class="flex items-center gap-4">
                                 <div class="relative shrink-0">
                                     <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200 flex items-center justify-center text-slate-600 font-black text-xs group-hover:from-green-100 group-hover:to-green-200 group-hover:text-green-700 group-hover:border-green-200 transition-all">
-                                        {{ substr($user->name, 0, 1) }}
+                                        {{ substr($user?->name, 0, 1) }}
                                     </div>
-                                    @if($user->last_login_at && \Carbon\Carbon::parse($user->last_login_at)->diffInMinutes(now()) < 30)
+                                    @if($user?->last_login_at && \Carbon\Carbon::parse($user?->last_login_at)->diffInMinutes(now()) < 30)
                                         <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></span>
                                     @endif
                                 </div>
                                 <div class="flex-1 min-w-0">
-                                    <p class="text-xs font-bold text-slate-800 truncate leading-none">{{ $user->name }}</p>
+                                    <p class="text-xs font-bold text-slate-800 truncate leading-none">{{ $user?->name }}</p>
                                     <div class="flex items-center gap-2 mt-1.5">
-                                        <span class="text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest bg-slate-50 text-slate-500 border border-slate-100 leading-none">{{ $user->getRoleNames()->first() ?? 'User' }}</span>
-                                        @if($user->total_logins)
-                                            <span class="text-[8px] font-bold text-slate-400 leading-none">{{ $user->total_logins }} sessions</span>
+                                        <span class="text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest bg-slate-50 text-slate-500 border border-slate-100 leading-none">{{ $user?->getRoleNames()->first() ?? 'User' }}</span>
+                                        @if($user?->total_logins)
+                                            <span class="text-[8px] font-bold text-slate-400 leading-none">{{ $user?->total_logins }} sessions</span>
                                         @endif
                                     </div>
                                 </div>
                                 <div class="text-right shrink-0">
-                                    @if($user->last_login_at)
-                                        <p class="text-[10px] font-bold text-slate-500 italic leading-none">{{ \Carbon\Carbon::parse($user->last_login_at)->diffForHumans() }}</p>
-                                        <p class="text-[8px] font-bold text-slate-300 uppercase tracking-wider mt-1 leading-none">{{ $user->last_session_browser ?? '' }}</p>
+                                    @if($user?->last_login_at)
+                                        <p class="text-[10px] font-bold text-slate-500 italic leading-none">{{ \Carbon\Carbon::parse($user?->last_login_at)->diffForHumans() }}</p>
+                                        <p class="text-[8px] font-bold text-slate-300 uppercase tracking-wider mt-1 leading-none">{{ $user?->last_session_browser ?? '' }}</p>
                                     @else
                                         <p class="text-[9px] font-bold text-slate-300 uppercase tracking-wider italic leading-none">Never</p>
                                     @endif

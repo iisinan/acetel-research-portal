@@ -293,3 +293,29 @@ Route::get("/test-cancel-presentation", function () {
         
     return ["found_to_cancel" => $milestones->count()];
 });
+
+Route::get("/test-null-users", function () {
+    return \App\Models\SupervisorProfile::whereDoesntHave("user")->count();
+});
+
+Route::get("/test-supervisor-index", function () {
+    $user = \App\Models\User::role("Program Coordinator")->first();
+    \Illuminate\Support\Facades\Auth::login($user);
+    
+    try {
+        $app = app();
+        $controller = $app->make(\App\Http\Controllers\Coordinator\SupervisorController::class);
+        return $controller->index(request());
+    } catch (\Throwable $e) {
+        return $e->getMessage() . " in " . $e->getFile() . " on line " . $e->getLine();
+    }
+});
+
+Route::get("/test-active-presentations", function () {
+    try {
+        $presentations = \App\Models\MilestoneTemplate::getActivePresentations();
+        return ["count" => $presentations->count()];
+    } catch (\Throwable $e) {
+        return $e->getMessage() . " in " . $e->getFile() . " on line " . $e->getLine();
+    }
+});
