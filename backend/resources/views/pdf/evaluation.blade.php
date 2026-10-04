@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Evaluation Report - {{ $evaluation->defenceEvent->thesis->student->user->name }}</title>
+    <title>Evaluation Report - {{ $evaluation->defenceEvent->thesis->student->user->name ?? 'Unknown' }}</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -140,11 +140,11 @@
     <table>
         <tr>
             <th>Student Name</th>
-            <td>{{ $evaluation->defenceEvent->thesis->student->user->name }}</td>
+            <td>{{ $evaluation->defenceEvent->thesis->student->user->name ?? 'Unknown' }}</td>
         </tr>
         <tr>
             <th>Academic Program</th>
-            <td>{{ $evaluation->defenceEvent->thesis->student->program->name }}</td>
+            <td>{{ $evaluation->defenceEvent->thesis->student->program->name ?? 'N/A' }}</td>
         </tr>
         <tr>
             <th>Thesis Title</th>
@@ -164,7 +164,7 @@
     <div class="score-grid">
         @php
             $scores = $evaluation->score;
-            $total = array_sum($scores);
+            $total = $scores['total'] ?? (array_sum($scores) > 0 ? array_sum($scores) / 2 : 0);
         @endphp
         <div class="score-item">
             <div class="score-label">Originality & Contribution</div>
@@ -205,9 +205,9 @@
     <div class="signatures">
         <div style="float: left;">
             <div class="signature-line"></div>
-            <div><strong>{{ $evaluation->evaluator->name }}</strong></div>
+            <div><strong>{{ $evaluation->evaluator->name ?? 'Unknown' }}</strong></div>
             <div style="font-size: 12px; color: #64748b;">Examiner</div>
-            <div style="font-size: 12px; color: #64748b;">Date: {{ $evaluation->submitted_at->format('F d, Y') }}</div>
+            <div style="font-size: 12px; color: #64748b;">Date: {{ $evaluation->submitted_at?->format('F d, Y') }}</div>
         </div>
         <div style="clear: both;"></div>
     </div>

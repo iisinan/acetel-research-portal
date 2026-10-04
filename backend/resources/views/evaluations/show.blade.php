@@ -29,11 +29,11 @@
                 <div class="grid grid-cols-2 gap-6 p-2">
                     <div>
                         <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Scholar</p>
-                        <p class="text-lg font-black text-slate-900">{{ $evaluation->defenceEvent->thesis->student->user->name }}</p>
+                        <p class="text-lg font-black text-slate-900">{{ $evaluation->defenceEvent->thesis->student->user->name ?? 'Unknown' }}</p>
                     </div>
                     <div>
                         <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Program Details</p>
-                        <p class="text-xs font-bold text-slate-900">{{ $evaluation->defenceEvent->thesis->student->program->name }}</p>
+                        <p class="text-xs font-bold text-slate-900">{{ $evaluation->defenceEvent->thesis->student->program->name ?? 'N/A' }}</p>
                     </div>
                 </div>
             </x-card>
@@ -42,7 +42,7 @@
                 <div class="space-y-4 p-2">
                     @php
                         $scores = $evaluation->score;
-                        $total = array_sum($scores);
+                        $total = $scores['total'] ?? (array_sum($scores) > 0 ? array_sum($scores) / 2 : 0);
                     @endphp
                     
                     <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
@@ -69,7 +69,7 @@
             <x-card title="Final Verdict" color="indigo">
                 <div class="flex flex-col items-center justify-center p-6 bg-slate-50 rounded-2xl mb-4">
                     <p class="text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2">Total Score</p>
-                    <p class="text-5xl font-black text-slate-900 tracking-tighter">{{ $total }}<span class="text-2xl text-slate-400">/40</span></p>
+                    <p class="text-5xl font-black text-slate-900 tracking-tighter">{{ $total }}<span class="text-2xl text-slate-400">/100</span></p>
                 </div>
 
                 <div class="space-y-4">
@@ -95,8 +95,8 @@
                 
                 <div class="mt-6 pt-6 border-t border-slate-100">
                     <p class="text-[10px] uppercase font-black tracking-widest text-slate-500 mb-1">Evaluator Node</p>
-                    <p class="text-xs font-bold text-slate-900">{{ $evaluation->evaluator->name }}</p>
-                    <p class="text-[9px] text-slate-400 font-medium mt-1">Submitted: {{ $evaluation->submitted_at->format('M d, Y H:i') }}</p>
+                    <p class="text-xs font-bold text-slate-900">{{ $evaluation->evaluator->name ?? 'Unknown' }}</p>
+                    <p class="text-[9px] text-slate-400 font-medium mt-1">Submitted: {{ $evaluation->submitted_at?->format('M d, Y H:i') }}</p>
                 </div>
             </x-card>
         </div>
