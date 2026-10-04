@@ -15,14 +15,7 @@ class MilestoneController extends Controller
         $scopes = $user->coordinatorScopes();
         
         if ($scopes->isEmpty()) {
-            dd([
-                'user_id' => $user->id,
-                'roles' => $user->roles->pluck('name'),
-                'is_admin' => $user->hasAnyRole(['Admin', 'Director']),
-                'is_coordinator' => $user->hasRole('Program Coordinator'),
-                'programs_count' => \App\Models\Program::count(),
-                'coordinator_profiles' => $user->coordinatorProfiles()->get(),
-            ]);
+            return redirect()->route('dashboard')->with('error', 'No active coordinator program assigned. Please contact the administrator.');
         }
 
         $isAdminOrDirector = $user->hasAnyRole(['Admin', 'Director']);
