@@ -57,10 +57,7 @@ class StudentMilestonePolicy
         // Program Coordinator can view if assigned to the student's program
         if ($user->hasRole('Program Coordinator')) {
             $student = $milestone->thesis->student;
-            return $user->coordinatorProfiles()
-                ->where('active', true)
-                ->where('program_id', $student->program_id)
-                ->exists();
+            return $user->hasCoordinatorAccess($student);
         }
 
         return false;
@@ -119,7 +116,7 @@ class StudentMilestonePolicy
 
             if ($user->hasRole('Program Coordinator')) {
                 $student = $milestone->thesis->student;
-                if ($user->coordinatorProfiles()->where('active', true)->where('program_id', $student->program_id)->exists()) {
+                if ($user->hasCoordinatorAccess($student)) {
                     return true;
                 }
             }
@@ -146,7 +143,7 @@ class StudentMilestonePolicy
             // Role-specific scope checks
             if ($role === 'Program Coordinator') {
                 $student = $milestone->thesis->student;
-                if ($user->coordinatorProfiles()->where('active', true)->where('program_id', $student->program_id)->exists()) {
+                if ($user->hasCoordinatorAccess($student)) {
                     return true;
                 }
             } elseif ($role === 'Supervisor') {
