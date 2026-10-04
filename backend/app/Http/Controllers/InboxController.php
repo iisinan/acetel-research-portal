@@ -202,6 +202,7 @@ class InboxController extends Controller
             'bcc.*' => 'exists:users,id',
             'subject' => 'nullable|string|max:255',
             'body' => 'required|string|max:5000',
+            'delivery_method' => 'nullable|in:in_app,email,both',
             'attachments.*' => 'nullable|file|max:10240', // 10MB max per file
         ]);
 
@@ -211,10 +212,13 @@ class InboxController extends Controller
             ? $validated['subject'] 
             : ($request->input('default_subject') ?: 'Direct Message');
 
+        $deliveryMethod = $validated['delivery_method'] ?? 'both';
+
         $message = InboxMessage::create([
             'sender_id' => Auth::id(),
             'subject' => $subject,
             'body' => $validated['body'],
+            'delivery_method' => $deliveryMethod,
         ]);
 
         // Attach recipients (To, CC, BCC)

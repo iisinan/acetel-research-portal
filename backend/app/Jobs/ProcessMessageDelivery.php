@@ -37,15 +37,19 @@ class ProcessMessageDelivery implements ShouldQueue
         }
 
         // Chunk broadcasts to avoid memory issues
-        foreach ($this->recipientIds as $userId) {
-            \App\Events\MessageReceived::dispatch($this->message, $userId);
+        if (in_array($this->message->delivery_method, ['in_app', 'both', null])) {
+            foreach ($this->recipientIds as $userId) {
+                \App\Events\MessageReceived::dispatch($this->message, $userId);
+            }
         }
 
         // Chunk notifications
-        $userChunks = array_chunk($this->recipientIds, 500);
-        foreach ($userChunks as $chunk) {
-            $users = User::whereIn('id', $chunk)->get();
-            Notification::send($users, new \App\Notifications\NewInboxMessage($this->message));
+        if (in_array($this->message->delivery_method, ['email', 'both', null])) {
+            $userChunks = array_chunk($this->recipientIds, 500);
+            foreach ($userChunks as $chunk) {
+                $users = User::whereIn('id', $chunk)->get();
+                Notification::send($users, new \App\Notifications\NewInboxMessage($this->message));
+            }
         }
     }
 }

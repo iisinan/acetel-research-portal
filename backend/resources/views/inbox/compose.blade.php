@@ -203,6 +203,27 @@
                 </div>
             </div>
 
+            @if(auth()->user()->hasRole('Admin'))
+            <!-- Delivery Method -->
+            <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Delivery Method</label>
+                <div class="flex flex-wrap gap-4">
+                    <label class="flex items-center gap-2 cursor-pointer group">
+                        <input type="radio" name="delivery_method" value="both" checked class="w-4 h-4 text-primary-600 border-slate-300 focus:ring-primary-500">
+                        <span class="text-sm font-bold text-slate-700 group-hover:text-primary-600 transition-colors">Both (In-App & Email)</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer group">
+                        <input type="radio" name="delivery_method" value="in_app" class="w-4 h-4 text-primary-600 border-slate-300 focus:ring-primary-500">
+                        <span class="text-sm font-bold text-slate-700 group-hover:text-primary-600 transition-colors">In-App Only</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer group">
+                        <input type="radio" name="delivery_method" value="email" class="w-4 h-4 text-primary-600 border-slate-300 focus:ring-primary-500">
+                        <span class="text-sm font-bold text-slate-700 group-hover:text-primary-600 transition-colors">Email Only</span>
+                    </label>
+                </div>
+            </div>
+            @endif
+
             <!-- Subject -->
             <div>
                 <label for="subject" class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Subject</label>

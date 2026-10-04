@@ -13,6 +13,7 @@ class InboxMessage extends Model
         'sender_id',
         'subject',
         'body',
+        'delivery_method',
         'archived_by_sender',
     ];
 
@@ -43,7 +44,7 @@ class InboxMessage extends Model
         return $query->whereHas('recipients', function ($q) use ($userId) {
             $q->where('user_id', $userId)
               ->where('is_archived', false);
-        });
+        })->where('delivery_method', '!=', 'email');
     }
 
     public function scopeSentBy($query, $userId)
