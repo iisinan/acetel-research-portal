@@ -305,7 +305,7 @@
                                     $studentName = $user?->name ?? 'Candidate';
                                     $matricNo = $student?->student_id_number ?? 'N/A';
                                     $topic = $sm->thesis?->title ?? 'Topic Pending';
-                                    $tableEventType = $template->defence_type ?? 'seminar';
+                                    $tableEventType = $template->defence_type ?? 'first_seminar';
                                     $tableDefEvent = $sm->thesis?->defenceEvents?->where('type', $tableEventType)->first();
                                     $examiners = $tableDefEvent ? $tableDefEvent->panelMembers->map(fn($pm) => $pm->user?->name)->filter()->implode(', ') : '';
                                     $supervisors = $sm->thesis?->assignments?->map(fn($a) => $a->supervisor?->user?->name)->filter()->implode(', ');

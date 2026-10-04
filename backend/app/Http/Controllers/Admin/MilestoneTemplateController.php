@@ -280,7 +280,7 @@ class MilestoneTemplateController extends Controller
                 $event = \App\Models\DefenceEvent::updateOrCreate(
                     [
                         'thesis_project_id' => $thesis->id,
-                        'type' => $template->defence_type ?? 'seminar',
+                        'type' => $template->defence_type ?? 'first_seminar',
                     ],
                     $eventData
                 );
@@ -326,7 +326,7 @@ class MilestoneTemplateController extends Controller
             'apply_link_all' => 'nullable|url|max:500',
         ]);
 
-        $type = $template->defence_type ?? 'seminar';
+        $type = $template->defence_type ?? 'first_seminar';
         $updated = 0;
         $removed = 0;
 
@@ -453,7 +453,7 @@ class MilestoneTemplateController extends Controller
                 }
             }
 
-            $type = $template->defence_type ?? 'seminar';
+            $type = $template->defence_type ?? 'first_seminar';
             \App\Models\DefenceEvent::whereIn('thesis_project_id', $thesisIds)
                 ->where('type', $type)
                 ->delete();
@@ -480,7 +480,7 @@ class MilestoneTemplateController extends Controller
         $event = \App\Models\DefenceEvent::firstOrCreate(
             [
                 'thesis_project_id' => $milestone->thesis_project_id,
-                'type' => $template->defence_type ?? 'seminar',
+                'type' => $template->defence_type ?? 'first_seminar',
             ],
             [
                 'schedule_start' => $milestone->defence_date ? \Carbon\Carbon::parse($milestone->defence_date)->setHour(9) : now()->addDays(7),
@@ -523,7 +523,7 @@ class MilestoneTemplateController extends Controller
             $event = \App\Models\DefenceEvent::firstOrCreate(
                 [
                     'thesis_project_id' => $milestone->thesis_project_id,
-                    'type' => $template->defence_type ?? 'seminar',
+                    'type' => $template->defence_type ?? 'first_seminar',
                 ],
                 [
                     'schedule_start' => $milestone->defence_date ? \Carbon\Carbon::parse($milestone->defence_date)->setHour(9) : now()->addDays(7),
@@ -599,7 +599,7 @@ class MilestoneTemplateController extends Controller
             foreach ($milestones as $milestone) {
                 $avgScore = 'N/A';
                 if ($template->slug === 'seminar_as_a_course') {
-                    $event = current($milestone->thesis->defenceEvents->where('type', $template->defence_type ?? 'seminar')->all());
+                    $event = current($milestone->thesis->defenceEvents->where('type', $template->defence_type ?? 'first_seminar')->all());
                     if ($event && $event->evaluations->count() > 0) {
                         $total = 0;
                         $count = 0;
