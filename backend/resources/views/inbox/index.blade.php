@@ -5,6 +5,23 @@
 @endsection
 
 @section('content')
+<style>
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background-color: #cbd5e1;
+        border-radius: 20px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background-color: #94a3b8;
+    }
+</style>
+
 <div x-data="{ 
     newModalOpen: false,
     searchQuery: '',
@@ -54,7 +71,7 @@
     </div>
 
     {{-- Main Chat Workspace (2-Column Layout) --}}
-    <div class="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden flex h-[calc(100vh-14rem)] min-h-[620px] max-h-[820px]">
+    <div class="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden flex h-[calc(100vh-13rem)] min-h-[500px] max-h-[850px]">
         
         {{-- Left Panel: Conversations List --}}
         <div class="w-full md:w-80 lg:w-96 shrink-0 border-r border-slate-100 flex flex-col bg-slate-50/40"
@@ -116,7 +133,7 @@
                                 @elseif(str_contains(strtolower($roleName), 'supervisor')) bg-emerald-100 text-emerald-700 border border-emerald-200/60
                                 @elseif(str_contains(strtolower($roleName), 'coordinator')) bg-purple-100 text-purple-700 border border-purple-200/60
                                 @else bg-slate-800 text-white border border-slate-700 @endif">
-                                {{ strtoupper(substr($partner->name, 0, 1)) }}
+                                {{ strtoupper(collect(explode(' ', $partner->name))->map(fn($n) => substr($n, 0, 1))->take(2)->implode('')) }}
                             </div>
                             @if($conv->unread_count > 0)
                                 <span class="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></span>
@@ -215,7 +232,7 @@
                             @elseif(str_contains(strtolower($partnerRole), 'supervisor')) bg-emerald-100 text-emerald-700 border border-emerald-200/60
                             @elseif(str_contains(strtolower($partnerRole), 'coordinator')) bg-purple-100 text-purple-700 border border-purple-200/60
                             @else bg-slate-800 text-white border border-slate-700 @endif">
-                            {{ strtoupper(substr($selectedPartner->name, 0, 1)) }}
+                            {{ strtoupper(collect(explode(' ', $selectedPartner->name))->map(fn($n) => substr($n, 0, 1))->take(2)->implode('')) }}
                         </div>
 
                         <div>
@@ -278,8 +295,8 @@
 
                             {{-- Date Separator Pill --}}
                             @if($previousDate !== $msgDate)
-                                <div class="flex items-center justify-center my-4">
-                                    <span class="px-3 py-1 rounded-full bg-slate-200/70 text-slate-600 text-[10px] font-black uppercase tracking-wider shadow-2xs">
+                                <div class="flex items-center justify-center my-4 sticky top-2 z-10">
+                                    <span class="px-3 py-1 rounded-full bg-slate-200/90 text-slate-700 text-[10px] font-black uppercase tracking-wider shadow-sm backdrop-blur-sm border border-slate-300/50">
                                         {{ $msg->created_at->isToday() ? 'Today' : ($msg->created_at->isYesterday() ? 'Yesterday' : $msg->created_at->format('M d, Y')) }}
                                     </span>
                                 </div>
@@ -289,8 +306,8 @@
                             {{-- Message Bubble --}}
                             <div class="flex items-start gap-3 {{ $isFromMe ? 'justify-end' : 'justify-start' }}">
                                 @if(!$isFromMe)
-                                    <div class="w-8 h-8 rounded-xl bg-slate-200 flex items-center justify-center text-xs font-black text-slate-700 shrink-0 mt-1">
-                                        {{ strtoupper(substr($msg->sender->name, 0, 1)) }}
+                                    <div class="w-8 h-8 rounded-xl bg-slate-200 flex items-center justify-center text-[10px] font-black text-slate-700 shrink-0 mt-1 shadow-xs border border-slate-300/50">
+                                        {{ strtoupper(collect(explode(' ', $msg->sender->name))->map(fn($n) => substr($n, 0, 1))->take(2)->implode('')) }}
                                     </div>
                                 @endif
 
@@ -391,8 +408,11 @@
                             <textarea name="body" 
                                       required
                                       rows="1"
+                                      x-data="{ resize() { $el.style.height = 'auto'; $el.style.height = Math.min($el.scrollHeight, 120) + 'px' } }"
+                                      x-init="resize()"
+                                      @input="resize()"
                                       placeholder="Write a message to {{ $selectedPartner->name }}... (Press Enter to send)"
-                                      class="flex-1 bg-transparent border-none text-xs sm:text-sm font-medium text-slate-900 placeholder-slate-400 focus:ring-0 outline-none resize-none py-2"
+                                      class="flex-1 bg-transparent border-none text-xs sm:text-sm font-medium text-slate-900 placeholder-slate-400 focus:ring-0 outline-none resize-none py-2 overflow-y-auto custom-scrollbar"
                                       @keydown.enter.prevent="if(!$event.shiftKey && $el.value.trim() !== '') { $refs.chatForm.submit(); }"></textarea>
 
                             {{-- Send Button --}}
@@ -498,7 +518,19 @@
                     <label class="block text-[10px] font-black uppercase tracking-wider text-slate-500">Attachment (Optional, max 10MB)</label>
                     <input type="file" 
                            name="attachments[]" 
+                           x-ref="modalAttachmentInput"
+                           @change="attachedFileName = $event.target.files[0] ? $event.target.files[0].name : ''"
                            class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer" />
+                    
+                    <div x-show="attachedFileName" x-cloak class="flex items-center gap-2 mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800">
+                        <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                        </svg>
+                        <span class="font-bold truncate" x-text="attachedFileName"></span>
+                        <button type="button" @click="$refs.modalAttachmentInput.value = ''; attachedFileName = ''" class="ml-auto text-emerald-500 hover:text-emerald-700">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
                 </div>
 
                 {{-- Modal Actions --}}
