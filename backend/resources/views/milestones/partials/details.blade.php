@@ -547,7 +547,11 @@
                         <h3 class="text-lg font-bold text-slate-900 tracking-tight mb-2">No Document Upload Required</h3>
                         <p class="text-sm font-medium text-slate-500 max-w-sm">This specific phase does not require any file submissions to proceed.</p>
                         
-
+                        @if(str_contains(strtolower($milestone->template->name), 'assigned supervisor'))
+                            <div class="mt-6 px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-xl text-sm font-semibold text-emerald-700">
+                                Please view the Scholarly Oversight panel to verify assigned administrative leaders.
+                            </div>
+                        @endif
                     </div>
                 @endif
             @elseif($milestone->status === 'submitted')
@@ -783,7 +787,89 @@
                 </div>
             </div>
 
-<!-- Contacts Section Removed per request -->
+            <!-- Contacts Section -->
+            <div class="bg-white rounded-[2.5rem] border-t-4 border-emerald-500 shadow-xl shadow-slate-200/40 p-6">
+                <h3 class="text-sm font-bold text-slate-900 tracking-tight mb-5 uppercase">Scholarly Oversight</h3>
+                
+                @if($milestone->thesis->internalExaminer)
+                    <div class="mb-6">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Assigned Internal Examiner</p>
+                        <div class="p-4 bg-slate-50 rounded-2xl border border-brand-100 group hover:border-brand-200 hover:bg-white transition-colors cursor-pointer"
+                            @click.prevent.stop="setTimeout(() => { showStudentMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($milestone->thesis->internalExaminer->user->name) }}; }, 50)">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-white border border-brand-100 flex items-center justify-center text-brand-600 text-sm font-bold shadow-xl shadow-slate-200/40">
+                                    {{ substr($milestone->thesis->internalExaminer->user->name, 0, 1) }}
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-bold text-slate-900 leading-tight">{{ $milestone->thesis->internalExaminer->user->name }}</p>
+                                    <p class="text-[11px] font-medium text-slate-500 mt-0.5">{{ $milestone->thesis->internalExaminer->department ?? 'Institutional Department' }}</p>
+                                </div>
+                                <div class="p-2 bg-white border border-slate-100 rounded-lg text-slate-400 group-hover:text-brand-600 transition-colors shadow-xl shadow-slate-200/40">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+                <div class="space-y-4">
+                    @php
+                        $canShowSupervisors = $milestone->template->show_supervisor_details;
+                        if ($milestone->template->order == 2 && $milestone->status !== 'approved') {
+                            $canShowSupervisors = false;
+                        }
+                    @endphp
+                    @if($canShowSupervisors && isset($supervisors) && $supervisors->count() > 0)
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Assigned Committee</p>
+                        @foreach($supervisors as $supervisor)
+                            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-slate-200 hover:bg-white transition-colors cursor-pointer"
+                                @if($milestone->template->has_chat) @click.prevent.stop="setTimeout(() => { showStudentMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($supervisor->user->name) }}; }, 50)" @endif>
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-emerald-600 text-sm font-bold shadow-xl shadow-slate-200/40">
+                                        {{ substr($supervisor->user->name, 0, 1) }}
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="text-sm font-bold text-slate-900 leading-tight">{{ $supervisor->user->name }}</p>
+                                        <p class="text-xs font-medium text-slate-500 mt-0.5">{{ $supervisor->specialization ?? 'Supervisor' }}</p>
+                                    </div>
+                                    <div class="p-2 bg-white border border-slate-100 rounded-lg text-slate-400 group-hover:text-emerald-600 transition-colors shadow-xl shadow-slate-200/40">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    @elseif(isset($coordinators) && $coordinators->count() > 0)
+                        <div class="p-4 bg-amber-50 border border-amber-200 rounded-xl mb-4 flex gap-3">
+                            <svg class="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                            <p class="text-xs font-semibold text-amber-800">Supervisors are not assigned yet. Contact your coordinator.</p>
+                        </div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Program Coordinator</p>
+                        @foreach($coordinators as $coordinator)
+                            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-slate-200 hover:bg-white transition-colors cursor-pointer"
+                                @if($milestone->template->has_chat) @click.prevent.stop="setTimeout(() => { showStudentMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($coordinator->user->name) }}; }, 50)" @endif>
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-emerald-600 text-sm font-bold shadow-xl shadow-slate-200/40">
+                                        {{ substr($coordinator->user->name, 0, 1) }}
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="text-sm font-bold text-slate-900 leading-tight">{{ $coordinator->user->name }}</p>
+                                        <p class="text-xs font-medium text-slate-500 mt-0.5">Coordinator</p>
+                                    </div>
+                                    <div class="p-2 bg-white border border-slate-100 rounded-lg text-slate-400 group-hover:text-emerald-600 transition-colors shadow-xl shadow-slate-200/40">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    @else
+                        <div class="p-6 bg-slate-50 rounded-2xl border border-slate-100 text-center">
+                            <div class="w-8 h-8 rounded-full bg-slate-200 text-slate-400 flex items-center justify-center mx-auto mb-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                            </div>
+                            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Unassigned</p>
+                        </div>
+                    @endif
+                </div>
+            </div>
         </div>
     </div>
     @endif

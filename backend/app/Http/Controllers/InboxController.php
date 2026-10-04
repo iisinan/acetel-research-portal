@@ -10,32 +10,156 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 
 class InboxController extends Controller
 {
     /**
-     * Display the inbox (received messages).
+     * Display the inbox as a modern chat interface with previous message threads.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $messages = InboxMessage::whereHas('recipients', function($q) {
-            $q->where('user_id', '=', Auth::id())
-              ->where('is_archived', '=', false);
-        })
-        ->with(['sender', 'recipients' => function($q) {
-            $q->where('user_id', '=', Auth::id());
-        }])
-        ->latest()
-        ->paginate(20);
+        $userId = Auth::id();
 
-        // Calculate unread count from pivot table
-        $unreadCount = \Illuminate\Support\Facades\DB::table('inbox_message_recipients')
-            ->where('user_id', '=', Auth::id())
+        // 1. Gather all interactions (received and sent) to group conversations by partner
+        $receivedInteractions = DB::table('inbox_messages')
+            ->join('inbox_message_recipients', 'inbox_messages.id', '=', 'inbox_message_recipients.inbox_message_id')
+            ->where('inbox_message_recipients.user_id', $userId)
+            ->where('inbox_message_recipients.is_archived', false)
+            ->select('inbox_messages.sender_id as partner_id', 'inbox_messages.created_at', 'inbox_message_recipients.read_at')
+            ->get();
+
+        $sentInteractions = DB::table('inbox_messages')
+            ->join('inbox_message_recipients', 'inbox_messages.id', '=', 'inbox_message_recipients.inbox_message_id')
+            ->where('inbox_messages.sender_id', $userId)
+            ->where('inbox_messages.archived_by_sender', false)
+            ->select('inbox_message_recipients.user_id as partner_id', 'inbox_messages.created_at')
+            ->get()
+            ->map(function ($item) {
+                $item->read_at = now();
+                return $item;
+            });
+
+        $interactions = $receivedInteractions->concat($sentInteractions);
+
+        // Group by partner and calculate stats
+        $partnerStats = $interactions
+            ->filter(fn($item) => !empty($item->partner_id) && $item->partner_id !== $userId)
+            ->groupBy('partner_id')
+            ->map(function ($items, $partnerId) {
+                return [
+                    'partner_id' => $partnerId,
+                    'last_message_at' => $items->max('created_at'),
+                    'unread_count' => $items->whereNull('read_at')->count(),
+                ];
+            })
+            ->sortByDesc('last_message_at');
+
+        $partnerIds = $partnerStats->pluck('partner_id')->values();
+
+        // Load partner users with roles and profiles
+        $partnerUsers = User::whereIn('id', $partnerIds)
+            ->with(['roles', 'studentProfile.program', 'supervisorProfile'])
+            ->get()
+            ->keyBy('id');
+
+        // Fetch latest messages for each conversation partner in bulk
+        $latestMessages = InboxMessage::where(function ($q) use ($userId, $partnerIds) {
+            $q->whereIn('sender_id', $partnerIds)
+              ->whereHas('recipients', fn($r) => $r->where('user_id', $userId)->where('is_archived', false));
+        })->orWhere(function ($q) use ($userId, $partnerIds) {
+            $q->where('sender_id', $userId)
+              ->where('archived_by_sender', false)
+              ->whereHas('recipients', fn($r) => $r->whereIn('user_id', $partnerIds));
+        })
+        ->latest()
+        ->get();
+
+        // Build sorted collection of conversations
+        $conversations = collect();
+        foreach ($partnerStats as $stats) {
+            $pId = $stats['partner_id'];
+            $user = $partnerUsers->get($pId);
+            if (!$user) continue;
+
+            $lastMsg = $latestMessages->first(function ($msg) use ($userId, $pId) {
+                return ($msg->sender_id === $pId && $msg->recipients->pluck('id')->contains($userId)) ||
+                       ($msg->sender_id === $userId && $msg->recipients->pluck('id')->contains($pId));
+            });
+
+            if (!$lastMsg) continue;
+
+            $conversations->push((object)[
+                'partner' => $user,
+                'last_message' => $lastMsg,
+                'last_message_at' => \Carbon\Carbon::parse($lastMsg->created_at),
+                'unread_count' => $stats['unread_count'] ?? 0,
+            ]);
+        }
+
+        // Determine currently active conversation partner
+        $selectedUserId = $request->query('user_id');
+        if (!$selectedUserId && $conversations->isNotEmpty()) {
+            $selectedUserId = $conversations->first()->partner->id;
+        }
+
+        $selectedPartner = null;
+        $chatMessages = collect();
+
+        if ($selectedUserId) {
+            $selectedPartner = User::where('id', $selectedUserId)
+                ->with(['roles', 'studentProfile.program', 'supervisorProfile'])
+                ->first();
+
+            if ($selectedPartner) {
+                // Fetch full chronological message thread (all previous messages)
+                $chatMessages = InboxMessage::where(function ($q) use ($userId, $selectedUserId) {
+                    $q->where('sender_id', $selectedUserId)
+                      ->whereHas('recipients', fn($r) => $r->where('user_id', $userId)->where('is_archived', false));
+                })->orWhere(function ($q) use ($userId, $selectedUserId) {
+                    $q->where('sender_id', $userId)
+                      ->where('archived_by_sender', false)
+                      ->whereHas('recipients', fn($r) => $r->where('user_id', $selectedUserId));
+                })
+                ->with(['sender', 'attachments'])
+                ->orderBy('created_at', 'asc')
+                ->get();
+
+                // Mark unread messages from this partner as read
+                $unreadMessageIds = $chatMessages->where('sender_id', $selectedUserId)->pluck('id');
+                if ($unreadMessageIds->isNotEmpty()) {
+                    DB::table('inbox_message_recipients')
+                        ->where('user_id', $userId)
+                        ->whereNull('read_at')
+                        ->whereIn('inbox_message_id', $unreadMessageIds)
+                        ->update(['read_at' => now()]);
+                }
+
+                // Clear unread count for this partner in conversations collection
+                $activeConv = $conversations->firstWhere('partner.id', $selectedUserId);
+                if ($activeConv) {
+                    $activeConv->unread_count = 0;
+                }
+            }
+        }
+
+        // Global unread count
+        $unreadCount = DB::table('inbox_message_recipients')
+            ->where('user_id', '=', $userId)
             ->whereNull('read_at')
             ->where('is_archived', '=', false)
             ->count();
 
-        return view('inbox.index', compact('messages', 'unreadCount'));
+        // Available contacts for starting new chats / modal
+        $availableRecipients = $this->getAvailableRecipients();
+
+        return view('inbox.index', compact(
+            'conversations',
+            'selectedPartner',
+            'chatMessages',
+            'unreadCount',
+            'availableRecipients'
+        ));
     }
 
     /**
@@ -76,16 +200,20 @@ class InboxController extends Controller
             'cc.*' => 'exists:users,id',
             'bcc' => 'nullable|array',
             'bcc.*' => 'exists:users,id',
-            'subject' => 'required|string|max:255',
+            'subject' => 'nullable|string|max:255',
             'body' => 'required|string|max:5000',
             'attachments.*' => 'nullable|file|max:10240', // 10MB max per file
         ]);
 
         $allowedIds = $this->getAvailableRecipients(true)->pluck('id')->toArray();
         
+        $subject = !empty($validated['subject']) 
+            ? $validated['subject'] 
+            : ($request->input('default_subject') ?: 'Direct Message');
+
         $message = InboxMessage::create([
             'sender_id' => Auth::id(),
-            'subject' => $validated['subject'],
+            'subject' => $subject,
             'body' => $validated['body'],
         ]);
 
@@ -95,7 +223,7 @@ class InboxController extends Controller
         // Handle Attachments
         if ($request->hasFile('attachments')) {
             foreach ($request->file('attachments') as $file) {
-                $path = $file->store('inbox_attachments');
+                $path = $file->store('inbox_attachments', 'public');
                 $message->attachments()->create([
                     'file_path' => $path,
                     'file_name' => $file->getClientOriginalName(),
@@ -105,7 +233,18 @@ class InboxController extends Controller
             }
         }
 
-        return redirect()->route('inbox.sent')->with('success', 'Message sent successfully.');
+        $recipientId = $validated['to'][0] ?? null;
+
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => $message]);
+        }
+
+        if ($recipientId) {
+            return redirect()->route('inbox.index', ['user_id' => $recipientId])
+                ->with('success', 'Message sent.');
+        }
+
+        return redirect()->route('inbox.index')->with('success', 'Message sent successfully.');
     }
 
     private function expandGroupRecipients(Request $request)
@@ -193,6 +332,15 @@ class InboxController extends Controller
             $inboxMessage->recipients()->updateExistingPivot($userId, [
                 'read_at' => now()
             ]);
+        }
+
+        // Determine partner to open chat with
+        $partnerId = $isSender 
+            ? $inboxMessage->recipients->first()?->id 
+            : $inboxMessage->sender_id;
+
+        if ($partnerId) {
+            return redirect()->route('inbox.index', ['user_id' => $partnerId]);
         }
 
         $message = $inboxMessage->load(['sender', 'recipients', 'attachments']);
