@@ -301,7 +301,7 @@
                                         $firstEvent = $template->studentMilestones->first() 
                                             ? current($template->studentMilestones->first()->thesis->defenceEvents->where('type', $template->defence_type ?? 'seminar')->all()) 
                                             : null;
-                                        $currentExaminers = $firstEvent ? $firstEvent->panelMembers->where('role', 'Examiner') : collect();
+                                        $currentExaminers = $firstEvent ? $firstEvent->panelMembers->where('role', 'examiner') : collect();
                                     @endphp
                                     <div class="mb-6 bg-indigo-50/50 border border-indigo-100 rounded-xl p-4">
                                         <div class="flex flex-col sm:flex-row sm:items-center gap-4">

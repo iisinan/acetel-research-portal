@@ -488,12 +488,12 @@ class MilestoneTemplateController extends Controller
             ]
         );
 
-        \App\Models\PanelMember::where('defence_event_id', $event->id)->where('role', 'Examiner')->delete();
+        \App\Models\PanelMember::where('defence_event_id', $event->id)->where('role', 'examiner')->delete();
 
         \App\Models\PanelMember::create([
             'defence_event_id' => $event->id,
             'user_id' => $supervisor->user_id,
-            'role' => 'Examiner',
+            'role' => 'examiner',
             'invitation_status' => 'accepted'
         ]);
         
@@ -531,13 +531,13 @@ class MilestoneTemplateController extends Controller
                 ]
             );
 
-            \App\Models\PanelMember::where('defence_event_id', $event->id)->where('role', 'Examiner')->delete();
+            \App\Models\PanelMember::where('defence_event_id', $event->id)->where('role', 'examiner')->delete();
 
             foreach ($supervisors as $supervisor) {
                 \App\Models\PanelMember::create([
                     'defence_event_id' => $event->id,
                     'user_id' => $supervisor->user_id,
-                    'role' => 'Examiner',
+                    'role' => 'examiner',
                     'invitation_status' => 'accepted'
                 ]);
             }

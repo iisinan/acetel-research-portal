@@ -68,7 +68,7 @@
                             @foreach($milestones as $milestone)
                                 @php
                                     $event = $milestone->thesis->defenceEvents->first();
-                                    $examiners = $event ? $event->panelMembers->where('role', 'Examiner') : collect();
+                                    $examiners = $event ? $event->panelMembers->where('role', 'examiner') : collect();
                                     $examinerIds = $examiners->pluck('user_id')->toArray();
                                 @endphp
                                 <tr>
