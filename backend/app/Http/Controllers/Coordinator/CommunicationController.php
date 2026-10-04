@@ -13,10 +13,17 @@ class CommunicationController extends Controller
 {
     public function index()
     {
-        $coordinatorProfile = Auth::user()->coordinatorProfiles()->where('active', true)->first();
+        $user = Auth::user();
+        if ($user->hasRole('Program Coordinator')) {
+            $user->ensureCoordinatorProfiles();
+        }
+        $coordinatorProfile = $user->coordinatorProfiles()->where('active', true)->first();
+        $isAdminOrDirector = $user->hasAnyRole(['Admin', 'Director']);
 
-        $channels = CommunicationChannel::whereHas('thesisProject.student', function($q) use ($coordinatorProfile) {
-            $q->where('program_id', $coordinatorProfile->program_id);
+        $channels = CommunicationChannel::when(!$isAdminOrDirector && $coordinatorProfile, function($query) use ($coordinatorProfile) {
+            $query->whereHas('thesisProject.student', function($q) use ($coordinatorProfile) {
+                $q->where('program_id', $coordinatorProfile->program_id);
+            });
         })->with(['thesisProject.student.user', 'messages' => function($q) {
             $q->latest()->limit(1);
         }])->get()->map(function($channel) {
