@@ -24,8 +24,8 @@ class CohortController extends Controller
         $levelIds = $activeProfiles->pluck('level_id')->unique()->toArray();
 
         // Fetch all cohorts so coordinators can register new students into them
-        $cohorts = Cohort::withCount(['students' => function ($q) use ($programIds, $levelIds) {
-            $q->whereIn('program_id', $programIds)->whereIn('level_id', $levelIds);
+        $cohorts = Cohort::withCount(['students' => function ($q) use ($user) {
+            $q->forCoordinator($user);
         }])->orderBy('intake_year', 'desc')->get();
 
         $milestoneTemplates = MilestoneTemplate::where(function($q) use ($programIds) {
@@ -46,8 +46,7 @@ class CohortController extends Controller
 
             // Get all student milestones for this cohort
             $studentIds = StudentProfile::where('cohort_id', $cohort->id)
-                ->whereIn('program_id', $programIds)
-                ->whereIn('level_id', $levelIds)
+                ->forCoordinator($user)
                 ->pluck('id');
 
             $milestones = \App\Models\StudentMilestone::whereIn('thesis_project_id', function($query) use ($studentIds) {

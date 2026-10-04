@@ -94,7 +94,7 @@
                                     </div>
                                 @endfor
                             </div>
-                            <span class="text-[10px] font-black text-slate-900 tracking-tighter">{{ $cohorts->count() }} <span class="text-slate-400">Students</span></span>
+                            <span class="text-[10px] font-black text-slate-900 tracking-tighter">{{ $cohort->students_count }} <span class="text-slate-400">Students</span></span>
                         </div>
                         <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest @if($cohort->status == 'active') bg-emerald-50 text-emerald-600 border border-emerald-100/50 @else bg-slate-50 text-slate-400 border border-slate-100 @endif shadow-sm">
                             <div class="w-1 h-1 rounded-full @if($cohort->status == 'active') bg-emerald-500 animate-pulse @else bg-slate-300 @endif"></div>
