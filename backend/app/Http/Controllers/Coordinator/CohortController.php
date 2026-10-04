@@ -17,7 +17,7 @@ class CohortController extends Controller
         $activeProfiles = $user->coordinatorProfiles()->where('active', true)->get();
 
         if ($activeProfiles->isEmpty()) {
-            return redirect()->route('home')->with('error', 'No active coordinator profile found.');
+            return redirect()->route('dashboard')->with('error', 'No active coordinator profile found.');
         }
 
         $programIds = $activeProfiles->pluck('program_id')->unique()->toArray();
@@ -36,7 +36,7 @@ class CohortController extends Controller
 
         // Calculate progress for each cohort
         foreach ($cohorts as $cohort) {
-            $studentsCount = $cohort->students_count;
+            $studentsCount = (int) $cohort->students_count;
             if ($studentsCount === 0) {
                 $cohort->average_milestone = 0;
                 $cohort->average_progress = 0;
@@ -51,7 +51,7 @@ class CohortController extends Controller
 
             $milestones = \App\Models\StudentMilestone::whereIn('thesis_project_id', function($query) use ($studentIds) {
                 $query->select('id')->from('thesis_projects')->whereIn('student_profile_id', $studentIds);
-            })->with('template')->get();
+            })->with(['template', 'thesis'])->get();
 
             $distribution = [];
             foreach ($milestoneTemplates as $tm) {
@@ -71,7 +71,7 @@ class CohortController extends Controller
                     ->where('status', 'approved')
                     ->sortByDesc('template.order')
                     ->first();
-                $totalProgress += $highestApproved ? $highestApproved->template->order : 0;
+                $totalProgress += $highestApproved ? ($highestApproved->template?->order ?? 0) : 0;
             }
             $maxOrder = $milestoneTemplates->max('order') ?: 10;
             $cohort->average_progress = round(($totalProgress / ($studentsCount * $maxOrder)) * 100);
@@ -86,7 +86,7 @@ class CohortController extends Controller
         $activeProfiles = $user->coordinatorProfiles()->where('active', true)->get();
 
         if ($activeProfiles->isEmpty()) {
-            return redirect()->route('home')->with('error', 'No active coordinator profile found.');
+            return redirect()->route('dashboard')->with('error', 'No active coordinator profile found.');
         }
 
         $programIds = $activeProfiles->pluck('program_id')->unique()->toArray();

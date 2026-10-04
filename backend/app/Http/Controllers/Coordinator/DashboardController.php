@@ -21,7 +21,7 @@ class DashboardController extends Controller
         $scopes = $user->coordinatorScopes();
 
         if ($scopes->isEmpty()) {
-            return redirect()->route('home')->with('error', 'No active coordinator profile found.');
+            return redirect()->route('dashboard')->with('error', 'No active coordinator profile found.');
         }
 
         $allProgramIds = $scopes->pluck('program_id')->unique()->toArray();
