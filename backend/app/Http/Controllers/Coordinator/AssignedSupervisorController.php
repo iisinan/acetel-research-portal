@@ -25,23 +25,14 @@ class AssignedSupervisorController extends Controller
         $user = Auth::user();
         /** @var \App\Models\User $user */
 
-        // Locate Milestone 2 template
-        $template = MilestoneTemplate::where('slug', 'supervisors_assigned')->first()
-            ?? MilestoneTemplate::where('order', 2)->first();
-
         $query = StudentProfile::forCoordinator($user)
-            ->whereHas('thesis', function ($tQuery) use ($template) {
-                $tQuery->whereHas('milestones', function ($mQuery) use ($template) {
-                    if ($template) {
-                        $mQuery->where('milestone_template_id', $template->id);
-                    } else {
-                        $mQuery->whereHas('template', fn($t) => $t->where('slug', 'supervisors_assigned')->orWhere('order', 2));
-                    }
-                    $mQuery->whereNotIn('status', ['completed', 'approved']);
-                })->whereDoesntHave('milestones', function ($mQuery) use ($template) {
-                    $order = $template ? $template->order : 2;
+            ->whereHas('thesis', function ($tQuery) {
+                $tQuery->whereHas('milestones', function ($mQuery) {
+                    $mQuery->whereHas('template', fn($t) => $t->where('slug', 'supervisors_assigned')->orWhere('order', 2))
+                           ->whereNotIn('status', ['completed', 'approved']);
+                })->whereDoesntHave('milestones', function ($mQuery) {
                     $mQuery->whereNotIn('status', ['completed', 'approved'])
-                           ->whereHas('template', fn($t) => $t->where('order', '<', $order));
+                           ->whereHas('template', fn($t) => $t->where('order', '<', 2));
                 });
             })
             ->with([
@@ -50,11 +41,9 @@ class AssignedSupervisorController extends Controller
                 'level',
                 'cohort',
                 'thesis.assignments.supervisor.user',
-                'thesis.milestones' => function ($q) use ($template) {
-                    if ($template) {
-                        $q->where('milestone_template_id', $template->id);
-                    }
-                    $q->with(['submissions', 'template']);
+                'thesis.milestones' => function ($q) {
+                    $q->whereHas('template', fn($t) => $t->where('slug', 'supervisors_assigned')->orWhere('order', 2))
+                      ->with(['submissions', 'template']);
                 }
             ]);
 
@@ -92,14 +81,14 @@ class AssignedSupervisorController extends Controller
         if ($request->filled('proposal_status')) {
             $status = $request->proposal_status;
             if ($status === 'uploaded') {
-                $query->whereHas('thesis.milestones', function ($m) use ($template) {
-                    if ($template) $m->where('milestone_template_id', $template->id);
-                    $m->whereHas('submissions');
+                $query->whereHas('thesis.milestones', function ($m) {
+                    $m->whereHas('template', fn($t) => $t->where('slug', 'supervisors_assigned')->orWhere('order', 2))
+                      ->whereHas('submissions');
                 });
             } elseif ($status === 'awaiting') {
-                $query->whereHas('thesis.milestones', function ($m) use ($template) {
-                    if ($template) $m->where('milestone_template_id', $template->id);
-                    $m->whereDoesntHave('submissions');
+                $query->whereHas('thesis.milestones', function ($m) {
+                    $m->whereHas('template', fn($t) => $t->where('slug', 'supervisors_assigned')->orWhere('order', 2))
+                      ->whereDoesntHave('submissions');
                 });
             }
         }
@@ -116,26 +105,21 @@ class AssignedSupervisorController extends Controller
 
         // Statistics
         $statsBase = StudentProfile::forCoordinator($user)
-            ->whereHas('thesis', function ($tQuery) use ($template) {
-                $tQuery->whereHas('milestones', function ($mQuery) use ($template) {
-                    if ($template) {
-                        $mQuery->where('milestone_template_id', $template->id);
-                    } else {
-                        $mQuery->whereHas('template', fn($t) => $t->where('slug', 'supervisors_assigned')->orWhere('order', 2));
-                    }
-                    $mQuery->whereNotIn('status', ['completed', 'approved']);
-                })->whereDoesntHave('milestones', function ($mQuery) use ($template) {
-                    $order = $template ? $template->order : 2;
+            ->whereHas('thesis', function ($tQuery) {
+                $tQuery->whereHas('milestones', function ($mQuery) {
+                    $mQuery->whereHas('template', fn($t) => $t->where('slug', 'supervisors_assigned')->orWhere('order', 2))
+                           ->whereNotIn('status', ['completed', 'approved']);
+                })->whereDoesntHave('milestones', function ($mQuery) {
                     $mQuery->whereNotIn('status', ['completed', 'approved'])
-                           ->whereHas('template', fn($t) => $t->where('order', '<', $order));
+                           ->whereHas('template', fn($t) => $t->where('order', '<', 2));
                 });
             });
 
         $totalCount = (clone $statsBase)->count();
 
-        $uploadedCount = (clone $statsBase)->whereHas('thesis.milestones', function ($m) use ($template) {
-            if ($template) $m->where('milestone_template_id', $template->id);
-            $m->whereHas('submissions');
+        $uploadedCount = (clone $statsBase)->whereHas('thesis.milestones', function ($m) {
+            $m->whereHas('template', fn($t) => $t->where('slug', 'supervisors_assigned')->orWhere('order', 2))
+              ->whereHas('submissions');
         })->count();
 
         $awaitingCount = max(0, $totalCount - $uploadedCount);
@@ -152,7 +136,7 @@ class AssignedSupervisorController extends Controller
         $cohorts = Cohort::orderBy('intake_year', 'desc')->orderBy('name', 'asc')->get();
 
         // Supervisors available
-        $supervisors = SupervisorProfile::with(['user', 'programs.department'])
+        $supervisors = SupervisorProfile::with(['user', 'programs'])
             ->withCount(['assignments' => fn($q) => $q->where('status', 'active')])
             ->get();
 
@@ -162,7 +146,7 @@ class AssignedSupervisorController extends Controller
             $isProf = (stripos($rank, 'prof') !== false) || (stripos($name, 'prof') !== false);
             $currentLoad = (int) ($s->assignments_count ?? $s->current_load ?? 0);
             $maxStudents = (int) ($s->max_students ?? 5);
-            $deptName = $s->programs->first()?->department?->name ?? ($s->specialization ?: 'Academic Staff');
+            $deptName = $s->programs->first()?->name ?? ($s->specialization ?: 'Academic Staff');
 
             return [
                 'id' => $s->id,

@@ -7,17 +7,27 @@
     // Prepare students array for Alpine.js modal interaction
     $studentsJson = $students->map(function($student) {
         $thesis = $student->thesis;
-        $ms = $thesis?->milestones->first();
-        $latestSub = $ms?->submissions->sortByDesc('created_at')->first();
+        $ms = $thesis && $thesis->milestones
+            ? ($thesis->milestones->firstWhere(fn($m) => ($m->template?->slug === 'supervisors_assigned' || $m->template?->order == 2))
+               ?? $thesis->milestones->first())
+            : null;
+
+        $submissions = $ms && $ms->relationLoaded('submissions') ? $ms->submissions : ($ms?->submissions ?? collect());
+        $latestSub = $submissions instanceof \Illuminate\Support\Collection && $submissions->isNotEmpty()
+            ? $submissions->sortByDesc('created_at')->first()
+            : null;
         $hasUpload = !is_null($latestSub);
         $fileUrl = '';
-        if ($latestSub && $latestSub->file_url) {
+        if ($latestSub && !empty($latestSub->file_url)) {
             $fileUrl = str_starts_with($latestSub->file_url, 'http')
                 ? $latestSub->file_url
                 : \Illuminate\Support\Facades\Storage::url($latestSub->file_url);
         }
 
-        $activeAssignments = $thesis?->assignments->where('status', 'active')->values() ?? collect();
+        $assignments = $thesis && $thesis->relationLoaded('assignments') ? $thesis->assignments : ($thesis?->assignments ?? collect());
+        $activeAssignments = $assignments instanceof \Illuminate\Support\Collection
+            ? $assignments->where('status', 'active')->values()
+            : collect();
         $leadAssignment = $activeAssignments->firstWhere('role', 'primary') ?? $activeAssignments->first();
         $secondaryAssignments = $activeAssignments->filter(fn($a) => $a->id !== $leadAssignment?->id)->values();
 
@@ -28,19 +38,19 @@
         return [
             'id' => $student->id,
             'user_id' => $student->user_id,
-            'name' => $student->user->name ?? 'Student',
-            'email' => $student->user->email ?? '',
+            'name' => $student->user?->name ?? 'Student',
+            'email' => $student->user?->email ?? '',
             'matric' => $student->student_id_number,
             'program_id' => $student->program_id,
-            'program_name' => $student->program->name ?? 'N/A',
-            'level_name' => $student->level->name ?? 'N/A',
+            'program_name' => $student->program?->name ?? 'N/A',
+            'level_name' => $student->level?->name ?? 'N/A',
             'is_phd' => $isPhD,
             'required_count' => $requiredCount,
             'thesis_id' => $thesis?->id,
             'thesis_title' => $thesis?->title ?? 'Untitled Thesis',
             'has_upload' => $hasUpload,
             'proposal_url' => $fileUrl,
-            'proposal_date' => $latestSub ? $latestSub->created_at->format('M d, Y • h:i A') : '',
+            'proposal_date' => $latestSub && $latestSub->created_at ? $latestSub->created_at->format('M d, Y • h:i A') : '',
             'proposal_version' => $latestSub ? $latestSub->version : 1,
             'lead_id' => $leadAssignment?->supervisor_profile_id ?? '',
             'lead_name' => $leadAssignment?->supervisor?->user?->name ?? '',
@@ -324,10 +334,21 @@
                             @foreach($students as $student)
                                 @php
                                     $thesis = $student->thesis;
-                                    $ms = $thesis?->milestones->first();
-                                    $latestSub = $ms?->submissions->sortByDesc('created_at')->first();
+                                    $ms = $thesis && $thesis->milestones
+                                        ? ($thesis->milestones->firstWhere(fn($m) => ($m->template?->slug === 'supervisors_assigned' || $m->template?->order == 2))
+                                           ?? $thesis->milestones->first())
+                                        : null;
+
+                                    $submissions = $ms && $ms->relationLoaded('submissions') ? $ms->submissions : ($ms?->submissions ?? collect());
+                                    $latestSub = $submissions instanceof \Illuminate\Support\Collection && $submissions->isNotEmpty()
+                                        ? $submissions->sortByDesc('created_at')->first()
+                                        : null;
                                     $hasUpload = !is_null($latestSub);
-                                    $activeAssignments = $thesis?->assignments->where('status', 'active')->values() ?? collect();
+
+                                    $assignments = $thesis && $thesis->relationLoaded('assignments') ? $thesis->assignments : ($thesis?->assignments ?? collect());
+                                    $activeAssignments = $assignments instanceof \Illuminate\Support\Collection
+                                        ? $assignments->where('status', 'active')->values()
+                                        : collect();
                                     $hasSupervisors = $activeAssignments->count() > 0;
                                     $leadSup = $activeAssignments->firstWhere('role', 'primary') ?? $activeAssignments->first();
                                 @endphp
@@ -336,13 +357,13 @@
                                     <td class="px-10 py-6">
                                         <div class="flex items-center gap-4">
                                             <div class="w-11 h-11 rounded-2xl bg-indigo-50 border border-indigo-100/60 flex items-center justify-center text-indigo-600 font-black text-sm shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                                                {{ substr($student->user->name, 0, 1) }}
+                                                {{ substr($student->user?->name ?? 'Student', 0, 1) }}
                                             </div>
                                             <div>
                                                 <button type="button" 
                                                         @click="openAssignModal('{{ $student->id }}')" 
                                                         class="text-sm font-black text-slate-900 group-hover:text-indigo-600 transition-colors text-left hover:underline focus:outline-none">
-                                                    {{ $student->user->name }}
+                                                    {{ $student->user?->name ?? 'Student' }}
                                                 </button>
                                                 <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{{ $student->student_id_number }}</p>
                                             </div>
@@ -352,10 +373,10 @@
                                     {{-- Program & Level --}}
                                     <td class="px-6 py-6 font-medium">
                                         <div class="space-y-1.5">
-                                            <p class="text-xs font-bold text-slate-700 leading-none">{{ $student->program->name ?? '--' }}</p>
+                                            <p class="text-xs font-bold text-slate-700 leading-none">{{ $student->program?->name ?? '--' }}</p>
                                             <div class="flex items-center gap-1.5 flex-wrap">
                                                 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md @if(str_contains(strtolower($student->level->name ?? ''), 'phd')) bg-indigo-50 text-indigo-700 @else bg-amber-50 text-amber-700 @endif text-[8px] font-black uppercase tracking-tighter border border-current/10">
-                                                    {{ $student->level->name ?? '--' }}
+                                                    {{ $student->level?->name ?? '--' }}
                                                 </span>
                                                 @if($student->cohort)
                                                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[8px] font-bold uppercase tracking-tighter border border-slate-200">
@@ -375,7 +396,7 @@
                                                     Uploaded (Ready)
                                                 </span>
                                                 <span class="text-[9px] font-medium text-slate-400">
-                                                    {{ $latestSub->created_at->format('M d, Y') }}
+                                                    {{ $latestSub && $latestSub->created_at ? $latestSub->created_at->format('M d, Y') : '--' }}
                                                 </span>
                                             </div>
                                         @else

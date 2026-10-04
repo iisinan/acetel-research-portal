@@ -179,7 +179,7 @@ class StudentController extends Controller
 
         DB::beginTransaction();
         try {
-            $supervisor = SupervisorProfile::with(['user', 'programs.department'])->findOrFail($request->supervisor_id);
+            $supervisor = SupervisorProfile::with(['user', 'programs'])->findOrFail($request->supervisor_id);
 
             // Handle Replacement if requested
             if ($request->has('replace_assignment_id')) {

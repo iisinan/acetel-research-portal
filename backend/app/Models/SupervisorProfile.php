@@ -46,6 +46,6 @@ class SupervisorProfile extends Model
 
     public function getDepartmentAttribute()
     {
-        return $this->programs->first()?->department ?? null;
+        return $this->programs->first()?->name ?? $this->specialization ?? 'Academic Staff';
     }
 }
