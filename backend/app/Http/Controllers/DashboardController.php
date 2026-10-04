@@ -149,21 +149,32 @@ class DashboardController extends Controller
         $pendingSupervisorReviews = collect();
         $pendingSeminars = collect();
 
+        $supervisionAnalytics = [
+            'total_students' => 0,
+            'average_progress' => 0,
+            'action_needed_count' => 0,
+            'stalled_count' => 0,
+            'stage_proposal' => 0,
+            'stage_research' => 0,
+            'stage_defense' => 0,
+        ];
+
         if ($isSupervisor) {
             $supervisor = SupervisorProfile::where('user_id', $user->id)
-                ->with(['assignments.thesis.student.user', 'assignments.thesis.student.program', 'assignments.thesis.milestones', 'programs'])
+                ->with([
+                    'assignments.thesis.student.user', 
+                    'assignments.thesis.student.program', 
+                    'assignments.thesis.student.level',
+                    'assignments.thesis.currentMilestone.template',
+                    'assignments.thesis.milestones.template', 
+                    'assignments.thesis.milestones.submissions',
+                    'programs'
+                ])
                 ->first();
             
             $supervisorAssignments = $supervisor ? $supervisor->assignments : collect();
             
-            $supervisorStudents = $supervisorAssignments->map(function($a) {
-                $s = $a->thesis?->student;
-                if ($s && $a->thesis) {
-                    $s->overall_progress = $a->thesis->progress_percentage;
-                }
-                return $s;
-            })->filter()->unique('id');
-
+            $pendingSupervisorMilestoneThesisIds = [];
             if ($supervisor) {
                 $pendingSupervisorReviews = \App\Models\StudentMilestone::whereHas('thesis.assignments', function($q) use ($supervisor) {
                         $q->where('supervisor_profile_id', $supervisor->id)->where('status', 'active');
@@ -183,6 +194,41 @@ class DashboardController extends Controller
                     ->with(['thesis.student.user', 'template'])
                     ->latest()
                     ->get();
+
+                $pendingSupervisorMilestoneThesisIds = $pendingSupervisorReviews->pluck('thesis_project_id')->unique()->toArray();
+            }
+
+            $supervisorStudents = $supervisorAssignments->map(function($a) use ($pendingSupervisorMilestoneThesisIds) {
+                $s = $a->thesis?->student;
+                if ($s && $a->thesis) {
+                    $s->overall_progress = $a->thesis->progress_percentage;
+                    $s->thesis_title = $a->thesis->title ?? 'Postgraduate Thesis Investigation';
+                    $s->assignment_role = $a->role ?? 'Supervisor';
+                    $currentM = $a->thesis->currentMilestone;
+                    $s->current_milestone_name = $currentM?->template?->name ?? 'Initiation Phase';
+                    $s->current_milestone_order = $currentM?->template?->order ?? 1;
+                    $s->has_pending_review = in_array($a->thesis_project_id, $pendingSupervisorMilestoneThesisIds);
+
+                    // Compute last activity (latest submission or thesis update)
+                    $latestSub = $a->thesis->milestones->flatMap->submissions->sortByDesc('created_at')->first();
+                    $lastActivityDate = $latestSub?->created_at ?? $a->thesis->updated_at ?? $s->updated_at;
+                    $s->last_activity_at = $lastActivityDate;
+                    $s->days_inactive = $lastActivityDate ? (int) now()->diffInDays($lastActivityDate) : 0;
+                    $s->is_stalled = ($s->days_inactive > 30 && $s->overall_progress < 100);
+                }
+                return $s;
+            })->filter()->unique('id')->values();
+
+            if ($supervisorStudents->isNotEmpty()) {
+                $supervisionAnalytics = [
+                    'total_students' => $supervisorStudents->count(),
+                    'average_progress' => (int) round($supervisorStudents->avg('overall_progress')),
+                    'action_needed_count' => $supervisorStudents->where('has_pending_review', true)->count(),
+                    'stalled_count' => $supervisorStudents->where('is_stalled', true)->count(),
+                    'stage_proposal' => $supervisorStudents->filter(fn($s) => ($s->current_milestone_order ?? 1) <= 2)->count(),
+                    'stage_research' => $supervisorStudents->filter(fn($s) => ($s->current_milestone_order ?? 1) >= 3 && ($s->current_milestone_order ?? 1) <= 5)->count(),
+                    'stage_defense' => $supervisorStudents->filter(fn($s) => ($s->current_milestone_order ?? 1) >= 6)->count(),
+                ];
             }
 
             // Pending seminar examinations where supervisor is a panel member
@@ -202,6 +248,7 @@ class DashboardController extends Controller
         $data['students'] = $supervisorStudents;
         $data['pending_reviews'] = $pendingSupervisorReviews;
         $data['pending_seminars'] = $pendingSeminars;
+        $data['supervisionAnalytics'] = $supervisionAnalytics;
 
         // 2. PROGRAM COORDINATION TELEMETRY
         $coordinatedPrograms = collect();
@@ -300,7 +347,7 @@ class DashboardController extends Controller
         if ($isInternalExaminer) {
             $internalProfileIds = $user->internalExaminerProfiles()->pluck('id')->toArray();
             $internalTheses = \App\Models\ThesisProject::whereIn('internal_examiner_profile_id', $internalProfileIds)
-                ->with(['student.user', 'student.program', 'milestones.template'])
+                ->with(['student.user', 'student.program', 'student.level', 'currentMilestone.template', 'milestones.template'])
                 ->latest()
                 ->get();
 
@@ -334,7 +381,7 @@ class DashboardController extends Controller
         if ($isExternalExaminer) {
             $externalProfileIds = $user->externalExaminerProfiles()->pluck('id')->toArray();
             $externalTheses = \App\Models\ThesisProject::whereIn('external_examiner_profile_id', $externalProfileIds)
-                ->with(['student.user', 'student.program', 'milestones.template'])
+                ->with(['student.user', 'student.program', 'student.level', 'currentMilestone.template', 'milestones.template'])
                 ->latest()
                 ->get();
 
@@ -368,7 +415,33 @@ class DashboardController extends Controller
                 $q->where('evaluator_id', $user->id);
             })->with(['thesis.student.user'])->get();
 
-        // 6. GLOBAL MILESTONE TEMPLATES (for milestone jump)
+        // 6. UPCOMING ACADEMIC DEFENCES (Unified timeline across active portfolios)
+        $upcomingDefences = \App\Models\DefenceEvent::where(function($q) use ($user, $supervisor, $isCoordinator, $isInternalExaminer, $isExternalExaminer) {
+            $q->whereHas('panelMembers', fn($sq) => $sq->where('user_id', $user->id));
+            if ($supervisor) {
+                $q->orWhereHas('thesis.assignments', fn($sq) => $sq->where('supervisor_profile_id', $supervisor->id));
+            }
+            if ($isCoordinator) {
+                $q->orWhereHas('thesis.student', fn($sq) => $sq->forCoordinator($user));
+            }
+            if ($isInternalExaminer) {
+                $internalIds = $user->internalExaminerProfiles()->pluck('id')->toArray();
+                $q->orWhereHas('thesis', fn($sq) => $sq->whereIn('internal_examiner_profile_id', $internalIds));
+            }
+            if ($isExternalExaminer) {
+                $externalIds = $user->externalExaminerProfiles()->pluck('id')->toArray();
+                $q->orWhereHas('thesis', fn($sq) => $sq->whereIn('external_examiner_profile_id', $externalIds));
+            }
+        })
+        ->where('schedule_start', '>=', now()->subHours(6))
+        ->with(['thesis.student.user', 'thesis.student.program', 'panelMembers.user'])
+        ->orderBy('schedule_start', 'asc')
+        ->take(8)
+        ->get();
+
+        $data['upcomingDefences'] = $upcomingDefences;
+
+        // 7. GLOBAL MILESTONE TEMPLATES (for milestone jump)
         $data['milestone_templates'] = \App\Models\MilestoneTemplate::orderBy('order')->get();
 
         // 7. AGGREGATED STATS MATRIX

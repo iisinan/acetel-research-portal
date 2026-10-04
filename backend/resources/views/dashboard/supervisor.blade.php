@@ -173,38 +173,60 @@ class="space-y-8 animate-in">
                 </div>
             </div>
 
-            {{-- Right: Load Summary Gauges --}}
-            <div class="shrink-0 flex sm:flex-row lg:flex-col gap-3 min-w-[200px]">
+            {{-- Right: Faculty Appointments Telemetry Cards --}}
+            <div class="shrink-0 flex flex-wrap sm:flex-nowrap lg:flex-col gap-2.5 min-w-[210px]">
                 @if($activeFacultyRoles['supervisor'])
-                    <div class="flex-1 bg-green-50 border border-green-100 rounded-2xl p-5 text-center">
-                        <p class="text-[9px] font-black text-green-700 uppercase tracking-widest mb-1">Supervision Load</p>
-                        <p class="text-3xl font-black text-slate-800 tracking-tight leading-none">
-                            {{ $stats['assigned_students'] }}<span class="text-sm text-slate-400 font-bold">/{{ $supervisor->max_students ?? 10 }}</span>
+                    <div class="flex-1 min-w-[130px] bg-green-50/80 border border-green-100 rounded-2xl p-4 text-center">
+                        <div class="flex items-center justify-between gap-2 mb-1">
+                            <span class="text-[9px] font-black text-green-700 uppercase tracking-widest">Mentorship</span>
+                            <span class="text-xs">🎓</span>
+                        </div>
+                        <p class="text-2xl font-black text-slate-800 tracking-tight leading-none">
+                            {{ $stats['assigned_students'] }}<span class="text-xs text-slate-400 font-bold">/{{ $supervisor->max_students ?? 10 }}</span>
                         </p>
-                        <div class="w-full mt-3 bg-green-200/60 rounded-full h-1.5 overflow-hidden">
-                            @php $pLoad = min(100, ($stats['assigned_students'] / ($supervisor->max_students ?? 10)) * 100); @endphp
+                        <div class="w-full mt-2.5 bg-green-200/60 rounded-full h-1.5 overflow-hidden">
+                            @php $pLoad = min(100, round(($stats['assigned_students'] / max(1, ($supervisor->max_students ?? 10))) * 100)); @endphp
                             <div class="h-full bg-green-600 rounded-full transition-all duration-700" style="width: {{ $pLoad }}%"></div>
                         </div>
                     </div>
                 @endif
 
                 @if($activeFacultyRoles['coordinator'])
-                    <div class="flex-1 bg-blue-50 border border-blue-100 rounded-2xl p-5 text-center">
-                        <p class="text-[9px] font-black text-blue-700 uppercase tracking-widest mb-1">Coordinated Candidates</p>
-                        <p class="text-3xl font-black text-slate-800 tracking-tight leading-none">
+                    <div class="flex-1 min-w-[130px] bg-blue-50/80 border border-blue-100 rounded-2xl p-4 text-center">
+                        <div class="flex items-center justify-between gap-2 mb-1">
+                            <span class="text-[9px] font-black text-blue-700 uppercase tracking-widest">Coordinated</span>
+                            <span class="text-xs">🏛️</span>
+                        </div>
+                        <p class="text-2xl font-black text-slate-800 tracking-tight leading-none">
                             {{ $coordinatorStats['students'] }}
                         </p>
-                        <p class="text-[9px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Active Pipeline</p>
+                        <p class="text-[9px] font-semibold text-slate-400 uppercase tracking-widest mt-1">{{ $coordinatedPrograms->count() }} {{ Str::plural('Program', $coordinatedPrograms->count()) }}</p>
                     </div>
                 @endif
 
-                @if(($activeFacultyRoles['internal_examiner'] || $activeFacultyRoles['external_examiner']) && !$activeFacultyRoles['supervisor'] && !$activeFacultyRoles['coordinator'])
-                    <div class="flex-1 bg-purple-50 border border-purple-100 rounded-2xl p-5 text-center">
-                        <p class="text-[9px] font-black text-purple-700 uppercase tracking-widest mb-1">Examination Load</p>
-                        <p class="text-3xl font-black text-slate-800 tracking-tight leading-none">
-                            {{ $stats['internal_theses'] + $stats['external_theses'] }}
+                @if($activeFacultyRoles['internal_examiner'])
+                    <div class="flex-1 min-w-[130px] bg-purple-50/80 border border-purple-100 rounded-2xl p-4 text-center">
+                        <div class="flex items-center justify-between gap-2 mb-1">
+                            <span class="text-[9px] font-black text-purple-700 uppercase tracking-widest">Internal Exam</span>
+                            <span class="text-xs">⚖️</span>
+                        </div>
+                        <p class="text-2xl font-black text-slate-800 tracking-tight leading-none">
+                            {{ $stats['internal_theses'] }}
                         </p>
-                        <p class="text-[9px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Assigned Manuscripts</p>
+                        <p class="text-[9px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Dossiers</p>
+                    </div>
+                @endif
+
+                @if($activeFacultyRoles['external_examiner'])
+                    <div class="flex-1 min-w-[130px] bg-amber-50/80 border border-amber-100 rounded-2xl p-4 text-center">
+                        <div class="flex items-center justify-between gap-2 mb-1">
+                            <span class="text-[9px] font-black text-amber-700 uppercase tracking-widest">External Exam</span>
+                            <span class="text-xs">🌐</span>
+                        </div>
+                        <p class="text-2xl font-black text-slate-800 tracking-tight leading-none">
+                            {{ $stats['external_theses'] }}
+                        </p>
+                        <p class="text-[9px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Dossiers</p>
                     </div>
                 @endif
             </div>
@@ -404,6 +426,88 @@ class="space-y-8 animate-in">
             </a>
         </div>
 
+        {{-- Upcoming Academic Defences Calendar (Overview Hub) --}}
+        @if(isset($upcomingDefences) && $upcomingDefences->count() > 0)
+            <div class="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 lg:p-8 space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-50 pb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-lg border border-purple-100">
+                            📅
+                        </div>
+                        <div>
+                            <h3 class="text-base font-black text-slate-800 tracking-tight uppercase">UPCOMING ACADEMIC DEFENCES & SEMINARS</h3>
+                            <p class="text-xs text-slate-400 font-medium">Scheduled candidate presentations, seminar defences, and viva examinations across your active portfolios.</p>
+                        </div>
+                    </div>
+                    <span class="px-3 py-1 bg-purple-50 text-purple-700 text-xs font-bold rounded-xl border border-purple-100">
+                        {{ $upcomingDefences->count() }} Scheduled
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    @foreach($upcomingDefences as $ev)
+                        @php
+                            $isSeminar = ($ev->type === 'seminar');
+                            $badgeColor = $isSeminar ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200';
+                            $btnColor = $isSeminar ? 'bg-blue-600 hover:bg-blue-700' : 'bg-purple-600 hover:bg-purple-700';
+                            $startTime = $ev->schedule_start ? \Carbon\Carbon::parse($ev->schedule_start) : null;
+                            $isToday = $startTime && $startTime->isToday();
+                        @endphp
+                        <div class="p-5 rounded-2xl border {{ $isToday ? 'border-amber-300 bg-amber-50/20 shadow-xs' : 'border-slate-100 bg-slate-50/40 hover:bg-slate-50' }} space-y-3 transition-all group">
+                            <div class="flex items-center justify-between">
+                                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border {{ $badgeColor }}">
+                                    {{ $isSeminar ? 'Seminar Presentation' : 'Oral Viva Defence' }}
+                                </span>
+                                @if($startTime)
+                                    <span class="text-[10px] font-bold {{ $isToday ? 'text-amber-700 font-black animate-pulse' : 'text-slate-400' }}">
+                                        {{ $isToday ? 'TODAY' : $startTime->diffForHumans() }}
+                                    </span>
+                                @endif
+                            </div>
+
+                            <div>
+                                <h4 class="text-sm font-black text-slate-800 line-clamp-1 group-hover:text-green-700 transition-colors uppercase">
+                                    {{ $ev->thesis->student->user->name ?? 'Candidate' }}
+                                </h4>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                                    {{ $ev->thesis->student->program->code ?? 'N/A' }} • {{ $ev->thesis->student->student_id_number ?? '' }}
+                                </p>
+                                @if($ev->thesis && $ev->thesis->title)
+                                    <p class="text-xs text-slate-500 line-clamp-2 mt-1 italic">
+                                        "{{ $ev->thesis->title }}"
+                                    </p>
+                                @endif
+                            </div>
+
+                            <div class="pt-2 border-t border-slate-200/50 flex flex-col gap-2">
+                                <div class="flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                                    <span class="flex items-center gap-1">
+                                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        {{ $startTime ? $startTime->format('M d, Y • h:i A') : 'TBA' }}
+                                    </span>
+                                    @if($ev->location)
+                                        <span class="truncate max-w-[120px] text-[10px] text-slate-400" title="{{ $ev->location }}">📍 {{ $ev->location }}</span>
+                                    @endif
+                                </div>
+
+                                <div class="flex items-center gap-2 pt-1">
+                                    @if($ev->isAuthorizedEvaluator(auth()->id()))
+                                        <a href="{{ route('evaluations.create', ['defenceEvent' => $ev->id]) }}" class="flex-1 text-center py-2 {{ $btnColor }} text-white rounded-xl text-xs font-bold transition-all shadow-xs">
+                                            Grade Presentation
+                                        </a>
+                                    @elseif($ev->thesis)
+                                        <a href="{{ route('theses.show', $ev->thesis) }}" class="flex-1 text-center py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs">
+                                            View Dossier
+                                        </a>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
         {{-- Overview Grid: Portfolios & Institutional Assets --}}
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {{-- Left: Role Portfolios Quick Jump Cards --}}
@@ -526,6 +630,85 @@ class="space-y-8 animate-in">
     {{-- ============================================================ --}}
     @if($activeFacultyRoles['supervisor'])
     <div x-show="activeTab === 'supervision'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="space-y-8">
+        {{-- Supervisory Cohort Intelligence Bar --}}
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {{-- Metric 1: Average Velocity & Pipeline Stage --}}
+            <div class="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">Cohort Velocity</span>
+                    <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-sm">📈</div>
+                </div>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Average Progress</p>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <span class="text-3xl font-black text-slate-800">{{ $supervisionAnalytics['average_progress'] }}%</span>
+                    <span class="text-xs font-bold text-emerald-600">{{ $students->count() }} Candidates</span>
+                </div>
+                <div class="w-full mt-3 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                    <div class="h-full bg-emerald-500 rounded-full transition-all duration-700" style="width: {{ $supervisionAnalytics['average_progress'] }}%"></div>
+                </div>
+                <p class="text-[10px] font-semibold text-slate-400 mt-2 truncate">
+                    {{ $supervisionAnalytics['stage_proposal'] }} Proposal • {{ $supervisionAnalytics['stage_research'] }} Research • {{ $supervisionAnalytics['stage_defense'] }} Viva
+                </p>
+            </div>
+
+            {{-- Metric 2: Supervision Allocation Gauge --}}
+            <div class="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-[10px] font-black text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">Mentorship Load</span>
+                    <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">🎓</div>
+                </div>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Allocation Status</p>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <span class="text-3xl font-black text-slate-800">{{ $stats['assigned_students'] }}</span>
+                    <span class="text-xs font-bold text-slate-400">/ {{ $supervisor->max_students ?? 10 }} Max Cap</span>
+                </div>
+                @php
+                    $loadPct = min(100, round(($stats['assigned_students'] / max(1, ($supervisor->max_students ?? 10))) * 100));
+                    $slotsLeft = max(0, ($supervisor->max_students ?? 10) - $stats['assigned_students']);
+                @endphp
+                <div class="w-full mt-3 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                    <div class="h-full {{ $loadPct >= 90 ? 'bg-rose-500' : ($loadPct >= 70 ? 'bg-amber-500' : 'bg-blue-600') }} rounded-full transition-all duration-700" style="width: {{ $loadPct }}%"></div>
+                </div>
+                <p class="text-[10px] font-semibold text-slate-400 mt-2">
+                    {{ $slotsLeft > 0 ? "{$slotsLeft} supervision slot(s) open" : "At maximum allocation" }}
+                </p>
+            </div>
+
+            {{-- Metric 3: Action & Attention Radar --}}
+            <div class="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-[10px] font-black text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">Attention Radar</span>
+                    <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-sm">⚠️</div>
+                </div>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Follow-up Items</p>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <span class="text-3xl font-black text-slate-800">{{ $supervisionAnalytics['action_needed_count'] + $supervisionAnalytics['stalled_count'] }}</span>
+                    <span class="text-xs font-bold text-amber-600">Pending Actions</span>
+                </div>
+                <div class="mt-3 flex items-center justify-between text-[10px] font-bold text-slate-500 pt-2 border-t border-slate-50">
+                    <span class="text-amber-600">{{ $supervisionAnalytics['action_needed_count'] }} Awaiting Review</span>
+                    <span class="text-rose-500">{{ $supervisionAnalytics['stalled_count'] }} Inactive (&gt;30d)</span>
+                </div>
+            </div>
+
+            {{-- Metric 4: Seminar / Defence Evaluations --}}
+            <div class="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-[10px] font-black text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">Oral Viva & Seminars</span>
+                    <div class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-sm">⚖️</div>
+                </div>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Scheduled Defences</p>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <span class="text-3xl font-black text-slate-800">{{ $pending_seminars->count() + $pending_evaluations->count() }}</span>
+                    <span class="text-xs font-bold text-purple-600">To Grade</span>
+                </div>
+                <div class="mt-3 flex items-center justify-between text-[10px] font-bold text-slate-500 pt-2 border-t border-slate-50">
+                    <span>{{ $pending_seminars->count() }} Seminars</span>
+                    <span>{{ $pending_evaluations->count() }} Viva Panels</span>
+                </div>
+            </div>
+        </div>
+
         {{-- Attention Required Alert for Supervisor --}}
         @if($pending_reviews->count() > 0)
         <div class="relative rounded-3xl bg-amber-50 border border-amber-200 shadow-sm overflow-hidden" x-data="{ expanded: false }">
@@ -577,43 +760,161 @@ class="space-y-8 animate-in">
         </div>
         @endif
 
-        {{-- Managed Candidates Roster --}}
-        <div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <div class="px-8 py-6 border-b border-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div class="flex items-center gap-3">
-                    <div class="w-2 h-6 bg-emerald-500 rounded-full"></div>
-                    <div>
-                        <h3 class="text-base font-black text-slate-800 tracking-tight">MANAGED CANDIDATES ROSTER</h3>
-                        <p class="text-xs text-slate-400 font-medium">All postgraduate researchers currently assigned under your academic supervision.</p>
+        {{-- Smart Managed Candidates Roster with Alpine Live Search & Filter --}}
+        <div x-data="{
+            searchQuery: '',
+            statusFilter: 'all',
+            matches(name, idNumber, program, title, hasAction, isStalled, order) {
+                const q = this.searchQuery.toLowerCase().trim();
+                const matchesQuery = !q || 
+                    name.toLowerCase().includes(q) || 
+                    idNumber.toLowerCase().includes(q) || 
+                    program.toLowerCase().includes(q) || 
+                    title.toLowerCase().includes(q);
+                if (!matchesQuery) return false;
+
+                if (this.statusFilter === 'action_needed') return hasAction;
+                if (this.statusFilter === 'stalled') return isStalled;
+                if (this.statusFilter === 'defense') return order >= 6;
+                return true;
+            }
+        }" class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+            <div class="px-8 py-6 border-b border-slate-50 space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-2 h-6 bg-emerald-500 rounded-full"></div>
+                        <div>
+                            <h3 class="text-base font-black text-slate-800 tracking-tight uppercase">MANAGED CANDIDATES ROSTER</h3>
+                            <p class="text-xs text-slate-400 font-medium">Postgraduate researchers currently allocated under your mentorship portfolio.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-black text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100">
+                            {{ $students->count() }} Total Assigned
+                        </span>
                     </div>
                 </div>
-                <div class="flex items-center gap-2">
-                    <span class="text-xs font-black text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100">
-                        {{ $students->count() }} Total Assigned
-                    </span>
+
+                {{-- Smart Search Bar & Filter Chips --}}
+                <div class="pt-2 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                    {{-- Search Input --}}
+                    <div class="relative flex-1">
+                        <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                        <input type="text" x-model="searchQuery" placeholder="Filter by candidate name, student ID, program, or thesis title..." 
+                               class="w-full pl-10 pr-9 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-700 focus:bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-slate-400">
+                        <button type="button" x-show="searchQuery" @click="searchQuery = ''" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" style="display: none;">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+
+                    {{-- Filter Chips --}}
+                    <div class="flex flex-wrap items-center gap-1.5 shrink-0">
+                        <button type="button" @click="statusFilter = 'all'" 
+                                :class="statusFilter === 'all' ? 'bg-slate-900 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" 
+                                class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all">
+                            All ({{ $students->count() }})
+                        </button>
+                        <button type="button" @click="statusFilter = 'action_needed'" 
+                                :class="statusFilter === 'action_needed' ? 'bg-amber-500 text-white shadow-xs' : 'bg-amber-50 text-amber-700 border border-amber-200/60 hover:bg-amber-100'" 
+                                class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all">
+                            ⚡ Review Pending ({{ $supervisionAnalytics['action_needed_count'] }})
+                        </button>
+                        <button type="button" @click="statusFilter = 'stalled'" 
+                                :class="statusFilter === 'stalled' ? 'bg-rose-500 text-white shadow-xs' : 'bg-rose-50 text-rose-700 border border-rose-200/60 hover:bg-rose-100'" 
+                                class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all">
+                            ⚠️ Inactive (&gt;30d) ({{ $supervisionAnalytics['stalled_count'] }})
+                        </button>
+                        <button type="button" @click="statusFilter = 'defense'" 
+                                :class="statusFilter === 'defense' ? 'bg-purple-600 text-white shadow-xs' : 'bg-purple-50 text-purple-700 border border-purple-200/60 hover:bg-purple-100'" 
+                                class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all">
+                            🎓 Viva Stage ({{ $supervisionAnalytics['stage_defense'] }})
+                        </button>
+                    </div>
                 </div>
             </div>
 
             <div class="divide-y divide-slate-50">
                 @forelse($students as $student)
-                    <div class="p-6 lg:p-8 hover:bg-slate-50/50 transition-colors group">
-                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                            <div class="flex items-center gap-5">
-                                <div class="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700 font-black text-xl shadow-xs group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300 shrink-0">
+                    @php
+                        $safeName = addslashes($student->user->name ?? '');
+                        $safeMatric = addslashes($student->student_id_number ?? '');
+                        $safeProg = addslashes($student->program->code ?? '');
+                        $safeTitle = addslashes($student->thesis_title ?? '');
+                        $hasActionBool = $student->has_pending_review ? 'true' : 'false';
+                        $isStalledBool = $student->is_stalled ? 'true' : 'false';
+                        $orderNum = (int) ($student->current_milestone_order ?? 1);
+                    @endphp
+                    <div x-show="matches('{{ $safeName }}', '{{ $safeMatric }}', '{{ $safeProg }}', '{{ $safeTitle }}', {{ $hasActionBool }}, {{ $isStalledBool }}, {{ $orderNum }})" 
+                         class="p-6 lg:p-8 hover:bg-slate-50/50 transition-colors group">
+                        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                            {{-- Candidate Information & Thesis Topic --}}
+                            <div class="flex items-start gap-4 flex-1 min-w-0">
+                                <div class="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700 font-black text-lg shadow-xs group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300 shrink-0">
                                     {{ substr($student->user->name, 0, 1) }}
                                 </div>
-                                <div class="min-w-0">
-                                    <h4 class="text-base font-black text-slate-800 group-hover:text-emerald-600 transition-colors tracking-tight leading-none mb-1.5 uppercase">{{ $student->user->name }}</h4>
-                                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-2">{{ $student->program->code ?? 'N/A' }} • {{ $student->student_id_number }}</p>
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-28 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div class="min-w-0 flex-1 space-y-1.5">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <h4 class="text-base font-black text-slate-800 group-hover:text-emerald-600 transition-colors tracking-tight uppercase leading-none">
+                                            {{ $student->user->name }}
+                                        </h4>
+                                        <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[9px] font-black uppercase">
+                                            {{ $student->program->code ?? 'N/A' }}
+                                        </span>
+                                        <span class="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold">
+                                            {{ $student->level->name ?? '' }}
+                                        </span>
+                                        <span class="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[9px] font-black uppercase">
+                                            {{ $student->assignment_role ?? 'Supervisor' }}
+                                        </span>
+
+                                        {{-- Dynamic Health Pill --}}
+                                        @if($student->has_pending_review)
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-[9px] font-black uppercase animate-pulse">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
+                                                Review Pending
+                                            </span>
+                                        @elseif($student->is_stalled)
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-100 text-rose-800 rounded text-[9px] font-black uppercase">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
+                                                Inactive ({{ $student->days_inactive }}d)
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[9px] font-black uppercase">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                                                Active
+                                            </span>
+                                        @endif
+                                    </div>
+
+                                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                        ID: {{ $student->student_id_number }} • Current Stage: <span class="text-slate-700 font-black">{{ $student->current_milestone_name }}</span>
+                                    </p>
+
+                                    @if($student->thesis_title)
+                                        <p class="text-xs text-slate-600 font-medium line-clamp-1 italic max-w-2xl">
+                                            "{{ $student->thesis_title }}"
+                                        </p>
+                                    @endif
+
+                                    {{-- Progress Bar & Last Activity Indicator --}}
+                                    <div class="flex items-center gap-4 pt-1">
+                                        <div class="w-36 h-2 bg-slate-100 rounded-full overflow-hidden">
                                             <div class="h-full bg-emerald-500 rounded-full transition-all duration-500" style="width: {{ $student->overall_progress }}%"></div>
                                         </div>
                                         <span class="text-[10px] font-black text-emerald-600">{{ $student->overall_progress }}% Completed</span>
+                                        @if($student->last_activity_at)
+                                            <span class="text-[10px] text-slate-400 font-semibold">
+                                                Last active {{ \Carbon\Carbon::parse($student->last_activity_at)->diffForHumans() }}
+                                            </span>
+                                        @endif
                                     </div>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-2.5">
+
+                            {{-- Action Group --}}
+                            <div class="flex items-center gap-2.5 shrink-0 self-end lg:self-center">
                                 <a href="{{ route('inbox.compose', ['reply_to' => $student->user_id]) }}" class="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-emerald-600 hover:border-emerald-200 transition-all shadow-xs" title="Send Direct Message">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
                                 </a>
@@ -805,16 +1106,50 @@ class="space-y-8 animate-in">
         </div>
         @endif
 
-        {{-- Coordinated Students Pipeline --}}
-        <div class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <div class="px-8 py-6 border-b border-slate-50 flex items-center justify-between">
-                <div>
-                    <h3 class="text-base font-black text-slate-800 tracking-tight">PROGRAM CANDIDATE PIPELINE</h3>
-                    <p class="text-xs text-slate-400 font-medium">Recent active candidates across your coordinated programs.</p>
+        {{-- Coordinated Students Pipeline with Smart Search & Filter --}}
+        <div x-data="{
+            coordSearch: '',
+            coordProgFilter: 'all',
+            matchesCoord(name, idNumber, progCode) {
+                const q = this.coordSearch.toLowerCase().trim();
+                const matchesText = !q || 
+                    name.toLowerCase().includes(q) || 
+                    idNumber.toLowerCase().includes(q) || 
+                    progCode.toLowerCase().includes(q);
+                if (!matchesText) return false;
+                if (this.coordProgFilter !== 'all' && progCode !== this.coordProgFilter) return false;
+                return true;
+            }
+        }" class="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+            <div class="px-8 py-6 border-b border-slate-50 space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h3 class="text-base font-black text-slate-800 tracking-tight uppercase">PROGRAM CANDIDATE PIPELINE</h3>
+                        <p class="text-xs text-slate-400 font-medium">Active postgraduate cohort candidates across your coordinated scopes.</p>
+                    </div>
+                    <a href="{{ route('coordinator.students.index') }}" class="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold transition-all shrink-0">
+                        Full Registry →
+                    </a>
                 </div>
-                <a href="{{ route('coordinator.students.index') }}" class="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold transition-all">
-                    Full Registry →
-                </a>
+
+                {{-- Interactive Search & Program Filter --}}
+                <div class="flex flex-col sm:flex-row items-center gap-3">
+                    <div class="relative flex-1 w-full">
+                        <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                        <input type="text" x-model="coordSearch" placeholder="Search candidate by name, matric number, or program..." 
+                               class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-700 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-slate-400">
+                    </div>
+                    <div class="shrink-0 w-full sm:w-auto">
+                        <select x-model="coordProgFilter" class="w-full sm:w-auto px-3 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-bold text-slate-700 focus:bg-white">
+                            <option value="all">All Coordinated Programs</option>
+                            @foreach($coordinatedPrograms as $cp)
+                                <option value="{{ $cp->code }}">{{ $cp->code }} - {{ $cp->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
             </div>
 
             <div class="overflow-x-auto">
@@ -830,7 +1165,12 @@ class="space-y-8 animate-in">
                     </thead>
                     <tbody class="divide-y divide-slate-50 text-xs font-medium">
                         @forelse($coordinatorStudents as $cs)
-                        <tr class="hover:bg-slate-50/60 transition-colors">
+                        @php
+                            $csName = addslashes($cs->user->name ?? '');
+                            $csMatric = addslashes($cs->student_id_number ?? '');
+                            $csProg = addslashes($cs->program->code ?? '');
+                        @endphp
+                        <tr x-show="matchesCoord('{{ $csName }}', '{{ $csMatric }}', '{{ $csProg }}')" class="hover:bg-slate-50/60 transition-colors">
                             <td class="px-8 py-4">
                                 <p class="font-black text-slate-800 uppercase">{{ $cs->user->name }}</p>
                                 <p class="text-[10px] text-slate-400 font-bold uppercase">{{ $cs->student_id_number }}</p>
@@ -874,6 +1214,71 @@ class="space-y-8 animate-in">
     {{-- ============================================================ --}}
     @if($activeFacultyRoles['internal_examiner'])
     <div x-show="activeTab === 'internal_exam'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="space-y-8">
+        {{-- Internal Examination Intelligence Bar --}}
+        @php
+            $completedInternal = $internalTheses->where('status', 'completed')->count();
+            $internalCompRate = $internalTheses->count() > 0 ? round(($completedInternal / $internalTheses->count()) * 100) : 0;
+        @endphp
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {{-- Metric 1: Total Dossiers --}}
+            <div class="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-[10px] font-black text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">Internal Scope</span>
+                    <div class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-sm">⚖️</div>
+                </div>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Assigned Theses</p>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <span class="text-3xl font-black text-slate-800">{{ $internalTheses->count() }}</span>
+                    <span class="text-xs font-bold text-purple-600">Manuscripts</span>
+                </div>
+                <p class="text-[10px] font-semibold text-slate-400 mt-2 truncate">Active postgraduate internal appraisal portfolio</p>
+            </div>
+
+            {{-- Metric 2: Clearance Backlog --}}
+            <div class="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-[10px] font-black text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">Clearance Backlog</span>
+                    <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-sm">⚡</div>
+                </div>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Pending Approvals</p>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <span class="text-3xl font-black text-slate-800">{{ $internalPendingReviews->count() }}</span>
+                    <span class="text-xs font-bold text-amber-600">Awaiting Sign-off</span>
+                </div>
+                <p class="text-[10px] font-semibold text-slate-400 mt-2 truncate">
+                    {{ $internalPendingReviews->count() > 0 ? 'Requires internal examiner action' : 'All milestones up to date' }}
+                </p>
+            </div>
+
+            {{-- Metric 3: Oral Viva Defences --}}
+            <div class="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-[10px] font-black text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">Oral Viva Panels</span>
+                    <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">🎓</div>
+                </div>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Defences to Grade</p>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <span class="text-3xl font-black text-slate-800">{{ $pending_evaluations->count() }}</span>
+                    <span class="text-xs font-bold text-blue-600">Scheduled Panels</span>
+                </div>
+                <p class="text-[10px] font-semibold text-slate-400 mt-2 truncate">Oral viva defense evaluation rubrics</p>
+            </div>
+
+            {{-- Metric 4: Finalized Theses --}}
+            <div class="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">Completion</span>
+                    <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-sm">✅</div>
+                </div>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Finalized Theses</p>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <span class="text-3xl font-black text-slate-800">{{ $completedInternal }}</span>
+                    <span class="text-xs font-bold text-emerald-600">({{ $internalCompRate }}%)</span>
+                </div>
+                <p class="text-[10px] font-semibold text-slate-400 mt-2 truncate">Examined & certified completion</p>
+            </div>
+        </div>
+
         {{-- Internal Examiner Attention Alert --}}
         @if($internalPendingReviews->count() > 0)
         <div class="relative rounded-3xl bg-purple-50 border border-purple-200 p-6 lg:p-8 shadow-sm">
@@ -908,40 +1313,152 @@ class="space-y-8 animate-in">
         </div>
         @endif
 
-        {{-- Assigned Internal Theses Roster --}}
-        <div class="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 space-y-6">
-            <div class="flex items-center justify-between border-b border-slate-50 pb-4">
-                <div>
-                    <h3 class="text-base font-black text-slate-800 tracking-tight">ASSIGNED INTERNAL THESES</h3>
-                    <p class="text-xs text-slate-400 font-medium">Postgraduate thesis manuscripts allocated to you for internal examination.</p>
+        {{-- Smart Internal Theses Roster with Alpine Search & Filter --}}
+        <div x-data="{
+            dossierSearch: '',
+            statusFilter: 'all',
+            matchesDossier(title, student, matric, prog, status) {
+                const q = this.dossierSearch.toLowerCase().trim();
+                const matchesText = !q || 
+                    title.toLowerCase().includes(q) || 
+                    student.toLowerCase().includes(q) || 
+                    matric.toLowerCase().includes(q) || 
+                    prog.toLowerCase().includes(q);
+                if (!matchesText) return false;
+                if (this.statusFilter !== 'all' && status.toLowerCase() !== this.statusFilter.toLowerCase()) return false;
+                return true;
+            }
+        }" class="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 lg:p-8 space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-50 pb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-2 h-6 bg-purple-600 rounded-full"></div>
+                    <div>
+                        <h3 class="text-base font-black text-slate-800 tracking-tight uppercase">ASSIGNED INTERNAL THESES</h3>
+                        <p class="text-xs text-slate-400 font-medium">Postgraduate thesis manuscripts allocated to you for internal examination.</p>
+                    </div>
                 </div>
-                <span class="px-3 py-1 bg-purple-50 text-purple-700 rounded-xl text-xs font-bold border border-purple-100">
+                <span class="px-3 py-1 bg-purple-50 text-purple-700 rounded-xl text-xs font-bold border border-purple-100 shrink-0">
                     {{ $internalTheses->count() }} Total Dossiers
                 </span>
             </div>
 
+            {{-- Search & Filter Controls --}}
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div class="relative flex-1">
+                    <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    <input type="text" x-model="dossierSearch" placeholder="Search by thesis title, candidate name, student ID, program..."
+                           class="w-full pl-10 pr-9 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-700 focus:bg-white focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all placeholder:text-slate-400">
+                    <button type="button" x-show="dossierSearch" @click="dossierSearch = ''" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" style="display: none;">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-1.5 shrink-0">
+                    <button type="button" @click="statusFilter = 'all'" 
+                            :class="statusFilter === 'all' ? 'bg-purple-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                            class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all">
+                        All ({{ $internalTheses->count() }})
+                    </button>
+                    <button type="button" @click="statusFilter = 'active'" 
+                            :class="statusFilter === 'active' ? 'bg-blue-600 text-white shadow-xs' : 'bg-blue-50 text-blue-700 border border-blue-200/60 hover:bg-blue-100'"
+                            class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all">
+                        Active ({{ $internalTheses->where('status', 'active')->count() }})
+                    </button>
+                    <button type="button" @click="statusFilter = 'completed'" 
+                            :class="statusFilter === 'completed' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 hover:bg-emerald-100'"
+                            class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all">
+                        Completed ({{ $completedInternal }})
+                    </button>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 @forelse($internalTheses as $iThesis)
-                <div class="p-6 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-slate-50 transition-all space-y-4">
-                    <div class="flex items-start justify-between gap-4">
+                    @php
+                        $safeTitle = addslashes($iThesis->title ?? '');
+                        $safeCandidate = addslashes($iThesis->student->user->name ?? '');
+                        $safeMatric = addslashes($iThesis->student->student_id_number ?? '');
+                        $safeProg = addslashes($iThesis->student->program->code ?? '');
+                        $safeStatus = addslashes($iThesis->status ?? 'active');
+                        $progress = $iThesis->progress_percentage;
+                        $hasPendingMilestone = $internalPendingReviews->where('thesis_project_id', $iThesis->id)->isNotEmpty();
+                    @endphp
+                    <div x-show="matchesDossier('{{ $safeTitle }}', '{{ $safeCandidate }}', '{{ $safeMatric }}', '{{ $safeProg }}', '{{ $safeStatus }}')"
+                         class="p-6 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-slate-50 transition-all space-y-4 group">
+                        
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-black text-sm shrink-0 shadow-xs">
+                                    {{ substr($iThesis->student->user->name ?? '?', 0, 1) }}
+                                </div>
+                                <div class="min-w-0">
+                                    <h4 class="text-sm font-black text-slate-800 uppercase truncate leading-none">
+                                        {{ $iThesis->student->user->name ?? 'Candidate' }}
+                                    </h4>
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                                        {{ $iThesis->student->student_id_number }}
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1.5 flex-wrap justify-end">
+                                <span class="px-2 py-0.5 bg-purple-100 text-purple-800 rounded text-[9px] font-black uppercase">
+                                    {{ $iThesis->student->program->code ?? 'N/A' }}
+                                </span>
+                                @if($iThesis->student->level)
+                                    <span class="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[9px] font-bold uppercase">
+                                        {{ $iThesis->student->level->name }}
+                                    </span>
+                                @endif
+                                @if($hasPendingMilestone)
+                                    <span class="px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-300 rounded text-[9px] font-black uppercase animate-pulse">
+                                        ⚡ Action
+                                    </span>
+                                @endif
+                            </div>
+                        </div>
+
                         <div>
-                            <span class="px-2 py-0.5 bg-purple-100 text-purple-800 rounded text-[9px] font-black uppercase">{{ $iThesis->student->program->code ?? 'N/A' }}</span>
-                            <h4 class="text-base font-black text-slate-800 mt-2 line-clamp-2 leading-snug">{{ $iThesis->title }}</h4>
-                            <p class="text-xs text-slate-500 font-bold uppercase mt-1">{{ $iThesis->student->user->name ?? 'Candidate' }} • {{ $iThesis->student->student_id_number }}</p>
+                            <h5 class="text-sm font-black text-slate-800 group-hover:text-purple-700 transition-colors line-clamp-2 leading-snug">
+                                {{ $iThesis->title }}
+                            </h5>
+                            @if($iThesis->currentMilestone)
+                                <div class="mt-2 flex items-center gap-2">
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase">Stage:</span>
+                                    <span class="px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-[10px] font-bold truncate">
+                                        {{ $iThesis->currentMilestone->template->name }}
+                                    </span>
+                                </div>
+                            @endif
+                        </div>
+
+                        {{-- Progress bar --}}
+                        <div class="space-y-1">
+                            <div class="flex items-center justify-between text-[10px] font-bold">
+                                <span class="text-slate-400 uppercase">Manuscript Progression</span>
+                                <span class="text-purple-700 font-black">{{ $progress }}%</span>
+                            </div>
+                            <div class="w-full bg-slate-200/80 rounded-full h-1.5 overflow-hidden">
+                                <div class="bg-purple-600 h-full rounded-full transition-all duration-700" style="width: {{ $progress }}%"></div>
+                            </div>
+                        </div>
+
+                        <div class="pt-3 border-t border-slate-200/60 flex items-center justify-between">
+                            <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase {{ $iThesis->status === 'completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700' }}">
+                                {{ ucfirst($iThesis->status) }}
+                            </span>
+                            <div class="flex items-center gap-2">
+                                <a href="{{ route('theses.show', $iThesis) }}" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-xs">
+                                    Assess Dossier
+                                </a>
+                            </div>
                         </div>
                     </div>
-
-                    <div class="pt-3 border-t border-slate-200/60 flex items-center justify-between">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase">Status: {{ ucfirst($iThesis->status) }}</span>
-                        <a href="{{ route('theses.show', $iThesis) }}" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-xs">
-                            Assess Dossier
-                        </a>
-                    </div>
-                </div>
                 @empty
-                <div class="col-span-2 py-12 text-center text-slate-400 text-xs font-semibold">
-                    No internal examiner thesis dossiers assigned at this time.
-                </div>
+                    <div class="col-span-2 py-12 text-center text-slate-400 text-xs font-semibold">
+                        No internal examiner thesis dossiers assigned at this time.
+                    </div>
                 @endforelse
             </div>
         </div>
@@ -980,6 +1497,71 @@ class="space-y-8 animate-in">
     {{-- ============================================================ --}}
     @if($activeFacultyRoles['external_examiner'])
     <div x-show="activeTab === 'external_exam'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="space-y-8">
+        {{-- External Examination Intelligence Bar --}}
+        @php
+            $completedExternal = $externalTheses->where('status', 'completed')->count();
+            $externalCompRate = $externalTheses->count() > 0 ? round(($completedExternal / $externalTheses->count()) * 100) : 0;
+        @endphp
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {{-- Metric 1: Total External Theses --}}
+            <div class="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-[10px] font-black text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">External Audit</span>
+                    <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-sm">🌐</div>
+                </div>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Assigned Dissertations</p>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <span class="text-3xl font-black text-slate-800">{{ $externalTheses->count() }}</span>
+                    <span class="text-xs font-bold text-amber-600">Manuscripts</span>
+                </div>
+                <p class="text-[10px] font-semibold text-slate-400 mt-2 truncate">Independent external doctoral evaluation</p>
+            </div>
+
+            {{-- Metric 2: Pending External Sign-offs --}}
+            <div class="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-[10px] font-black text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">Review Backlog</span>
+                    <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-sm">⚡</div>
+                </div>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Awaiting Sign-off</p>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <span class="text-3xl font-black text-slate-800">{{ $externalPendingReviews->count() }}</span>
+                    <span class="text-xs font-bold text-amber-600">Pending Reviews</span>
+                </div>
+                <p class="text-[10px] font-semibold text-slate-400 mt-2 truncate">
+                    {{ $externalPendingReviews->count() > 0 ? 'Requires external examiner sign-off' : 'All reviews certified' }}
+                </p>
+            </div>
+
+            {{-- Metric 3: Oral Defence Panels --}}
+            <div class="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-[10px] font-black text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">Viva Panels</span>
+                    <div class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-sm">⚖️</div>
+                </div>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Oral Viva Panels</p>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <span class="text-3xl font-black text-slate-800">{{ $pending_evaluations->count() }}</span>
+                    <span class="text-xs font-bold text-purple-600">To Grade</span>
+                </div>
+                <p class="text-[10px] font-semibold text-slate-400 mt-2 truncate">External defence evaluation scoring</p>
+            </div>
+
+            {{-- Metric 4: Completed Dissertations --}}
+            <div class="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">Accredited</span>
+                    <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-sm">✅</div>
+                </div>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Completed Theses</p>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <span class="text-3xl font-black text-slate-800">{{ $completedExternal }}</span>
+                    <span class="text-xs font-bold text-emerald-600">({{ $externalCompRate }}%)</span>
+                </div>
+                <p class="text-[10px] font-semibold text-slate-400 mt-2 truncate">Certified external approval completed</p>
+            </div>
+        </div>
+
         {{-- External Examiner Attention Alert --}}
         @if($externalPendingReviews->count() > 0)
         <div class="relative rounded-3xl bg-amber-50 border border-amber-200 p-6 lg:p-8 shadow-sm">
@@ -1014,43 +1596,182 @@ class="space-y-8 animate-in">
         </div>
         @endif
 
-        {{-- Assigned External Theses Roster --}}
-        <div class="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 space-y-6">
-            <div class="flex items-center justify-between border-b border-slate-50 pb-4">
-                <div>
-                    <h3 class="text-base font-black text-slate-800 tracking-tight">EXTERNAL DISSERTATION DOSSIERS</h3>
-                    <p class="text-xs text-slate-400 font-medium">Independent doctoral manuscripts assigned for external accreditation.</p>
+        {{-- Smart External Theses Roster with Alpine Search & Filter --}}
+        <div x-data="{
+            externalSearch: '',
+            statusFilter: 'all',
+            matchesExternal(title, student, matric, prog, status) {
+                const q = this.externalSearch.toLowerCase().trim();
+                const matchesText = !q || 
+                    title.toLowerCase().includes(q) || 
+                    student.toLowerCase().includes(q) || 
+                    matric.toLowerCase().includes(q) || 
+                    prog.toLowerCase().includes(q);
+                if (!matchesText) return false;
+                if (this.statusFilter !== 'all' && status.toLowerCase() !== this.statusFilter.toLowerCase()) return false;
+                return true;
+            }
+        }" class="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 lg:p-8 space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-50 pb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-2 h-6 bg-amber-600 rounded-full"></div>
+                    <div>
+                        <h3 class="text-base font-black text-slate-800 tracking-tight uppercase">EXTERNAL DISSERTATION DOSSIERS</h3>
+                        <p class="text-xs text-slate-400 font-medium">Independent doctoral manuscripts assigned for external accreditation.</p>
+                    </div>
                 </div>
-                <span class="px-3 py-1 bg-amber-50 text-amber-700 rounded-xl text-xs font-bold border border-amber-100">
+                <span class="px-3 py-1 bg-amber-50 text-amber-700 rounded-xl text-xs font-bold border border-amber-100 shrink-0">
                     {{ $externalTheses->count() }} External Theses
                 </span>
             </div>
 
+            {{-- Search & Filter Controls --}}
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div class="relative flex-1">
+                    <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    <input type="text" x-model="externalSearch" placeholder="Search by thesis title, candidate name, student ID, program..."
+                           class="w-full pl-10 pr-9 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-medium text-slate-700 focus:bg-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all placeholder:text-slate-400">
+                    <button type="button" x-show="externalSearch" @click="externalSearch = ''" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600" style="display: none;">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-1.5 shrink-0">
+                    <button type="button" @click="statusFilter = 'all'" 
+                            :class="statusFilter === 'all' ? 'bg-amber-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                            class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all">
+                        All ({{ $externalTheses->count() }})
+                    </button>
+                    <button type="button" @click="statusFilter = 'active'" 
+                            :class="statusFilter === 'active' ? 'bg-blue-600 text-white shadow-xs' : 'bg-blue-50 text-blue-700 border border-blue-200/60 hover:bg-blue-100'"
+                            class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all">
+                        Active ({{ $externalTheses->where('status', 'active')->count() }})
+                    </button>
+                    <button type="button" @click="statusFilter = 'completed'" 
+                            :class="statusFilter === 'completed' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 hover:bg-emerald-100'"
+                            class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all">
+                        Completed ({{ $completedExternal }})
+                    </button>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 @forelse($externalTheses as $eThesis)
-                <div class="p-6 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-slate-50 transition-all space-y-4">
-                    <div class="flex items-start justify-between gap-4">
+                    @php
+                        $safeTitle = addslashes($eThesis->title ?? '');
+                        $safeCandidate = addslashes($eThesis->student->user->name ?? '');
+                        $safeMatric = addslashes($eThesis->student->student_id_number ?? '');
+                        $safeProg = addslashes($eThesis->student->program->code ?? '');
+                        $safeStatus = addslashes($eThesis->status ?? 'active');
+                        $progress = $eThesis->progress_percentage;
+                        $hasPendingMilestone = $externalPendingReviews->where('thesis_project_id', $eThesis->id)->isNotEmpty();
+                    @endphp
+                    <div x-show="matchesExternal('{{ $safeTitle }}', '{{ $safeCandidate }}', '{{ $safeMatric }}', '{{ $safeProg }}', '{{ $safeStatus }}')"
+                         class="p-6 rounded-2xl border border-slate-100 bg-slate-50/40 hover:bg-slate-50 transition-all space-y-4 group">
+                        
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-black text-sm shrink-0 shadow-xs">
+                                    {{ substr($eThesis->student->user->name ?? '?', 0, 1) }}
+                                </div>
+                                <div class="min-w-0">
+                                    <h4 class="text-sm font-black text-slate-800 uppercase truncate leading-none">
+                                        {{ $eThesis->student->user->name ?? 'Candidate' }}
+                                    </h4>
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                                        {{ $eThesis->student->student_id_number }}
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1.5 flex-wrap justify-end">
+                                <span class="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-[9px] font-black uppercase">
+                                    {{ $eThesis->student->program->code ?? 'N/A' }}
+                                </span>
+                                @if($eThesis->student->level)
+                                    <span class="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[9px] font-bold uppercase">
+                                        {{ $eThesis->student->level->name }}
+                                    </span>
+                                @endif
+                                @if($hasPendingMilestone)
+                                    <span class="px-2 py-0.5 bg-amber-100 text-amber-800 border border-amber-300 rounded text-[9px] font-black uppercase animate-pulse">
+                                        ⚡ Action
+                                    </span>
+                                @endif
+                            </div>
+                        </div>
+
                         <div>
-                            <span class="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-[9px] font-black uppercase">{{ $eThesis->student->program->code ?? 'N/A' }}</span>
-                            <h4 class="text-base font-black text-slate-800 mt-2 line-clamp-2 leading-snug">{{ $eThesis->title }}</h4>
-                            <p class="text-xs text-slate-500 font-bold uppercase mt-1">{{ $eThesis->student->user->name ?? 'Candidate' }} • {{ $eThesis->student->student_id_number }}</p>
+                            <h5 class="text-sm font-black text-slate-800 group-hover:text-amber-700 transition-colors line-clamp-2 leading-snug">
+                                {{ $eThesis->title }}
+                            </h5>
+                            @if($eThesis->currentMilestone)
+                                <div class="mt-2 flex items-center gap-2">
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase">Stage:</span>
+                                    <span class="px-2 py-0.5 bg-amber-50 text-amber-700 rounded text-[10px] font-bold truncate">
+                                        {{ $eThesis->currentMilestone->template->name }}
+                                    </span>
+                                </div>
+                            @endif
+                        </div>
+
+                        {{-- Progress bar --}}
+                        <div class="space-y-1">
+                            <div class="flex items-center justify-between text-[10px] font-bold">
+                                <span class="text-slate-400 uppercase">Manuscript Progression</span>
+                                <span class="text-amber-700 font-black">{{ $progress }}%</span>
+                            </div>
+                            <div class="w-full bg-slate-200/80 rounded-full h-1.5 overflow-hidden">
+                                <div class="bg-amber-600 h-full rounded-full transition-all duration-700" style="width: {{ $progress }}%"></div>
+                            </div>
+                        </div>
+
+                        <div class="pt-3 border-t border-slate-200/60 flex items-center justify-between">
+                            <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase {{ $eThesis->status === 'completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700' }}">
+                                {{ ucfirst($eThesis->status) }}
+                            </span>
+                            <div class="flex items-center gap-2">
+                                <a href="{{ route('theses.show', $eThesis) }}" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-xs">
+                                    Evaluate Thesis
+                                </a>
+                            </div>
                         </div>
                     </div>
-
-                    <div class="pt-3 border-t border-slate-200/60 flex items-center justify-between">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase">Status: {{ ucfirst($eThesis->status) }}</span>
-                        <a href="{{ route('theses.show', $eThesis) }}" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-xs">
-                            Evaluate Thesis
-                        </a>
-                    </div>
-                </div>
                 @empty
-                <div class="col-span-2 py-12 text-center text-slate-400 text-xs font-semibold">
-                    No external examiner thesis dossiers currently allocated.
-                </div>
+                    <div class="col-span-2 py-12 text-center text-slate-400 text-xs font-semibold">
+                        No external examiner thesis dossiers currently allocated.
+                    </div>
                 @endforelse
             </div>
         </div>
+
+        {{-- Pending Oral Viva Defence Evaluations --}}
+        @if($pending_evaluations->count() > 0)
+        <div class="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-50 pb-4">
+                <h3 class="text-base font-black text-slate-800 tracking-tight">ORAL DEFENCE EVALUATION SCORING</h3>
+                <span class="px-2.5 py-1 bg-amber-50 text-amber-700 text-[10px] font-black rounded-lg uppercase">
+                    {{ $pending_evaluations->count() }} To Grade
+                </span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                @foreach($pending_evaluations as $event)
+                <div class="p-5 bg-amber-50/40 border border-amber-100 rounded-2xl space-y-3">
+                    <div>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-amber-700 bg-amber-100 px-2 py-0.5 rounded">{{ $event->defence_type }} Defence</span>
+                        <h4 class="text-sm font-black text-slate-800 mt-2">{{ $event->thesis->student->user->name }}</h4>
+                        <p class="text-xs text-slate-500 truncate">{{ $event->thesis->title }}</p>
+                    </div>
+                    <a href="{{ route('evaluations.create', ['defenceEvent' => $event->id]) }}" class="block text-center py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs">
+                        Grade Oral Defence
+                    </a>
+                </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
     </div>
     @endif
 
