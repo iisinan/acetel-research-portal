@@ -18,17 +18,40 @@ return new class extends Migration
         
         if (!$supervisors) return;
 
-        $ai_programs = Program::where("name", "like", "%Artificial Intelligence%")->pluck("id")->toArray();
-        $cs_programs = Program::where("name", "like", "%Cybersecurity%")->orWhere("name", "like", "%Cyber Security%")->pluck("id")->toArray();
-        $mis_programs = Program::where("name", "like", "%Management Information System%")->pluck("id")->toArray();
+        $ai_programs = Program::where("name", "like", "%Artificial Intelligence%")
+            ->orWhere("code", "AI")
+            ->pluck("id")->toArray();
+
+        $cs_programs = Program::where("name", "like", "%Cybersecurity%")
+            ->orWhere("name", "like", "%Cyber Security%")
+            ->orWhere("code", "CYBER")
+            ->orWhere("code", "CS")
+            ->pluck("id")->toArray();
+
+        $mis_programs = Program::where("name", "like", "%Management Information System%")
+            ->orWhere("name", "like", "%MIS%")
+            ->orWhere("code", "MIS")
+            ->pluck("id")->toArray();
 
         foreach ($supervisors as $sup) {
-            if (empty($sup["email"])) continue;
-            
-            $email = trim(strtolower($sup["email"]));
+            $email = !empty($sup["email"]) ? trim(strtolower($sup["email"])) : null;
+            $name = !empty($sup["name"]) ? trim($sup["name"]) : null;
             $programName = $sup["program"] ?? "";
             
-            $user = User::where("email", $email)->first();
+            $query = User::query();
+            if ($email && $email !== 'unnamed: 2') {
+                $query->where("email", $email);
+            } elseif ($name && $name !== 'Unnamed: 1') {
+                $query->where("name", "like", "%{$name}%");
+            } else {
+                continue;
+            }
+
+            $user = $query->first();
+            if (!$user && $name && $name !== 'Unnamed: 1') {
+                $user = User::where("name", "like", "%{$name}%")->first();
+            }
+
             if ($user) {
                 $profile = SupervisorProfile::where("user_id", $user->id)->first();
                 if ($profile) {
@@ -40,9 +63,9 @@ return new class extends Migration
                     } elseif (stripos($programName, "Cyber Security") !== false || stripos($programName, "Cybersecurity") !== false) {
                         $suffix = " (CS)";
                         $pIds = $cs_programs;
-                    } elseif (stripos($programName, "Management Information System") !== false) {
+                    } elseif (stripos($programName, "Management Information System") !== false || stripos($programName, "MIS") !== false) {
                         $suffix = " (MIS)";
-                        $pIds = $mis_programs;
+                        $pIds = array_unique(array_merge($mis_programs, $cs_programs));
                     }
                     
                     if ($suffix && !str_ends_with($user->name, $suffix)) {

@@ -71,8 +71,8 @@ return [
         ],
 
         RequestReceived::class => [
-            ...Octane::prepareApplicationForNextOperation(),
-            ...Octane::prepareApplicationForNextRequest(),
+            ...(class_exists(\Laravel\Octane\Octane::class) ? \Laravel\Octane\Octane::prepareApplicationForNextOperation() : []),
+            ...(class_exists(\Laravel\Octane\Octane::class) ? \Laravel\Octane\Octane::prepareApplicationForNextRequest() : []),
             //
         ],
 
@@ -85,7 +85,7 @@ return [
         ],
 
         TaskReceived::class => [
-            ...Octane::prepareApplicationForNextOperation(),
+            ...(class_exists(\Laravel\Octane\Octane::class) ? \Laravel\Octane\Octane::prepareApplicationForNextOperation() : []),
             //
         ],
 
@@ -94,7 +94,7 @@ return [
         ],
 
         TickReceived::class => [
-            ...Octane::prepareApplicationForNextOperation(),
+            ...(class_exists(\Laravel\Octane\Octane::class) ? \Laravel\Octane\Octane::prepareApplicationForNextOperation() : []),
             //
         ],
 
@@ -131,7 +131,7 @@ return [
     */
 
     'warm' => [
-        ...Octane::defaultServicesToWarm(),
+        ...(class_exists(\Laravel\Octane\Octane::class) ? \Laravel\Octane\Octane::defaultServicesToWarm() : []),
     ],
 
     'flush' => [
