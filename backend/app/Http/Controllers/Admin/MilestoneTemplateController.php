@@ -620,7 +620,7 @@ class MilestoneTemplateController extends Controller
 
                 fputcsv($file, [
                     $milestone->thesis->student->user->name ?? '',
-                    $milestone->thesis->student->matric_number ?? '',
+                    $milestone->thesis->student->student_id_number ?? '',
                     $statusLabel,
                     $milestone->defence_date ?? 'Not Scheduled',
                     $avgScore
@@ -691,7 +691,7 @@ class MilestoneTemplateController extends Controller
 
                 fputcsv($file, [
                     $milestone->thesis->student->user->name ?? '',
-                    $milestone->thesis->student->matric_number ?? '',
+                    $milestone->thesis->student->student_id_number ?? '',
                     $milestone->defence_date ?? 'Not Scheduled',
                     $avgScore
                 ]);
