@@ -128,7 +128,10 @@ class ThesisService
                 $supervisor = SupervisorProfile::findOrFail($supervisorId);
 
                 // Institutional Rule: First supervisor (index 0) must be a Professor
-                if ($index === 0 && $supervisor->rank !== 'Professor') {
+                $isProf = (stripos($supervisor->rank ?? '', 'prof') !== false) || 
+                          ($supervisor->user && stripos($supervisor->user->name, 'prof') !== false);
+
+                if ($index === 0 && !$isProf) {
                     throw new Exception("Academic Hierarchy Violation: The Lead Supervisor ({$supervisor->user->name}) must hold the rank of Professor.");
                 }
 

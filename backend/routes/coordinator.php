@@ -28,6 +28,10 @@ Route::get('students', [StudentController::class, 'index'])->name('students.inde
 Route::get('students/{student}', [StudentController::class, 'show'])->name('students.show');
 Route::post('students/{student}/assign-supervisor', [StudentController::class, 'assignSupervisor'])->name('students.assign-supervisor');
 
+// Assigned Supervisors (Milestone 2 dedicated workspace)
+Route::get('assigned-supervisors', [\App\Http\Controllers\Coordinator\AssignedSupervisorController::class, 'index'])->name('assigned-supervisors.index');
+Route::post('assigned-supervisors/{student}/assign', [\App\Http\Controllers\Coordinator\AssignedSupervisorController::class, 'assign'])->name('assigned-supervisors.assign');
+
 // Milestones
 Route::get('milestones', [MilestoneController::class, 'index'])->name('milestones.index');
 
