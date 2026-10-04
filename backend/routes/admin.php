@@ -79,6 +79,7 @@ Route::post('milestone-templates/{template}/date', [MilestoneTemplateController:
     Route::post('milestone-templates/{milestone}/assign-examiner', [MilestoneTemplateController::class, 'assignExaminer'])->name('milestone-templates.assign-examiner');
     Route::post('milestone-templates/{template}/assign-examiner-global', [MilestoneTemplateController::class, 'assignExaminerGlobal'])->name('milestone-templates.assign-examiner-global');
     Route::get('milestone-templates/{template}/export-students', [MilestoneTemplateController::class, 'exportStudents'])->name('milestone-templates.export-students');
+    Route::get('milestone-templates/{template}/export-scheduled-scores', [MilestoneTemplateController::class, 'exportScheduledScores'])->name('milestone-templates.export-scheduled-scores');
     Route::get('milestone-templates/{template}/export-examiner-attendance', [MilestoneTemplateController::class, 'exportExaminerAttendance'])->name('milestone-templates.export-examiner-attendance');
 
 

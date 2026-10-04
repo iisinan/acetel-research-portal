@@ -60,3 +60,4 @@ Route::post('students/{thesis}/assign-external', [App\Http\Controllers\Coordinat
 // Milestone Templates (Shared with Admin)
 Route::get('milestone-templates', [\App\Http\Controllers\Admin\MilestoneTemplateController::class, 'index'])->name('milestone-templates.index');
 Route::get('milestone-templates/{template}/export-students', [\App\Http\Controllers\Admin\MilestoneTemplateController::class, 'exportStudents'])->name('milestone-templates.export-students');
+Route::get('milestone-templates/{template}/export-scheduled-scores', [\App\Http\Controllers\Admin\MilestoneTemplateController::class, 'exportScheduledScores'])->name('milestone-templates.export-scheduled-scores');
