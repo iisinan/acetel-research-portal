@@ -30,6 +30,11 @@ class Evaluation extends Model
         return $this->belongsTo(DefenceEvent::class, 'defence_event_id');
     }
 
+    public function defenceEvent()
+    {
+        return $this->belongsTo(DefenceEvent::class, 'defence_event_id');
+    }
+
     public function evaluator()
     {
         return $this->belongsTo(User::class, 'evaluator_id');
