@@ -291,26 +291,36 @@ class InboxController extends Controller
 
     private function attachRecipients($message, $validated, $allowedIds)
     {
+        $allRecipients = [];
+
         foreach (['to', 'cc', 'bcc'] as $type) {
             if (!empty($validated[$type])) {
+                $attachData = [];
+                $userIdsToNotify = [];
+                
                 foreach ($validated[$type] as $userId) {
                     if (in_array($userId, $allowedIds)) {
-                        $message->recipients()->attach($userId, [
+                        $attachData[$userId] = [
                             'id' => (string) Str::uuid(),
                             'recipient_type' => $type
-                        ]);
-
-                        // Broadcast to each recipient
-                        \App\Events\MessageReceived::dispatch($message, $userId);
-
-                        // Send Email Notification
-                        $user = \App\Models\User::find($userId);
-                        if ($user) {
-                            $user->notify(new \App\Notifications\NewInboxMessage($message));
-                        }
+                        ];
+                        $userIdsToNotify[] = $userId;
+                        $allRecipients[] = $userId;
                     }
                 }
+
+                // Bulk attach recipients in chunks to avoid query limits
+                $chunks = array_chunk($attachData, 500, true);
+                foreach ($chunks as $chunk) {
+                    $message->recipients()->attach($chunk);
+                }
             }
+        }
+
+        // Dispatch job for notifications and broadcasts to prevent timeout
+        $allRecipients = array_unique($allRecipients);
+        if (!empty($allRecipients)) {
+            \App\Jobs\ProcessMessageDelivery::dispatch($message, $allRecipients);
         }
     }
 
