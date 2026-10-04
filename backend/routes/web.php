@@ -81,6 +81,15 @@ Route::middleware('auth')->group(function () {
     
     // Shared Dashboard (Content varies by role via Controller)
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+// Temporary route to run migrations
+Route::get('/run-migrations', function () {
+    if (!auth()->check() || !auth()->user()->hasRole('Admin')) {
+        abort(403);
+    }
+    \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+    return 'Migrations complete. Output: ' . nl2br(\Illuminate\Support\Facades\Artisan::output());
+});
     
     // Notifications & Messages (Shared)
     Route::post('/messages', [App\Http\Controllers\MessageController::class, 'store'])->name('messages.store');
