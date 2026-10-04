@@ -398,7 +398,6 @@
                             <select name="defence_date_role" class="w-full appearance-none bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all">
                                 <option value="Admin">Administrator</option>
                                 <option value="Program Coordinator">Program Coordinator</option>
-                                <option value="Supervisor">Supervisor</option>
                             </select>
                             <svg class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                         </div>

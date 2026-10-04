@@ -73,7 +73,12 @@
                 $defenceDate = $defenceDateStr ? \Carbon\Carbon::parse($defenceDateStr) : null;
                 $isApproved = !is_null($milestone->date_approved_at);
                 $isDateExpired = $defenceDate && $defenceDate->endOfDay()->isPast() && $milestone->status !== 'approved';
-                $canSetDate = auth()->user()->hasRole('Admin') || auth()->user()->hasRole($milestone->template->defence_date_role ?? 'Program Coordinator');
+                
+                // Institutional Mandate: Supervisors cannot schedule presentations, only Admin can
+                $canSetDate = auth()->user()->hasRole('Admin') && !request()->is('supervisor*');
+                if (auth()->user()->hasRole('Supervisor') && !auth()->user()->hasRole('Admin')) {
+                    $canSetDate = false;
+                }
             @endphp
 
             @php

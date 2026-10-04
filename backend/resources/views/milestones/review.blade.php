@@ -149,7 +149,7 @@
                         @endif
 
                         @php
-                            $canSetDefenceDate = $milestone->template->allow_defence_date && (Auth::user()->hasRole('Admin') || Auth::user()->hasRole($milestone->template->defence_date_role ?? 'Program Coordinator'));
+                            $canSetDefenceDate = $milestone->template->allow_defence_date && Auth::user()->hasRole('Admin') && !request()->is('supervisor*');
                         @endphp
 
                         @if($canSetDefenceDate)

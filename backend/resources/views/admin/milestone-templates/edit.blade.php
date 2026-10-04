@@ -320,7 +320,6 @@
                         <select name="defence_date_role" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm">
                             <option value="Admin" {{ $milestoneTemplate->defence_date_role == 'Admin' ? 'selected' : '' }}>Administrator</option>
                             <option value="Program Coordinator" {{ $milestoneTemplate->defence_date_role == 'Program Coordinator' ? 'selected' : '' }}>Program Coordinator</option>
-                            <option value="Supervisor" {{ $milestoneTemplate->defence_date_role == 'Supervisor' ? 'selected' : '' }}>Supervisor</option>
                         </select>
                     </div>
                 </div>

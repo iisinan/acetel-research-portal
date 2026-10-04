@@ -624,9 +624,9 @@ class MilestoneController extends Controller
             'meeting_link' => 'nullable|url|max:500',
         ]);
 
-        if (!Auth::user()->hasAnyRole(['Admin', 'Director', 'Program Coordinator'])) {
+        if (!Auth::user()->hasAnyRole(['Admin', 'Director'])) {
             \Illuminate\Support\Facades\Log::warning("Unauthorized attempt to set defence date by: " . Auth::user()->name);
-            abort(403);
+            abort(403, 'Unauthorized: Only administrators can schedule presentations.');
         }
 
         $milestone->defence_date = $request->defence_date;
