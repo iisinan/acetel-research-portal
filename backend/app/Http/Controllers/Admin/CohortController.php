@@ -354,4 +354,58 @@ class CohortController extends Controller
 
         return redirect()->back()->with('success', "Successfully scheduled {$request->defence_type} defence date for {$updatedCount} thesis milestone(s).");
     }
+
+    public function exportAllEmails()
+    {
+        $this->authorize('viewAny', Cohort::class);
+
+        $students = User::whereHas('studentProfile', function ($query) {
+            $query->whereNotNull('cohort_id');
+        })->with('studentProfile.program', 'studentProfile.cohort')->get();
+
+        $csvData = "Name,Email,Student ID,Program,Cohort\n";
+
+        foreach ($students as $student) {
+            $profile = $student->studentProfile;
+            $csvData .= sprintf(
+                "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n",
+                $student->name,
+                $student->email,
+                $profile?->student_id_number ?? '',
+                $profile?->program?->name ?? '',
+                $profile?->cohort?->name ?? ''
+            );
+        }
+
+        return response($csvData)
+            ->header('Content-Type', 'text/csv')
+            ->header('Content-Disposition', 'attachment; filename="all_students_emails.csv"');
+    }
+
+    public function exportCohortEmails(Cohort $cohort)
+    {
+        $this->authorize('view', $cohort);
+
+        $students = User::whereHas('studentProfile', function ($query) use ($cohort) {
+            $query->where('cohort_id', $cohort->id);
+        })->with('studentProfile.program')->get();
+
+        $csvData = "Name,Email,Student ID,Program,Cohort\n";
+
+        foreach ($students as $student) {
+            $profile = $student->studentProfile;
+            $csvData .= sprintf(
+                "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n",
+                $student->name,
+                $student->email,
+                $profile?->student_id_number ?? '',
+                $profile?->program?->name ?? '',
+                $cohort->name
+            );
+        }
+
+        return response($csvData)
+            ->header('Content-Type', 'text/csv')
+            ->header('Content-Disposition', 'attachment; filename="cohort_' . Str::slug($cohort->name) . '_emails.csv"');
+    }
 }

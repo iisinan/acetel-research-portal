@@ -41,6 +41,8 @@ Route::get('cohorts/{cohort}/register-students', [CohortController::class, 'regi
 Route::post('cohorts/{cohort}/register-students', [CohortController::class, 'registerStudents'])->name('cohorts.register-students.store');
 Route::patch('cohorts/{cohort}/toggle-status', [CohortController::class, 'toggleStatus'])->name('cohorts.toggle-status');
 Route::post('cohorts/{cohort}/bulk-schedule', [CohortController::class, 'bulkScheduleDefence'])->name('cohorts.bulk-schedule');
+Route::get('cohorts/export-all-emails', [CohortController::class, 'exportAllEmails'])->name('cohorts.export-all-emails');
+Route::get('cohorts/{cohort}/export-emails', [CohortController::class, 'exportCohortEmails'])->name('cohorts.export-emails');
 Route::resource('cohorts', CohortController::class);
 
 use App\Http\Controllers\Admin\AnnouncementController;

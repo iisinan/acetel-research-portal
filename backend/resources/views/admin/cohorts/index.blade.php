@@ -7,6 +7,10 @@
         <p class="mt-2 text-sm text-black font-medium">Manage academic intakes, sessions, and manage student enrollments.</p>
     </div>
     <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex space-x-3">
+        <a href="{{ route('admin.cohorts.export-all-emails') }}" class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-acetel-500 focus:ring-offset-2 transition-colors">
+            <svg class="w-4 h-4 mr-2 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            Export All Emails
+        </a>
         <a href="{{ route('admin.cohorts.create') }}" class="inline-flex items-center justify-center rounded-xl border border-transparent bg-acetel-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-acetel-700 focus:outline-none focus:ring-2 focus:ring-acetel-500 focus:ring-offset-2 transition-colors">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
             Create Cohort
@@ -84,6 +88,10 @@
                                 <div class="flex items-center justify-end space-x-3">
                                     <a href="{{ route('admin.cohorts.show', $cohort) }}" class="text-black hover:text-black font-semibold transition-colors" title="View Details">
                                         View
+                                    </a>
+                                    <span class="text-slate-300">|</span>
+                                    <a href="{{ route('admin.cohorts.export-emails', $cohort) }}" class="text-blue-600 hover:text-blue-900 font-semibold transition-colors" title="Export Emails">
+                                        Export
                                     </a>
                                     <span class="text-slate-300">|</span>
                                     <a href="{{ route('admin.cohorts.register-students', $cohort) }}" class="text-acetel-600 hover:text-acetel-900 font-semibold transition-colors" title="Enroll Students">
