@@ -27,6 +27,22 @@ class StudentController extends Controller
             $query->where('level_id', $request->level_id);
         }
 
+        if ($request->filled('cohort_id')) {
+            $query->where('cohort_id', $request->cohort_id);
+        }
+
+        if ($request->filled('batch')) {
+            $batch = trim($request->batch);
+            $query->where(function($q) use ($batch) {
+                $q->where('student_id_number', 'like', "_____{$batch}%")
+                  ->orWhereHas('cohort', function($c) use ($batch) {
+                      $c->where('name', 'ilike', "%Batch {$batch}%")
+                        ->orWhere('name', 'ilike', "%Batch-{$batch}%")
+                        ->orWhere('code', 'ilike', "%-B{$batch}%");
+                  });
+            });
+        }
+
         if ($request->has('search') && $request->filled('search')) {
             $search = $request->input('search');
             $query->where(function($q) use ($search) {
@@ -36,6 +52,10 @@ class StudentController extends Controller
                   })
                   ->orWhereHas('program', function($p) use ($search) {
                       $p->where('name', 'ilike', "%{$search}%")
+                        ->orWhere('code', 'ilike', "%{$search}%");
+                  })
+                  ->orWhereHas('cohort', function($c) use ($search) {
+                      $c->where('name', 'ilike', "%{$search}%")
                         ->orWhere('code', 'ilike', "%{$search}%");
                   })
                   ->orWhereHas('thesis', function($t) use ($search) {
@@ -49,8 +69,9 @@ class StudentController extends Controller
         $programs = \App\Models\Program::whereIn('id', $userScopes->pluck('program_id'))->get();
         $levelIds = $userScopes->pluck('level_id')->filter()->unique()->toArray();
         $levels = !empty($levelIds) ? \App\Models\Level::whereIn('id', $levelIds)->get() : \App\Models\Level::all();
+        $cohorts = \App\Models\Cohort::orderBy('intake_year', 'desc')->orderBy('name', 'asc')->get();
         
-        return view('coordinator.students.index', compact('students', 'programs', 'levels'));
+        return view('coordinator.students.index', compact('students', 'programs', 'levels', 'cohorts'));
     }
 
     public function show(StudentProfile $student)

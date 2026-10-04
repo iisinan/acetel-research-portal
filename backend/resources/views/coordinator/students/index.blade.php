@@ -45,7 +45,26 @@
                     </div>
                 @endif
 
-                @if(request('search') || request('program_id') || request('level_id'))
+                @if(isset($cohorts) && count($cohorts) > 0)
+                    <div class="px-5 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-2 hover:border-acetel-300 transition-colors">
+                        <select name="cohort_id" onchange="this.form.submit()" class="bg-transparent border-none text-xs font-bold uppercase tracking-widest text-slate-500 focus:ring-0 cursor-pointer">
+                            <option value="">All Cohorts</option>
+                            @foreach($cohorts as $coh)
+                                <option value="{{ $coh->id }}" {{ request('cohort_id') == $coh->id ? 'selected' : '' }}>{{ $coh->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
+
+                <div class="px-5 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-2 hover:border-acetel-300 transition-colors">
+                    <select name="batch" onchange="this.form.submit()" class="bg-transparent border-none text-xs font-bold uppercase tracking-widest text-slate-500 focus:ring-0 cursor-pointer">
+                        <option value="">All Batches</option>
+                        <option value="1" {{ request('batch') == '1' ? 'selected' : '' }}>Batch 1</option>
+                        <option value="2" {{ request('batch') == '2' ? 'selected' : '' }}>Batch 2</option>
+                    </select>
+                </div>
+
+                @if(request('search') || request('program_id') || request('level_id') || request('cohort_id') || request('batch'))
                     <a href="{{ route('coordinator.students.index') }}" class="p-2.5 text-slate-400 hover:text-rose-500 bg-white border border-slate-200 rounded-2xl transition-all shadow-sm" title="Reset Filters">
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
                     </a>
@@ -96,12 +115,17 @@
                                         </div>
                                     </td>
                                     <td class="px-6 py-6 font-medium">
-                                        <div class="space-y-1">
+                                        <div class="space-y-1.5">
                                             <p class="text-xs font-bold text-slate-700 leading-none">{{ $student->program->name ?? '--' }}</p>
-                                            <div class="flex items-center gap-2">
+                                            <div class="flex items-center gap-1.5 flex-wrap">
                                                 <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md @if(str_contains(strtolower($student->level->name ?? ''), 'phd')) bg-acetel-50 text-acetel-600 @else bg-amber-50 text-amber-600 @endif text-[8px] font-black uppercase tracking-tighter shadow-sm border border-current/10">
                                                     {{ $student->level->name ?? '--' }}
                                                 </span>
+                                                @if($student->cohort)
+                                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[8px] font-bold uppercase tracking-tighter shadow-sm border border-slate-200" title="Cohort">
+                                                        {{ $student->cohort->name }}
+                                                    </span>
+                                                @endif
                                             </div>
                                         </div>
                                     </td>
