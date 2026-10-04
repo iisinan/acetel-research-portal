@@ -54,7 +54,7 @@ class AssignedSupervisorController extends Controller
                     if ($template) {
                         $q->where('milestone_template_id', $template->id);
                     }
-                    $q->with(['submissions' => fn($sub) => $sub->latest(), 'template']);
+                    $q->with(['submissions', 'template']);
                 }
             ]);
 
@@ -78,7 +78,14 @@ class AssignedSupervisorController extends Controller
 
         if ($request->filled('batch')) {
             $batch = trim($request->batch);
-            $query->where('student_id_number', 'like', "_____{$batch}%");
+            $query->where(function($q) use ($batch) {
+                $q->where('student_id_number', 'like', "_____{$batch}%")
+                  ->orWhereHas('cohort', function($c) use ($batch) {
+                      $c->where('name', 'ilike', "%Batch {$batch}%")
+                        ->orWhere('name', 'ilike', "%Batch-{$batch}%")
+                        ->orWhere('code', 'ilike', "%-B{$batch}%");
+                  });
+            });
         }
 
         // Proposal upload status filter
@@ -140,11 +147,12 @@ class AssignedSupervisorController extends Controller
         $students = $query->paginate(15)->withQueryString();
 
         $userScopes = $user->coordinatorScopes();
-        $programs = Program::whereIn('id', $userScopes->pluck('program_id'))->get();
+        $programIds = $userScopes ? $userScopes->pluck('program_id')->filter()->unique()->toArray() : [];
+        $programs = !empty($programIds) ? Program::whereIn('id', $programIds)->get() : Program::all();
         $cohorts = Cohort::orderBy('intake_year', 'desc')->orderBy('name', 'asc')->get();
 
         // Supervisors available
-        $supervisors = SupervisorProfile::with(['user', 'department', 'programs'])
+        $supervisors = SupervisorProfile::with(['user', 'programs.department'])
             ->withCount(['assignments' => fn($q) => $q->where('status', 'active')])
             ->get();
 
@@ -154,6 +162,7 @@ class AssignedSupervisorController extends Controller
             $isProf = (stripos($rank, 'prof') !== false) || (stripos($name, 'prof') !== false);
             $currentLoad = (int) ($s->assignments_count ?? $s->current_load ?? 0);
             $maxStudents = (int) ($s->max_students ?? 5);
+            $deptName = $s->programs->first()?->department?->name ?? ($s->specialization ?: 'Academic Staff');
 
             return [
                 'id' => $s->id,
@@ -163,7 +172,7 @@ class AssignedSupervisorController extends Controller
                 'is_professor' => $isProf,
                 'current_load' => $currentLoad,
                 'max_students' => $maxStudents,
-                'department' => $s->department?->name ?? ($s->department ?? 'Academic Staff'),
+                'department' => $deptName,
                 'program_ids' => $s->programs->pluck('id')->toArray(),
             ];
         })->values();

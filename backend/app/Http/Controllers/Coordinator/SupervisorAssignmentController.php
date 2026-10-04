@@ -56,13 +56,14 @@ class SupervisorAssignmentController extends Controller
             $studentUser = $thesis->student->user;
             $studentUserId = $studentUser->id;
             
-            $supervisors = \App\Models\SupervisorProfile::with('user', 'department')->whereIn('id', $request->supervisor_ids)->get();
+            $supervisors = \App\Models\SupervisorProfile::with(['user', 'programs.department'])->whereIn('id', $request->supervisor_ids)->get();
             $coordinatorId = auth()->id();
 
             // Prepare Supervisor Details String for Student
             $supervisorDetailsStr = "";
             foreach($supervisors as $sup) {
-                $supervisorDetailsStr .= "- Name: {$sup->user->name}\n  Email: {$sup->user->email}\n  Department: " . ($sup->department->name ?? 'N/A') . "\n\n";
+                $deptName = $sup->programs->first()?->department?->name ?? ($sup->specialization ?: 'N/A');
+                $supervisorDetailsStr .= "- Name: {$sup->user->name}\n  Email: {$sup->user->email}\n  Department: {$deptName}\n\n";
             }
 
             // Send message and email to Student

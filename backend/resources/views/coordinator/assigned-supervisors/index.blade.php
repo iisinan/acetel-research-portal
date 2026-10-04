@@ -27,6 +27,7 @@
 
         return [
             'id' => $student->id,
+            'user_id' => $student->user_id,
             'name' => $student->user->name ?? 'Student',
             'email' => $student->user->email ?? '',
             'matric' => $student->student_id_number,
@@ -63,6 +64,7 @@
     previewTitle: '',
     messageRecipientName: '',
     messageRecipientId: '',
+    messageRecipientUserId: '',
     modalForm: {
         lead_id: '',
         second_id: '',
@@ -92,6 +94,7 @@
     openMessageModal(student) {
         this.messageRecipientName = student.name;
         this.messageRecipientId = student.id;
+        this.messageRecipientUserId = student.user_id;
         this.showMessageModal = true;
     },
 
@@ -764,9 +767,9 @@
 
             <div x-show="showMessageModal" 
                  class="inline-block align-bottom bg-white rounded-[2.5rem] text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-slate-100 relative z-10">
-                <form action="{{ route('messages.store') }}" method="POST">
+                <form action="{{ route('inbox.store') }}" method="POST">
                     @csrf
-                    <input type="hidden" name="recipient_id" :value="messageRecipientId">
+                    <input type="hidden" name="to[]" :value="messageRecipientUserId">
 
                     <div class="px-8 pt-8 pb-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                         <div class="flex items-center gap-3">
@@ -791,7 +794,7 @@
 
                         <div>
                             <label class="block text-xs font-black uppercase tracking-wider text-slate-700 mb-2">Message Content</label>
-                            <textarea name="content" rows="4" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none">Dear student, please upload your tentative research proposal on the portal as soon as possible so that your supervisory committee can be finalized and allocated. Thank you.</textarea>
+                            <textarea name="body" rows="4" required class="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none">Dear student, please upload your tentative research proposal on the portal as soon as possible so that your supervisory committee can be finalized and allocated. Thank you.</textarea>
                         </div>
                     </div>
 

@@ -43,4 +43,9 @@ class SupervisorProfile extends Model
     {
         return $this->hasMany(SupervisionAssignment::class, 'supervisor_profile_id');
     }
+
+    public function getDepartmentAttribute()
+    {
+        return $this->programs->first()?->department ?? null;
+    }
 }
