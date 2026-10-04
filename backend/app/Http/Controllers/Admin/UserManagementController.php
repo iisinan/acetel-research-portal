@@ -118,6 +118,13 @@ class UserManagementController extends Controller
                 'student_id_number' => ['required', 'string', 'unique:student_profiles,student_id_number', new \App\Rules\ValidMatricNumber],
             ]);
         }
+        
+        if (in_array('Supervisor', $roles)) {
+            $rules = array_merge($rules, [
+                'coordinator_programs' => 'required_without:program_id|array',
+                'program_id' => 'required_without:coordinator_programs',
+            ]);
+        }
 
         $request->merge(['roles' => $roles]);
         $validated = $request->validate($rules);
@@ -344,6 +351,13 @@ class UserManagementController extends Controller
                 'program_id' => 'required|exists:programs,id',
                 'level_id' => 'required|exists:levels,id',
                 'student_id_number' => ['required', 'string', Rule::unique('student_profiles')->ignore($user->studentProfile?->id), new \App\Rules\ValidMatricNumber],
+            ]);
+        }
+        
+        if (in_array('Supervisor', $roles)) {
+            $rules = array_merge($rules, [
+                'coordinator_programs' => 'required_without:program_id|array',
+                'program_id' => 'required_without:coordinator_programs',
             ]);
         }
 

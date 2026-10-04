@@ -20,6 +20,11 @@
             
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
                 <h3 class="text-lg font-bold text-gray-900 mb-4">Bulk Schedule Seminar Presentations</h3>
+                <div class="mb-4">
+                    <a href="{{ route('seminars.attendance') }}" class="inline-flex items-center px-4 py-2 bg-emerald-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-emerald-700">
+                        Download Examiner Attendance
+                    </a>
+                </div>
                 <form action="{{ route('seminars.schedule') }}" method="POST" class="flex gap-4 items-end">
                     @csrf
                     <template x-for="id in selectedMilestones">
@@ -55,6 +60,7 @@
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Examiner</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PPT</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Average Grade</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
@@ -62,7 +68,8 @@
                             @foreach($milestones as $milestone)
                                 @php
                                     $event = $milestone->thesis->defenceEvents->first();
-                                    $examiner = $event ? $event->panelMembers->where('role', 'Examiner')->first() : null;
+                                    $examiners = $event ? $event->panelMembers->where('role', 'Examiner') : collect();
+                                    $examinerIds = $examiners->pluck('user_id')->toArray();
                                 @endphp
                                 <tr>
                                     <td class="px-6 py-4 whitespace-nowrap">
@@ -81,8 +88,10 @@
                                         {{ $milestone->defence_date ? \Carbon\Carbon::parse($milestone->defence_date)->format('M d, Y') : 'Not scheduled' }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        @if($examiner)
-                                            {{ $examiner->user->name }}
+                                        @if($examiners->count() > 0)
+                                            @foreach($examiners as $ex)
+                                                <div class="text-xs">{{ $ex->user->name }}</div>
+                                            @endforeach
                                         @else
                                             <span class="text-red-500">Unassigned</span>
                                         @endif
@@ -94,9 +103,21 @@
                                             <span class="text-gray-400">Not uploaded</span>
                                         @endif
                                     </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        @php
+                                            $evaluations = $event ? $event->evaluations : collect();
+                                            $avg = $evaluations->count() > 0 ? $evaluations->avg(function($e) { return $e->score["total"] ?? 0; }) : null;
+                                        @endphp
+                                        @if($avg !== null)
+                                            <span class="font-bold text-green-600">{{ number_format($avg, 1) }} / 100</span>
+                                        @else
+                                            <span class="text-gray-400">N/A</span>
+                                        @endif
+                                    </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <form action="{{ route('seminars.assign-examiner', $milestone->id) }}" method="POST" class="flex items-center gap-2">
-                                            @csrf
+                                        <div class="flex flex-col gap-2">
+                                            <form action="{{ route('seminars.assign-examiner', $milestone->id) }}" method="POST" class="flex items-center gap-2">
+                                                @csrf
                                             <select name="supervisor_profile_id" required class="block w-full pl-3 pr-10 py-1 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
                                                 <option value="">Select Examiner</option>
                                                 @foreach($supervisors as $sup)
@@ -106,7 +127,18 @@
                                                 @endforeach
                                             </select>
                                             <button type="submit" class="text-white bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-xs font-bold">Assign</button>
-                                        </form>
+                                            </form>
+                                            @if($event)
+                                                <form action="{{ route('seminars.score', $event->id) }}" method="POST" class="flex items-center gap-2">
+                                                    @csrf
+                                                    @php
+                                                        $myEval = $event->evaluations->where('evaluator_id', auth()->id())->first();
+                                                    @endphp
+                                                    <input type="number" name="score" value="{{ $myEval ? ($myEval->score['total'] ?? '') : '' }}" min="0" max="100" placeholder="Grade (0-100)" required class="block w-24 py-1 text-sm border-gray-300 rounded-md">
+                                                    <button type="submit" class="text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-xs font-bold">{{ $myEval ? 'Update Grade' : 'Grade' }}</button>
+                                                </form>
+                                            @endif
+                                        </div>
                                     </td>
                                 </tr>
                             @endforeach

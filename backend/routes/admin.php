@@ -93,3 +93,10 @@ Route::post('students/{student}/sync-milestones', [StudentMilestoneController::c
 
 
 use App\Http\Controllers\Admin\SeminarController;
+
+
+Route::get("seminars", [SeminarController::class, "index"])->name("seminars.index");
+Route::post("seminars/schedule", [SeminarController::class, "schedule"])->name("seminars.schedule");
+Route::post("seminars/{milestone}/assign-examiner", [SeminarController::class, "assignExaminer"])->name("seminars.assign-examiner");
+Route::post("seminars/{event}/score", [SeminarController::class, "storeScore"])->name("seminars.score");
+Route::get("seminars/attendance", [SeminarController::class, "downloadAttendance"])->name("seminars.attendance");

@@ -321,6 +321,10 @@ class RegisteredUserController extends Controller
                             'max_load' => 5,
                         ]
                     );
+                    
+                    if ($request->filled('program_id')) {
+                        $supProfile->programs()->syncWithoutDetaching([$request->program_id]);
+                    }
                     $supId = $supProfile->id;
                 }
 
