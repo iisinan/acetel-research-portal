@@ -13,6 +13,9 @@ class PastPresentationController extends Controller
     {
         $milestones = StudentMilestone::where('status', 'approved')
             ->whereNotNull('defence_date')
+            ->whereHas('template', function($q) {
+                $q->where('slug', 'seminar_as_a_course');
+            })
             ->with(['thesis.student.user', 'template', 'thesis.defenceEvents.evaluations'])
             ->orderBy('defence_date', 'desc')
             ->paginate(20);
@@ -24,6 +27,9 @@ class PastPresentationController extends Controller
     {
         $milestones = StudentMilestone::where('status', 'approved')
             ->whereNotNull('defence_date')
+            ->whereHas('template', function($q) {
+                $q->where('slug', 'seminar_as_a_course');
+            })
             ->with(['thesis.student.user', 'template', 'thesis.defenceEvents.evaluations'])
             ->orderBy('defence_date', 'desc')
             ->get();
@@ -78,6 +84,9 @@ class PastPresentationController extends Controller
     {
         $milestones = StudentMilestone::where('status', 'approved')
             ->whereNotNull('defence_date')
+            ->whereHas('template', function($q) {
+                $q->where('slug', 'seminar_as_a_course');
+            })
             ->with(['thesis.defenceEvents.evaluations.evaluator'])
             ->get();
 
