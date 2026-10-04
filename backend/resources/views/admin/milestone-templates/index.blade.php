@@ -278,8 +278,7 @@
 
                                             <form action="{{ route('admin.milestone-templates.end-schedule', $template->id) }}" method="POST" class="inline">
     @csrf
-    <button type="button" 
-        data-confirm="Are you sure you want to end this presentation session? This will mark all {{ $scheduledCount }} currently scheduled presentations as 'Approved' and clear the active global examiners for the next batch."
+    <button type="submit" data-confirm="Are you sure you want to end this presentation session? This will mark all {{ $scheduledCount }} currently scheduled presentations as 'Approved' and clear the active global examiners for the next batch."
         data-confirm-title="End Presentation Session"
         data-confirm-type="success"
         data-confirm-btn="End Session"
@@ -782,3 +781,4 @@
 @endpush
 
 @endsection
+
