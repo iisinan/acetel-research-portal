@@ -290,6 +290,47 @@ class MilestoneController extends Controller
     }
 
     /**
+     * Conclude presentation session for an individual milestone card.
+     * Evaluates whether all presentation requirements are met:
+     * - Seminar: scheduled, graded by examiner.
+     * - Proposal Defence, Progress Report 1 & 2: scheduled, PPT uploaded, supervisor approved upload, presentation completed.
+     */
+    public function endPresentation(Request $request, StudentMilestone $milestone)
+    {
+        $user = Auth::user();
+        if (!$user || !$user->hasRole('Admin')) {
+            abort(403, 'Institutional authority required. Only an Administrator can end presentation sessions.');
+        }
+
+        if ($milestone->status === 'approved') {
+            return back()->with('info', 'This milestone has already been officially approved.');
+        }
+
+        $workflow = app(\App\Services\MilestoneWorkflowService::class);
+        $reason = $workflow->getEndSessionBlockReason($milestone);
+
+        $studentName = $milestone->thesis?->student?->user?->name ?? 'Candidate';
+
+        if ($reason) {
+            $msg = "Cannot end presentation for {$studentName}: {$reason}.";
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $msg], 422);
+            }
+            return back()->with('error', $msg);
+        }
+
+        $workflow->approveAndAdvance($milestone, "Presentation session ended and approved by Admin ({$user->name}).");
+
+        $successMsg = "Presentation ended successfully for {$studentName}. Candidate advanced to the next milestone.";
+
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'message' => $successMsg]);
+        }
+
+        return back()->with('success', $successMsg);
+    }
+
+    /**
      * Display the specified resource.
      */
     public function show(StudentMilestone $milestone)

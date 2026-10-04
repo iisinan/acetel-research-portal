@@ -318,6 +318,24 @@
                                             <span>Join Room</span>
                                         </a>
                                     @endif
+
+                                    @if(auth()->user()->hasRole('Admin') && $pres->status !== 'approved')
+                                        <form action="{{ route('milestones.end_presentation', $pres) }}" method="POST" class="inline">
+                                            @csrf
+                                            <button type="submit" 
+                                                data-confirm="Are you sure you want to end the presentation for {{ addslashes($studentName) }}? If all requirements are met, the candidate will be advanced to the next milestone."
+                                                data-confirm-title="End Presentation Session"
+                                                data-confirm-type="success"
+                                                data-confirm-btn="End Presentation"
+                                                title="End Presentation for {{ $studentName }}"
+                                                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition-all active:scale-95">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                <span>End</span>
+                                            </button>
+                                        </form>
+                                    @endif
                                 </div>
                             </div>
                         </div>
@@ -587,6 +605,23 @@
                                                 </a>
                                             @else
                                                 <span class="text-slate-300 text-xs">-</span>
+                                            @endif
+
+                                            @if(auth()->user()->hasRole('Admin') && $sm->status !== 'approved')
+                                                <form action="{{ route('milestones.end_presentation', $sm) }}" method="POST" class="inline">
+                                                    @csrf
+                                                    <button type="submit" 
+                                                        data-confirm="Are you sure you want to end the presentation for {{ addslashes($studentName) }}? If all requirements are met, the candidate will be advanced to the next milestone."
+                                                        data-confirm-title="End Presentation Session"
+                                                        data-confirm-type="success"
+                                                        data-confirm-btn="End Presentation"
+                                                        title="End Presentation for {{ $studentName }}"
+                                                        class="p-1.5 rounded-xl text-blue-600 hover:text-white hover:bg-blue-600 border border-blue-200 hover:border-blue-600 transition-all shadow-2xs">
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                    </button>
+                                                </form>
                                             @endif
 
                                             @if(auth()->user()->hasRole('Admin'))

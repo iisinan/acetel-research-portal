@@ -218,9 +218,27 @@ class MilestoneWorkflowService
      */
     public function hasUploadedPresentation(StudentMilestone $milestone): bool
     {
-        return $milestone->submissions()->where('type', 'ppt')->exists()
-            || $milestone->submissions()->where('description', 'like', '%PPT%')->exists()
-            || $milestone->submissions()->where('description', 'like', '%Presentation%')->exists();
+        // 1. Direct type match
+        if ($milestone->submissions()->whereIn('type', ['ppt', 'presentation'])->exists()) {
+            return true;
+        }
+
+        // 2. Scan submissions case-insensitively
+        $subs = $milestone->submissions()->get();
+        foreach ($subs as $sub) {
+            $desc = strtolower($sub->description ?? '');
+            $url = strtolower($sub->file_url ?? '');
+            $orig = strtolower($sub->file_meta['original_name'] ?? '');
+
+            if (str_contains($desc, 'ppt') || str_contains($desc, 'presentation') || str_contains($desc, 'slide')) {
+                return true;
+            }
+            if (str_contains($url, '.ppt') || str_contains($orig, '.ppt')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

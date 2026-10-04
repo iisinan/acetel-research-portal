@@ -107,6 +107,141 @@ class StudentMilestone extends Model
 
     public function getProgressTrackAttribute()
     {
+        $slug = $this->template?->slug;
+
+        // Custom tracks for explicit institutional milestone steps
+        if ($slug === 'seminar_as_a_course') {
+            $isScheduled = !empty($this->defence_date);
+            $workflow = app(\App\Services\MilestoneWorkflowService::class);
+            $isGraded = $workflow->hasBeenGraded($this);
+            $isApproved = $this->status === 'approved';
+
+            $tasks = [
+                [
+                    'id' => 'seminar_schedule',
+                    'name' => 'Presentation Scheduled',
+                    'completed' => $isScheduled || $isApproved,
+                    'details' => $isScheduled ? 'Scheduled for ' . \Carbon\Carbon::parse($this->defence_date)->format('M d, Y') : 'Awaiting admin schedule',
+                    'action_type' => 'none',
+                ],
+                [
+                    'id' => 'seminar_graded',
+                    'name' => 'Presentation Graded',
+                    'completed' => $isGraded || $isApproved,
+                    'details' => $isGraded ? 'Graded by examiner' : 'Awaiting presentation examination',
+                    'action_type' => 'none',
+                ],
+                [
+                    'id' => 'seminar_session_end',
+                    'name' => 'End Presentation Session',
+                    'completed' => $isApproved,
+                    'details' => $isApproved ? 'Session concluded by Admin' : 'Admin presentation clearance',
+                    'action_type' => 'none',
+                ],
+            ];
+            $completedTasks = count(array_filter($tasks, fn($t) => $t['completed']));
+            $percentage = $isApproved ? 100 : floor(($completedTasks / count($tasks)) * 100);
+
+            return [
+                'tasks' => $tasks,
+                'total' => count($tasks),
+                'completed' => $completedTasks,
+                'percentage' => $percentage,
+                'is_fully_complete' => $percentage == 100,
+            ];
+        }
+
+        if ($slug === 'supervisors_assigned') {
+            $hasProposal = $this->submissions()->exists();
+            $hasSupervisors = $this->thesis?->assignments()->where('status', 'active')->exists();
+            $isApproved = $this->status === 'approved';
+
+            $tasks = [
+                [
+                    'id' => 'tentative_proposal',
+                    'name' => 'Upload Tentative Proposal',
+                    'completed' => $hasProposal || $isApproved,
+                    'details' => $hasProposal ? 'Tentative proposal received' : 'Awaiting tentative proposal upload (PDF)',
+                    'action_type' => 'none',
+                ],
+                [
+                    'id' => 'assign_supervisors',
+                    'name' => 'Supervisors Assigned',
+                    'completed' => $hasSupervisors || $isApproved,
+                    'details' => $hasSupervisors ? 'Supervisors allocated by coordinator' : 'Awaiting supervisor allocation',
+                    'action_type' => 'none',
+                ],
+                [
+                    'id' => 'auto_advance',
+                    'name' => 'Advancement to Proposal Defence',
+                    'completed' => $isApproved,
+                    'details' => $isApproved ? 'Advanced to Proposal Defence' : 'Automatic upon upload & assignment',
+                    'action_type' => 'none',
+                ],
+            ];
+            $completedTasks = count(array_filter($tasks, fn($t) => $t['completed']));
+            $percentage = $isApproved ? 100 : floor(($completedTasks / count($tasks)) * 100);
+
+            return [
+                'tasks' => $tasks,
+                'total' => count($tasks),
+                'completed' => $completedTasks,
+                'percentage' => $percentage,
+                'is_fully_complete' => $percentage == 100,
+            ];
+        }
+
+        if (in_array($slug, ['proposal_defence', 'progress_report_1', 'progress_report_2'])) {
+            $workflow = app(\App\Services\MilestoneWorkflowService::class);
+            $hasPpt = $workflow->hasUploadedPresentation($this);
+            $isSupervisorApproved = $this->is_supervisor_approved;
+            $isScheduled = !empty($this->defence_date);
+            $presented = ($isScheduled && \Carbon\Carbon::parse($this->defence_date)->startOfDay()->lte(now()->startOfDay()))
+                || $workflow->hasBeenGraded($this);
+            $isApproved = $this->status === 'approved';
+
+            $tasks = [
+                [
+                    'id' => 'upload_ppt',
+                    'name' => 'Upload Presentation (PPT)',
+                    'completed' => $hasPpt || $isApproved,
+                    'details' => $hasPpt ? 'Presentation slide deck uploaded' : 'Awaiting presentation upload',
+                    'action_type' => 'none',
+                ],
+                [
+                    'id' => 'supervisor_approval',
+                    'name' => 'Supervisor Approval',
+                    'completed' => $isSupervisorApproved || $isApproved,
+                    'details' => $isSupervisorApproved ? 'Upload approved by supervisor' : 'Awaiting supervisor review & acceptance',
+                    'action_type' => 'none',
+                ],
+                [
+                    'id' => 'presentation_done',
+                    'name' => 'Presentation Conducted',
+                    'completed' => $presented || $isApproved,
+                    'details' => $presented ? 'Presentation conducted' : ($isScheduled ? 'Scheduled for ' . \Carbon\Carbon::parse($this->defence_date)->format('M d, Y') : 'Awaiting schedule'),
+                    'action_type' => 'none',
+                ],
+                [
+                    'id' => 'admin_end_presentation',
+                    'name' => 'End Presentation Clearance',
+                    'completed' => $isApproved,
+                    'details' => $isApproved ? 'Presentation session ended by Admin' : 'Admin concludes presentation session',
+                    'action_type' => 'none',
+                ],
+            ];
+            $completedTasks = count(array_filter($tasks, fn($t) => $t['completed']));
+            $percentage = $isApproved ? 100 : floor(($completedTasks / count($tasks)) * 100);
+
+            return [
+                'tasks' => $tasks,
+                'total' => count($tasks),
+                'completed' => $completedTasks,
+                'percentage' => $percentage,
+                'is_fully_complete' => $percentage == 100,
+            ];
+        }
+
         $tasks = [];
         $completedTasks = 0;
         

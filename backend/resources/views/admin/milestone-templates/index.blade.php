@@ -683,7 +683,23 @@
                                                                     </button>
                                                                     <div x-show="menuOpen" @click.outside="menuOpen = false" x-cloak class="absolute right-8 top-0 w-56 bg-white rounded-xl shadow-xl border border-slate-100 z-[60] overflow-hidden text-left" style="display: none;">
                                                                         @if((!isset($isCoordinator) || !$isCoordinator) && $sm->status !== 'approved')
-                                                                            <div class="p-1.5 border-b border-slate-100">
+                                                                            <div class="p-1.5 border-b border-slate-100 space-y-1">
+                                                                                @if(!empty($sm->defence_date) || in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
+                                                                                <form action="{{ route('milestones.end_presentation', $sm) }}" method="POST">
+                                                                                    @csrf
+                                                                                    <button type="submit" 
+                                                                                        data-confirm="Are you sure you want to end the presentation for {{ addslashes($studentName) }}? If all requirements are met, the milestone will be approved and the student advanced."
+                                                                                        data-confirm-title="End Presentation Session"
+                                                                                        data-confirm-type="success"
+                                                                                        data-confirm-btn="End Presentation"
+                                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex items-center gap-2">
+                                                                                        <svg class="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                                                        </svg>
+                                                                                        <span>End Presentation</span>
+                                                                                    </button>
+                                                                                </form>
+                                                                                @endif
                                                                                 <form action="{{ route('milestones.review.update', $sm) }}" method="POST">
                                                                                     @csrf
                                                                                     @method('PATCH')

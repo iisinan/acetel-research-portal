@@ -239,7 +239,22 @@
                             </div>
                         @endif
 
-                        @can('review', $milestone)
+                        @if(auth()->user()->hasRole('Admin') && $milestone->status !== 'approved' && (!empty($milestone->defence_date) || in_array($milestone->template?->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2'])))
+                            <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST" class="inline-block relative z-20" onclick="event.stopPropagation();">
+                                @csrf
+                                <button type="submit" 
+                                    data-confirm="Are you sure you want to end the presentation for {{ addslashes($thesis->student?->user?->name ?? 'Candidate') }}? If all requirements are met (presentation conducted, PPT uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
+                                    data-confirm-title="End Presentation Session" 
+                                    data-confirm-type="success" 
+                                    data-confirm-btn="End Presentation" 
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-blue-700 transition-colors shadow-sm cursor-pointer border border-blue-700">
+                                    <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    End Presentation
+                                </button>
+                            </form>
+                        @elseif(auth()->user()->can('review', $milestone))
                             @php
                                 $canQuickApprove = !$milestone->template->requires_submission || 
                                                    ($milestone->submissions->last() && 
@@ -258,7 +273,7 @@
                                 </button>
                             </form>
                             @endif
-                        @endcan
+                        @endif
                         
                         <span class="inline-flex items-center px-4 py-2 rounded-xl bg-{{ $conf['color'] }}-50 text-{{ $conf['color'] }}-700 border border-{{ $conf['color'] }}-100 text-xs font-bold uppercase tracking-widest shadow-sm shadow-{{ $conf['color'] }}-500/5">
                             {{ $conf['label'] }}
