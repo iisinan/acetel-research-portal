@@ -80,21 +80,21 @@
             <div class="px-8 pb-8 md:px-12 md:pb-12 pt-0">
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     @foreach($pending_reviews as $review)
-                    <a href="{{ route('coordinator.students.show', $review->thesis->student_profile_id) }}#milestone-{{$review->id}}" class="block bg-amber-800/40 border border-amber-500/30 rounded-[2rem] p-6 hover:bg-amber-800/80 transition-all group backdrop-blur-md relative overflow-hidden">
+                    <a href="{{ route('coordinator.students.show', $review->thesis?->student_profile_id) }}#milestone-{{$review->id}}" class="block bg-amber-800/40 border border-amber-500/30 rounded-[2rem] p-6 hover:bg-amber-800/80 transition-all group backdrop-blur-md relative overflow-hidden">
                         <div class="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                         <div class="flex items-start gap-4 relative z-10">
                             <div class="w-12 h-12 rounded-[1.2rem] bg-amber-500/20 text-amber-100 flex items-center justify-center font-black text-lg border border-amber-400/30 group-hover:scale-110 transition-transform shadow-inner shrink-0">
-                                {{ substr($review->thesis->student->user->name ?? '?', 0, 1) }}
+                                {{ substr($review->thesis?->student?->user?->name ?? '?', 0, 1) }}
                             </div>
                             <div class="flex-1 min-w-0 pt-1">
-                                <h4 class="text-white font-black text-base uppercase tracking-tight truncate leading-none mb-2">{{ $review->thesis->student->user->name ?? 'Student' }}</h4>
+                                <h4 class="text-white font-black text-base uppercase tracking-tight truncate leading-none mb-2">{{ $review->thesis?->student?->user?->name ?? 'Student' }}</h4>
                                 <div class="inline-block px-3 py-1.5 bg-amber-900/50 border border-amber-700/50 rounded-lg text-[10px] font-bold text-amber-200 mt-1 uppercase tracking-[0.1em] truncate max-w-full shadow-inner">{{ $review->template->name }}</div>
                             </div>
                         </div>
                         <div class="mt-6 pt-5 flex items-center justify-between border-t border-amber-500/20 relative z-10">
                             <span class="text-[9px] font-black text-amber-300/70 uppercase tracking-[0.2em] italic">{{ $review->submitted_at ? $review->submitted_at->diffForHumans() : 'Recently' }}</span>
                             <div class="flex items-center gap-2">
-                                <a href="{{ route('coordinator.students.show', $review->thesis->student_profile_id) }}#milestone-{{$review->id}}" class="px-4 py-2 bg-white/10 hover:bg-white text-white hover:text-amber-700 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-white/10 hover:border-white">
+                                <a href="{{ route('coordinator.students.show', $review->thesis?->student_profile_id) }}#milestone-{{$review->id}}" class="px-4 py-2 bg-white/10 hover:bg-white text-white hover:text-amber-700 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border border-white/10 hover:border-white">
                                     Review
                                 </a>
                             </div>
@@ -131,12 +131,12 @@
                              <div class="flex flex-col md:flex-row md:items-center justify-between gap-12">
                                  <div class="flex items-center gap-10">
                                      <div class="w-24 h-24 rounded-[2.5rem] bg-slate-900 border border-white/5 flex items-center justify-center text-slate-500 font-black text-4xl shadow-3xl transition-all group-hover:scale-110 group-hover:rotate-12 group-hover:text-emerald-400 italic">
-                                         {{ substr($thesis->student->user->name, 0, 1) }}
+                                         {{ substr($thesis?->student?->user?->name ?? "Unknown", 0, 1) }}
                                      </div>
                                      <div class="min-w-0">
-                                         <h4 class="text-3xl font-black text-white group-hover:text-emerald-400 transition-colors italic tracking-tight uppercase leading-none mb-4">{{ $thesis->student->user->name }}</h4>
+                                         <h4 class="text-3xl font-black text-white group-hover:text-emerald-400 transition-colors italic tracking-tight uppercase leading-none mb-4">{{ $thesis?->student?->user?->name ?? "Unknown" }}</h4>
                                          <div class="flex items-center gap-6">
-                                            <span class="px-5 py-2 bg-slate-950 text-slate-600 border border-white/5 text-[9px] font-black uppercase tracking-[0.3em] rounded-xl italic">{{ $thesis->student->program->code }}</span>
+                                            <span class="px-5 py-2 bg-slate-950 text-slate-600 border border-white/5 text-[9px] font-black uppercase tracking-[0.3em] rounded-xl italic">{{ $thesis?->student?->program?->code ?? "N/A" }}</span>
                                             <span class="text-xs text-slate-600 font-black uppercase tracking-[0.4em] italic opacity-60">Status Flux: {{ $thesis->status }}</span>
                                          </div>
                                          <p class="text-sm text-slate-700 mt-4 line-clamp-1 italic italic leading-none opacity-80 group-hover:opacity-100 transition-opacity">"{{ $thesis->title }}"</p>

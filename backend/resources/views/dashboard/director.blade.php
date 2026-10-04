@@ -504,16 +504,16 @@
                             <td class="px-8 py-5">
                                 <div class="flex items-center gap-4">
                                     <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-100 to-brand-200 text-brand-800 flex items-center justify-center font-black text-base border border-brand-200 shadow-sm group-hover:scale-105 transition-transform">
-                                        {{ substr($student->user->name ?? '?', 0, 1) }}
+                                        {{ substr($student?->user?->name ?? '?', 0, 1) }}
                                     </div>
                                     <div>
-                                        <p class="text-sm font-black text-slate-800 group-hover:text-brand-700 transition-colors">{{ $student->user->name ?? 'N/A' }}</p>
+                                        <p class="text-sm font-black text-slate-800 group-hover:text-brand-700 transition-colors">{{ $student?->user?->name ?? 'N/A' }}</p>
                                         <p class="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-wider">{{ $student->student_id_number }}</p>
                                     </div>
                                 </div>
                             </td>
                             <td class="px-6 py-5">
-                                <span class="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-200">{{ $student->program->code ?? 'N/A' }}</span>
+                                <span class="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-200">{{ $student?->program?->code ?? 'N/A' }}</span>
                                 <p class="text-[9px] font-bold text-slate-400 mt-1.5 uppercase tracking-widest">{{ $student->level->name ?? '' }}</p>
                             </td>
                             <td class="px-6 py-5">

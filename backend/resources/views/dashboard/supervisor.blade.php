@@ -738,10 +738,10 @@ class="space-y-8 animate-in">
                     <div class="bg-white border border-amber-200 rounded-2xl p-5 hover:border-amber-400 hover:shadow-md transition-all group">
                         <div class="flex items-start gap-3.5">
                             <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-black text-sm shrink-0 border border-amber-100">
-                                {{ substr($review->thesis->student->user->name ?? '?', 0, 1) }}
+                                {{ substr($review->thesis?->student?->user?->name ?? '?', 0, 1) }}
                             </div>
                             <div class="min-w-0 flex-1">
-                                <h4 class="text-sm font-black text-slate-800 truncate">{{ $review->thesis->student->user->name ?? 'Candidate' }}</h4>
+                                <h4 class="text-sm font-black text-slate-800 truncate">{{ $review->thesis?->student?->user?->name ?? 'Candidate' }}</h4>
                                 <span class="inline-block mt-1 px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200/50 rounded text-[9px] font-bold uppercase truncate max-w-full">
                                     {{ $review->template->name }}
                                 </span>
@@ -838,9 +838,9 @@ class="space-y-8 animate-in">
             <div class="divide-y divide-slate-50">
                 @forelse($students as $student)
                     @php
-                        $safeName = addslashes($student->user->name ?? '');
+                        $safeName = addslashes($student?->user?->name ?? '');
                         $safeMatric = addslashes($student->student_id_number ?? '');
-                        $safeProg = addslashes($student->program->code ?? '');
+                        $safeProg = addslashes($student?->program?->code ?? '');
                         $safeTitle = addslashes($student->thesis_title ?? '');
                         $hasActionBool = $student->has_pending_review ? 'true' : 'false';
                         $isStalledBool = $student->is_stalled ? 'true' : 'false';
@@ -852,15 +852,15 @@ class="space-y-8 animate-in">
                             {{-- Candidate Information & Thesis Topic --}}
                             <div class="flex items-start gap-4 flex-1 min-w-0">
                                 <div class="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700 font-black text-lg shadow-xs group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300 shrink-0">
-                                    {{ substr($student->user->name, 0, 1) }}
+                                    {{ substr($student?->user?->name ?? "Unknown", 0, 1) }}
                                 </div>
                                 <div class="min-w-0 flex-1 space-y-1.5">
                                     <div class="flex flex-wrap items-center gap-2">
                                         <h4 class="text-base font-black text-slate-800 group-hover:text-emerald-600 transition-colors tracking-tight uppercase leading-none">
-                                            {{ $student->user->name }}
+                                            {{ $student?->user?->name ?? "Unknown" }}
                                         </h4>
                                         <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[9px] font-black uppercase">
-                                            {{ $student->program->code ?? 'N/A' }}
+                                            {{ $student?->program?->code ?? 'N/A' }}
                                         </span>
                                         <span class="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold">
                                             {{ $student->level->name ?? '' }}

@@ -48,7 +48,7 @@
                             </div>
                             <div>
                                 <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Program / Course</p>
-                                <p class="text-xs font-bold text-slate-800 leading-none">{{ $student->program->name ?? 'Not Assigned' }}</p>
+                                <p class="text-xs font-bold text-slate-800 leading-none">{{ $student?->program?->name ?? 'Not Assigned' }}</p>
                             </div>
                         </div>
                         <div class="px-3 py-2 bg-white border border-green-100 rounded-xl shadow-sm flex items-center gap-2">
