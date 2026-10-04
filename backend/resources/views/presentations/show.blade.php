@@ -292,9 +292,9 @@
                                 <th class="px-4 py-3.5">Presenter Details</th>
                                 <th class="px-4 py-3.5">Research Topic</th>
                                 <th class="px-4 py-3.5">Date & Time</th>
-                                <th class="px-4 py-3.5">Supervisors</th>
+                                <th class="px-4 py-3.5">Panel / Supervisors</th>
                                 <th class="px-4 py-3.5">Manuscript</th>
-                                <th class="px-4 py-3.5 text-center">Meeting Link</th>
+                                <th class="px-4 py-3.5 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
@@ -305,7 +305,11 @@
                                     $studentName = $user?->name ?? 'Candidate';
                                     $matricNo = $student?->student_id_number ?? 'N/A';
                                     $topic = $sm->thesis?->title ?? 'Topic Pending';
+                                    $tableEventType = $template->defence_type ?? 'seminar';
+                                    $tableDefEvent = $sm->thesis?->defenceEvents?->where('type', $tableEventType)->first();
+                                    $examiners = $tableDefEvent ? $tableDefEvent->panelMembers->map(fn($pm) => $pm->user?->name)->filter()->implode(', ') : '';
                                     $supervisors = $sm->thesis?->assignments?->map(fn($a) => $a->supervisor?->user?->name)->filter()->implode(', ');
+                                    $displayPanel = $examiners ?: $supervisors;
                                     $dateStr = \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d');
                                     $isToday = ($dateStr === $todayDateStr);
                                     $latestSub = $sm->submissions->first();
@@ -359,7 +363,7 @@
                                         @endif
                                     </td>
                                     <td class="px-4 py-3.5 text-slate-600 font-medium">
-                                        {{ $supervisors ?: 'Unassigned' }}
+                                        {{ $displayPanel ?: 'Unassigned' }}
                                     </td>
                                     <td class="px-4 py-3.5">
                                         @if($latestSub && $latestSub->file_url)
@@ -382,22 +386,27 @@
                                     </td>
                                     <td class="px-4 py-3.5 text-center">
                                         @php
-                                            $tableEventType = $template->defence_type ?? 'seminar';
-                                            $tableDefEvent = $sm->thesis?->defenceEvents?->where('type', $tableEventType)->first();
                                             $tableCanEval = $tableDefEvent && $tableDefEvent->isAuthorizedEvaluator(auth()->id());
                                             $tableEval = $tableCanEval ? $tableDefEvent->evaluations->firstWhere('evaluator_id', auth()->id()) : null;
                                         @endphp
                                         <div class="flex items-center justify-center gap-1.5 flex-wrap">
-                                            @if($tableCanEval && $isToday)
+                                            @if($tableCanEval)
                                                 @if($tableEval && $tableEval->submitted_at)
                                                     <a href="{{ route('evaluations.show', $tableEval->id) }}" class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors">
                                                         <span>Evaluated</span>
                                                     </a>
                                                 @else
-                                                    <a href="{{ route('evaluations.create', $tableDefEvent->id) }}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors shadow-sm">
-                                                        <span>Score</span>
-                                                    </a>
+                                                    @if($isToday)
+                                                        <a href="{{ route('evaluations.create', $tableDefEvent->id) }}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors shadow-sm">
+                                                            <span>Score</span>
+                                                        </a>
+                                                    @else
+                                                        <span title="Scoring opens on the presentation date" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-slate-100 text-slate-400 cursor-not-allowed shadow-sm">
+                                                            <span>Score</span>
+                                                        </span>
+                                                    @endif
                                                 @endif
+                                            
                                             @endif
 
                                             @if($rowLink)
