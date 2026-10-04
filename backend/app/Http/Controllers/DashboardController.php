@@ -185,7 +185,10 @@ class DashboardController extends Controller
                     })
                     ->where(function($q) use ($user) {
                         $q->whereNull('approvals')
-                          ->orWhereJsonDoesntContain('approvals', ['user_id' => $user->id]);
+                          ->orWhereRaw("NOT EXISTS (
+                              SELECT 1 FROM jsonb_each(COALESCE(approvals, '{}'::jsonb)) 
+                              WHERE value->>'user_id' = ?
+                          )", [$user->id]);
                     })
                     ->whereNotNull('submitted_at')
                     ->with(['thesis.student.user', 'template'])
@@ -286,7 +289,10 @@ class DashboardController extends Controller
                 })
                 ->where(function($q) use ($user) {
                     $q->whereNull('approvals')
-                      ->orWhereJsonDoesntContain('approvals', ['user_id' => $user->id]);
+                      ->orWhereRaw("NOT EXISTS (
+                          SELECT 1 FROM jsonb_each(COALESCE(approvals, '{}'::jsonb)) 
+                          WHERE value->>'user_id' = ?
+                      )", [$user->id]);
                 })
                 ->where(function($q) {
                     $q->whereNotNull('submitted_at')
@@ -354,7 +360,10 @@ class DashboardController extends Controller
                 })
                 ->where(function($q) use ($user) {
                     $q->whereNull('approvals')
-                      ->orWhereJsonDoesntContain('approvals', ['user_id' => $user->id]);
+                      ->orWhereRaw("NOT EXISTS (
+                          SELECT 1 FROM jsonb_each(COALESCE(approvals, '{}'::jsonb)) 
+                          WHERE value->>'user_id' = ?
+                      )", [$user->id]);
                 })
                 ->whereNotNull('submitted_at')
                 ->with(['thesis.student.user', 'template'])
@@ -385,7 +394,10 @@ class DashboardController extends Controller
                 })
                 ->where(function($q) use ($user) {
                     $q->whereNull('approvals')
-                      ->orWhereJsonDoesntContain('approvals', ['user_id' => $user->id]);
+                      ->orWhereRaw("NOT EXISTS (
+                          SELECT 1 FROM jsonb_each(COALESCE(approvals, '{}'::jsonb)) 
+                          WHERE value->>'user_id' = ?
+                      )", [$user->id]);
                 })
                 ->whereNotNull('submitted_at')
                 ->with(['thesis.student.user', 'template'])
@@ -480,7 +492,10 @@ class DashboardController extends Controller
             })
             ->where(function($q) use ($user) {
                 $q->whereNull('approvals')
-                  ->orWhereJsonDoesntContain('approvals', ['user_id' => $user->id]);
+                  ->orWhereRaw("NOT EXISTS (
+                      SELECT 1 FROM jsonb_each(COALESCE(approvals, '{}'::jsonb)) 
+                      WHERE value->>'user_id' = ?
+                  )", [$user->id]);
             })
             ->whereNotNull('submitted_at')
             ->with(['thesis.student.user', 'template'])
@@ -528,7 +543,10 @@ class DashboardController extends Controller
                 })
                 ->where(function($q) use ($user) {
                     $q->whereNull('approvals')
-                      ->orWhereJsonDoesntContain('approvals', ['user_id' => $user->id]);
+                      ->orWhereRaw("NOT EXISTS (
+                          SELECT 1 FROM jsonb_each(COALESCE(approvals, '{}'::jsonb)) 
+                          WHERE value->>'user_id' = ?
+                      )", [$user->id]);
                 })
                 ->where(function($q) {
                     $q->whereNotNull('submitted_at')
