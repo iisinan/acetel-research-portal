@@ -438,7 +438,6 @@ class MilestoneTemplateController extends Controller
                 ->get();
 
             foreach ($milestones as $sm) {
-                // Update to approved so it counts as completed and disappears from active schedules
                 $sm->update([
                     'status' => 'approved'
                 ]);
@@ -451,7 +450,12 @@ class MilestoneTemplateController extends Controller
 
             \Illuminate\Support\Facades\DB::commit();
 
-            return redirect()->route('admin.milestone-templates.index')->with('success', "Presentation session for {$template->name} has been marked as ended. The students have been approved and the active schedule has been cleared.");
+            // Set a flag to trigger the auto-download in the past presentations view
+            return redirect()->route('admin.past-presentations.index')
+                ->with('success', "Presentation session for {$template->name} has been marked as ended. The records have been archived here.")
+                ->with('auto_download_scores', route('admin.past-presentations.export-scores'))
+                ->with('auto_download_attendance', route('admin.past-presentations.export-attendance'));
+
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\DB::rollBack();
             return redirect()->back()->with('error', 'Failed to end schedule: ' . $e->getMessage());

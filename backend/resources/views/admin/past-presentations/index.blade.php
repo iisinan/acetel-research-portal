@@ -92,3 +92,25 @@
     @endif
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        @if(session('auto_download_scores'))
+            setTimeout(function() {
+                window.open("{{ session('auto_download_scores') }}", "_self");
+            }, 500);
+        @endif
+        
+        @if(session('auto_download_attendance'))
+            setTimeout(function() {
+                let iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = "{{ session('auto_download_attendance') }}";
+                document.body.appendChild(iframe);
+            }, 1500);
+        @endif
+    });
+</script>
+@endpush
+
