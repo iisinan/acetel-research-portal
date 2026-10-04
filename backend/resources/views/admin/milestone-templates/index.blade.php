@@ -343,6 +343,9 @@
                                                 }"
                                                 @submit="if(selected.length === 0) { (window.toast ? window.toast.warning('Please select at least one examiner.') : alert('Please select at least one examiner.')); $event.preventDefault(); }">
                                                 @csrf
+                                                  <template x-for="id in selected">
+                                                      <input type="hidden" name="supervisor_profile_ids[]" :value="id">
+                                                  </template>
                                                 
                                                 <!-- Alpine component for multiselect -->
                                                 <div class="relative w-48 z-50">
@@ -362,7 +365,7 @@
                                                         <div class="py-1 max-h-40 overflow-y-auto">
                                                             <template x-for="option in filteredOptions" :key="option.id">
                                                                 <label class="flex items-center px-3 py-2 hover:bg-indigo-50 cursor-pointer">
-                                                                    <input type="checkbox" :value="option.id" x-model="selected" name="supervisor_profile_ids[]" class="rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 mr-2 w-3.5 h-3.5">
+                                                                    <input type="checkbox" :value="option.id" x-model="selected" class="rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 mr-2 w-3.5 h-3.5">
                                                                     <span class="text-xs text-slate-700 flex flex-col"><span x-text="option.name"></span><span class="text-[9px] text-slate-400 font-bold tracking-wider" x-text="option.program"></span></span>
                                                                 </label>
                                                             </template>

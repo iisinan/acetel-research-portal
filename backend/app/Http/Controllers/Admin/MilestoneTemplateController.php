@@ -514,6 +514,7 @@ class MilestoneTemplateController extends Controller
 
         $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
             ->whereIn('status', ['in_progress', 'submitted', 'revision_required', 'partially_approved'])
+            ->whereNotNull('defence_date')
             ->with('thesis')
             ->get();
 
