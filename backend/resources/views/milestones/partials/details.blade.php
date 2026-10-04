@@ -812,10 +812,7 @@
                     </div>
                 @endif
                 <div class="space-y-4">
-                    @php
-                        $canShowSupervisors = $milestone->template->show_supervisor_details;
-                    @endphp
-                    @if($canShowSupervisors && isset($supervisors) && $supervisors->count() > 0)
+                    @if(isset($supervisors) && $supervisors->count() > 0)
                         <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Assigned Committee</p>
                         @foreach($supervisors as $supervisor)
                             <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-slate-200 hover:bg-white transition-colors cursor-pointer"
