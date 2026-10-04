@@ -18,6 +18,7 @@ class PresentationController extends Controller
         // Include pending scheduled milestones and milestones scheduled for today or future
         $allScheduled = StudentMilestone::where('milestone_template_id', $template->id)
             ->whereNotNull('defence_date')
+            ->where('defence_date', '!=', '')
             ->where(function ($q) use ($todayDateStr) {
                 $q->where('status', '!=', 'approved')
                   ->orWhereDate('defence_date', '>=', $todayDateStr);

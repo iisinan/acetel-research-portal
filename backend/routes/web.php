@@ -276,3 +276,20 @@ Route::get('/cleanup-seminar-supervisors', function () {
     }
     return "Removed supervisors from {$removedCount} seminar students.";
 });
+
+
+Route::get("/test-defence-types", function () {
+    return \App\Models\MilestoneTemplate::pluck("defence_type")->unique();
+});
+
+Route::get("/test-cancel-presentation", function () {
+    $template = \App\Models\MilestoneTemplate::first(); // Assuming one exists
+    
+    // Simulate cancel
+    $milestones = \App\Models\StudentMilestone::where("milestone_template_id", $template->id)
+        ->whereNotNull("defence_date")
+        ->where("status", "!=", "approved")
+        ->get();
+        
+    return ["found_to_cancel" => $milestones->count()];
+});

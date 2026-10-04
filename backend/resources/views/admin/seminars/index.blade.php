@@ -118,10 +118,9 @@
                                         <div class="flex flex-col gap-2">
                                             <form action="{{ route('seminars.assign-examiner', $milestone->id) }}" method="POST" class="flex items-center gap-2">
                                                 @csrf
-                                            <select name="supervisor_profile_id" required class="block w-full pl-3 pr-10 py-1 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
-                                                <option value="">Select Examiner</option>
+                                            <select name="supervisor_profile_ids[]" multiple required class="block w-full py-1 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" style="height: 80px;">
                                                 @foreach($supervisors as $sup)
-                                                    <option value="{{ $sup->id }}" {{ $examiner && $examiner->user_id == $sup->user_id ? 'selected' : '' }}>
+                                                    <option value="{{ $sup->id }}" {{ in_array($sup->user_id, $examinerIds ?? []) ? 'selected' : '' }}>
                                                         {{ $sup->user->name }}
                                                     </option>
                                                 @endforeach
