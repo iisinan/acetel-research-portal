@@ -77,17 +77,21 @@
                                     <td class="px-10 py-6">
                                         <div class="flex items-center gap-4">
                                             <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-acetel-50 group-hover:text-acetel-500 transition-all font-black text-sm shadow-sm ring-1 ring-slate-100 group-hover:ring-acetel-100">
-                                                {{ substr($supervisor->user->name, 0, 1) }}
+                                                {{ substr($supervisor->user?->name ?? 'U', 0, 1) }}
                                             </div>
                                             <div>
-                                                <p class="text-sm font-bold text-slate-900 leading-none group-hover:text-acetel-600 transition-colors">{{ $supervisor->user->name }}</p>
-                                                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1.5">{{ $supervisor->user->email }}</p>
+                                                <p class="text-sm font-bold text-slate-900 leading-none group-hover:text-acetel-600 transition-colors">{{ $supervisor->user?->name ?? 'Deleted User' }}</p>
+                                                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1.5">{{ $supervisor->user?->email ?? 'N/A' }}</p>
                                                 <div class="flex flex-wrap gap-1 mt-2">
-                                                    @foreach($supervisor->user->getRoleNames() as $role)
+                                                    @if($supervisor->user)
+@foreach($supervisor->user->getRoleNames() as $role)
                                                         <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-brand-50 text-brand-700 text-[8px] font-black uppercase tracking-wider border border-brand-100">
                                                             {{ $role }}
                                                         </span>
                                                     @endforeach
+@else
+<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 text-[8px] font-black uppercase tracking-wider border border-rose-100">No Roles</span>
+@endif
                                                 </div>
                                             </div>
                                         </div>
@@ -127,8 +131,9 @@
                                             <a href="{{ route('coordinator.supervisors.show', $supervisor) }}" class="inline-flex items-center justify-center p-2 rounded-xl bg-white border border-slate-200 text-slate-400 hover:border-acetel-500 hover:text-acetel-500 hover:shadow-lg hover:shadow-acetel-500/10 transition-all translate-y-0 hover:-translate-y-1" title="View Profile">
                                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                             </a>
-                                            <form action="{{ route('coordinator.supervisors.reset-password', $supervisor) }}" method="POST" class="inline-block"
-                                                data-confirm="Are you sure you want to reset the password for {{ $supervisor->user->name }}? Credentials will be sent via email."
+                                            @if($supervisor->user)
+<form action="{{ route('coordinator.supervisors.reset-password', $supervisor) }}" method="POST" class="inline-block"
+                                                data-confirm="Are you sure you want to reset the password for {{ $supervisor->user?->name ?? 'Deleted User' }}? Credentials will be sent via email."
                                                 data-confirm-title="Reset Supervisor Password"
                                                 data-confirm-type="warning"
                                                 data-confirm-btn="Reset Password">
@@ -137,6 +142,7 @@
                                                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
                                                 </button>
                                             </form>
+@endif
                                         </div>
                                     </td>
                                 </tr>
