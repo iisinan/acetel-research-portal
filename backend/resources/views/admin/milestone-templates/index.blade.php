@@ -538,7 +538,7 @@
                                                         @endif
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Student</th>
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Status</th>
-                                                        <th class="px-4 py-3 font-semibold text-slate-700">Schedule & Meeting</th>
+                                                        <th class="px-4 py-3 font-semibold text-slate-700">{{ $template->allow_defence_date ? 'Schedule & Meeting' : ($template->slug === 'supervisors_assigned' ? 'Assigned Supervisors' : 'Details') }}</th>
                                                         @if($template->slug === 'seminar_as_a_course')
                                                         <th class="px-4 py-3 font-semibold text-slate-700">PPT</th>
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Score</th>
@@ -629,7 +629,23 @@
                                                                 @endif
                                                             </td>
                                                             <td class="px-4 py-3 text-slate-600 text-xs">
-                                                                @if($sm->defence_date)
+                                                                @if($template->slug === 'supervisors_assigned')
+                                                                    @php
+                                                                        $assignedSups = $sm->thesis->assignments->where('status', 'active');
+                                                                    @endphp
+                                                                    @if($assignedSups->count() > 0)
+                                                                        <div class="text-xs">
+                                                                            <span class="font-bold text-slate-800">{{ $assignedSups->count() }} Allocated</span>
+                                                                            <div class="text-[11px] text-slate-500 truncate max-w-[200px]" title="{{ $assignedSups->map(fn($a) => ($a->role === 'primary' ? '★ ' : '') . ($a->supervisor?->user?->name ?? 'Supervisor'))->implode(', ') }}">
+                                                                                {{ $assignedSups->map(fn($a) => ($a->role === 'primary' ? '★ ' : '') . ($a->supervisor?->user?->name ?? 'Supervisor'))->implode(', ') }}
+                                                                            </div>
+                                                                        </div>
+                                                                    @else
+                                                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                                                                            Awaiting Allocation
+                                                                        </span>
+                                                                    @endif
+                                                                @elseif($sm->defence_date)
                                                                     <div class="font-bold text-slate-800 flex items-center gap-1.5">
                                                                         <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>

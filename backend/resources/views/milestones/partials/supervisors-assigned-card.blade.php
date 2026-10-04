@@ -11,6 +11,7 @@
     $submissions = $milestone->submissions->sortByDesc('created_at');
     $latestProposal = $submissions->first();
     $hasUploaded = !is_null($latestProposal);
+    $proposalUrl = $latestProposal ? (str_starts_with($latestProposal->file_url, 'http') ? $latestProposal->file_url : \Illuminate\Support\Facades\Storage::url($latestProposal->file_url)) : '';
 
     $assignments = $milestone->thesis?->assignments()->where('status', 'active')->with('supervisor.user')->get() ?? collect();
     $hasSupervisors = $assignments->count() > 0;
@@ -258,7 +259,7 @@
                         <div class="flex items-center gap-2">
                             <button type="button" 
                                     @click.prevent="$dispatch('open-document-preview', { 
-                                        url: '{{ Storage::url($latestProposal->file_url) }}', 
+                                        url: '{{ $proposalUrl }}', 
                                         title: 'Tentative Proposal - {{ addslashes($studentName) }}', 
                                         type: 'pdf' 
                                     })"
@@ -269,7 +270,7 @@
                                 </svg>
                                 <span>Preview Document</span>
                             </button>
-                            <a href="{{ Storage::url($latestProposal->file_url) }}" download class="p-2 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl transition-colors" title="Download">
+                            <a href="{{ $proposalUrl }}" download class="p-2 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl transition-colors" title="Download">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                             </a>
                         </div>
@@ -400,7 +401,7 @@
                     {{-- Clickable Document Card --}}
                     <div class="mt-6">
                         <div @click.prevent="$dispatch('open-document-preview', { 
-                                 url: '{{ Storage::url($latestProposal->file_url) }}', 
+                                 url: '{{ $proposalUrl }}', 
                                  title: 'Tentative Proposal - {{ addslashes($studentName) }}', 
                                  type: 'pdf' 
                              })"
@@ -533,7 +534,7 @@
                         @if($hasUploaded)
                             <button type="button" 
                                     @click.prevent="$dispatch('open-document-preview', { 
-                                        url: '{{ Storage::url($latestProposal->file_url) }}', 
+                                        url: '{{ $proposalUrl }}', 
                                         title: 'Tentative Proposal - {{ addslashes($studentName) }}', 
                                         type: 'pdf' 
                                     })"
@@ -624,7 +625,7 @@
                 @if($hasUploaded)
                     <button type="button" 
                             @click.prevent="$dispatch('open-document-preview', { 
-                                url: '{{ Storage::url($latestProposal->file_url) }}', 
+                                url: '{{ $proposalUrl }}', 
                                 title: 'Tentative Proposal - {{ addslashes($studentName) }}', 
                                 type: 'pdf' 
                             })"
