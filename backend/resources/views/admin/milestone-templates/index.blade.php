@@ -276,7 +276,21 @@
                                                 </template>
                                             </div>
 
-                                            <form action="{{ route('admin.milestone-templates.cancel-schedule', $template->id) }}" method="POST" class="inline">
+                                            <form action="{{ route('admin.milestone-templates.end-schedule', $template->id) }}" method="POST" class="inline">
+    @csrf
+    <button type="button" 
+        data-confirm="Are you sure you want to end this presentation session? This will mark all {{ $scheduledCount }} currently scheduled presentations as 'Approved' and clear the active global examiners for the next batch."
+        data-confirm-title="End Presentation Session"
+        data-confirm-type="success"
+        data-confirm-btn="End Session"
+        class="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm">
+        <svg class="w-3.5 h-3.5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>End Presentation Session</span>
+    </button>
+</form>
+<form action="{{ route('admin.milestone-templates.cancel-schedule', $template->id) }}" method="POST" class="inline">
                                                 @csrf
                                                 <button type="submit" 
                                                     data-confirm="Are you sure you want to cancel the presentation schedule for {{ addslashes($template->name) }}? This will clear all presentation dates, times, and Zoom links for {{ $scheduledCount }} scheduled student(s), and remove the live presentation tab."

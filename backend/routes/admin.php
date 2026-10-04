@@ -74,6 +74,7 @@ use App\Http\Controllers\Admin\MilestoneTemplateController;
 Route::resource('milestone-templates', MilestoneTemplateController::class)->only(['index', 'show']);
 Route::post('milestone-templates/{template}/date', [MilestoneTemplateController::class, 'setDate'])->name('milestone-templates.set-date');
     Route::post('milestone-templates/schedule', [MilestoneTemplateController::class, 'schedule'])->name('milestone-templates.schedule');
+    Route::post('milestone-templates/{template}/end-schedule', [MilestoneTemplateController::class, 'endSchedule'])->name('milestone-templates.end-schedule');
     Route::post('milestone-templates/{template}/cancel-schedule', [MilestoneTemplateController::class, 'cancelSchedule'])->name('milestone-templates.cancel-schedule');
     Route::post('milestone-templates/{template}/update-schedule', [MilestoneTemplateController::class, 'updateSchedule'])->name('milestone-templates.update-schedule');
     Route::post('milestone-templates/{milestone}/assign-examiner', [MilestoneTemplateController::class, 'assignExaminer'])->name('milestone-templates.assign-examiner');
@@ -101,3 +102,4 @@ Route::post("seminars/schedule", [SeminarController::class, "schedule"])->name("
 Route::post("seminars/{milestone}/assign-examiner", [SeminarController::class, "assignExaminer"])->name("seminars.assign-examiner");
 Route::post("seminars/{event}/score", [SeminarController::class, "storeScore"])->name("seminars.score");
 Route::get("seminars/attendance", [SeminarController::class, "downloadAttendance"])->name("seminars.attendance");
+

@@ -424,6 +424,40 @@ class MilestoneTemplateController extends Controller
         return back()->with('success', $msg . '.');
     }
 
+    public function endSchedule(MilestoneTemplate $template)
+    {
+        if (!auth()->user()->hasRole('Admin')) {
+            abort(403, 'Institutional authority required. Only an Administrator can end presentation sessions.');
+        }
+
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+                ->whereNotNull('defence_date')
+                ->where('status', '!=', 'approved')
+                ->get();
+
+            foreach ($milestones as $sm) {
+                // Update to approved so it counts as completed and disappears from active schedules
+                $sm->update([
+                    'status' => 'approved'
+                ]);
+
+                $studentUser = $sm->thesis?->student?->user;
+                if ($studentUser) {
+                    \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
+                }
+            }
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            return redirect()->route('admin.milestone-templates.index')->with('success', "Presentation session for {$template->name} has been marked as ended. The students have been approved and the active schedule has been cleared.");
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            return redirect()->back()->with('error', 'Failed to end schedule: ' . $e->getMessage());
+        }
+    }
+
     public function cancelSchedule(MilestoneTemplate $template)
     {
         if (!auth()->user()->hasRole('Admin')) {
