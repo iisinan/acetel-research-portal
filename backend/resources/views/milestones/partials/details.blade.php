@@ -814,9 +814,6 @@
                 <div class="space-y-4">
                     @php
                         $canShowSupervisors = $milestone->template->show_supervisor_details;
-                        if ($milestone->template->order == 2 && $milestone->status !== 'approved') {
-                            $canShowSupervisors = false;
-                        }
                     @endphp
                     @if($canShowSupervisors && isset($supervisors) && $supervisors->count() > 0)
                         <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Assigned Committee</p>
