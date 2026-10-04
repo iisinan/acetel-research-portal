@@ -64,7 +64,22 @@
                     </select>
                 </div>
 
-                @if(request('search') || request('program_id') || request('level_id') || request('cohort_id') || request('batch'))
+                @if(isset($milestoneTemplates) && count($milestoneTemplates) > 0)
+                    <div class="px-5 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-2 hover:border-acetel-300 transition-colors">
+                        <select name="milestone_id" onchange="this.form.submit()" class="bg-transparent border-none text-xs font-bold uppercase tracking-widest text-slate-500 focus:ring-0 cursor-pointer">
+                            <option value="">All Milestones</option>
+                            @foreach($milestoneTemplates as $tmpl)
+                                <option value="{{ $tmpl->id }}" {{ request('milestone_id') == $tmpl->id ? 'selected' : '' }}>
+                                    M{{ $tmpl->order }} - {{ $tmpl->name }}
+                                </option>
+                            @endforeach
+                            <option value="completed" {{ request('milestone_id') == 'completed' ? 'selected' : '' }}>Completed</option>
+                            <option value="no_thesis" {{ request('milestone_id') == 'no_thesis' ? 'selected' : '' }}>Pending Init</option>
+                        </select>
+                    </div>
+                @endif
+
+                @if(request('search') || request('program_id') || request('level_id') || request('cohort_id') || request('batch') || request('milestone_id'))
                     <a href="{{ route('coordinator.students.index') }}" class="p-2.5 text-slate-400 hover:text-rose-500 bg-white border border-slate-200 rounded-2xl transition-all shadow-sm" title="Reset Filters">
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
                     </a>

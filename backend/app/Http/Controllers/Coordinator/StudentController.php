@@ -17,7 +17,7 @@ class StudentController extends Controller
         $user = Auth::user();
         /** @var \App\Models\User $user */
         $query = \App\Models\StudentProfile::forCoordinator($user)
-            ->with(['user', 'cohort', 'thesis.assignments.supervisor.user']);
+            ->with(['user', 'cohort', 'program', 'level', 'thesis.currentMilestone.template', 'thesis.assignments.supervisor.user']);
 
         if ($request->filled('program_id')) {
             $query->where('program_id', $request->program_id);
@@ -43,6 +43,43 @@ class StudentController extends Controller
             });
         }
 
+        if ($request->filled('milestone_id')) {
+            $milestoneVal = $request->milestone_id;
+            if ($milestoneVal === 'completed') {
+                $query->whereHas('thesis', function($tQuery) {
+                    $tQuery->where('status', 'completed')
+                           ->orWhere(function($sub) {
+                               $sub->whereHas('milestones')
+                                   ->whereDoesntHave('milestones', function($mQuery) {
+                                       $mQuery->whereNotIn('status', ['completed', 'approved']);
+                                   });
+                           });
+                });
+            } elseif ($milestoneVal === 'no_thesis') {
+                $query->whereDoesntHave('thesis');
+            } else {
+                $template = \App\Models\MilestoneTemplate::find($milestoneVal);
+                if ($template) {
+                    $order = $template->order;
+                    $query->whereHas('thesis', function($tQuery) use ($template, $order) {
+                        $tQuery->whereHas('milestones', function($mQuery) use ($template, $order) {
+                            $mQuery->where(function($sq) use ($template, $order) {
+                                $sq->where('milestone_template_id', $template->id)
+                                   ->orWhereHas('template', function($tq) use ($order) {
+                                       $tq->where('order', $order);
+                                   });
+                            })->whereNotIn('status', ['completed', 'approved']);
+                        })->whereDoesntHave('milestones', function($mQuery) use ($order) {
+                            $mQuery->whereNotIn('status', ['completed', 'approved'])
+                                   ->whereHas('template', function($tplQuery) use ($order) {
+                                       $tplQuery->where('order', '<', $order);
+                                   });
+                        });
+                    });
+                }
+            }
+        }
+
         if ($request->has('search') && $request->filled('search')) {
             $search = $request->input('search');
             $query->where(function($q) use ($search) {
@@ -59,7 +96,10 @@ class StudentController extends Controller
                         ->orWhere('code', 'ilike', "%{$search}%");
                   })
                   ->orWhereHas('thesis', function($t) use ($search) {
-                      $t->where('title', 'ilike', "%{$search}%");
+                      $t->where('title', 'ilike', "%{$search}%")
+                        ->orWhereHas('milestones.template', function($tpl) use ($search) {
+                            $tpl->where('name', 'ilike', "%{$search}%");
+                        });
                   });
             });
         }
@@ -71,7 +111,17 @@ class StudentController extends Controller
         $levels = !empty($levelIds) ? \App\Models\Level::whereIn('id', $levelIds)->get() : \App\Models\Level::all();
         $cohorts = \App\Models\Cohort::orderBy('intake_year', 'desc')->orderBy('name', 'asc')->get();
         
-        return view('coordinator.students.index', compact('students', 'programs', 'levels', 'cohorts'));
+        $programIds = $userScopes->pluck('program_id')->filter()->unique()->toArray();
+        $milestoneTemplates = \App\Models\MilestoneTemplate::where(function($q) use ($programIds) {
+                $q->whereNull('program_id');
+                if (!empty($programIds)) {
+                    $q->orWhereIn('program_id', $programIds);
+                }
+            })
+            ->orderBy('order', 'asc')
+            ->get();
+        
+        return view('coordinator.students.index', compact('students', 'programs', 'levels', 'cohorts', 'milestoneTemplates'));
     }
 
     public function show(StudentProfile $student)
