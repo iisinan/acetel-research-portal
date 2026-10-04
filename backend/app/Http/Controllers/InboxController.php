@@ -67,6 +67,8 @@ class InboxController extends Controller
      */
     public function store(Request $request)
     {
+        $this->expandGroupRecipients($request);
+
         $validated = $request->validate([
             'to' => 'required|array|min:1',
             'to.*' => 'exists:users,id',
@@ -79,7 +81,7 @@ class InboxController extends Controller
             'attachments.*' => 'nullable|file|max:10240', // 10MB max per file
         ]);
 
-        $allowedIds = $this->getAvailableRecipients()->pluck('id')->toArray();
+        $allowedIds = $this->getAvailableRecipients(true)->pluck('id')->toArray();
         
         $message = InboxMessage::create([
             'sender_id' => Auth::id(),
@@ -106,6 +108,48 @@ class InboxController extends Controller
         return redirect()->route('inbox.sent')->with('success', 'Message sent successfully.');
     }
 
+    private function expandGroupRecipients(Request $request)
+    {
+        $user = $request->user();
+        if (!$user->hasAnyRole(['Admin', 'Director', 'Program Coordinator'])) {
+            return;
+        }
+
+        foreach (['to', 'cc', 'bcc'] as $field) {
+            $input = $request->input($field, []);
+            if (!is_array($input)) continue;
+
+            $expanded = [];
+            foreach ($input as $id) {
+                if (str_starts_with($id, 'group:')) {
+                    $expanded = array_merge($expanded, $this->resolveGroupUsers($id, $user));
+                } else {
+                    $expanded[] = $id;
+                }
+            }
+            $request->merge([$field => array_unique($expanded)]);
+        }
+    }
+
+    private function resolveGroupUsers($groupId, $user)
+    {
+        // Only Admin/Director can use global broadcasts
+        if ($user->hasAnyRole(['Admin', 'Director'])) {
+            if ($groupId === 'group:all_students') {
+                return \App\Models\User::role('Student')->where('is_active', true)->pluck('id')->toArray();
+            }
+            if ($groupId === 'group:all_supervisors') {
+                return \App\Models\User::role('Supervisor')->where('is_active', true)->pluck('id')->toArray();
+            }
+            if (str_starts_with($groupId, 'group:cohort_')) {
+                $cohortId = str_replace('group:cohort_', '', $groupId);
+                $studentIds = \App\Models\StudentProfile::where('cohort_id', $cohortId)->pluck('user_id');
+                return \App\Models\User::whereIn('id', $studentIds)->where('is_active', true)->pluck('id')->toArray();
+            }
+        }
+        return [];
+    }
+
     private function attachRecipients($message, $validated, $allowedIds)
     {
         foreach (['to', 'cc', 'bcc'] as $type) {
@@ -119,6 +163,12 @@ class InboxController extends Controller
 
                         // Broadcast to each recipient
                         \App\Events\MessageReceived::dispatch($message, $userId);
+
+                        // Send Email Notification
+                        $user = \App\Models\User::find($userId);
+                        if ($user) {
+                            $user->notify(new \App\Notifications\NewInboxMessage($message));
+                        }
                     }
                 }
             }
@@ -194,17 +244,45 @@ class InboxController extends Controller
     /**
      * Get available recipients based on user role.
      */
-    private function getAvailableRecipients()
+    private function getAvailableRecipients($skipGroups = false)
     {
         $user = Auth::user();
         $recipientIds = collect();
 
         // Admin & Director: can message ALL users
         if ($user->hasRole(['Admin', 'Director'])) {
-            return User::where('id', '!=', $user->id)
+            $users = User::where('id', '!=', $user->id)
                 ->where('is_active', '=', true)
                 ->orderBy('name')
                 ->get(['id', 'name', 'email']);
+
+            if ($skipGroups) {
+                return $users;
+            }
+
+            $groups = collect([
+                (object)[
+                    'id' => 'group:all_students',
+                    'name' => '📢 ALL STUDENTS (Broadcast)',
+                    'email' => 'Message to every active student'
+                ],
+                (object)[
+                    'id' => 'group:all_supervisors',
+                    'name' => '📢 ALL SUPERVISORS (Broadcast)',
+                    'email' => 'Message to every active supervisor'
+                ],
+            ]);
+
+            $cohorts = \App\Models\Cohort::orderBy('intake_year', 'desc')->get();
+            foreach ($cohorts as $cohort) {
+                $groups->push((object)[
+                    'id' => 'group:cohort_' . $cohort->id,
+                    'name' => '📢 COHORT: ' . strtoupper($cohort->name) . ' (' . $cohort->intake_year . ')',
+                    'email' => 'Message to all students in this cohort'
+                ]);
+            }
+
+            return $groups->merge($users);
         }
 
         // Program Coordinator: students in their programs, supervisors they added, admin, director
