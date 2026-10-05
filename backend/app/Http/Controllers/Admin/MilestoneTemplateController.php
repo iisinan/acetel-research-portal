@@ -272,7 +272,7 @@ class MilestoneTemplateController extends Controller
                 $eventData = [
                     'schedule_start' => $currentDate->copy()->setHour($hour)->setMinute($minute),
                     'schedule_end' => $currentDate->copy()->setHour($hour + 1)->setMinute($minute),
-                    'outcome' => null,
+                    'outcome' => 'pending',
                 ];
                 if ($request->filled('meeting_link')) {
                     $eventData['location'] = $request->meeting_link;
@@ -293,10 +293,10 @@ class MilestoneTemplateController extends Controller
                 );
 
                 // If milestone was previously failed (repeated), reset old evaluations and attendance for the fresh attempt
-                if ($event->outcome === 'failed' || $milestone->status === 'revision_required') {
+                if (in_array($event->outcome, ['fail', 'failed']) || $milestone->status === 'revision_required') {
                     \App\Models\Evaluation::where('defence_event_id', $event->id)->delete();
                     \App\Models\PanelMember::where('defence_event_id', $event->id)->update(['is_present' => false]);
-                    $event->update(['outcome' => null]);
+                    $event->update(['outcome' => 'pending']);
                 }
 
                 // Auto-attach template global examiners if none exist on this event yet

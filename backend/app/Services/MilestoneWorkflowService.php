@@ -414,7 +414,7 @@ class MilestoneWorkflowService
         if ($type && $milestone->thesis_project_id) {
             \App\Models\DefenceEvent::where('thesis_project_id', $milestone->thesis_project_id)
                 ->where('type', $type)
-                ->update(['outcome' => 'failed']);
+                ->update(['outcome' => 'fail']);
         }
 
         $studentUserId = $milestone->thesis?->student?->user_id;
@@ -487,8 +487,10 @@ class MilestoneWorkflowService
         if ($type && $milestone->thesis_project_id) {
             \App\Models\DefenceEvent::where('thesis_project_id', $milestone->thesis_project_id)
                 ->where('type', $type)
-                ->whereNull('outcome')
-                ->update(['outcome' => 'completed']);
+                ->where(function($q) {
+                    $q->whereNull('outcome')->orWhereIn('outcome', ['pending', 'retry']);
+                })
+                ->update(['outcome' => 'pass']);
         }
 
         $studentUserId = $milestone->thesis?->student?->user_id;
