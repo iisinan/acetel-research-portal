@@ -16,6 +16,9 @@ use App\Http\Controllers\Admin\StudentController;
 Route::get('/users/import', [UserManagementController::class, 'importForm'])->name('users.import-form');
 Route::post('/users/import', [UserManagementController::class, 'import'])->name('users.import');
 
+// Download Supervisors
+Route::get('/users/download-supervisors', [UserManagementController::class, 'downloadSupervisors'])->name('users.download-supervisors');
+
 Route::resource('users', UserManagementController::class);
 Route::patch('/users/{user}/toggle-status', [UserManagementController::class, 'toggleStatus'])->name('users.toggle-status');
 Route::post('/users/{user}/reset-password', [UserManagementController::class, 'resetPassword'])->name('users.reset_password');

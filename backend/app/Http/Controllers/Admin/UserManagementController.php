@@ -522,6 +522,27 @@ class UserManagementController extends Controller
         return back()->with('success', "User has been {$status}.");
     }
 
+    public function downloadSupervisors()
+    {
+        $supervisors = User::role('Supervisor')->get(['name', 'email']);
+
+        $filename = "supervisors_emails_" . date('Y-m-d') . ".csv";
+        
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+
+        return response()->stream(function() use ($supervisors) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['Name', 'Email']);
+            foreach ($supervisors as $supervisor) {
+                fputcsv($handle, [$supervisor->name, $supervisor->email]);
+            }
+            fclose($handle);
+        }, 200, $headers);
+    }
+
     public function importForm()
     {
         return view('admin.users.import');
