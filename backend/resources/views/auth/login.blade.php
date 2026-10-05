@@ -98,6 +98,19 @@
                 <p class="text-slate-500 text-sm">Enter your credentials to access your dashboard.</p>
             </div>
 
+            {{-- Status alert (e.g. password reset confirmation) --}}
+            @if (session('status'))
+                <div class="mb-6 flex items-start gap-3 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl">
+                    <div class="w-8 h-8 rounded-xl bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-emerald-700 mb-1">Success</p>
+                        <p class="text-xs text-emerald-600">{{ session('status') }}</p>
+                    </div>
+                </div>
+            @endif
+
             {{-- Error alert --}}
             @if ($errors->any())
                 <div class="mb-6 flex items-start gap-3 p-4 bg-red-50 border border-red-100 rounded-2xl">

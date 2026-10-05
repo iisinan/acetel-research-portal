@@ -62,16 +62,14 @@ Route::middleware('guest')->group(function () {
     Route::post('/register', [App\Http\Controllers\Auth\RegisteredUserController::class, 'store']);
     Route::post('/register/validate-step1', [App\Http\Controllers\Auth\RegisteredUserController::class, 'validateStep1'])->name('register.validate_step1');
     
-    // Forgot Password
-    Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
-    Route::post('/forgot-password', [AuthController::class, 'processForgotPassword'])->name('password.email');
-
-    // Reset Password (the link emailed to the user)
-    Route::get('/reset-password/{token}', [AuthController::class, 'showResetPassword'])->name('password.reset');
-    Route::post('/reset-password', [AuthController::class, 'processResetPassword'])->name('password.update');
-
     // Registration disabled - created by admin only
 });
+
+// Password Recovery & Reset (accessible by all users, including authenticated users and direct email link clicks)
+Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
+Route::post('/forgot-password', [AuthController::class, 'processForgotPassword'])->name('password.email');
+Route::get('/reset-password/{token}', [AuthController::class, 'showResetPassword'])->name('password.reset');
+Route::post('/reset-password', [AuthController::class, 'processResetPassword'])->name('password.update');
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MilestoneController;

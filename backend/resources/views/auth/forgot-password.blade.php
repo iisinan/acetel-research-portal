@@ -57,6 +57,18 @@
                 <p class="text-slate-500 text-sm">Regain access to your institutional workspace.</p>
             </div>
 
+            @auth
+                <div class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3">
+                    <svg class="w-5 h-5 text-amber-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <div class="text-xs text-amber-800 leading-relaxed">
+                        <p class="font-bold">You are currently signed in as {{ auth()->user()->name }}.</p>
+                        <p class="mt-0.5 text-amber-700">Enter your email below to send a reset link, or <a href="{{ route('dashboard') }}" class="underline font-semibold hover:text-amber-900">return to your dashboard</a>.</p>
+                    </div>
+                </div>
+            @endauth
+
             @if (session('status'))
                 <div class="mb-6 flex items-start gap-3 p-4 bg-emerald-50 border border-emerald-100 rounded-2xl">
                     <div class="w-8 h-8 rounded-xl bg-emerald-500 flex items-center justify-center flex-shrink-0">
@@ -65,6 +77,18 @@
                     <div>
                         <p class="text-sm font-bold text-emerald-700 mb-1">Request Received</p>
                         <p class="text-xs text-emerald-600">{{ session('status') }}</p>
+                    </div>
+                </div>
+            @endif
+
+            @if ($errors->any())
+                <div class="mb-6 flex items-start gap-3 p-4 bg-red-50 border border-red-100 rounded-2xl">
+                    <div class="w-8 h-8 rounded-xl bg-red-500 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-red-700 mb-1">Dispatch Issue</p>
+                        <p class="text-xs text-red-600">{{ $errors->first() }}</p>
                     </div>
                 </div>
             @endif

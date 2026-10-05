@@ -136,7 +136,18 @@ class AuthController extends Controller
     {
         $request->validate(['email' => 'required|email']);
 
-        $status = Password::sendResetLink($request->only('email'));
+        try {
+            $status = Password::sendResetLink($request->only('email'));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Password reset email dispatch failure: ' . $e->getMessage(), [
+                'exception' => $e,
+                'email' => $request->email,
+            ]);
+
+            return back()->withErrors([
+                'email' => 'Unable to dispatch reset email via mail server (' . $e->getMessage() . '). Please verify institutional SMTP configuration.'
+            ]);
+        }
 
         if ($status === Password::RESET_LINK_SENT) {
             return back()->with('status', 'If this email belongs to an active institutional account, a password reset link has been dispatched to it.');

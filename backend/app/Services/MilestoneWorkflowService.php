@@ -280,7 +280,7 @@ class MilestoneWorkflowService
             ->get() ?? collect();
 
         if ($assignments->isEmpty()) {
-            $isDirectlyApproved = !empty($milestone->is_supervisor_approved)
+            $isDirectlyApproved = !empty($milestone->getRawOriginal('is_supervisor_approved'))
                 || $milestone->submissions()->whereHas('feedback', fn($q) => $q->where('decision', 'approved'))->exists();
 
             return [

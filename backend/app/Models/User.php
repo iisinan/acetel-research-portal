@@ -257,4 +257,9 @@ class User extends Authenticatable
             $user->messages()->delete();
         });
     }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new \App\Notifications\ResetPasswordNotification($token));
+    }
 }
