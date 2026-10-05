@@ -81,6 +81,32 @@ Route::middleware('auth')->group(function () {
     
     // Shared Dashboard (Content varies by role via Controller)
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+// Temporary route to run migrations and read logs
+Route::get('/run-migrations', function () {
+    if (!auth()->check() || !auth()->user()->hasRole('Admin')) {
+        abort(403);
+    }
+    
+    $output = '';
+    try {
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        $output .= 'Migrations complete. Output: ' . nl2br(\Illuminate\Support\Facades\Artisan::output()) . '<br><br>';
+    } catch (\Exception $e) {
+        $output .= 'Migration Error: ' . $e->getMessage() . '<br><br>';
+    }
+
+    $logPath = storage_path('logs/laravel.log');
+    if (file_exists($logPath)) {
+        // Get last 5000 chars safely
+        $content = file_get_contents($logPath);
+        $output .= '<h3>Last Logs:</h3><pre style="white-space: pre-wrap; font-size: 11px;">' . htmlspecialchars(substr($content, -5000)) . '</pre>';
+    } else {
+        $output .= 'No log file found.';
+    }
+
+    return $output;
+});
     
     // Notifications & Messages (Shared)
     Route::post('/messages', [App\Http\Controllers\MessageController::class, 'store'])->name('messages.store');
