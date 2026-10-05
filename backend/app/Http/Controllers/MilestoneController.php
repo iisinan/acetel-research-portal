@@ -120,30 +120,21 @@ class MilestoneController extends Controller
             abort(403, 'Unauthorized. Only the assigned supervisor or an administrator can review uploaded documents.');
         }
 
-        $submission = $milestone->submissions()->latest()->first();
-        if ($submission) {
-            \App\Models\Feedback::updateOrCreate(
-                ['submission_id' => $submission->id],
-                [
-                    'decision' => 'approved',
-                    'remarks' => $request->input('remarks', 'Document accepted by supervisor.'),
-                    'created_by' => $user->id,
-                ]
-            );
-        }
+        $workflowService = app(\App\Services\MilestoneWorkflowService::class);
+        $summary = $workflowService->recordSupervisorReview(
+            $milestone,
+            $user,
+            'approved',
+            $request->input('remarks', 'Document accepted by supervisor.')
+        );
 
-        if (\Illuminate\Support\Facades\Schema::hasColumn('student_milestones', 'is_supervisor_approved')) {
-            $milestone->is_supervisor_approved = true;
-            $milestone->save();
-        }
+        $workflowService->notifyUpdate($milestone, "Supervisor {$user->name} accepted the uploaded document for: {$milestone->template->name}");
 
-        // Invalidate student dashboard query cache
-        $studentUser = $milestone->thesis->student?->user;
-        if ($studentUser) {
-            \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
-        }
+        $msg = $summary['is_eligible']
+            ? 'Upload accepted successfully. All active reviews are approved — candidate is eligible to present.'
+            : 'Upload accepted. Your approval stands. Note: Candidate still has pending or revision requests from co-supervisor(s).';
 
-        return back()->with('success', 'Upload accepted successfully.');
+        return back()->with('success', $msg);
     }
 
     public function rejectUpload(Request $request, StudentMilestone $milestone)
@@ -153,35 +144,19 @@ class MilestoneController extends Controller
             abort(403, 'Unauthorized. Only the assigned supervisor or an administrator can review uploaded documents.');
         }
 
-        $submission = $milestone->submissions()->latest()->first();
-        if ($submission) {
-            $remarks = $request->input('remarks', 'Document requires revision. Please check supervisor notes and upload a new version.');
-            \App\Models\Feedback::updateOrCreate(
-                ['submission_id' => $submission->id],
-                [
-                    'decision' => 'revision_required',
-                    'remarks' => $remarks,
-                    'created_by' => $user->id,
-                ]
-            );
-            
-            $updates = [
-                'status' => 'revision_required',
-                'remark' => $remarks,
-            ];
-            if (\Illuminate\Support\Facades\Schema::hasColumn('student_milestones', 'is_supervisor_approved')) {
-                $updates['is_supervisor_approved'] = false;
-            }
-            $milestone->update($updates);
-        }
+        $remarks = $request->input('remarks', 'Document requires revision. Please check supervisor notes and upload a new version.');
 
-        // Invalidate student dashboard query cache
-        $studentUser = $milestone->thesis->student?->user;
-        if ($studentUser) {
-            \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
-        }
+        $workflowService = app(\App\Services\MilestoneWorkflowService::class);
+        $workflowService->recordSupervisorReview(
+            $milestone,
+            $user,
+            'rejected',
+            $remarks
+        );
 
-        return back()->with('success', 'Upload rejected successfully. The student has been notified to revise it.');
+        $workflowService->notifyUpdate($milestone, "Supervisor {$user->name} requested revisions for: {$milestone->template->name}");
+
+        return back()->with('success', 'Upload rejected successfully. The student has been notified to revise it and is not eligible to present until revised.');
     }
 
     public function quickApprove(Request $request, StudentMilestone $milestone)
@@ -504,8 +479,13 @@ class MilestoneController extends Controller
             'approved_at' => $approvedAt,
         ]);
 
+        // Multi-supervisor re-upload policy:
+        // Standing approvals are preserved; rejecting supervisors are set to pending re-review.
+        $workflowService = app(\App\Services\MilestoneWorkflowService::class);
+        $workflowService->handleStudentReUpload($milestone);
+
         if ($status === 'approved') {
-            (new \App\Services\MilestoneWorkflowService())->afterApproval($milestone);
+            $workflowService->afterApproval($milestone);
         }
 
         // Check if Supervisors Assigned milestone is now eligible to auto-advance

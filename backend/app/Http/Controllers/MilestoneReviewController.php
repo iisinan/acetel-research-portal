@@ -124,38 +124,24 @@ class MilestoneReviewController extends Controller
         // If a Supervisor is reviewing, handle document acceptance / revision request
         if ($isSupervisor) {
             $submission = $milestone->submissions()->latest()->first();
-            if ($submission) {
-                Feedback::updateOrCreate(
-                    ['submission_id' => $submission->id],
-                    [
-                        'decision' => $decision === 'approved' ? 'approved' : 'revision_required',
-                        'remarks' => $request->remarks,
-                        'created_by' => $user->id,
-                    ]
-                );
-            }
+            $supervisorDecision = ($decision === 'approved') ? 'approved' : 'rejected';
 
-            if ($decision === 'approved') {
-                if (\Illuminate\Support\Facades\Schema::hasColumn('student_milestones', 'is_supervisor_approved')) {
-                    $milestone->update(['is_supervisor_approved' => true]);
-                }
+            $summary = $this->workflowService->recordSupervisorReview(
+                $milestone,
+                $user,
+                $supervisorDecision,
+                $request->remarks
+            );
+
+            if ($supervisorDecision === 'approved') {
                 $this->workflowService->notifyUpdate($milestone, "Supervisor {$user->name} accepted the uploaded document for: {$milestone->template->name}");
 
-                $studentUser = $milestone->thesis->student?->user;
-                if ($studentUser) {
-                    \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
-                }
+                $msg = $summary['is_eligible']
+                    ? 'Upload accepted by supervisor. All active reviews are approved — candidate may now proceed with presentation scheduling.'
+                    : 'Your approval has been recorded and will stand. Note: Candidate is pending review/revision from co-supervisor(s) before presentation scheduling.';
 
-                return redirect()->back()->with('success', 'Upload accepted by supervisor. The candidate may now proceed with presentation scheduling.');
+                return redirect()->back()->with('success', $msg);
             } else {
-                $updates = [
-                    'status' => 'revision_required',
-                    'remark' => $request->remarks,
-                ];
-                if (\Illuminate\Support\Facades\Schema::hasColumn('student_milestones', 'is_supervisor_approved')) {
-                    $updates['is_supervisor_approved'] = false;
-                }
-                $milestone->update($updates);
                 $this->workflowService->notifyUpdate($milestone, "Supervisor {$user->name} requested revisions for: {$milestone->template->name}");
 
                 if ($request->has('action_items') && is_array($request->action_items)) {
@@ -173,12 +159,7 @@ class MilestoneReviewController extends Controller
                     }
                 }
 
-                $studentUser = $milestone->thesis->student?->user;
-                if ($studentUser) {
-                    \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
-                }
-
-                return redirect()->back()->with('success', 'Revision requested successfully. The student has been notified.');
+                return redirect()->back()->with('success', 'Revision requested successfully. The student has been notified and cannot present until revised.');
             }
         }
 

@@ -229,26 +229,249 @@ class MilestoneWorkflowService
 
     /**
      * Has the supervisor approved/accepted the candidate's upload for this milestone?
+     * Enforces the institutional multi-supervisor policy:
+     * - Any active rejection or pending re-review blocks eligibility.
+     * - At least one supervisor must approve (if 1 of 3 approves and 0 reject, candidate is eligible).
+     * - Rejection by another supervisor revokes eligibility until resolved.
+     * - Approvals given by a supervisor stand across student re-uploads.
      */
     public function isSupervisorApproved(StudentMilestone $milestone): bool
     {
-        if ($milestone->is_supervisor_approved) {
+        if ($milestone->status === 'approved') {
             return true;
         }
 
-        // Also check if any submission has approved feedback from a supervisor or admin
-        $hasApprovedFeedback = $milestone->submissions()
-            ->whereHas('feedback', fn($q) => $q->where('decision', 'approved'))
-            ->exists();
+        if ($milestone->status === 'revision_required') {
+            return false;
+        }
 
-        if ($hasApprovedFeedback) {
-            if (\Illuminate\Support\Facades\Schema::hasColumn('student_milestones', 'is_supervisor_approved')) {
-                $milestone->update(['is_supervisor_approved' => true]);
+        return $this->computeSupervisorApprovalEligibility($milestone);
+    }
+
+    /**
+     * Compute supervisor approval eligibility based on multi-supervisor policy.
+     */
+    public function computeSupervisorApprovalEligibility(StudentMilestone $milestone): bool
+    {
+        if ($milestone->status === 'approved') {
+            return true;
+        }
+
+        if ($milestone->status === 'revision_required') {
+            return false;
+        }
+
+        $summary = $this->getSupervisorReviewSummary($milestone);
+        return $summary['is_eligible'];
+    }
+
+    /**
+     * Get a comprehensive summary of all assigned supervisor reviews for this milestone.
+     */
+    public function getSupervisorReviewSummary(StudentMilestone $milestone): array
+    {
+        $approvals = $milestone->approvals ?? [];
+        $reviews = $approvals['supervisor_reviews'] ?? [];
+
+        // Active supervisor assignments for this thesis
+        $assignments = $milestone->thesis?->assignments()
+            ->where('status', 'active')
+            ->with(['supervisor.user'])
+            ->get() ?? collect();
+
+        if ($assignments->isEmpty()) {
+            $isDirectlyApproved = !empty($milestone->is_supervisor_approved)
+                || $milestone->submissions()->whereHas('feedback', fn($q) => $q->where('decision', 'approved'))->exists();
+
+            return [
+                'has_supervisors' => false,
+                'total_assigned' => 0,
+                'approved_count' => $isDirectlyApproved ? 1 : 0,
+                'rejected_count' => 0,
+                'pending_rereview_count' => 0,
+                'pending_count' => 0,
+                'is_eligible' => $isDirectlyApproved,
+                'status_label' => $isDirectlyApproved ? 'Approved' : 'Pending',
+                'supervisors' => [],
+            ];
+        }
+
+        $supervisorsList = [];
+        $approvedCount = 0;
+        $rejectedCount = 0;
+        $pendingRereviewCount = 0;
+        $pendingCount = 0;
+
+        foreach ($assignments as $assignment) {
+            $supUser = $assignment->supervisor?->user;
+            if (!$supUser) continue;
+
+            $userId = (string) $supUser->id;
+            $review = $reviews[$userId] ?? null;
+
+            $status = 'pending';
+            $decision = $review['decision'] ?? null;
+            $reviewedAt = $review['reviewed_at'] ?? null;
+            $remarks = $review['remarks'] ?? null;
+
+            if ($decision === 'approved') {
+                $status = 'approved';
+                $approvedCount++;
+            } elseif ($decision === 'rejected') {
+                $status = 'rejected';
+                $rejectedCount++;
+            } elseif ($decision === 'pending_re_review') {
+                $status = 'pending_re_review';
+                $pendingRereviewCount++;
+            } else {
+                // Fallback: check historical feedback for this user
+                $hasFeedbackApproved = $milestone->submissions()
+                    ->whereHas('feedback', fn($q) => $q->where('created_by', $supUser->id)->where('decision', 'approved'))
+                    ->exists();
+
+                $hasFeedbackRejected = $milestone->submissions()
+                    ->whereHas('feedback', fn($q) => $q->where('created_by', $supUser->id)->where('decision', 'revision_required'))
+                    ->exists();
+
+                if ($hasFeedbackRejected && $milestone->status === 'revision_required') {
+                    $status = 'rejected';
+                    $rejectedCount++;
+                } elseif ($hasFeedbackApproved) {
+                    $status = 'approved';
+                    $approvedCount++;
+                } else {
+                    $pendingCount++;
+                }
             }
-            return true;
+
+            $supervisorsList[] = [
+                'user_id' => $supUser->id,
+                'name' => $supUser->name,
+                'role' => ucfirst($assignment->role ?? 'Supervisor'),
+                'status' => $status,
+                'reviewed_at' => $reviewedAt,
+                'remarks' => $remarks,
+            ];
         }
 
-        return false;
+        // Policy rules:
+        // 1. Any active rejection or pending re-review blocks eligibility.
+        // 2. At least one supervisor must approve.
+        $hasBlocking = ($rejectedCount > 0) || ($pendingRereviewCount > 0);
+        $isEligible = ($approvedCount >= 1) && !$hasBlocking;
+
+        $statusLabel = 'Awaiting Review';
+        if ($rejectedCount > 0) {
+            $statusLabel = 'Revision Required';
+        } elseif ($pendingRereviewCount > 0) {
+            $statusLabel = 'Awaiting Re-Review';
+        } elseif ($isEligible) {
+            $statusLabel = 'Approved (' . $approvedCount . '/' . count($supervisorsList) . ')';
+        }
+
+        return [
+            'has_supervisors' => true,
+            'total_assigned' => count($supervisorsList),
+            'approved_count' => $approvedCount,
+            'rejected_count' => $rejectedCount,
+            'pending_rereview_count' => $pendingRereviewCount,
+            'pending_count' => $pendingCount,
+            'is_eligible' => $isEligible,
+            'status_label' => $statusLabel,
+            'supervisors' => $supervisorsList,
+        ];
+    }
+
+    /**
+     * Record a supervisor's review (approved or rejected) and recompute milestone eligibility.
+     */
+    public function recordSupervisorReview(StudentMilestone $milestone, \App\Models\User $user, string $decision, ?string $remarks = null): array
+    {
+        $submission = $milestone->submissions()->latest()->first();
+
+        // 1. Record feedback per supervisor
+        if ($submission) {
+            \App\Models\Feedback::updateOrCreate(
+                [
+                    'submission_id' => $submission->id,
+                    'created_by' => $user->id,
+                ],
+                [
+                    'decision' => ($decision === 'approved') ? 'approved' : 'revision_required',
+                    'remarks' => $remarks,
+                ]
+            );
+        }
+
+        // 2. Store supervisor review in milestone approvals JSON
+        $approvals = $milestone->approvals ?? [];
+        $reviews = $approvals['supervisor_reviews'] ?? [];
+        $reviews[(string) $user->id] = [
+            'user_id' => $user->id,
+            'supervisor_name' => $user->name,
+            'decision' => ($decision === 'approved') ? 'approved' : 'rejected',
+            'remarks' => $remarks,
+            'reviewed_at' => now()->toDateTimeString(),
+            'submission_id' => $submission?->id,
+        ];
+        $approvals['supervisor_reviews'] = $reviews;
+        $milestone->approvals = $approvals;
+
+        // 3. Update status & eligibility based on multi-supervisor policy
+        if ($decision === 'approved') {
+            $summary = $this->getSupervisorReviewSummary($milestone);
+            $milestone->is_supervisor_approved = $summary['is_eligible'];
+            if ($summary['is_eligible'] && $milestone->status === 'revision_required') {
+                $milestone->status = 'submitted';
+            }
+        } else {
+            // Rejection / Revision Required
+            $milestone->is_supervisor_approved = false;
+            $milestone->status = 'revision_required';
+            $milestone->remark = $remarks;
+        }
+
+        $milestone->save();
+
+        // Invalidate student dashboard query cache
+        $studentUser = $milestone->thesis?->student?->user;
+        if ($studentUser) {
+            \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
+        }
+
+        return $this->getSupervisorReviewSummary($milestone);
+    }
+
+    /**
+     * When a student uploads a revised document:
+     * - Any supervisor who previously APPROVED keeps their approval ('approved' stands).
+     * - Any supervisor who REJECTED now has their status set to 'pending_re_review'.
+     * - Candidate is NOT eligible until the rejecting supervisor(s) re-reviews and approves.
+     */
+    public function handleStudentReUpload(StudentMilestone $milestone): void
+    {
+        $approvals = $milestone->approvals ?? [];
+        $reviews = $approvals['supervisor_reviews'] ?? [];
+
+        $hasChanges = false;
+        foreach ($reviews as $userId => $review) {
+            // Any supervisor who previously APPROVED remains APPROVED (approval stands!)
+            // Any supervisor who previously REJECTED now needs to review the new upload:
+            if (($review['decision'] ?? '') === 'rejected') {
+                $reviews[$userId]['decision'] = 'pending_re_review';
+                $reviews[$userId]['re_review_requested_at'] = now()->toDateTimeString();
+                $hasChanges = true;
+            }
+        }
+
+        if ($hasChanges) {
+            $approvals['supervisor_reviews'] = $reviews;
+            $milestone->approvals = $approvals;
+        }
+
+        // Re-compute eligibility
+        $milestone->is_supervisor_approved = $this->computeSupervisorApprovalEligibility($milestone);
+        $milestone->save();
     }
 
     /**
@@ -327,6 +550,7 @@ class MilestoneWorkflowService
 
     /**
      * Compute average grading outcome from examiners for presentation defence milestones.
+     * Policy: Majority vote decides. Tie = Pass (benefit of doubt).
      * Returns 'pass', 'fail', or null if not yet graded.
      */
     public function getAverageGradingOutcome(StudentMilestone $milestone): ?string

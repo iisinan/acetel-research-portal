@@ -599,12 +599,12 @@
                                                             if ($sm->status === 'approved') {
                                                                 $detailedStatus = 'Approved';
                                                                 $statusColor = 'bg-emerald-100 text-emerald-800 border border-emerald-200';
-                                                            } elseif ($hasAcceptedUpload || $sm->is_supervisor_approved) {
-                                                                $detailedStatus = 'Approved by Supervisor';
-                                                                $statusColor = 'bg-emerald-100 text-emerald-800 border border-emerald-200';
                                                             } elseif ($sm->status === 'revision_required' || $hasRejectedUpload) {
                                                                 $detailedStatus = 'Revision Required';
                                                                 $statusColor = 'bg-rose-100 text-rose-800 border border-rose-200';
+                                                            } elseif ($sm->is_supervisor_approved) {
+                                                                $detailedStatus = 'Approved by Supervisor';
+                                                                $statusColor = 'bg-emerald-100 text-emerald-800 border border-emerald-200';
                                                             } elseif ($sm->status === 'submitted' || $hasUpload) {
                                                                 $detailedStatus = 'Doc Uploaded (Pending Review)';
                                                                 $statusColor = 'bg-blue-100 text-blue-700 border border-blue-200';

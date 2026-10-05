@@ -69,30 +69,12 @@ class StudentMilestone extends Model
             return true;
         }
 
-        if (!empty($this->attributes['is_supervisor_approved'])) {
-            return true;
+        if ($this->status === 'revision_required') {
+            return false;
         }
 
-        $approvals = collect($this->approvals ?? []);
-        if ($approvals->where('role', 'Supervisor')->isNotEmpty()) {
-            return true;
-        }
-
-        // Check if ANY submission document was accepted/approved by supervisor
-        if ($this->relationLoaded('submissions')) {
-            foreach ($this->submissions as $sub) {
-                $fb = $sub->relationLoaded('feedback') ? $sub->feedback : $sub->feedback;
-                if ($fb && $fb->decision === 'approved') {
-                    return true;
-                }
-            }
-        } else {
-            if ($this->submissions()->whereHas('feedback', fn($q) => $q->where('decision', 'approved'))->exists()) {
-                return true;
-            }
-        }
-
-        return false;
+        $workflow = app(\App\Services\MilestoneWorkflowService::class);
+        return $workflow->isSupervisorApproved($this);
     }
 
     public function messages()

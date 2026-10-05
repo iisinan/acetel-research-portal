@@ -255,13 +255,18 @@
                             </span>
                         </div>
                         <h4 class="text-sm font-bold text-slate-900">Supervisor Approval</h4>
+                        @php
+                            $supSummary = $workflow->getSupervisorReviewSummary($milestone);
+                        @endphp
                         <p class="text-xs text-slate-500 mt-1 mb-3">
                             @if($isSupervisorApproved)
-                                Supervisor approved the candidate's upload.
-                            @elseif($milestone->status === 'revision_required')
-                                Revisions requested from the candidate.
+                                {{ $supSummary['has_supervisors'] ? "{$supSummary['approved_count']} of {$supSummary['total_assigned']} supervisors approved (0 rejections) — Candidate eligible to present." : "Supervisor approved the candidate's upload." }}
+                            @elseif($supSummary['rejected_count'] > 0)
+                                Revision requested by assigned supervisor. Revisions required before candidate can present.
+                            @elseif($supSummary['pending_rereview_count'] > 0)
+                                Re-upload awaiting review by the supervisor who requested revisions (standing approvals preserved).
                             @else
-                                Supervisor must review and accept the upload.
+                                Awaiting supervisor review and approval.
                             @endif
                         </p>
                     </div>

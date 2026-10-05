@@ -101,7 +101,68 @@
         <!-- Review Form -->
         <div>
             @if(Auth::user()->can('review', $milestone))
+                @php
+                    $workflowService = app(\App\Services\MilestoneWorkflowService::class);
+                    $supSummary = $workflowService->getSupervisorReviewSummary($milestone);
+                    $myReview = collect($supSummary['supervisors'])->firstWhere('user_id', Auth::id());
+                @endphp
                 <x-card title="Evaluation">
+                    @if($supSummary['has_supervisors'])
+                        <div class="mb-6 p-4 rounded-2xl border {{ $supSummary['is_eligible'] ? 'bg-emerald-50/70 border-emerald-200' : ($supSummary['rejected_count'] > 0 || $supSummary['pending_rereview_count'] > 0 ? 'bg-rose-50/70 border-rose-200' : 'bg-slate-50 border-slate-200') }}">
+                            <div class="flex items-center justify-between mb-3">
+                                <h4 class="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                                    <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                    Supervisor Review Panel ({{ $supSummary['approved_count'] }}/{{ $supSummary['total_assigned'] }} Approved)
+                                </h4>
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider {{ $supSummary['is_eligible'] ? 'bg-emerald-100 text-emerald-800' : ($supSummary['rejected_count'] > 0 || $supSummary['pending_rereview_count'] > 0 ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-700') }}">
+                                    {{ $supSummary['status_label'] }}
+                                </span>
+                            </div>
+
+                            <div class="space-y-2 mb-2">
+                                @foreach($supSummary['supervisors'] as $s)
+                                    <div class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-100 text-xs shadow-sm">
+                                        <div class="flex items-center gap-2">
+                                            <span class="w-2 h-2 rounded-full {{ $s['status'] === 'approved' ? 'bg-emerald-500' : ($s['status'] === 'rejected' || $s['status'] === 'pending_re_review' ? 'bg-rose-500' : 'bg-slate-300') }}"></span>
+                                            <span class="font-bold text-slate-800">{{ $s['name'] }}</span>
+                                            <span class="text-[10px] text-slate-400 font-semibold">({{ $s['role'] }})</span>
+                                            @if($s['user_id'] == Auth::id())
+                                                <span class="px-1.5 py-0.2 bg-emerald-100 text-emerald-800 text-[9px] font-black rounded uppercase">You</span>
+                                            @endif
+                                        </div>
+                                        <div>
+                                            @if($s['status'] === 'approved')
+                                                <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+                                                    <svg class="w-3 h-3 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                                    Approved (Stands)
+                                                </span>
+                                            @elseif($s['status'] === 'rejected')
+                                                <span class="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100">
+                                                    <svg class="w-3 h-3 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                    Revision Requested
+                                                </span>
+                                            @elseif($s['status'] === 'pending_re_review')
+                                                <span class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
+                                                    <svg class="w-3 h-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3"/></svg>
+                                                    Awaiting Re-Review
+                                                </span>
+                                            @else
+                                                <span class="text-[11px] font-medium text-slate-400 italic">Pending Review</span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+
+                            @if($myReview && $myReview['status'] === 'approved')
+                                <div class="mt-3 text-[11px] font-semibold text-emerald-900 bg-emerald-100/70 p-2.5 rounded-xl border border-emerald-200 flex items-center gap-2">
+                                    <svg class="w-4 h-4 text-emerald-700 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    <span><strong>Your approval stands:</strong> You previously approved this submission. When the student uploads revisions requested by other supervisors, you do not need to approve again.</span>
+                                </div>
+                            @endif
+                        </div>
+                    @endif
+
                     <form action="{{ route('milestones.review.update', $milestone) }}" method="POST" class="space-y-6" id="milestone-review-form" onsubmit="submitEvaluation(event)">
                         @csrf
                         @method('PATCH')
@@ -110,12 +171,12 @@
                             <label class="block text-sm font-medium text-black dark:text-gray-300 mb-1">Decision</label>
                             <div class="flex space-x-4">
                                 <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-green-50 dark:hover:bg-green-900/10 has-[:checked]:border-green-500 has-[:checked]:bg-green-50 dark:has-[:checked]:bg-green-900/20 w-full transition">
-                                    <input type="radio" name="decision" value="approved" class="h-4 w-4 text-green-600 focus:ring-green-500" required>
+                                    <input type="radio" name="decision" value="approved" class="h-4 w-4 text-green-600 focus:ring-green-500" required {{ ($myReview['status'] ?? '') === 'approved' ? 'checked' : '' }}>
                                     <span class="ml-3 font-medium text-black dark:text-white">Approve</span>
                                 </label>
                                 
                                 <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/10 has-[:checked]:border-red-500 has-[:checked]:bg-red-50 dark:has-[:checked]:bg-red-900/20 w-full transition">
-                                    <input type="radio" name="decision" value="rejected" class="h-4 w-4 text-red-600 focus:ring-red-500">
+                                    <input type="radio" name="decision" value="rejected" class="h-4 w-4 text-red-600 focus:ring-red-500" {{ in_array($myReview['status'] ?? '', ['rejected', 'pending_re_review']) ? 'checked' : '' }}>
                                     <span class="ml-3 font-medium text-black dark:text-white">Request Revisions</span>
                                 </label>
                             </div>
@@ -123,7 +184,7 @@
 
                         <div>
                             <label class="block text-sm font-medium text-black dark:text-gray-300 mb-1">Remarks / Feedback</label>
-                            <textarea name="remarks" rows="6" class="shadow-sm focus:ring-acetel-500 focus:border-acetel-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md" placeholder="Enter detailed feedback for the student..." required></textarea>
+                            <textarea name="remarks" rows="6" class="shadow-sm focus:ring-acetel-500 focus:border-acetel-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md" placeholder="Enter detailed feedback for the student..." required>{{ $myReview['remarks'] ?? '' }}</textarea>
                         </div>
 
                         @if(Auth::user()->hasRole('Program Coordinator') && $milestone->template->show_supervisor_assignment)
