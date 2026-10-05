@@ -189,8 +189,10 @@ class MilestoneTemplate extends Model
             return $this->where($field, $value)->first();
         }
 
-        return $this->where('id', $value)
-            ->orWhere('slug', $value)
-            ->first();
+        if (\Illuminate\Support\Str::isUuid($value)) {
+            return $this->where('id', $value)->first();
+        }
+
+        return $this->where('slug', $value)->first();
     }
 }

@@ -433,13 +433,15 @@ class MilestoneWorkflowService
                             . "Feedback / Reason: {$reason}\n\n"
                             . "In accordance with institutional guidelines, you are required to repeat this milestone stage. Please liaise with your supervisor to make necessary revisions and re-submit your materials for approval.\n\n"
                             . "Academic Portal Administration",
-                    'type' => 'general',
+                    'delivery_method' => 'in_app',
                 ]);
-                \App\Models\InboxMessageRecipient::create([
-                    'inbox_message_id' => $inboxMsg->id,
-                    'user_id' => $studentUserId,
-                    'is_read' => false,
+
+                $inboxMsg->recipients()->attach($studentUserId, [
+                    'id' => (string) \Illuminate\Support\Str::uuid(),
+                    'recipient_type' => 'to',
                 ]);
+
+                \App\Events\MessageReceived::dispatch($inboxMsg, $studentUserId);
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::warning("Failed to create inbox message on milestone failure: " . $e->getMessage());
             }

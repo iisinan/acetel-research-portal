@@ -100,9 +100,15 @@ class EvaluationController extends Controller
         );
 
         // Mark evaluator as present (Requirement: only examiners that grade student are marked as present)
-        \App\Models\PanelMember::where('defence_event_id', $defenceEvent->id)
-            ->where('user_id', Auth::id())
-            ->update(['is_present' => true]);
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('panel_members', 'is_present')) {
+                \App\Models\PanelMember::where('defence_event_id', $defenceEvent->id)
+                    ->where('user_id', Auth::id())
+                    ->update(['is_present' => true]);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Updating panel member presence failed: ' . $e->getMessage());
+        }
 
         // Deliver examiner comments & verdict directly to candidate's personal inbox (Requirement 3)
         $studentUser = $defenceEvent->thesis?->student?->user;
@@ -126,35 +132,40 @@ class EvaluationController extends Controller
                   . (!empty($comments) ? $comments : "No additional written comments provided.") . "\n\n"
                   . "Please review your progress on the student portal.";
 
-            $inboxMsg = \App\Models\InboxMessage::create([
-                'sender_id' => $examiner->id,
-                'subject' => $subject,
-                'body' => $body,
-                'type' => 'general',
-            ]);
+            try {
+                $inboxMsg = \App\Models\InboxMessage::create([
+                    'sender_id' => $examiner->id,
+                    'subject' => $subject,
+                    'body' => $body,
+                    'delivery_method' => 'in_app',
+                ]);
 
-            \App\Models\InboxMessageRecipient::create([
-                'inbox_message_id' => $inboxMsg->id,
-                'user_id' => $studentUser->id,
-                'is_read' => false,
-            ]);
+                $inboxMsg->recipients()->attach($studentUser->id, [
+                    'id' => (string) \Illuminate\Support\Str::uuid(),
+                    'recipient_type' => 'to',
+                ]);
 
-            \App\Models\Notification::create([
-                'user_id' => $studentUser->id,
-                'title' => "Evaluation Feedback: {$milestoneLabel}",
-                'message' => "Examiner {$examiner->name} submitted an evaluation for your {$milestoneLabel} ({$verdictUpper}). Check your inbox for comments.",
-                'type' => 'evaluation_feedback',
-                'link' => route('inbox.index'),
-            ]);
+                // Real-time inbox event
+                \App\Events\MessageReceived::dispatch($inboxMsg, $studentUser->id);
+
+                // Queue/send notification email if configured
+                $studentUser->notify(new \App\Notifications\NewInboxMessage($inboxMsg));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Evaluation inbox delivery failed: ' . $e->getMessage());
+            }
         }
 
         // Dispatch Real-time events to Coordinators and Directors
-        $coords = \App\Models\CoordinatorProfile::where('program_id', $defenceEvent->thesis->student->program_id)->where('active', true)->pluck('user_id');
-        $directors = \App\Models\User::role('Director')->pluck('id');
-        $recipients = $coords->merge($directors)->unique();
+        try {
+            $coords = \App\Models\CoordinatorProfile::where('program_id', $defenceEvent->thesis?->student?->program_id)->where('active', true)->pluck('user_id');
+            $directors = \App\Models\User::role('Director')->pluck('id');
+            $recipients = $coords->merge($directors)->unique();
 
-        foreach ($recipients as $userId) {
-            \App\Events\EvaluationSubmitted::dispatch($evaluation, $userId);
+            foreach ($recipients as $userId) {
+                \App\Events\EvaluationSubmitted::dispatch($evaluation, $userId);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Evaluation broadcasting failed: ' . $e->getMessage());
         }
 
         $templateSlug = match($defenceEvent->type) {
@@ -165,9 +176,12 @@ class EvaluationController extends Controller
             default => null,
         };
 
-        if ($templateSlug && \App\Models\MilestoneTemplate::where('slug', $templateSlug)->exists()) {
-            return redirect()->route('presentations.show', $templateSlug)
-                ->with('success', 'Evaluation submitted successfully. Written feedback and verdict have been delivered to candidate inbox.');
+        if ($templateSlug) {
+            $template = \App\Models\MilestoneTemplate::where('slug', $templateSlug)->first();
+            if ($template) {
+                return redirect()->route('presentations.show', $template->id)
+                    ->with('success', 'Evaluation submitted successfully. Written feedback and verdict have been delivered to candidate inbox.');
+            }
         }
 
         return redirect()->route('dashboard')->with('success', 'Evaluation submitted successfully. Written feedback and verdict have been delivered to candidate inbox.');
