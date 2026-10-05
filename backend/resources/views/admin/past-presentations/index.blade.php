@@ -54,22 +54,37 @@
                         <td class="px-6 py-4 font-bold text-slate-900">
                             @php
                                 $avgScore = 'N/A';
-                                $event = $sm->thesis->defenceEvents->where('type', $sm->template->defence_type ?? 'first_seminar')->first();
+                                $eventType = $sm->template->defence_type ?? match($sm->template->slug) {
+                                    'seminar_as_a_course' => 'seminar',
+                                    'proposal_defence' => 'proposal',
+                                    'progress_report_1' => 'progress_report_1',
+                                    'progress_report_2' => 'progress_report_2',
+                                    default => 'first_seminar',
+                                };
+                                $event = $sm->thesis->defenceEvents->where('type', $eventType)->first();
                                 if ($event && $event->evaluations->count() > 0) {
-                                    $total = 0;
-                                    $count = 0;
-                                    foreach($event->evaluations as $eval) {
-                                        if (isset($eval->score['total'])) {
-                                            $total += $eval->score['total'];
-                                            $count++;
+                                    if (in_array($sm->template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2'])) {
+                                        $passCount = $event->evaluations->where('verdict', 'pass')->count();
+                                        $failCount = $event->evaluations->where('verdict', 'fail')->count();
+                                        if (($passCount + $failCount) > 0) {
+                                            $avgScore = $passCount >= $failCount ? 'PASS' : 'FAIL';
                                         }
-                                    }
-                                    if ($count > 0) {
-                                        $avgScore = round($total / $count, 1) . ' / 100';
+                                    } else {
+                                        $total = 0;
+                                        $count = 0;
+                                        foreach($event->evaluations as $eval) {
+                                            if (isset($eval->score['total'])) {
+                                                $total += $eval->score['total'];
+                                                $count++;
+                                            }
+                                        }
+                                        if ($count > 0) {
+                                            $avgScore = round($total / $count, 1) . ' / 100';
+                                        }
                                     }
                                 }
                             @endphp
-                            <span class="inline-flex items-center px-2.5 py-1 rounded-lg {{ $avgScore === 'N/A' ? 'bg-slate-100 text-slate-600' : 'bg-emerald-100 text-emerald-800' }}">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-lg {{ $avgScore === 'FAIL' ? 'bg-rose-100 text-rose-800' : ($avgScore === 'N/A' ? 'bg-slate-100 text-slate-600' : 'bg-emerald-100 text-emerald-800') }}">
                                 {{ $avgScore }}
                             </span>
                         </td>

@@ -296,6 +296,9 @@ class MilestoneWorkflowService
             if (!$this->isSupervisorApproved($milestone)) {
                 return 'upload not yet approved by supervisor';
             }
+            if (!$this->hasBeenGraded($milestone)) {
+                return 'not yet evaluated by examiner(s)';
+            }
             $presented = \Carbon\Carbon::parse($milestone->defence_date)->startOfDay()->lte(now()->startOfDay())
                 || $this->hasBeenGraded($milestone);
             if (!$presented) {
@@ -309,10 +312,104 @@ class MilestoneWorkflowService
     }
 
     /**
+     * Compute average grading outcome from examiners for presentation defence milestones.
+     * Returns 'pass', 'fail', or null if not yet graded.
+     */
+    public function getAverageGradingOutcome(StudentMilestone $milestone): ?string
+    {
+        $type = $milestone->template?->defence_type ?? match($milestone->template?->slug) {
+            'seminar_as_a_course' => 'seminar',
+            'proposal_defence' => 'proposal',
+            'progress_report_1' => 'progress_report_1',
+            'progress_report_2' => 'progress_report_2',
+            default => null,
+        };
+
+        $events = \App\Models\DefenceEvent::where('thesis_project_id', $milestone->thesis_project_id);
+        if ($type) {
+            $events->where('type', $type);
+        }
+        $events = $events->with('evaluations')->get();
+
+        $passCount = 0;
+        $failCount = 0;
+
+        foreach ($events as $event) {
+            foreach ($event->evaluations as $eval) {
+                $verdict = strtolower($eval->score['verdict'] ?? $eval->recommendation ?? '');
+                if ($verdict === 'pass') {
+                    $passCount++;
+                } elseif ($verdict === 'fail') {
+                    $failCount++;
+                } elseif (isset($eval->score['total'])) {
+                    if ($eval->score['total'] >= 50) {
+                        $passCount++;
+                    } else {
+                        $failCount++;
+                    }
+                } elseif (in_array($verdict, ['minor_revisions', 'major_revisions'])) {
+                    $passCount++;
+                }
+            }
+        }
+
+        if ($passCount === 0 && $failCount === 0) {
+            return null;
+        }
+
+        return ($passCount >= $failCount) ? 'pass' : 'fail';
+    }
+
+    /**
+     * Mark a milestone as failed, requiring candidate to repeat this milestone.
+     * Status is set to revision_required, schedule cleared, and notifications sent.
+     */
+    public function failAndRepeatMilestone(StudentMilestone $milestone, string $reason): void
+    {
+        $approvals = $milestone->approvals ?? [];
+        $approvals[] = [
+            'user_id' => auth()->id(),
+            'role' => 'ExaminerPanel',
+            'note' => $reason,
+            'approved_at' => now()->toDateTimeString(),
+            'verdict' => 'fail',
+        ];
+
+        $milestone->update([
+            'status' => 'revision_required',
+            'defence_date' => null,
+            'defence_time' => null,
+            'meeting_link' => null,
+            'approvals' => $approvals,
+        ]);
+
+        $type = $milestone->template?->defence_type;
+        if ($type && $milestone->thesis_project_id) {
+            \App\Models\DefenceEvent::where('thesis_project_id', $milestone->thesis_project_id)
+                ->where('type', $type)
+                ->update(['outcome' => 'failed']);
+        }
+
+        $studentUserId = $milestone->thesis?->student?->user_id;
+        if ($studentUserId) {
+            \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUserId);
+        }
+
+        $this->notifyUpdate($milestone, "Milestone evaluation outcome: FAIL. The candidate is required to repeat this stage: {$reason}");
+    }
+
+    /**
      * Mark a milestone approved by the system/admin and run the post-approval workflow.
      */
     public function approveAndAdvance(StudentMilestone $milestone, string $note): void
     {
+        // Requirement 5: Average grading must be pass. If fail, candidate repeats this milestone.
+        $gradingOutcome = $this->getAverageGradingOutcome($milestone);
+        if ($gradingOutcome === 'fail') {
+            $this->failAndRepeatMilestone($milestone, 'Candidate received a FAIL grade on presentation evaluation and must repeat this milestone.');
+            return;
+        }
+
         $approvals = $milestone->approvals ?? [];
         $approvals[] = [
             'user_id' => auth()->id(),

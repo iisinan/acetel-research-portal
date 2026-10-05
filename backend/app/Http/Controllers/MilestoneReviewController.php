@@ -194,6 +194,9 @@ class MilestoneReviewController extends Controller
                 if ($endSessionBlockReason) {
                     return redirect()->back()->with('error', "Cannot clear {$template->name}: {$endSessionBlockReason}. Please ensure all prerequisites are met and use 'End Presentation'.");
                 }
+                if ($this->workflowService->getAverageGradingOutcome($milestone) === 'fail') {
+                    return redirect()->back()->with('error', "Cannot approve milestone: Candidate received a FAIL grade from the examination panel and must repeat this stage.");
+                }
             }
 
             $error = $this->workflowService->getApprovalBlockReason($milestone, $user, 'Admin');

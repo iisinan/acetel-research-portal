@@ -15,7 +15,12 @@ class PanelMember extends Model
         'defence_event_id',
         'user_id',
         'role',
-        'invitation_status'
+        'invitation_status',
+        'is_present',
+    ];
+
+    protected $casts = [
+        'is_present' => 'boolean',
     ];
 
     public function event()

@@ -449,6 +449,13 @@ class MilestoneTemplateController extends Controller
                     continue;
                 }
 
+                $gradingOutcome = $workflow->getAverageGradingOutcome($sm);
+                if ($gradingOutcome === 'fail') {
+                    $workflow->failAndRepeatMilestone($sm, "Average examination grade was FAIL. Candidate must repeat milestone.");
+                    $skipped[] = ($sm->thesis?->student?->user?->name ?? 'Unknown student') . ' — Failed grading (marked for milestone repetition)';
+                    continue;
+                }
+
                 $workflow->approveAndAdvance($sm, "Presentation session ended for {$template->name}.");
                 $advanced++;
             }
@@ -463,7 +470,7 @@ class MilestoneTemplateController extends Controller
 
             $msg = "Presentation session for {$template->name} ended: {$advanced} student(s) advanced to the next milestone.";
             if (count($skipped) > 0) {
-                $msg .= ' ' . count($skipped) . ' student(s) remain scheduled because they did not meet the requirements.';
+                $msg .= ' ' . count($skipped) . ' student(s) remain scheduled or were marked to repeat because of requirements or grading.';
             }
 
             if ($template->slug === 'seminar_as_a_course') {
@@ -514,7 +521,13 @@ class MilestoneTemplateController extends Controller
                 }
             }
 
-            $type = $template->defence_type ?? 'first_seminar';
+            $type = $template->defence_type ?? match($template->slug) {
+                'seminar_as_a_course' => 'seminar',
+                'proposal_defence' => 'proposal',
+                'progress_report_1' => 'progress_report_1',
+                'progress_report_2' => 'progress_report_2',
+                default => 'first_seminar',
+            };
             \App\Models\DefenceEvent::whereIn('thesis_project_id', $thesisIds)
                 ->where('type', $type)
                 ->delete();
@@ -531,17 +544,33 @@ class MilestoneTemplateController extends Controller
     public function assignExaminer(Request $request, $milestoneId)
     {
         $request->validate([
-            'supervisor_profile_id' => 'required|exists:supervisor_profiles,id'
+            'supervisor_profile_id' => 'nullable|exists:supervisor_profiles,id',
+            'supervisor_profile_ids' => 'nullable|array',
+            'supervisor_profile_ids.*' => 'exists:supervisor_profiles,id',
         ]);
 
         $milestone = \App\Models\StudentMilestone::findOrFail($milestoneId);
-        $supervisor = \App\Models\SupervisorProfile::with(['user', 'programs'])->findOrFail($request->supervisor_profile_id);
         $template = $milestone->template;
+
+        $profileIds = $request->supervisor_profile_ids ?? ($request->supervisor_profile_id ? [$request->supervisor_profile_id] : []);
+        if (empty($profileIds)) {
+            return back()->with('error', 'Please select at least one examiner to assign.');
+        }
+
+        $supervisors = \App\Models\SupervisorProfile::with(['user', 'programs'])->whereIn('id', $profileIds)->get();
+
+        $type = $template->defence_type ?? match($template->slug) {
+            'seminar_as_a_course' => 'seminar',
+            'proposal_defence' => 'proposal',
+            'progress_report_1' => 'progress_report_1',
+            'progress_report_2' => 'progress_report_2',
+            default => 'first_seminar',
+        };
 
         $event = \App\Models\DefenceEvent::firstOrCreate(
             [
                 'thesis_project_id' => $milestone->thesis_project_id,
-                'type' => $template->defence_type ?? 'first_seminar',
+                'type' => $type,
             ],
             [
                 'schedule_start' => $milestone->defence_date ? \Carbon\Carbon::parse($milestone->defence_date)->setHour(9) : now()->addDays(7),
@@ -551,16 +580,20 @@ class MilestoneTemplateController extends Controller
 
         \App\Models\PanelMember::where('defence_event_id', $event->id)->where('role', 'examiner')->delete();
 
-        \App\Models\PanelMember::create([
-            'defence_event_id' => $event->id,
-            'user_id' => $supervisor->user_id,
-            'role' => 'examiner',
-            'invitation_status' => 'accepted'
-        ]);
-        
-        $supervisor->user->notify(new \App\Notifications\EventScheduled($event));
+        foreach ($supervisors as $supervisor) {
+            \App\Models\PanelMember::create([
+                'defence_event_id' => $event->id,
+                'user_id' => $supervisor->user_id,
+                'role' => 'examiner',
+                'invitation_status' => 'accepted'
+            ]);
+            try {
+                $supervisor->user->notify(new \App\Notifications\EventScheduled($event));
+            } catch (\Throwable $e) {}
+        }
 
-        return back()->with('success', 'Examiner assigned successfully.');
+        $names = $supervisors->map(fn($s) => $s->user->name)->implode(', ');
+        return back()->with('success', "Examiner(s) ({$names}) assigned successfully for {$milestone->thesis->student->user->name}.");
     }
 
     public function assignExaminerGlobal(Request $request, $templateId)
@@ -581,11 +614,19 @@ class MilestoneTemplateController extends Controller
 
         $assignedCount = 0;
 
+        $type = $template->defence_type ?? match($template->slug) {
+            'seminar_as_a_course' => 'seminar',
+            'proposal_defence' => 'proposal',
+            'progress_report_1' => 'progress_report_1',
+            'progress_report_2' => 'progress_report_2',
+            default => 'first_seminar',
+        };
+
         foreach ($milestones as $milestone) {
             $event = \App\Models\DefenceEvent::firstOrCreate(
                 [
                     'thesis_project_id' => $milestone->thesis_project_id,
-                    'type' => $template->defence_type ?? 'first_seminar',
+                    'type' => $type,
                 ],
                 [
                     'schedule_start' => $milestone->defence_date ? \Carbon\Carbon::parse($milestone->defence_date)->setHour(9) : now()->addDays(7),

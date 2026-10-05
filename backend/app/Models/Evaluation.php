@@ -39,4 +39,9 @@ class Evaluation extends Model
     {
         return $this->belongsTo(User::class, 'evaluator_id');
     }
+
+    public function getVerdictAttribute(): ?string
+    {
+        return $this->score['verdict'] ?? $this->recommendation;
+    }
 }

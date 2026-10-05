@@ -319,6 +319,16 @@ class MilestoneController extends Controller
             return back()->with('error', $msg);
         }
 
+        $gradingOutcome = $workflow->getAverageGradingOutcome($milestone);
+        if ($gradingOutcome === 'fail') {
+            $workflow->failAndRepeatMilestone($milestone, "Average evaluation grade was FAIL. Candidate must repeat this milestone.");
+            $failMsg = "Presentation ended for {$studentName}. Candidate received a FAIL grade from the examination panel and must repeat this milestone.";
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $failMsg, 'repeated' => true]);
+            }
+            return back()->with('warning', $failMsg);
+        }
+
         $workflow->approveAndAdvance($milestone, "Presentation session ended and approved by Admin ({$user->name}).");
 
         $successMsg = "Presentation ended successfully for {$studentName}. Candidate advanced to the next milestone.";

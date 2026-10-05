@@ -326,13 +326,26 @@
                                     @endif
                                 </div>
 
-                                {{-- Global Examiner Assignment (Seminar only, Admin only) --}}
-                                @if($template->slug === 'seminar_as_a_course' && (!isset($isCoordinator) || !$isCoordinator))
+                                {{-- Global Examiner Assignment (Admin only) --}}
+                                @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']) && (!isset($isCoordinator) || !$isCoordinator))
                                     @php
+                                        $globalEventType = $template->defence_type ?? match($template->slug) {
+                                            'seminar_as_a_course' => 'seminar',
+                                            'proposal_defence' => 'proposal',
+                                            'progress_report_1' => 'progress_report_1',
+                                            'progress_report_2' => 'progress_report_2',
+                                            default => 'first_seminar',
+                                        };
                                         $firstEvent = $template->studentMilestones->first() 
-                                            ? current($template->studentMilestones->first()->thesis->defenceEvents->where('type', $template->defence_type ?? 'seminar')->all()) 
+                                            ? current($template->studentMilestones->first()->thesis->defenceEvents->where('type', $globalEventType)->all()) 
                                             : null;
                                         $currentExaminers = $firstEvent ? $firstEvent->panelMembers->where('role', 'examiner') : collect();
+                                        $examinerBoxTitle = match($template->slug) {
+                                            'proposal_defence' => 'Proposal Defence Examiner(s)',
+                                            'progress_report_1' => 'Progress Report 1 Examiner(s)',
+                                            'progress_report_2' => 'Progress Report 2 Examiner(s)',
+                                            default => 'Seminar Examiner(s)',
+                                        };
                                     @endphp
                                     <div class="mb-6 bg-indigo-50/50 border border-indigo-100 rounded-xl p-4">
                                         <div class="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -341,7 +354,7 @@
                                                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
                                                 </div>
                                                 <div>
-                                                    <p class="text-xs font-black text-indigo-900 uppercase tracking-wider">Seminar Examiner(s)</p>
+                                                    <p class="text-xs font-black text-indigo-900 uppercase tracking-wider">{{ $examinerBoxTitle }}</p>
                                                     <p class="text-[10px] text-indigo-600 mt-0.5">
                                                         @if($currentExaminers->count() > 0)
                                                             Currently: <strong>{{ $currentExaminers->map(fn($e) => $e->user->name)->implode(', ') }}</strong>
@@ -541,9 +554,14 @@
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Student</th>
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Status</th>
                                                         <th class="px-4 py-3 font-semibold text-slate-700">{{ $template->allow_defence_date ? 'Schedule & Meeting' : ($template->slug === 'supervisors_assigned' ? 'Assigned Supervisors' : 'Details') }}</th>
+                                                        @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
+                                                        <th class="px-4 py-3 font-semibold text-slate-700">Examiner(s)</th>
                                                         @if($template->slug === 'seminar_as_a_course')
                                                         <th class="px-4 py-3 font-semibold text-slate-700">PPT</th>
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Score</th>
+                                                        @else
+                                                        <th class="px-4 py-3 font-semibold text-slate-700">Grade / Result</th>
+                                                        @endif
                                                         @endif
                                                         <th class="px-4 py-3 w-16 text-right font-semibold text-slate-700"></th>
                                                     </tr>
@@ -576,12 +594,31 @@
                                                                 $statusColor = 'bg-slate-100 text-slate-600';
                                                             }
                                                             
-                                                            $event = current($sm->thesis->defenceEvents->where('type', $template->defence_type ?? 'seminar')->all());
+                                                            $rowEventType = $template->defence_type ?? match($template->slug) {
+                                                                'seminar_as_a_course' => 'seminar',
+                                                                'proposal_defence' => 'proposal',
+                                                                'progress_report_1' => 'progress_report_1',
+                                                                'progress_report_2' => 'progress_report_2',
+                                                                default => 'first_seminar',
+                                                            };
+                                                            $event = $sm->thesis ? current($sm->thesis->defenceEvents->where('type', $rowEventType)->all()) : null;
+                                                            $rowExaminers = $event ? $event->panelMembers->where('role', 'examiner') : collect();
                                                             $avgScore = null;
+                                                            $passCount = 0;
+                                                            $failCount = 0;
+                                                            $gradingOutcome = null;
+
                                                             if ($event && $event->evaluations->count() > 0) {
                                                                 $total = 0;
                                                                 $count = 0;
                                                                 foreach($event->evaluations as $eval) {
+                                                                    $verdict = strtolower($eval->verdict ?? $eval->recommendation ?? '');
+                                                                    if ($verdict === 'pass') {
+                                                                        $passCount++;
+                                                                    } elseif ($verdict === 'fail') {
+                                                                        $failCount++;
+                                                                    }
+
                                                                     if (isset($eval->score['total'])) {
                                                                         $total += $eval->score['total'];
                                                                         $count++;
@@ -589,6 +626,9 @@
                                                                 }
                                                                 if ($count > 0) {
                                                                     $avgScore = round($total / $count, 1);
+                                                                }
+                                                                if (($passCount + $failCount) > 0) {
+                                                                    $gradingOutcome = ($passCount >= $failCount) ? 'pass' : 'fail';
                                                                 }
                                                             }
                                                             $studentName = $sm->thesis->student->user->name ?? 'N/A';
@@ -678,6 +718,26 @@
                                                                     </span>
                                                                 @endif
                                                             </td>
+                                                            @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
+                                                            <td class="px-4 py-3 text-xs">
+                                                                @if($rowExaminers->count() > 0)
+                                                                    <div class="flex flex-col gap-1">
+                                                                        @foreach($rowExaminers as $ex)
+                                                                            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 text-[11px] font-bold border border-purple-100 max-w-[170px]" title="{{ $ex->is_present ? 'Present (Graded candidate)' : 'Assigned (Pending grading)' }}">
+                                                                                <span class="w-1.5 h-1.5 rounded-full {{ $ex->is_present ? 'bg-emerald-500' : 'bg-purple-300' }}"></span>
+                                                                                <span class="truncate">{{ $ex->user?->name ?? 'Examiner' }}</span>
+                                                                                @if($ex->is_present)
+                                                                                    <span class="text-[9px] text-emerald-600 font-extrabold uppercase shrink-0">Present</span>
+                                                                                @endif
+                                                                            </span>
+                                                                        @endforeach
+                                                                    </div>
+                                                                @else
+                                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                                                                        Unassigned
+                                                                    </span>
+                                                                @endif
+                                                            </td>
                                                             @if($template->slug === 'seminar_as_a_course')
                                                             <td class="px-4 py-3 text-xs">
                                                                 @if($sm->submissions->count() > 0)
@@ -693,15 +753,44 @@
                                                                     <span class="text-slate-400">-</span>
                                                                 @endif
                                                             </td>
+                                                            @else
+                                                            <td class="px-4 py-3 text-xs">
+                                                                @if($gradingOutcome === 'pass')
+                                                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                                                        <svg class="w-3 h-3 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                                                        <span>PASS</span>
+                                                                        <span class="text-[10px] text-emerald-700 font-bold ml-1">({{ $passCount }}/{{ $passCount + $failCount }})</span>
+                                                                    </span>
+                                                                @elseif($gradingOutcome === 'fail')
+                                                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-black uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-200">
+                                                                        <svg class="w-3 h-3 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                                        <span>FAIL</span>
+                                                                        <span class="text-[10px] text-rose-700 font-bold ml-1">({{ $failCount }}/{{ $passCount + $failCount }})</span>
+                                                                    </span>
+                                                                @else
+                                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-500">
+                                                                        Awaiting Grade
+                                                                    </span>
+                                                                @endif
+                                                            </td>
+                                                            @endif
                                                             @endif
                                                             <td class="px-4 py-3 text-right">
-                                                                <div x-data="{ menuOpen: false }" class="relative inline-block text-left">
+                                                                <div x-data="{ menuOpen: false, showAssignModal: false }" class="relative inline-block text-left">
                                                                     <button type="button" @click.prevent.stop="menuOpen = !menuOpen" class="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors focus:outline-none">
                                                                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
                                                                     </button>
                                                                     <div x-show="menuOpen" @click.outside="menuOpen = false" x-cloak class="absolute right-8 top-0 w-56 bg-white rounded-xl shadow-xl border border-slate-100 z-[60] overflow-hidden text-left" style="display: none;">
                                                                         @if((!isset($isCoordinator) || !$isCoordinator) && $sm->status !== 'approved')
                                                                             <div class="p-1.5 border-b border-slate-100 space-y-1">
+                                                                                @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
+                                                                                <button type="button" @click="showAssignModal = true; menuOpen = false" class="w-full text-left px-3 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-2">
+                                                                                    <svg class="w-3.5 h-3.5 text-indigo-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                                                                                    </svg>
+                                                                                    <span>Assign Examiner(s)</span>
+                                                                                </button>
+                                                                                @endif
                                                                                 @if(!empty($sm->defence_date) || in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
                                                                                 <form action="{{ route('milestones.end_presentation', $sm) }}" method="POST">
                                                                                     @csrf
@@ -756,6 +845,42 @@
                                                                             @endforeach
                                                                         </div>
                                                                     </div>
+
+                                                                    {{-- Individual Student Examiner Assignment Modal --}}
+                                                                    @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
+                                                                    <div x-show="showAssignModal" @click.outside="showAssignModal = false" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs" style="display: none;">
+                                                                        <div @click.stop class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 text-left">
+                                                                            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                                                                                <div>
+                                                                                    <h4 class="text-sm font-black text-slate-900">Assign Examiner(s)</h4>
+                                                                                    <p class="text-xs text-slate-500 mt-0.5">{{ $studentName }} — {{ $template->name }}</p>
+                                                                                </div>
+                                                                                <button type="button" @click="showAssignModal = false" class="text-slate-400 hover:text-slate-600 text-xl font-bold leading-none">&times;</button>
+                                                                            </div>
+                                                                            <form action="{{ route('admin.milestone-templates.assign-examiner', $sm->id) }}" method="POST" class="space-y-4">
+                                                                                @csrf
+                                                                                <div>
+                                                                                    <label class="block text-xs font-bold text-slate-700 mb-2">Select Examiner(s)</label>
+                                                                                    <div class="max-h-56 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 p-1">
+                                                                                        @foreach($supervisors as $sup)
+                                                                                            <label class="flex items-center gap-2.5 p-2 hover:bg-indigo-50/50 rounded-lg cursor-pointer">
+                                                                                                <input type="checkbox" name="supervisor_profile_ids[]" value="{{ $sup->id }}" {{ $rowExaminers->pluck('user_id')->contains($sup->user_id) ? 'checked' : '' }} class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                                                                                                <div class="text-xs">
+                                                                                                    <span class="font-bold text-slate-800">{{ $sup->user->name }}</span>
+                                                                                                    <span class="text-[10px] text-slate-400 block font-semibold">{{ $sup->programs->first()->code ?? 'Supervisor' }}</span>
+                                                                                                </div>
+                                                                                            </label>
+                                                                                        @endforeach
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                                                                                    <button type="button" @click="showAssignModal = false" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
+                                                                                    <button type="submit" class="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm transition-colors">Save Examiner(s)</button>
+                                                                                </div>
+                                                                            </form>
+                                                                        </div>
+                                                                    </div>
+                                                                    @endif
                                                                 </div>
                                                             </td>
                                                         </tr>

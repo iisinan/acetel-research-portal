@@ -38,39 +38,77 @@
                 </div>
             </x-card>
 
-            <x-card title="Scoring Breakdown">
-                <div class="space-y-4 p-2">
-                    @php
-                        $scores = $evaluation->score;
-                        $total = $scores['total'] ?? (array_sum($scores) > 0 ? array_sum($scores) / 2 : 0);
-                    @endphp
-                    
-                    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-                        <span class="text-sm font-black text-slate-700">Originality & Contribution</span>
-                        <span class="text-lg font-black {{ $scores['originality'] >= 18 ? 'text-emerald-600' : ($scores['originality'] >= 12 ? 'text-amber-600' : 'text-rose-600') }}">{{ $scores['originality'] }} / 25</span>
+            @php
+                $scores = $evaluation->score ?? [];
+                $isPassFail = isset($scores['verdict']) || in_array($evaluation->defenceEvent->type, ['proposal', 'progress_report_1', 'progress_report_2']);
+                $verdict = strtolower($scores['verdict'] ?? $evaluation->recommendation ?? 'fail');
+                $isPass = ($verdict === 'pass');
+            @endphp
+
+            @if($isPassFail)
+                <x-card title="Defence Outcome">
+                    <div class="p-6 rounded-2xl {{ $isPass ? 'bg-emerald-50/70 border border-emerald-200' : 'bg-rose-50/70 border border-rose-200' }} flex flex-col sm:flex-row items-center gap-6">
+                        <div class="w-20 h-20 rounded-3xl {{ $isPass ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600' }} flex items-center justify-center shrink-0 shadow-sm">
+                            @if($isPass)
+                                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            @else
+                                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            @endif
+                        </div>
+                        <div class="text-center sm:text-left">
+                            <span class="inline-flex px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider {{ $isPass ? 'bg-emerald-200 text-emerald-900' : 'bg-rose-200 text-rose-900' }}">
+                                Result: {{ strtoupper($verdict) }}
+                            </span>
+                            <h3 class="text-xl font-black text-slate-900 mt-2">
+                                {{ $isPass ? 'Candidate Cleared & Recommended to Advance' : 'Candidate Failed & Must Repeat Milestone' }}
+                            </h3>
+                            <p class="text-xs font-semibold text-slate-500 mt-1">
+                                {{ $isPass ? 'The candidate demonstrated required knowledge and research progress for this stage.' : 'The candidate did not meet the criteria. Revisions are required and this milestone must be repeated.' }}
+                            </p>
+                        </div>
                     </div>
-                    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-                        <span class="text-sm font-black text-slate-700">Methodology & Rigor</span>
-                        <span class="text-lg font-black {{ $scores['methodology'] >= 18 ? 'text-emerald-600' : ($scores['methodology'] >= 12 ? 'text-amber-600' : 'text-rose-600') }}">{{ $scores['methodology'] }} / 25</span>
+                </x-card>
+            @else
+                <x-card title="Scoring Breakdown">
+                    <div class="space-y-4 p-2">
+                        @php
+                            $total = $scores['total'] ?? (array_sum($scores) > 0 ? array_sum($scores) / 2 : 0);
+                        @endphp
+                        
+                        <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                            <span class="text-sm font-black text-slate-700">Originality & Contribution</span>
+                            <span class="text-lg font-black {{ ($scores['originality'] ?? 0) >= 18 ? 'text-emerald-600' : (($scores['originality'] ?? 0) >= 12 ? 'text-amber-600' : 'text-rose-600') }}">{{ $scores['originality'] ?? 0 }} / 25</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                            <span class="text-sm font-black text-slate-700">Methodology & Rigor</span>
+                            <span class="text-lg font-black {{ ($scores['methodology'] ?? 0) >= 18 ? 'text-emerald-600' : (($scores['methodology'] ?? 0) >= 12 ? 'text-amber-600' : 'text-rose-600') }}">{{ $scores['methodology'] ?? 0 }} / 25</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                            <span class="text-sm font-black text-slate-700">Presentation Quality</span>
+                            <span class="text-lg font-black {{ ($scores['presentation'] ?? 0) >= 18 ? 'text-emerald-600' : (($scores['presentation'] ?? 0) >= 12 ? 'text-amber-600' : 'text-rose-600') }}">{{ $scores['presentation'] ?? 0 }} / 25</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                            <span class="text-sm font-black text-slate-700">Q&A Defense</span>
+                            <span class="text-lg font-black {{ ($scores['qa'] ?? 0) >= 18 ? 'text-emerald-600' : (($scores['qa'] ?? 0) >= 12 ? 'text-amber-600' : 'text-rose-600') }}">{{ $scores['qa'] ?? 0 }} / 25</span>
+                        </div>
                     </div>
-                    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-                        <span class="text-sm font-black text-slate-700">Presentation Quality</span>
-                        <span class="text-lg font-black {{ $scores['presentation'] >= 18 ? 'text-emerald-600' : ($scores['presentation'] >= 12 ? 'text-amber-600' : 'text-rose-600') }}">{{ $scores['presentation'] }} / 25</span>
-                    </div>
-                    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
-                        <span class="text-sm font-black text-slate-700">Q&A Defense</span>
-                        <span class="text-lg font-black {{ $scores['qa'] >= 18 ? 'text-emerald-600' : ($scores['qa'] >= 12 ? 'text-amber-600' : 'text-rose-600') }}">{{ $scores['qa'] }} / 25</span>
-                    </div>
-                </div>
-            </x-card>
+                </x-card>
+            @endif
         </div>
 
         <div class="space-y-6">
             <x-card title="Final Verdict" color="indigo">
-                <div class="flex flex-col items-center justify-center p-6 bg-slate-50 rounded-2xl mb-4">
-                    <p class="text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2">Total Score</p>
-                    <p class="text-5xl font-black text-slate-900 tracking-tighter">{{ $total }}<span class="text-2xl text-slate-400">/100</span></p>
-                </div>
+                @if($isPassFail)
+                    <div class="flex flex-col items-center justify-center p-6 {{ $isPass ? 'bg-emerald-50/60 border border-emerald-100' : 'bg-rose-50/60 border border-rose-100' }} rounded-2xl mb-4">
+                        <p class="text-[10px] uppercase font-black tracking-widest text-slate-500 mb-1">Official Result</p>
+                        <p class="text-4xl font-black {{ $isPass ? 'text-emerald-700' : 'text-rose-700' }} tracking-tight">{{ strtoupper($verdict) }}</p>
+                    </div>
+                @else
+                    <div class="flex flex-col items-center justify-center p-6 bg-slate-50 rounded-2xl mb-4">
+                        <p class="text-[10px] uppercase font-black tracking-widest text-slate-500 mb-2">Total Score</p>
+                        <p class="text-5xl font-black text-slate-900 tracking-tighter">{{ $total }}<span class="text-2xl text-slate-400">/100</span></p>
+                    </div>
+                @endif
 
                 <div class="space-y-4">
                     <p class="text-[10px] uppercase font-black tracking-widest text-slate-500">Recommendation</p>
@@ -88,7 +126,7 @@
                         </div>
                     @else
                         <div class="flex items-center gap-3 p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl">
-                            <span class="text-sm font-black uppercase tracking-widest">Fail / Retake</span>
+                            <span class="text-sm font-black uppercase tracking-widest">{{ $isPassFail ? 'Failed (Must Repeat)' : 'Fail / Retake' }}</span>
                         </div>
                     @endif
                 </div>

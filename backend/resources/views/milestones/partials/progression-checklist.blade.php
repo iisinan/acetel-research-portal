@@ -30,7 +30,11 @@
             default => 'Next Milestone'
         };
 
-        $totalSteps = $isSeminar ? 3 : 4;
+        $gradingOutcome = $workflow->getAverageGradingOutcome($milestone);
+        $isPass = ($gradingOutcome === 'pass');
+        $isFail = ($gradingOutcome === 'fail');
+
+        $totalSteps = $isSeminar ? 3 : 5;
         $completedSteps = 0;
         if ($isSeminar) {
             if ($hasSchedule) $completedSteps++;
@@ -40,6 +44,7 @@
             if ($hasPpt) $completedSteps++;
             if ($isSupervisorApproved) $completedSteps++;
             if ($isConducted) $completedSteps++;
+            if ($isGraded && $isPass) $completedSteps++;
             if ($isApproved) $completedSteps++;
         }
     @endphp
@@ -169,8 +174,8 @@
                 </div>
             </div>
         @else
-            {{-- Proposal Defence / Progress Report 1 / Progress Report 2: 4 Steps --}}
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 pt-6">
+            {{-- Proposal Defence / Progress Report 1 / Progress Report 2: 5 Steps --}}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 pt-6">
                 {{-- Step 1: Upload PPT / Document --}}
                 @php
                     $hasPptType = $milestone->submissions()->whereIn('type', ['ppt', 'presentation'])->exists();
@@ -286,7 +291,7 @@
                                 {{ $isConducted ? 'Conducted' : ($hasSchedule ? 'Scheduled' : 'Pending Date') }}
                             </span>
                         </div>
-                        <h4 class="text-sm font-bold text-slate-900">Presentation Conducted</h4>
+                        <h4 class="text-sm font-bold text-slate-900">Presentation Scheduled</h4>
                         <p class="text-xs text-slate-500 mt-1 mb-3">
                             @if($hasSchedule)
                                 {{ $defenceDate->format('d M Y') }} {{ $milestone->defence_time ? '• ' . \Carbon\Carbon::parse($milestone->defence_time)->format('g:i A') : '' }}
@@ -305,18 +310,54 @@
                     @endif
                 </div>
 
-                {{-- Step 4: Admin End Presentation Button --}}
-                <div class="p-5 rounded-2xl border transition-all {{ $isApproved ? 'bg-emerald-50/50 border-emerald-200' : ($canEndPresentation ? 'bg-blue-50/60 border-blue-200' : 'bg-slate-50 border-slate-200') }} flex flex-col justify-between">
+                {{-- Step 4: Examiner Evaluation / Grading --}}
+                <div class="p-5 rounded-2xl border transition-all {{ $isGraded ? ($isPass ? 'bg-emerald-50/50 border-emerald-200' : 'bg-rose-50/50 border-rose-200') : 'bg-slate-50 border-slate-200' }} flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between mb-3">
-                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black {{ $isApproved ? 'bg-emerald-500 text-white' : ($canEndPresentation ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-700') }}">4</span>
-                            <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider {{ $isApproved ? 'bg-emerald-100 text-emerald-800' : ($canEndPresentation ? 'bg-blue-100 text-blue-800' : 'bg-slate-200 text-slate-700') }}">
-                                {{ $isApproved ? 'Cleared' : ($canEndPresentation ? 'Ready' : 'Pending') }}
+                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black {{ $isGraded ? ($isPass ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white') : 'bg-slate-200 text-slate-700' }}">4</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider {{ $isGraded ? ($isPass ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800') : 'bg-amber-100 text-amber-800' }}">
+                                {{ $isGraded ? ($isPass ? 'Passed' : 'Failed') : 'Awaiting Grade' }}
                             </span>
                         </div>
-                        <h4 class="text-sm font-bold text-slate-900">End Presentation Session</h4>
+                        <h4 class="text-sm font-bold text-slate-900">Examiner Grading</h4>
                         <p class="text-xs text-slate-500 mt-1 mb-3">
-                            {{ $isApproved ? 'Session ended. Advanced to ' . $nextDestination . '.' : 'Admin clicks End Presentation to advance candidate.' }}
+                            @if($isGraded)
+                                @if($isPass)
+                                    Candidate passed examiner evaluation. Comments delivered to student inbox.
+                                @else
+                                    Candidate failed examiner evaluation. Must repeat milestone.
+                                @endif
+                            @else
+                                Assigned examiners must submit Pass or Fail grade.
+                            @endif
+                        </p>
+                    </div>
+
+                    @if($isGraded)
+                        <div class="p-2.5 rounded-xl {{ $isPass ? 'bg-emerald-100/70 text-emerald-900 border border-emerald-200' : 'bg-rose-100/70 text-rose-900 border border-rose-200' }} text-center">
+                            <span class="text-xs font-black uppercase tracking-wider">Verdict: {{ strtoupper($gradingOutcome ?? 'Graded') }}</span>
+                        </div>
+                    @endif
+                </div>
+
+                {{-- Step 5: Admin Clearance / Advancement --}}
+                <div class="p-5 rounded-2xl border transition-all {{ $isApproved ? 'bg-emerald-50/50 border-emerald-200' : ($canEndPresentation ? ($isFail ? 'bg-rose-50/60 border-rose-200' : 'bg-blue-50/60 border-blue-200') : 'bg-slate-50 border-slate-200') }} flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black {{ $isApproved ? 'bg-emerald-500 text-white' : ($canEndPresentation ? ($isFail ? 'bg-rose-600 text-white' : 'bg-blue-600 text-white') : 'bg-slate-200 text-slate-700') }}">5</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider {{ $isApproved ? 'bg-emerald-100 text-emerald-800' : ($canEndPresentation ? ($isFail ? 'bg-rose-100 text-rose-800' : 'bg-blue-100 text-blue-800') : 'bg-slate-200 text-slate-700') }}">
+                                {{ $isApproved ? 'Cleared' : ($canEndPresentation ? ($isFail ? 'Repeat Required' : 'Ready') : 'Pending') }}
+                            </span>
+                        </div>
+                        <h4 class="text-sm font-bold text-slate-900">Milestone Clearance</h4>
+                        <p class="text-xs text-slate-500 mt-1 mb-3">
+                            @if($isApproved)
+                                Session ended. Advanced to {{ $nextDestination }}.
+                            @elseif($isFail)
+                                Candidate failed grading and must repeat this milestone.
+                            @else
+                                Admin ends presentation session to advance candidate.
+                            @endif
                         </p>
                     </div>
 
@@ -325,13 +366,13 @@
                             <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST">
                                 @csrf
                                 <button type="submit" 
-                                    data-confirm="Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis->student->user->name) }}? The student will be advanced to {{ $nextDestination }}."
+                                    data-confirm="Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis->student->user->name) }}? {{ $isFail ? 'The candidate received a FAIL grade and will repeat this milestone.' : 'The student will be advanced to ' . $nextDestination . '.' }}"
                                     data-confirm-title="End Presentation Session"
-                                    data-confirm-type="success"
-                                    data-confirm-btn="End Presentation"
-                                    class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-blue-600/30 active:scale-95 cursor-pointer">
+                                    data-confirm-type="{{ $isFail ? 'danger' : 'success' }}"
+                                    data-confirm-btn="{{ $isFail ? 'End & Repeat Milestone' : 'End Presentation' }}"
+                                    class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 {{ $isFail ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/30' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/30' }} text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer">
                                     <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                    <span>End Presentation</span>
+                                    <span>{{ $isFail ? 'Repeat Milestone' : 'End Presentation' }}</span>
                                 </button>
                             </form>
                         @else

@@ -160,42 +160,58 @@
         </tr>
     </table>
 
-    <h3>Scoring</h3>
-    <div class="score-grid">
-        @php
-            $scores = $evaluation->score;
-            $total = $scores['total'] ?? (array_sum($scores) > 0 ? array_sum($scores) / 2 : 0);
-        @endphp
-        <div class="score-item">
-            <div class="score-label">Originality & Contribution</div>
-            <div class="score-value">{{ $scores['originality'] }} / 25</div>
-        </div>
-        <div class="score-item">
-            <div class="score-label">Methodology & Rigor</div>
-            <div class="score-value">{{ $scores['methodology'] }} / 25</div>
-        </div>
-        <div class="score-item">
-            <div class="score-label">Presentation Quality</div>
-            <div class="score-value">{{ $scores['presentation'] }} / 25</div>
-        </div>
-        <div class="score-item">
-            <div class="score-label">Q&A Defense</div>
-            <div class="score-value">{{ $scores['qa'] }} / 25</div>
-        </div>
-    </div>
+    @php
+        $scores = $evaluation->score ?? [];
+        $isPassFail = isset($scores['verdict']) || in_array($evaluation->defenceEvent->type, ['proposal', 'progress_report_1', 'progress_report_2']);
+        $verdict = strtolower($scores['verdict'] ?? $evaluation->recommendation ?? 'fail');
+        $isPass = ($verdict === 'pass');
+    @endphp
 
-    <div class="total-score">
-        <div class="score-label">Total Score</div>
-        <div class="total-number">{{ $total }} <span style="font-size: 20px; color: #60a5fa;">/ 40</span></div>
-    </div>
+    @if($isPassFail)
+        <h3>Evaluation Outcome</h3>
+        <div class="verdict {{ $isPass ? 'verdict-pass' : 'verdict-fail' }}" style="font-size: 24px; padding: 20px;">
+            Result: {{ strtoupper($verdict) }}
+        </div>
+        <div style="text-align: center; margin-top: 10px; font-weight: bold; color: {{ $isPass ? '#065f46' : '#9f1239' }};">
+            {{ $isPass ? 'Candidate meets requirements and is cleared to advance to the next milestone.' : 'Candidate did not meet criteria and is required to repeat this milestone.' }}
+        </div>
+    @else
+        <h3>Scoring</h3>
+        <div class="score-grid">
+            @php
+                $total = $scores['total'] ?? (array_sum($scores) > 0 ? array_sum($scores) / 2 : 0);
+            @endphp
+            <div class="score-item">
+                <div class="score-label">Originality & Contribution</div>
+                <div class="score-value">{{ $scores['originality'] ?? 0 }} / 25</div>
+            </div>
+            <div class="score-item">
+                <div class="score-label">Methodology & Rigor</div>
+                <div class="score-value">{{ $scores['methodology'] ?? 0 }} / 25</div>
+            </div>
+            <div class="score-item">
+                <div class="score-label">Presentation Quality</div>
+                <div class="score-value">{{ $scores['presentation'] ?? 0 }} / 25</div>
+            </div>
+            <div class="score-item">
+                <div class="score-label">Q&A Defense</div>
+                <div class="score-value">{{ $scores['qa'] ?? 0 }} / 25</div>
+            </div>
+        </div>
 
-    <div class="verdict 
-        @if($evaluation->recommendation === 'pass') verdict-pass 
-        @elseif($evaluation->recommendation === 'minor_revisions') verdict-minor
-        @elseif($evaluation->recommendation === 'major_revisions') verdict-major
-        @else verdict-fail @endif">
-        Recommendation: {{ str_replace('_', ' ', $evaluation->recommendation) }}
-    </div>
+        <div class="total-score">
+            <div class="score-label">Total Score</div>
+            <div class="total-number">{{ $total }} <span style="font-size: 20px; color: #60a5fa;">/ 100</span></div>
+        </div>
+
+        <div class="verdict 
+            @if($evaluation->recommendation === 'pass') verdict-pass 
+            @elseif($evaluation->recommendation === 'minor_revisions') verdict-minor
+            @elseif($evaluation->recommendation === 'major_revisions') verdict-major
+            @else verdict-fail @endif">
+            Recommendation: {{ str_replace('_', ' ', $evaluation->recommendation) }}
+        </div>
+    @endif
 
     @if($evaluation->comments)
         <h3>Examiner Comments</h3>
