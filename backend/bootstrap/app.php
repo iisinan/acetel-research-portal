@@ -33,5 +33,10 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, \Illuminate\Http\Request $request) {
+            return redirect()->back()
+                ->withInput($request->except(['password', '_token']))
+                ->with('error', 'Your session expired due to inactivity. Please try again.')
+                ->withErrors(['session' => 'Your session expired due to inactivity. Please try again.']);
+        });
     })->create();
