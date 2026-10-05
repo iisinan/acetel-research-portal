@@ -447,16 +447,34 @@ class="space-y-8 animate-in">
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     @foreach($upcomingDefences as $ev)
                         @php
-                            $isSeminar = ($ev->type === 'seminar');
-                            $badgeColor = $isSeminar ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200';
-                            $btnColor = $isSeminar ? 'bg-blue-600 hover:bg-blue-700' : 'bg-purple-600 hover:bg-purple-700';
+                            $defenceLabel = match($ev->type) {
+                                'seminar' => 'Seminar Presentation',
+                                'proposal' => 'Proposal Defence',
+                                'progress_report_1' => 'Progress Report 1',
+                                'progress_report_2' => 'Progress Report 2',
+                                'internal_defence' => 'Internal Defence',
+                                'viva' => 'Oral Viva Defence',
+                                default => ucfirst(str_replace('_', ' ', $ev->type)),
+                            };
+                            $badgeColor = match($ev->type) {
+                                'seminar' => 'bg-blue-50 text-blue-700 border-blue-200',
+                                'proposal' => 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                                'progress_report_1', 'progress_report_2' => 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                                default => 'bg-purple-50 text-purple-700 border-purple-200',
+                            };
+                            $btnColor = match($ev->type) {
+                                'seminar' => 'bg-blue-600 hover:bg-blue-700',
+                                'proposal' => 'bg-indigo-600 hover:bg-indigo-700',
+                                'progress_report_1', 'progress_report_2' => 'bg-emerald-600 hover:bg-emerald-700',
+                                default => 'bg-purple-600 hover:bg-purple-700',
+                            };
                             $startTime = $ev->schedule_start ? \Carbon\Carbon::parse($ev->schedule_start) : null;
                             $isToday = $startTime && $startTime->isToday();
                         @endphp
                         <div class="p-5 rounded-2xl border {{ $isToday ? 'border-amber-300 bg-amber-50/20 shadow-xs' : 'border-slate-100 bg-slate-50/40 hover:bg-slate-50' }} space-y-3 transition-all group">
                             <div class="flex items-center justify-between">
                                 <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border {{ $badgeColor }}">
-                                    {{ $isSeminar ? 'Seminar Presentation' : 'Oral Viva Defence' }}
+                                    {{ $defenceLabel }}
                                 </span>
                                 @if($startTime)
                                     <span class="text-[10px] font-bold {{ $isToday ? 'text-amber-700 font-black animate-pulse' : 'text-slate-400' }}">

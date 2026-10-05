@@ -170,7 +170,13 @@
                             $studentName = $user?->name ?? 'Candidate';
                             $matricNo = $student?->student_id_number ?? 'N/A';
                             $latestSub = $pres->submissions->first();
-                            $todayEventType = $template->defence_type ?? 'first_seminar';
+                            $todayEventType = $template->defence_type ?? match($template->slug) {
+                                'seminar_as_a_course' => 'seminar',
+                                'proposal_defence' => 'proposal',
+                                'progress_report_1' => 'progress_report_1',
+                                'progress_report_2' => 'progress_report_2',
+                                default => 'first_seminar',
+                            };
                             $todayDefEvent = $pres->thesis?->defenceEvents?->where('type', $todayEventType)->first();
                             $todayExaminers = $todayDefEvent ? $todayDefEvent->panelMembers->map(fn($pm) => $pm->user?->name)->filter()->implode(', ') : '';
                             $todaySupervisors = $pres->thesis?->assignments?->map(fn($a) => $a->supervisor?->user?->name)->filter()->implode(', ');
@@ -439,7 +445,13 @@
                                     $studentName = $user?->name ?? 'Candidate';
                                     $matricNo = $student?->student_id_number ?? 'N/A';
                                     $topic = $sm->thesis?->title ?? 'Topic Pending';
-                                    $tableEventType = $template->defence_type ?? 'first_seminar';
+                                    $tableEventType = $template->defence_type ?? match($template->slug) {
+                                        'seminar_as_a_course' => 'seminar',
+                                        'proposal_defence' => 'proposal',
+                                        'progress_report_1' => 'progress_report_1',
+                                        'progress_report_2' => 'progress_report_2',
+                                        default => 'first_seminar',
+                                    };
                                     $tableDefEvent = $sm->thesis?->defenceEvents?->where('type', $tableEventType)->first();
                                     $examiners = $tableDefEvent ? $tableDefEvent->panelMembers->map(fn($pm) => $pm->user?->name)->filter()->implode(', ') : '';
                                     $supervisors = $sm->thesis?->assignments?->map(fn($a) => $a->supervisor?->user?->name)->filter()->implode(', ');

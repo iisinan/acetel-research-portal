@@ -280,7 +280,13 @@ class MilestoneTemplateController extends Controller
                 $event = \App\Models\DefenceEvent::updateOrCreate(
                     [
                         'thesis_project_id' => $thesis->id,
-                        'type' => $template->defence_type ?? 'first_seminar',
+                        'type' => $template->defence_type ?? match($template->slug) {
+                            'seminar_as_a_course' => 'seminar',
+                            'proposal_defence' => 'proposal',
+                            'progress_report_1' => 'progress_report_1',
+                            'progress_report_2' => 'progress_report_2',
+                            default => 'first_seminar',
+                        },
                     ],
                     $eventData
                 );
@@ -326,7 +332,13 @@ class MilestoneTemplateController extends Controller
             'apply_link_all' => 'nullable|url|max:500',
         ]);
 
-        $type = $template->defence_type ?? 'first_seminar';
+        $type = $template->defence_type ?? match($template->slug) {
+            'seminar_as_a_course' => 'seminar',
+            'proposal_defence' => 'proposal',
+            'progress_report_1' => 'progress_report_1',
+            'progress_report_2' => 'progress_report_2',
+            default => 'first_seminar',
+        };
         $updated = 0;
         $removed = 0;
 

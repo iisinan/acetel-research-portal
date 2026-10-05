@@ -89,7 +89,15 @@ class MilestoneWorkflowService
             return "Structural Block: Defence date must be scheduled before approval.";
         }
 
-        // 3. Strict Admin Authorization Check
+        // 3. Presentation Gated Milestones (Requirement 5): Average grading must be pass
+        if (in_array($template->slug, self::PRESENTATION_GATED_SLUGS)) {
+            $gradingOutcome = $this->getAverageGradingOutcome($milestone);
+            if ($gradingOutcome === 'fail') {
+                return "Grading Outcome is FAIL: Candidate received a FAIL verdict from examiners and must repeat this milestone.";
+            }
+        }
+
+        // 4. Strict Admin Authorization Check
         if ($role && $role !== 'Admin') {
             return "Institutional Authority Required: Only an Administrator can approve milestones.";
         }
@@ -194,7 +202,13 @@ class MilestoneWorkflowService
      */
     public function hasBeenGraded(StudentMilestone $milestone): bool
     {
-        $type = $milestone->template?->defence_type;
+        $type = $milestone->template?->defence_type ?? match($milestone->template?->slug) {
+            'seminar_as_a_course' => 'seminar',
+            'proposal_defence' => 'proposal',
+            'progress_report_1' => 'progress_report_1',
+            'progress_report_2' => 'progress_report_2',
+            default => null,
+        };
         $events = $milestone->thesis?->defenceEvents()
             ->when($type, fn($q) => $q->where('type', $type))
             ->withCount('evaluations')
@@ -375,15 +389,28 @@ class MilestoneWorkflowService
             'verdict' => 'fail',
         ];
 
-        $milestone->update([
+        $updateData = [
             'status' => 'revision_required',
             'defence_date' => null,
             'defence_time' => null,
             'meeting_link' => null,
             'approvals' => $approvals,
-        ]);
+            'remark' => "Milestone evaluation outcome: FAIL. The candidate is required to repeat this stage: {$reason}",
+        ];
+        if (\Illuminate\Support\Facades\Schema::hasColumn('student_milestones', 'is_supervisor_approved')) {
+            $updateData['is_supervisor_approved'] = false;
+        }
 
-        $type = $milestone->template?->defence_type;
+        $milestone->update($updateData);
+
+        $type = $milestone->template?->defence_type ?? match($milestone->template?->slug) {
+            'seminar_as_a_course' => 'seminar',
+            'proposal_defence' => 'proposal',
+            'progress_report_1' => 'progress_report_1',
+            'progress_report_2' => 'progress_report_2',
+            default => null,
+        };
+
         if ($type && $milestone->thesis_project_id) {
             \App\Models\DefenceEvent::where('thesis_project_id', $milestone->thesis_project_id)
                 ->where('type', $type)
@@ -393,6 +420,29 @@ class MilestoneWorkflowService
         $studentUserId = $milestone->thesis?->student?->user_id;
         if ($studentUserId) {
             \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUserId);
+
+            // Deliver official outcome notice directly to candidate's personal inbox (Requirements 3 & 5)
+            try {
+                $milestoneTitle = $milestone->template?->title ?? $milestone->template?->name ?? 'Milestone Defence';
+                $studentName = $milestone->thesis?->student?->user?->name ?? 'Candidate';
+                $inboxMsg = \App\Models\InboxMessage::create([
+                    'sender_id' => auth()->id() ?? $studentUserId,
+                    'subject' => "Milestone Outcome: {$milestoneTitle} - FAIL (Repeat Required)",
+                    'body' => "Dear {$studentName},\n\n"
+                            . "Following the examiner panel evaluation for your \"{$milestoneTitle}\", your average grading outcome was recorded as FAIL.\n\n"
+                            . "Feedback / Reason: {$reason}\n\n"
+                            . "In accordance with institutional guidelines, you are required to repeat this milestone stage. Please liaise with your supervisor to make necessary revisions and re-submit your materials for approval.\n\n"
+                            . "Academic Portal Administration",
+                    'type' => 'general',
+                ]);
+                \App\Models\InboxMessageRecipient::create([
+                    'inbox_message_id' => $inboxMsg->id,
+                    'user_id' => $studentUserId,
+                    'is_read' => false,
+                ]);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Failed to create inbox message on milestone failure: " . $e->getMessage());
+            }
         }
 
         $this->notifyUpdate($milestone, "Milestone evaluation outcome: FAIL. The candidate is required to repeat this stage: {$reason}");
@@ -426,7 +476,14 @@ class MilestoneWorkflowService
 
         $this->afterApproval($milestone->fresh());
 
-        $type = $milestone->template?->defence_type;
+        $type = $milestone->template?->defence_type ?? match($milestone->template?->slug) {
+            'seminar_as_a_course' => 'seminar',
+            'proposal_defence' => 'proposal',
+            'progress_report_1' => 'progress_report_1',
+            'progress_report_2' => 'progress_report_2',
+            default => null,
+        };
+
         if ($type && $milestone->thesis_project_id) {
             \App\Models\DefenceEvent::where('thesis_project_id', $milestone->thesis_project_id)
                 ->where('type', $type)
