@@ -228,7 +228,9 @@
                                     {{ $isApproved ? 'bg-green-50 border-green-100' : ($isPending ? 'bg-amber-50 border-amber-100' : ($isRevision ? 'bg-red-50 border-red-100' : 'bg-slate-50 border-slate-100')) }}
                                     group-hover:shadow-sm">
                                     <div class="min-w-0">
-                                        <p class="text-sm font-bold text-slate-800 truncate">{{ $milestone->template->name }}</p>
+                                        <a href="{{ route('milestones.index', ['expanded' => $milestone->id]) }}" class="text-sm font-bold text-slate-800 hover:text-green-700 hover:underline truncate block">
+                                            {{ $milestone->template->name }}
+                                        </a>
                                         @if($milestone->defence_date && !$isApproved)
                                             <p class="text-xs text-emerald-700 font-bold mt-0.5 flex items-center gap-1">
                                                 <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -236,8 +238,20 @@
                                                 </svg>
                                                 <span>Presentation: {{ \Carbon\Carbon::parse($milestone->defence_date)->format('M d, Y') }} @if($milestone->defence_time) at {{ \Carbon\Carbon::parse($milestone->defence_time)->format('g:i A') }} @endif</span>
                                             </p>
+                                        @elseif($isRevision && $milestone->remark)
+                                            <p class="text-xs text-red-600 font-medium mt-0.5 truncate" title="{{ $milestone->remark }}">{{ $milestone->remark }}</p>
                                         @elseif($milestone->submitted_at)
-                                            <p class="text-xs text-slate-400 mt-0.5">Submitted {{ $milestone->submitted_at->diffForHumans() }}</p>
+                                            @php
+                                                $supReviews = $milestone->approvals['supervisor_reviews'] ?? null;
+                                                $approvedSupCount = is_array($supReviews) ? count(array_filter($supReviews, fn($r) => ($r['decision'] ?? '') === 'approved')) : 0;
+                                                $totalSupCount = $supervisors->count();
+                                            @endphp
+                                            <p class="text-xs text-slate-400 mt-0.5">
+                                                Submitted {{ $milestone->submitted_at->diffForHumans() }}
+                                                @if($totalSupCount > 1 && $approvedSupCount > 0)
+                                                    <span class="text-emerald-600 font-bold ml-1">({{ $approvedSupCount }}/{{ $totalSupCount }} supervisors approved)</span>
+                                                @endif
+                                            </p>
                                         @else
                                             <p class="text-xs text-slate-400 mt-0.5">Not yet submitted</p>
                                         @endif

@@ -760,9 +760,19 @@ class="space-y-8 animate-in">
                             </div>
                             <div class="min-w-0 flex-1">
                                 <h4 class="text-sm font-black text-slate-800 truncate">{{ $review->thesis?->student?->user?->name ?? 'Candidate' }}</h4>
-                                <span class="inline-block mt-1 px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200/50 rounded text-[9px] font-bold uppercase truncate max-w-full">
-                                    {{ $review->template->name }}
-                                </span>
+                                @php
+                                    $myReviewStatus = $review->approvals['supervisor_reviews'][(string)auth()->id()]['decision'] ?? null;
+                                @endphp
+                                <div class="flex flex-wrap items-center gap-1 mt-1">
+                                    <span class="inline-block px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200/50 rounded text-[9px] font-bold uppercase truncate max-w-full">
+                                        {{ $review->template->name }}
+                                    </span>
+                                    @if($myReviewStatus === 'pending_re_review')
+                                        <span class="inline-block px-1.5 py-0.5 bg-rose-100 text-rose-800 border border-rose-200 rounded text-[8px] font-black uppercase tracking-wider">
+                                            Re-Review Needed
+                                        </span>
+                                    @endif
+                                </div>
                             </div>
                         </div>
                         <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">

@@ -211,6 +211,13 @@ class StudentMilestone extends Model
                     'action_type' => 'none',
                 ],
                 [
+                    'id' => 'examiner_grading',
+                    'name' => 'Examiner Grading',
+                    'completed' => ($workflow->hasBeenGraded($this) && $workflow->getAverageGradingOutcome($this) === 'pass') || $isApproved,
+                    'details' => $isApproved ? 'Passed evaluation' : ($workflow->hasBeenGraded($this) ? ($workflow->getAverageGradingOutcome($this) === 'pass' ? 'Passed evaluation' : 'Failed evaluation (repeat required)') : 'Awaiting examiner grading'),
+                    'action_type' => 'none',
+                ],
+                [
                     'id' => 'admin_end_presentation',
                     'name' => 'End Presentation Clearance',
                     'completed' => $isApproved,

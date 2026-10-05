@@ -183,17 +183,14 @@ class DashboardController extends Controller
                     ->whereHas('template', function($q) {
                         $q->whereJsonContains('required_approvers', 'Supervisor');
                     })
-                    ->where(function($q) use ($user) {
-                        $q->whereNull('approvals')
-                          ->orWhereRaw("NOT EXISTS (
-                              SELECT 1 FROM jsonb_each(COALESCE(approvals, '{}'::jsonb)) 
-                              WHERE value->>'user_id' = ?
-                          )", [$user->id]);
-                    })
                     ->whereNotNull('submitted_at')
                     ->with(['thesis.student.user', 'template'])
                     ->latest()
-                    ->get();
+                    ->get()
+                    ->filter(function($milestone) use ($user) {
+                        return $this->isMilestonePendingReviewForUser($milestone, $user->id, 'Supervisor');
+                    })
+                    ->values();
 
                 $pendingSupervisorMilestoneThesisIds = $pendingSupervisorReviews->pluck('thesis_project_id')->unique()->toArray();
             }
@@ -287,13 +284,6 @@ class DashboardController extends Controller
                 ->whereHas('template', function($q) {
                     $q->whereJsonContains('required_approvers', 'Program Coordinator');
                 })
-                ->where(function($q) use ($user) {
-                    $q->whereNull('approvals')
-                      ->orWhereRaw("NOT EXISTS (
-                          SELECT 1 FROM jsonb_each(COALESCE(approvals, '{}'::jsonb)) 
-                          WHERE value->>'user_id' = ?
-                      )", [$user->id]);
-                })
                 ->where(function($q) {
                     $q->whereNotNull('submitted_at')
                       ->orWhereHas('template', function($sq) {
@@ -302,7 +292,11 @@ class DashboardController extends Controller
                 })
                 ->with(['thesis.student.user', 'template'])
                 ->latest()
-                ->get();
+                ->get()
+                ->filter(function($milestone) use ($user) {
+                    return $this->isMilestonePendingReviewForUser($milestone, $user->id, 'Program Coordinator');
+                })
+                ->values();
 
             $coordinatorUpcomingEvents = \App\Models\DefenceEvent::whereHas('thesis.student', function($q) use ($user) {
                     $q->forCoordinator($user);
@@ -358,17 +352,14 @@ class DashboardController extends Controller
                 ->whereHas('template', function($q) {
                     $q->whereJsonContains('required_approvers', 'Internal Examiner');
                 })
-                ->where(function($q) use ($user) {
-                    $q->whereNull('approvals')
-                      ->orWhereRaw("NOT EXISTS (
-                          SELECT 1 FROM jsonb_each(COALESCE(approvals, '{}'::jsonb)) 
-                          WHERE value->>'user_id' = ?
-                      )", [$user->id]);
-                })
                 ->whereNotNull('submitted_at')
                 ->with(['thesis.student.user', 'template'])
                 ->latest()
-                ->get();
+                ->get()
+                ->filter(function($milestone) use ($user) {
+                    return $this->isMilestonePendingReviewForUser($milestone, $user->id, 'Internal Examiner');
+                })
+                ->values();
         }
 
         $data['internalTheses'] = $internalTheses;
@@ -392,17 +383,14 @@ class DashboardController extends Controller
                 ->whereHas('template', function($q) {
                     $q->whereJsonContains('required_approvers', 'External Examiner');
                 })
-                ->where(function($q) use ($user) {
-                    $q->whereNull('approvals')
-                      ->orWhereRaw("NOT EXISTS (
-                          SELECT 1 FROM jsonb_each(COALESCE(approvals, '{}'::jsonb)) 
-                          WHERE value->>'user_id' = ?
-                      )", [$user->id]);
-                })
                 ->whereNotNull('submitted_at')
                 ->with(['thesis.student.user', 'template'])
                 ->latest()
-                ->get();
+                ->get()
+                ->filter(function($milestone) use ($user) {
+                    return $this->isMilestonePendingReviewForUser($milestone, $user->id, 'External Examiner');
+                })
+                ->values();
         }
 
         $data['externalTheses'] = $externalTheses;
@@ -490,17 +478,14 @@ class DashboardController extends Controller
             ->whereHas('template', function($q) use ($roleName) {
                 $q->whereJsonContains('required_approvers', $roleName);
             })
-            ->where(function($q) use ($user) {
-                $q->whereNull('approvals')
-                  ->orWhereRaw("NOT EXISTS (
-                      SELECT 1 FROM jsonb_each(COALESCE(approvals, '{}'::jsonb)) 
-                      WHERE value->>'user_id' = ?
-                  )", [$user->id]);
-            })
             ->whereNotNull('submitted_at')
             ->with(['thesis.student.user', 'template'])
             ->latest()
-            ->get();
+            ->get()
+            ->filter(function($milestone) use ($user, $roleName) {
+                return $this->isMilestonePendingReviewForUser($milestone, $user->id, $roleName);
+            })
+            ->values();
 
         // Fetch pending defence evaluations
         $data['pending_evaluations'] = \App\Models\DefenceEvent::whereHas('panelMembers', function($q) use ($user) {
@@ -541,13 +526,6 @@ class DashboardController extends Controller
                 ->whereHas('template', function($q) {
                     $q->whereJsonContains('required_approvers', 'Program Coordinator');
                 })
-                ->where(function($q) use ($user) {
-                    $q->whereNull('approvals')
-                      ->orWhereRaw("NOT EXISTS (
-                          SELECT 1 FROM jsonb_each(COALESCE(approvals, '{}'::jsonb)) 
-                          WHERE value->>'user_id' = ?
-                      )", [$user->id]);
-                })
                 ->where(function($q) {
                     $q->whereNotNull('submitted_at')
                       ->orWhereHas('template', function($sq) {
@@ -556,7 +534,11 @@ class DashboardController extends Controller
                 })
                 ->with(['thesis.student.user', 'template'])
                 ->latest()
-                ->get();
+                ->get()
+                ->filter(function($milestone) use ($user) {
+                    return $this->isMilestonePendingReviewForUser($milestone, $user->id, 'Program Coordinator');
+                })
+                ->values();
 
             $unreadCounts = $this->getUnreadMessagesCount($user);
             $data['stats'] = [
@@ -720,5 +702,59 @@ class DashboardController extends Controller
         });
         
         return view($view, $data);
+    }
+
+    /**
+     * Determine if a milestone is currently awaiting review/action from the specified user.
+     * Enforces the multi-supervisor policy:
+     * - Standing approvals: if a supervisor already approved, it stands across re-uploads.
+     * - Pending re-review: if supervisor requested revision and candidate re-uploaded, it needs re-review.
+     * - Inactive during candidate revision: if status is revision_required, candidate must act first.
+     */
+    private function isMilestonePendingReviewForUser($milestone, $userId, ?string $role = null): bool
+    {
+        if ($milestone->status === 'approved') {
+            return false;
+        }
+
+        if ($milestone->status === 'revision_required') {
+            return false;
+        }
+
+        $approvals = $milestone->approvals ?? [];
+        $userIdStr = (string) $userId;
+
+        // 1. Multi-supervisor review tracking
+        if (is_array($approvals) && isset($approvals['supervisor_reviews'][$userIdStr])) {
+            $supReview = $approvals['supervisor_reviews'][$userIdStr];
+            $decision = $supReview['decision'] ?? null;
+
+            // Standing approval: supervisor already approved this milestone
+            if ($decision === 'approved') {
+                return false;
+            }
+
+            // Student re-uploaded after rejection -> awaiting re-review by this specific supervisor
+            if ($decision === 'pending_re_review') {
+                return true;
+            }
+
+            if ($decision === 'rejected') {
+                return false;
+            }
+        }
+
+        // 2. Role-keyed approval (e.g. 'Admin:1', 'Supervisor:2') or list of approval entries
+        if (is_array($approvals)) {
+            foreach ($approvals as $key => $item) {
+                if (is_array($item) && ($item['user_id'] ?? null) == $userId) {
+                    if (($item['decision'] ?? '') === 'approved' || !isset($item['decision'])) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
     }
 }

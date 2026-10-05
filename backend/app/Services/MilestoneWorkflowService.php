@@ -531,7 +531,14 @@ class MilestoneWorkflowService
                 return 'required document/presentation not uploaded';
             }
             if (!$this->isSupervisorApproved($milestone)) {
-                return 'upload not yet approved by supervisor';
+                $summary = $this->getSupervisorReviewSummary($milestone);
+                if ($summary['rejected_count'] > 0) {
+                    return 'upload has active revision request from supervisor(s)';
+                }
+                if ($summary['pending_rereview_count'] > 0) {
+                    return 'revised upload awaiting re-review by supervisor(s)';
+                }
+                return 'upload awaiting supervisor approval';
             }
             if (!$this->hasBeenGraded($milestone)) {
                 return 'not yet evaluated by examiner(s)';
