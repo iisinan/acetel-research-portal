@@ -60,66 +60,7 @@
         </div>
     </div>
 
-        @can('update', $thesis)
 
-        @endcan
-
-        @if(Auth::user()->hasRole('Program Coordinator') || Auth::user()->hasRole('Admin'))
-        <x-card title="Supervisory Matrix" class="mb-8 border-l-4 !border-l-primary-500">
-            <div class="mb-6">
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Active Supervisory Board</p>
-                <div class="flex flex-wrap gap-3">
-                     @forelse($thesis->supervisors as $assignment)
-                          <div class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 shadow-sm group hover:border-primary-300 transition-colors">
-                             <div class="w-6 h-6 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center text-[10px] font-bold">
-                                 {{ substr($assignment->supervisor->user->name, 0, 1) }}
-                             </div>
-                             <span class="text-sm font-semibold text-slate-900">{{ $assignment->supervisor->user->name }}</span>
-                             <span class="px-2 py-0.5 rounded-md bg-slate-50 border border-slate-100 text-[9px] font-black text-slate-500 uppercase tracking-widest">{{ $assignment->role }}</span>
-                          </div>
-                    @empty
-                        <div class="px-4 py-2 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 text-xs font-semibold flex items-center gap-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                            Unassigned Matrix - Action Required
-                        </div>
-                    @endforelse
-                </div>
-            </div>
-
-            @if(!$thesis->student || !$thesis->student->isSeminarCourseLevel())
-            <details class="group mt-4 pt-4 border-t border-slate-100">
-                <summary class="cursor-pointer flex items-center gap-2 font-black text-xs text-primary-600 uppercase tracking-[0.2em] hover:text-primary-800 list-none transition-colors">
-                    <svg class="w-4 h-4 transition-transform duration-300 group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg>
-                    Reconfigure Matrix
-                </summary>
-                
-                <form action="{{ route('theses.assign_supervisor', $thesis) }}" method="POST" class="mt-6 p-6 bg-slate-50/50 rounded-2xl border border-slate-100 animate-in-up">
-                    @csrf
-                    
-                    <div class="mb-6">
-                        <label class="block text-sm font-bold text-slate-900 mb-1">Select Supervisors</label>
-                        <p class="text-[10px] text-slate-500 uppercase tracking-widest mb-4">
-                            Hold <kbd class="px-1.5 py-0.5 bg-slate-200 rounded text-slate-700 font-mono">Cmd/Ctrl</kbd> to multi-select. Primary designation awarded to first selection.
-                        </p>
-                        <select name="supervisors[]" multiple class="w-full h-56 rounded-xl border-slate-200 shadow-inner focus:border-primary-500 focus:ring focus:ring-primary-200 p-2 text-sm text-slate-700 custom-scrollbar">
-                            @foreach($allSupervisors as $sup)
-                                 <option value="{{ $sup->id }}" {{ $thesis->supervisors->pluck('supervisor_profile_id')->contains($sup->id) ? 'selected' : '' }} class="p-2 rounded-lg mb-1 hover:bg-slate-100 focus:bg-primary-50 focus:text-primary-700">
-                                    {{ $sup->user->name }} &raquo; Load: {{ $sup->current_load }}/{{ $sup->max_students }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="flex justify-end">
-                        <button type="submit" class="px-6 py-3 bg-primary-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-primary-700 transition-all duration-300 shadow-md">
-                            Synchronize Matrix
-                        </button>
-                    </div>
-                </form>
-            </details>
-            @endif
-        </x-card>
-        @endif
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 
