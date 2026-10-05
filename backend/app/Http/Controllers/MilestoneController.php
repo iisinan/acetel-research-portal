@@ -693,6 +693,19 @@ class MilestoneController extends Controller
                 \App\Models\PanelMember::where('defence_event_id', $event->id)->update(['is_present' => false]);
                 $event->update(['outcome' => null]);
             }
+
+            // Auto-attach template global examiners if none exist on this event yet
+            if ($event->panelMembers()->where('role', 'examiner')->count() === 0 && !empty($milestone->template?->metadata['examiner_user_ids'])) {
+                foreach ($milestone->template->metadata['examiner_user_ids'] as $uId) {
+                    \App\Models\PanelMember::firstOrCreate([
+                        'defence_event_id' => $event->id,
+                        'user_id' => $uId,
+                        'role' => 'examiner',
+                    ], [
+                        'invitation_status' => 'accepted'
+                    ]);
+                }
+            }
         }
 
         \Illuminate\Support\Facades\Log::info("Defence date set successfully for milestone: {$milestone->id}");

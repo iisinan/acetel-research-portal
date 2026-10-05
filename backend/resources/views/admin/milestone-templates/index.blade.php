@@ -326,8 +326,8 @@
                                     @endif
                                 </div>
 
-                                {{-- Global Examiner Assignment (Admin only) --}}
-                                @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']) && (!isset($isCoordinator) || !$isCoordinator))
+                                {{-- Global Examiner Assignment (Admin & Coordinator) --}}
+                                @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
                                     @php
                                         $globalEventType = $template->defence_type ?? match($template->slug) {
                                             'seminar_as_a_course' => 'seminar',
@@ -336,16 +336,38 @@
                                             'progress_report_2' => 'progress_report_2',
                                             default => 'first_seminar',
                                         };
-                                        $firstEvent = $template->studentMilestones->first() 
-                                            ? current($template->studentMilestones->first()->thesis->defenceEvents->where('type', $globalEventType)->all()) 
-                                            : null;
-                                        $currentExaminers = $firstEvent ? $firstEvent->panelMembers->where('role', 'examiner') : collect();
+
+                                        // Resolve current examiners: metadata first, then search events
+                                        $metaUserIds = $template->metadata['examiner_user_ids'] ?? [];
+                                        if (!empty($metaUserIds)) {
+                                            $currentExaminers = \App\Models\User::whereIn('id', $metaUserIds)->get();
+                                        } else {
+                                            $firstEventWithEx = null;
+                                            foreach ($template->studentMilestones as $mItem) {
+                                                $ev = $mItem->thesis?->defenceEvents?->firstWhere('type', $globalEventType);
+                                                if ($ev && $ev->panelMembers->where('role', 'examiner')->count() > 0) {
+                                                    $firstEventWithEx = $ev;
+                                                    break;
+                                                }
+                                            }
+                                            $currentExaminers = $firstEventWithEx 
+                                                ? $firstEventWithEx->panelMembers->where('role', 'examiner')->map(fn($pm) => $pm->user)->filter() 
+                                                : collect();
+                                        }
+
                                         $examinerBoxTitle = match($template->slug) {
                                             'proposal_defence' => 'Proposal Defence Examiner(s)',
                                             'progress_report_1' => 'Progress Report 1 Examiner(s)',
                                             'progress_report_2' => 'Progress Report 2 Examiner(s)',
                                             default => 'Seminar Examiner(s)',
                                         };
+
+                                        $selectedProfileIds = $template->metadata['examiner_profile_ids'] ?? [];
+                                        if (empty($selectedProfileIds) && $currentExaminers->count() > 0) {
+                                            $currentExaminerUserIds = $currentExaminers->pluck('id')->all();
+                                            $selectedProfileIds = $supervisors->whereIn('user_id', $currentExaminerUserIds)->pluck('id')->values()->all();
+                                        }
+                                        $selectedJsArray = collect($selectedProfileIds)->map(fn($id) => "'{$id}'")->implode(', ');
                                     @endphp
                                     <div class="mb-6 bg-indigo-50/50 border border-indigo-100 rounded-xl p-4">
                                         <div class="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -357,7 +379,7 @@
                                                     <p class="text-xs font-black text-indigo-900 uppercase tracking-wider">{{ $examinerBoxTitle }}</p>
                                                     <p class="text-[10px] text-indigo-600 mt-0.5">
                                                         @if($currentExaminers->count() > 0)
-                                                            Currently: <strong>{{ $currentExaminers->map(fn($e) => $e->user->name)->implode(', ') }}</strong>
+                                                            Currently: <strong>{{ $currentExaminers->map(fn($e) => $e->name)->implode(', ') }}</strong>
                                                         @else
                                                             No examiner assigned yet.
                                                         @endif
@@ -372,7 +394,7 @@
                                                             { id: '{{ $sup->id }}', name: '{{ addslashes($sup->user->name) }}', program: '{{ addslashes($sup->programs->first()->code ?? 'N/A') }}' }{{ !$loop->last ? ',' : '' }}
                                                         @endforeach
                                                     ],
-                                                    selected: [],
+                                                    selected: [{{ $selectedJsArray }}],
                                                     open: false,
                                                     get filteredOptions() {
                                                         if (this.search === '') return this.options;
@@ -387,9 +409,9 @@
                                                 }"
                                                 @submit="if(selected.length === 0) { (window.toast ? window.toast.warning('Please select at least one examiner.') : alert('Please select at least one examiner.')); $event.preventDefault(); }">
                                                 @csrf
-                                                  <template x-for="id in selected">
-                                                      <input type="hidden" name="supervisor_profile_ids[]" :value="id">
-                                                  </template>
+                                                <template x-for="id in selected" :key="id">
+                                                    <input type="hidden" name="supervisor_profile_ids[]" :value="id">
+                                                </template>
                                                 
                                                 <!-- Alpine component for multiselect -->
                                                 <div class="relative w-48 z-50">
@@ -603,6 +625,13 @@
                                                             };
                                                             $event = $sm->thesis ? current($sm->thesis->defenceEvents->where('type', $rowEventType)->all()) : null;
                                                             $rowExaminers = $event ? $event->panelMembers->where('role', 'examiner') : collect();
+                                                            if ($rowExaminers->isEmpty() && isset($currentExaminers) && $currentExaminers->isNotEmpty()) {
+                                                                $rowExaminers = $currentExaminers->map(fn($u) => (object)[
+                                                                    'user' => $u,
+                                                                    'user_id' => $u->id,
+                                                                    'is_present' => false,
+                                                                ]);
+                                                            }
                                                             $avgScore = null;
                                                             $passCount = 0;
                                                             $failCount = 0;

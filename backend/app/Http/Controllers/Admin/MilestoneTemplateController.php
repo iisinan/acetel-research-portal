@@ -298,6 +298,19 @@ class MilestoneTemplateController extends Controller
                     \App\Models\PanelMember::where('defence_event_id', $event->id)->update(['is_present' => false]);
                     $event->update(['outcome' => null]);
                 }
+
+                // Auto-attach template global examiners if none exist on this event yet
+                if ($event->panelMembers()->where('role', 'examiner')->count() === 0 && !empty($template->metadata['examiner_user_ids'])) {
+                    foreach ($template->metadata['examiner_user_ids'] as $uId) {
+                        \App\Models\PanelMember::firstOrCreate([
+                            'defence_event_id' => $event->id,
+                            'user_id' => $uId,
+                            'role' => 'examiner',
+                        ], [
+                            'invitation_status' => 'accepted'
+                        ]);
+                    }
+                }
                 
                 if ($thesis->student && $thesis->student->user) {
                     \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $thesis->student->user->id);
@@ -569,7 +582,7 @@ class MilestoneTemplateController extends Controller
             'supervisor_profile_ids.*' => 'exists:supervisor_profiles,id',
         ]);
 
-        $milestone = \App\Models\StudentMilestone::findOrFail($milestoneId);
+        $milestone = $milestoneId instanceof \App\Models\StudentMilestone ? $milestoneId : \App\Models\StudentMilestone::findOrFail($milestoneId);
         $template = $milestone->template;
 
         $profileIds = $request->supervisor_profile_ids ?? ($request->supervisor_profile_id ? [$request->supervisor_profile_id] : []);
@@ -587,9 +600,14 @@ class MilestoneTemplateController extends Controller
             default => 'first_seminar',
         };
 
+        $thesisId = $milestone->thesis_project_id ?? $milestone->thesis?->id;
+        if (!$thesisId) {
+            return back()->with('error', 'No linked research thesis project found for this milestone.');
+        }
+
         $event = \App\Models\DefenceEvent::firstOrCreate(
             [
-                'thesis_project_id' => $milestone->thesis_project_id,
+                'thesis_project_id' => $thesisId,
                 'type' => $type,
             ],
             [
@@ -612,27 +630,40 @@ class MilestoneTemplateController extends Controller
             } catch (\Throwable $e) {}
         }
 
+        $candidateName = $milestone->thesis?->student?->user?->name ?? 'candidate';
         $names = $supervisors->map(fn($s) => $s->user->name)->implode(', ');
-        return back()->with('success', "Examiner(s) ({$names}) assigned successfully for {$milestone->thesis->student->user->name}.");
+        return back()->with('success', "Examiner(s) ({$names}) assigned successfully for {$candidateName}.");
     }
 
     public function assignExaminerGlobal(Request $request, $templateId)
     {
         $request->validate([
-            'supervisor_profile_ids' => 'required|array',
+            'supervisor_profile_ids' => 'required|array|min:1',
             'supervisor_profile_ids.*' => 'exists:supervisor_profiles,id'
         ]);
 
         $template = MilestoneTemplate::findOrFail($templateId);
         $supervisors = \App\Models\SupervisorProfile::with(['user', 'programs'])->whereIn('id', $request->supervisor_profile_ids)->get();
 
-        $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
-            ->whereIn('status', ['in_progress', 'submitted', 'revision_required', 'partially_approved'])
-            ->whereNotNull('defence_date')
-            ->with('thesis')
-            ->get();
+        if ($supervisors->isEmpty()) {
+            return back()->with('error', 'Please select at least one valid examiner.');
+        }
 
-        $assignedCount = 0;
+        $isCoordinator = auth()->user()->hasRole('Program Coordinator') && !auth()->user()->hasRole('Admin');
+        
+        $milestonesQuery = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+            ->where('status', '!=', 'approved')
+            ->where('status', '!=', 'withdrawn')
+            ->with('thesis');
+
+        if ($isCoordinator) {
+            $coordinatorProfile = auth()->user()->coordinatorProfiles()->where('active', true)->first();
+            if ($coordinatorProfile && $coordinatorProfile->program_id) {
+                $milestonesQuery->whereHas('thesis.student', fn($sq) => $sq->where('program_id', $coordinatorProfile->program_id));
+            }
+        }
+
+        $milestones = $milestonesQuery->get();
 
         $type = $template->defence_type ?? match($template->slug) {
             'seminar_as_a_course' => 'seminar',
@@ -642,10 +673,23 @@ class MilestoneTemplateController extends Controller
             default => 'first_seminar',
         };
 
+        // 1. Store on template metadata permanently
+        $metadata = $template->metadata ?? [];
+        $metadata['examiner_profile_ids'] = $supervisors->pluck('id')->values()->all();
+        $metadata['examiner_user_ids'] = $supervisors->pluck('user_id')->values()->all();
+        $template->update(['metadata' => $metadata]);
+
+        // 2. Assign to all active student milestones for this template
+        $assignedCount = 0;
         foreach ($milestones as $milestone) {
+            $thesisId = $milestone->thesis_project_id ?? $milestone->thesis?->id;
+            if (!$thesisId) {
+                continue;
+            }
+
             $event = \App\Models\DefenceEvent::firstOrCreate(
                 [
-                    'thesis_project_id' => $milestone->thesis_project_id,
+                    'thesis_project_id' => $thesisId,
                     'type' => $type,
                 ],
                 [
@@ -668,7 +712,7 @@ class MilestoneTemplateController extends Controller
             $assignedCount++;
         }
 
-        // Notify the examiners once
+        // 3. Notify the examiners once
         try {
             foreach ($supervisors as $supervisor) {
                 $supervisor->user->notify(new \App\Notifications\ExaminerNominated($template, $request->custom_message, $assignedCount));
@@ -678,7 +722,7 @@ class MilestoneTemplateController extends Controller
         }
         
         $names = $supervisors->map(fn($s) => $s->user->name)->implode(', ');
-        return back()->with('success', "Examiners ($names) assigned to all {$assignedCount} students and notified successfully.");
+        return back()->with('success', "Examiner(s) ({$names}) assigned to all {$assignedCount} candidate(s) for {$template->name} and notified successfully.");
     }
 
     public function exportStudents(MilestoneTemplate $template)
