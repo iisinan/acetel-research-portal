@@ -305,7 +305,7 @@ x-init="
                     $q->whereNotNull('student_milestones.defence_date');
                 })
                 ->count();
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $pendingSeminarCount = 0;
         }
     @endphp
