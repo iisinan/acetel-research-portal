@@ -232,7 +232,7 @@
                     </div>
                     
                     <div class="flex items-center gap-2 md:gap-8 shrink-0">
-                        @if($milestone->due_date)
+                        @if($milestone->due_date && !str_contains(strtolower($milestone->template?->name ?? ''), 'viva'))
                             <div class="hidden lg:flex flex-col items-end">
                                 <span class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">Deadline</span>
                                 <span class="text-sm font-bold text-gray-900">{{ $milestone->due_date->format('M d, Y') }}</span>
