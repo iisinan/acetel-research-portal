@@ -1,5 +1,12 @@
 <?php
 
+if (!class_exists('Resend')) {
+    $resendFile = base_path('vendor/resend/resend-php/src/Resend.php');
+    if (file_exists($resendFile)) {
+        require_once $resendFile;
+    }
+}
+
 return [
 
     /*
@@ -14,7 +21,7 @@ return [
     |
     */
 
-    'default' => env('MAIL_MAILER', 'log'),
+    'default' => env('MAIL_MAILER', env('RESEND_API_KEY') ? 'resend' : 'log'),
 
     /*
     |--------------------------------------------------------------------------
@@ -64,6 +71,7 @@ return [
 
         'resend' => [
             'transport' => 'resend',
+            'key' => env('RESEND_API_KEY'),
         ],
 
         'sendmail' => [

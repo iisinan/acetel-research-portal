@@ -187,6 +187,13 @@ class AuthController extends Controller
         );
 
         if ($status === Password::PASSWORD_RESET) {
+            $user = \App\Models\User::where('email', $request->email)->first();
+            if ($user && $user->is_active) {
+                Auth::login($user);
+                $this->recordLogin($request);
+                return $this->redirectBasedOnRole($user)->with('status', 'Your password has been reset successfully. Welcome back!');
+            }
+
             return redirect()->route('login')->with('status', 'Password reset successfully. Please log in with your new password.');
         }
 
