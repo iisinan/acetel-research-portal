@@ -281,7 +281,7 @@ class MilestoneWorkflowService
 
         if ($assignments->isEmpty()) {
             $isDirectlyApproved = !empty($milestone->getRawOriginal('is_supervisor_approved'))
-                || $milestone->submissions()->whereHas('feedback', fn($q) => $q->where('decision', 'approved'))->exists();
+                || $milestone->submissions()->whereHas('feedbacks', fn($q) => $q->where('decision', 'approved'))->exists();
 
             return [
                 'has_supervisors' => false,
@@ -326,11 +326,11 @@ class MilestoneWorkflowService
             } else {
                 // Fallback: check historical feedback for this user
                 $hasFeedbackApproved = $milestone->submissions()
-                    ->whereHas('feedback', fn($q) => $q->where('created_by', $supUser->id)->where('decision', 'approved'))
+                    ->whereHas('feedbacks', fn($q) => $q->where('created_by', $supUser->id)->where('decision', 'approved'))
                     ->exists();
 
                 $hasFeedbackRejected = $milestone->submissions()
-                    ->whereHas('feedback', fn($q) => $q->where('created_by', $supUser->id)->where('decision', 'revision_required'))
+                    ->whereHas('feedbacks', fn($q) => $q->where('created_by', $supUser->id)->where('decision', 'revision_required'))
                     ->exists();
 
                 if ($hasFeedbackRejected && $milestone->status === 'revision_required') {
