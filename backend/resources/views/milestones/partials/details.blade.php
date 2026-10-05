@@ -31,7 +31,7 @@
             <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST" class="inline">
                 @csrf
                 <button type="submit" 
-                    data-confirm="Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis->student->user->name) }}? If all requirements are met (presentation conducted, PPT uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
+                    data-confirm="Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis->student->user?->name ?? 'User') }}? If all requirements are met (presentation conducted, PPT uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
                     data-confirm-title="End Presentation Session"
                     data-confirm-type="success"
                     data-confirm-btn="End Presentation"
@@ -45,7 +45,7 @@
             @endif
 
             @if(auth()->id() !== $milestone->thesis->student->user_id && ($milestone->template->has_chat || $milestone->template->slug === 'supervisors_assigned'))
-            <button type="button" @click.prevent.stop="setTimeout(() => { showStudentMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($milestone->thesis->student->user->name) }}; }, 50)" class="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl shadow-xl shadow-slate-200/40 transition-colors">
+            <button type="button" @click.prevent.stop="setTimeout(() => { showStudentMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($milestone->thesis->student->user?->name ?? 'User') }}; }, 50)" class="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl shadow-xl shadow-slate-200/40 transition-colors">
                 <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
                 <span class="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Message Student</span>
             </button>
@@ -190,7 +190,7 @@
                                     <div class="flex items-center justify-between">
                                         @if(auth()->user()->hasRole('Admin') && $milestone->status !== 'approved' && $isDateExpired)
                                             <button type="button" 
-                                                onclick="if (confirm('Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis->student->user->name) }}? If all requirements are met, the candidate will be advanced to the next milestone.')) { document.getElementById('end-pres-form-expired-{{ $milestone->id }}').submit(); }"
+                                                onclick="if (confirm('Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis->student->user?->name ?? 'User') }}? If all requirements are met, the candidate will be advanced to the next milestone.')) { document.getElementById('end-pres-form-expired-{{ $milestone->id }}').submit(); }"
                                                 class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-[0.2em] rounded-xl active:scale-95 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer">
                                                 <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -273,7 +273,7 @@
                                     <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST" class="inline">
                                         @csrf
                                         <button type="submit" 
-                                            data-confirm="Are you sure you want to end the presentation for {{ addslashes($milestone->thesis->student->user->name) }}? If all requirements are met (presentation conducted, PPT uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
+                                            data-confirm="Are you sure you want to end the presentation for {{ addslashes($milestone->thesis->student->user?->name ?? 'User') }}? If all requirements are met (presentation conducted, PPT uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
                                             data-confirm-title="End Presentation Session"
                                             data-confirm-type="success"
                                             data-confirm-btn="End Presentation"
@@ -848,13 +848,13 @@
                     <div class="mb-6">
                         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Assigned Internal Examiner</p>
                         <div class="p-4 bg-slate-50 rounded-2xl border border-brand-100 group hover:border-brand-200 hover:bg-white transition-colors cursor-pointer"
-                            @click.prevent.stop="setTimeout(() => { showStudentMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($milestone->thesis->internalExaminer->user->name) }}; }, 50)">
+                            @click.prevent.stop="setTimeout(() => { showStudentMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($milestone->thesis->internalExaminer->user?->name ?? 'User') }}; }, 50)">
                             <div class="flex items-center gap-3">
                                 <div class="w-10 h-10 rounded-xl bg-white border border-brand-100 flex items-center justify-center text-brand-600 text-sm font-bold shadow-xl shadow-slate-200/40">
-                                    {{ substr($milestone->thesis->internalExaminer->user->name, 0, 1) }}
+                                    {{ substr($milestone->thesis->internalExaminer->user?->name ?? 'User', 0, 1) }}
                                 </div>
                                 <div class="flex-1">
-                                    <p class="text-sm font-bold text-slate-900 leading-tight">{{ $milestone->thesis->internalExaminer->user->name }}</p>
+                                    <p class="text-sm font-bold text-slate-900 leading-tight">{{ $milestone->thesis->internalExaminer->user?->name ?? 'User' }}</p>
                                     <p class="text-[11px] font-medium text-slate-500 mt-0.5">{{ $milestone->thesis->internalExaminer->department ?? 'Institutional Department' }}</p>
                                 </div>
                                 <div class="p-2 bg-white border border-slate-100 rounded-lg text-slate-400 group-hover:text-brand-600 transition-colors shadow-xl shadow-slate-200/40">
@@ -869,13 +869,13 @@
                         <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Assigned Committee</p>
                         @foreach($supervisors as $supervisor)
                             <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-slate-200 hover:bg-white transition-colors cursor-pointer"
-                                @if($milestone->template->has_chat) @click.prevent.stop="setTimeout(() => { showStudentMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($supervisor->user->name) }}; }, 50)" @endif>
+                                @if($milestone->template->has_chat) @click.prevent.stop="setTimeout(() => { showStudentMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($supervisor->user?->name ?? 'User') }}; }, 50)" @endif>
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-emerald-600 text-sm font-bold shadow-xl shadow-slate-200/40">
-                                        {{ substr($supervisor->user->name, 0, 1) }}
+                                        {{ substr($supervisor->user?->name ?? 'User', 0, 1) }}
                                     </div>
                                     <div class="flex-1">
-                                        <p class="text-sm font-bold text-slate-900 leading-tight">{{ $supervisor->user->name }}</p>
+                                        <p class="text-sm font-bold text-slate-900 leading-tight">{{ $supervisor->user?->name ?? 'User' }}</p>
                                         <p class="text-xs font-medium text-slate-500 mt-0.5">{{ $supervisor->specialization ?? 'Supervisor' }}</p>
                                     </div>
                                     <div class="p-2 bg-white border border-slate-100 rounded-lg text-slate-400 group-hover:text-emerald-600 transition-colors shadow-xl shadow-slate-200/40">
@@ -892,13 +892,13 @@
                         <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Program Coordinator</p>
                         @foreach($coordinators as $coordinator)
                             <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-slate-200 hover:bg-white transition-colors cursor-pointer"
-                                @if($milestone->template->has_chat) @click.prevent.stop="setTimeout(() => { showStudentMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($coordinator->user->name) }}; }, 50)" @endif>
+                                @if($milestone->template->has_chat) @click.prevent.stop="setTimeout(() => { showStudentMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($coordinator->user?->name ?? 'User') }}; }, 50)" @endif>
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-emerald-600 text-sm font-bold shadow-xl shadow-slate-200/40">
-                                        {{ substr($coordinator->user->name, 0, 1) }}
+                                        {{ substr($coordinator->user?->name ?? 'User', 0, 1) }}
                                     </div>
                                     <div class="flex-1">
-                                        <p class="text-sm font-bold text-slate-900 leading-tight">{{ $coordinator->user->name }}</p>
+                                        <p class="text-sm font-bold text-slate-900 leading-tight">{{ $coordinator->user?->name ?? 'User' }}</p>
                                         <p class="text-xs font-medium text-slate-500 mt-0.5">Coordinator</p>
                                     </div>
                                     <div class="p-2 bg-white border border-slate-100 rounded-lg text-slate-400 group-hover:text-emerald-600 transition-colors shadow-xl shadow-slate-200/40">
