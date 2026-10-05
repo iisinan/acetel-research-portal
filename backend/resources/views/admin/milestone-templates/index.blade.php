@@ -364,7 +364,7 @@
                                                     </p>
                                                 </div>
                                             </div>
-                                            <form action="{{ route('admin.milestone-templates.assign-examiner-global', $template->id) }}" method="POST" class="flex items-center gap-2 sm:ml-auto overflow-visible relative" 
+                                            <form action="{{ (auth()->user()->hasRole('Program Coordinator') && !auth()->user()->hasRole('Admin')) ? route('coordinator.milestone-templates.assign-examiner-global', $template->id) : route('admin.milestone-templates.assign-examiner-global', $template->id) }}" method="POST" class="flex items-center gap-2 sm:ml-auto overflow-visible relative" 
                                                 x-data="{
                                                     search: '',
                                                     options: [
@@ -857,7 +857,7 @@
                                                                                 </div>
                                                                                 <button type="button" @click="showAssignModal = false" class="text-slate-400 hover:text-slate-600 text-xl font-bold leading-none">&times;</button>
                                                                             </div>
-                                                                            <form action="{{ route('admin.milestone-templates.assign-examiner', $sm->id) }}" method="POST" class="space-y-4">
+                                                                            <form action="{{ (auth()->user()->hasRole('Program Coordinator') && !auth()->user()->hasRole('Admin')) ? route('coordinator.milestone-templates.assign-examiner', $sm->id) : route('admin.milestone-templates.assign-examiner', $sm->id) }}" method="POST" class="space-y-4">
                                                                                 @csrf
                                                                                 <div>
                                                                                     <label class="block text-xs font-bold text-slate-700 mb-2">Select Examiner(s)</label>

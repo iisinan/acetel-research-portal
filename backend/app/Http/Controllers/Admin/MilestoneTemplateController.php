@@ -272,6 +272,7 @@ class MilestoneTemplateController extends Controller
                 $eventData = [
                     'schedule_start' => $currentDate->copy()->setHour($hour)->setMinute($minute),
                     'schedule_end' => $currentDate->copy()->setHour($hour + 1)->setMinute($minute),
+                    'outcome' => null,
                 ];
                 if ($request->filled('meeting_link')) {
                     $eventData['location'] = $request->meeting_link;
@@ -290,6 +291,13 @@ class MilestoneTemplateController extends Controller
                     ],
                     $eventData
                 );
+
+                // If milestone was previously failed (repeated), reset old evaluations and attendance for the fresh attempt
+                if ($event->outcome === 'failed' || $milestone->status === 'revision_required') {
+                    \App\Models\Evaluation::where('defence_event_id', $event->id)->delete();
+                    \App\Models\PanelMember::where('defence_event_id', $event->id)->update(['is_present' => false]);
+                    $event->update(['outcome' => null]);
+                }
                 
                 if ($thesis->student && $thesis->student->user) {
                     \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $thesis->student->user->id);
@@ -714,7 +722,7 @@ class MilestoneTemplateController extends Controller
             foreach ($milestones as $milestone) {
                 $avgScore = 'N/A';
                 if ($template->slug === 'seminar_as_a_course') {
-                    $event = current($milestone->thesis->defenceEvents->where('type', $template->defence_type ?? 'first_seminar')->all());
+                    $event = current($milestone->thesis->defenceEvents->where('type', $template->defence_type ?? 'seminar')->all());
                     if ($event && $event->evaluations->count() > 0) {
                         $total = 0;
                         $count = 0;
@@ -726,6 +734,26 @@ class MilestoneTemplateController extends Controller
                         }
                         if ($count > 0) {
                             $avgScore = round($total / $count, 1);
+                        }
+                    }
+                } elseif (in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2'])) {
+                    $eventType = $template->defence_type ?? match($template->slug) {
+                        'proposal_defence' => 'proposal',
+                        'progress_report_1' => 'progress_report_1',
+                        'progress_report_2' => 'progress_report_2',
+                        default => null,
+                    };
+                    $event = $eventType ? current($milestone->thesis->defenceEvents->where('type', $eventType)->all()) : null;
+                    if ($event && $event->evaluations->count() > 0) {
+                        $passCount = 0;
+                        $failCount = 0;
+                        foreach($event->evaluations as $eval) {
+                            $verdict = strtolower($eval->verdict ?? $eval->recommendation ?? '');
+                            if ($verdict === 'pass') $passCount++;
+                            elseif ($verdict === 'fail') $failCount++;
+                        }
+                        if ($passCount + $failCount > 0) {
+                            $avgScore = ($passCount >= $failCount ? 'PASS' : 'FAIL') . " ({$passCount}/" . ($passCount + $failCount) . ")";
                         }
                     }
                 }
@@ -746,7 +774,7 @@ class MilestoneTemplateController extends Controller
         return response()->stream($callback, 200, $headers);
     }
 
-        public function exportScheduledScores(MilestoneTemplate $template)
+    public function exportScheduledScores(MilestoneTemplate $template)
     {
         $user = auth()->user();
         $isCoordinator = $user->hasRole('Program Coordinator');
@@ -779,27 +807,51 @@ class MilestoneTemplateController extends Controller
             "Expires" => "0"
         ];
 
-        $columns = ['Student Name', 'Matric Number', 'Presentation Date', 'Average Score'];
+        $isPassFail = in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2']);
+        $columns = $isPassFail
+            ? ['Student Name', 'Matric Number', 'Presentation Date', 'Grade / Result']
+            : ['Student Name', 'Matric Number', 'Presentation Date', 'Average Score'];
 
-        $callback = function() use($milestones, $columns, $template) {
+        $callback = function() use($milestones, $columns, $template, $isPassFail) {
             $file = fopen('php://output', 'w');
             fputcsv($file, $columns);
+
+            $eventType = $template->defence_type ?? match($template->slug) {
+                'seminar_as_a_course' => 'seminar',
+                'proposal_defence' => 'proposal',
+                'progress_report_1' => 'progress_report_1',
+                'progress_report_2' => 'progress_report_2',
+                default => 'first_seminar',
+            };
 
             foreach ($milestones as $milestone) {
                 $avgScore = 'N/A';
                 
-                $event = current($milestone->thesis->defenceEvents->where('type', $template->defence_type ?? 'first_seminar')->all());
+                $event = current($milestone->thesis->defenceEvents->where('type', $eventType)->all());
                 if ($event && $event->evaluations->count() > 0) {
-                    $total = 0;
-                    $count = 0;
-                    foreach($event->evaluations as $eval) {
-                        if (isset($eval->score['total'])) {
-                            $total += $eval->score['total'];
-                            $count++;
+                    if ($isPassFail) {
+                        $passCount = 0;
+                        $failCount = 0;
+                        foreach($event->evaluations as $eval) {
+                            $verdict = strtolower($eval->verdict ?? $eval->recommendation ?? '');
+                            if ($verdict === 'pass') $passCount++;
+                            elseif ($verdict === 'fail') $failCount++;
                         }
-                    }
-                    if ($count > 0) {
-                        $avgScore = round($total / $count, 1);
+                        if ($passCount + $failCount > 0) {
+                            $avgScore = ($passCount >= $failCount ? 'PASS' : 'FAIL') . " ({$passCount}/" . ($passCount + $failCount) . ")";
+                        }
+                    } else {
+                        $total = 0;
+                        $count = 0;
+                        foreach($event->evaluations as $eval) {
+                            if (isset($eval->score['total'])) {
+                                $total += $eval->score['total'];
+                                $count++;
+                            }
+                        }
+                        if ($count > 0) {
+                            $avgScore = round($total / $count, 1);
+                        }
                     }
                 }
 

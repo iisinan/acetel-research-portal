@@ -179,4 +179,18 @@ class MilestoneTemplate extends Model
         }
         return $name . ' Presentation';
     }
+
+    /**
+     * Resolve route binding by UUID id or slug.
+     */
+    public function resolveRouteBinding($value, $field = null)
+    {
+        if ($field) {
+            return $this->where($field, $value)->first();
+        }
+
+        return $this->where('id', $value)
+            ->orWhere('slug', $value)
+            ->first();
+    }
 }

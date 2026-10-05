@@ -64,8 +64,13 @@
                                 $event = $sm->thesis->defenceEvents->where('type', $eventType)->first();
                                 if ($event && $event->evaluations->count() > 0) {
                                     if (in_array($sm->template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2'])) {
-                                        $passCount = $event->evaluations->where('verdict', 'pass')->count();
-                                        $failCount = $event->evaluations->where('verdict', 'fail')->count();
+                                        $passCount = 0;
+                                        $failCount = 0;
+                                        foreach ($event->evaluations as $eval) {
+                                            $v = strtolower($eval->verdict ?? $eval->recommendation ?? '');
+                                            if ($v === 'pass') $passCount++;
+                                            elseif ($v === 'fail') $failCount++;
+                                        }
                                         if (($passCount + $failCount) > 0) {
                                             $avgScore = $passCount >= $failCount ? 'PASS' : 'FAIL';
                                         }

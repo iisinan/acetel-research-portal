@@ -34,6 +34,18 @@
         $isPass = ($gradingOutcome === 'pass');
         $isFail = ($gradingOutcome === 'fail');
 
+        $checklistEventType = $milestone->template?->defence_type ?? match($slug) {
+            'seminar_as_a_course' => 'seminar',
+            'proposal_defence' => 'proposal',
+            'progress_report_1' => 'progress_report_1',
+            'progress_report_2' => 'progress_report_2',
+            default => null
+        };
+        $checklistEvent = $checklistEventType && $milestone->thesis 
+            ? $milestone->thesis->defenceEvents->firstWhere('type', $checklistEventType) 
+            : null;
+        $evaluatorId = $checklistEvent?->evaluations?->first()?->evaluator_id;
+
         $totalSteps = $isSeminar ? 3 : 5;
         $completedSteps = 0;
         if ($isSeminar) {
@@ -338,7 +350,7 @@
                             <span class="text-xs font-black uppercase tracking-wider">Verdict: {{ strtoupper($gradingOutcome ?? 'Graded') }}</span>
                         </div>
                         @if(auth()->user()->hasRole('Student'))
-                            <a href="{{ route('inbox.index') }}" class="mt-2 inline-flex items-center justify-center gap-1.5 w-full py-1.5 px-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-xl text-[10px] font-bold transition-colors">
+                            <a href="{{ $evaluatorId ? route('inbox.index', ['user_id' => $evaluatorId]) : route('inbox.index') }}" class="mt-2 inline-flex items-center justify-center gap-1.5 w-full py-1.5 px-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-xl text-[10px] font-bold transition-colors">
                                 <svg class="w-3 h-3 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                                 <span>View Examiner Comments in Inbox</span>
                             </a>

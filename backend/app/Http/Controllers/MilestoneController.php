@@ -651,6 +651,50 @@ class MilestoneController extends Controller
         
         $milestone->save();
 
+        $type = $milestone->template?->defence_type ?? match($milestone->template?->slug) {
+            'seminar_as_a_course' => 'seminar',
+            'proposal_defence' => 'proposal',
+            'progress_report_1' => 'progress_report_1',
+            'progress_report_2' => 'progress_report_2',
+            default => null,
+        };
+
+        if ($type && $milestone->thesis_project_id) {
+            $start = \Carbon\Carbon::parse($request->defence_date);
+            if ($request->filled('defence_time')) {
+                $timeParts = explode(':', $request->defence_time);
+                if (count($timeParts) >= 2) {
+                    $start->setTime((int)$timeParts[0], (int)$timeParts[1]);
+                }
+            } else {
+                $start->setTime(10, 0);
+            }
+
+            $eventData = [
+                'schedule_start' => $start,
+                'schedule_end' => $start->copy()->addHour(),
+                'outcome' => null,
+            ];
+            if ($request->filled('meeting_link')) {
+                $eventData['location'] = $request->meeting_link;
+            }
+
+            $event = \App\Models\DefenceEvent::updateOrCreate(
+                [
+                    'thesis_project_id' => $milestone->thesis_project_id,
+                    'type' => $type,
+                ],
+                $eventData
+            );
+
+            // If milestone was previously failed (repeated), reset old evaluations and attendance for the fresh attempt
+            if ($event->outcome === 'failed' || $milestone->status === 'revision_required') {
+                \App\Models\Evaluation::where('defence_event_id', $event->id)->delete();
+                \App\Models\PanelMember::where('defence_event_id', $event->id)->update(['is_present' => false]);
+                $event->update(['outcome' => null]);
+            }
+        }
+
         \Illuminate\Support\Facades\Log::info("Defence date set successfully for milestone: {$milestone->id}");
 
         if ($request->wantsJson() || $request->ajax()) {
