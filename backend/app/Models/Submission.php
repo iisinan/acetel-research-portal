@@ -35,7 +35,7 @@ class Submission extends Model
 
     public function feedback()
     {
-        return $this->hasOne(Feedback::class)->latestOfMany();
+        return $this->hasOne(Feedback::class)->latest();
     }
 
     public function feedbacks()
