@@ -135,15 +135,28 @@
             <div class="absolute top-[26px] left-0 right-0 h-1.5 bg-gray-100 rounded-full"></div>
             
             <div class="relative flex justify-between items-start gap-4 overflow-x-auto pb-4 custom-scrollbar">
+                @php $foundActiveTimeline = false; @endphp
                 @foreach($milestones as $m)
+                    @php
+                        $isCompletedTimeline = false;
+                        $isActiveTimeline = false;
+                        if ($m->id == $ongoingMilestoneId) {
+                            $isActiveTimeline = true;
+                            $foundActiveTimeline = true;
+                        } elseif (!$foundActiveTimeline && $ongoingMilestoneId) {
+                            $isCompletedTimeline = true;
+                        } elseif (!$ongoingMilestoneId) {
+                            $isCompletedTimeline = true;
+                        }
+                    @endphp
                     <div class="flex flex-col items-center min-w-[140px] group">
                         <!-- Connector Node -->
                         <div class="relative z-10 w-14 h-14 rounded-2xl flex items-center justify-center border-4 border-white shadow-lg transition-all duration-500 group-hover:scale-110 cursor-pointer"
                              @click="expanded = expanded === '{{ $m->id }}' ? null : '{{ $m->id }}'; if(expanded) $nextTick(() => document.getElementById('milestone-container-' + '{{ $m->id }}').scrollIntoView({ behavior: 'smooth', block: 'center' }))"
-                             :class="{ 'bg-green-500 text-white': '{{ $m->status }}' === 'approved', 'bg-brand-500 text-white ring-8 ring-brand-50/50': '{{ $m->id }}' === ongoingMilestoneId, 'bg-white text-gray-400 border-gray-100': '{{ $m->status }}' !== 'approved' && '{{ $m->id }}' !== ongoingMilestoneId }">
-                            @if($m->status === 'approved')
+                             :class="{ 'bg-green-500 text-white': '{{ $isCompletedTimeline }}' === '1', 'bg-brand-500 text-white ring-8 ring-brand-50/50': '{{ $isActiveTimeline }}' === '1', 'bg-white text-gray-400 border-gray-100': '{{ !$isCompletedTimeline && !$isActiveTimeline }}' === '1' }">
+                            @if($isCompletedTimeline)
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
-                            @elseif($m->id == $ongoingMilestoneId)
+                            @elseif($isActiveTimeline)
                                 <div class="w-3 h-3 bg-white rounded-full animate-pulse"></div>
                             @else
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
@@ -153,18 +166,18 @@
                         <!-- Info Area -->
                         <div class="mt-6 text-center max-w-[120px]">
                             <p class="text-[10px] font-bold uppercase tracking-widest leading-none mb-1.5"
-                               class="{{ $m->status === 'approved' ? 'text-green-600' : ($m->id == $ongoingMilestoneId ? 'text-brand-600' : 'text-gray-400') }}">
+                               class="{{ $isCompletedTimeline ? 'text-green-600' : ($isActiveTimeline ? 'text-brand-600' : 'text-gray-400') }}">
                                 Milestone {{ $m->template?->order }}
                             </p>
                             <h4 class="text-xs font-bold text-gray-900 leading-tight group-hover:text-brand-600 transition-colors line-clamp-2">
                                 {{ $m->template?->name }}
                             </h4>
                             
-                            @if($m->status === 'approved' && $m->approved_at)
+                            @if($isCompletedTimeline && $m->approved_at)
                                 <p class="text-[9px] font-medium text-gray-400 mt-2 uppercase tracking-tighter">
                                     Validated {{ $m->approved_at->format('M Y') }}
                                 </p>
-                            @elseif($m->id == $ongoingMilestoneId)
+                            @elseif($isActiveTimeline)
                                 <div class="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 bg-brand-50 text-brand-600 rounded-full border border-brand-100 animate-pulse-subtle">
                                     <span class="w-1 h-1 bg-brand-600 rounded-full"></span>
                                     <span class="text-[9px] font-bold uppercase tracking-widest">Active</span>
@@ -183,15 +196,26 @@
         @foreach($milestones as $index => $milestone)
             @php
                 $progressData = $milestone->progress_track;
-                // A milestone is only truly completed when officially approved.
-                $isCompleted = $milestone->status === 'approved';
-
-                $isPendingMatch = in_array($milestone->status, ['submitted', 'partially_approved']);
                 
+                // Force sequential state based on the controller's ongoingMilestoneId
+                $isCompleted = false;
                 $isActive = false;
-                if (!$isCompleted && !$foundActive) { 
-                    $isActive = true; 
-                    $foundActive = true; 
+                $isPendingMatch = false;
+                $isLocked = false;
+
+                if ($milestone->id == $ongoingMilestoneId) {
+                    $isActive = true;
+                    $foundActive = true;
+                    $isPendingMatch = in_array($milestone->status, ['submitted', 'partially_approved']);
+                } elseif (!$foundActive && $ongoingMilestoneId) {
+                    // Before the ongoing milestone, it must be considered completed.
+                    $isCompleted = true;
+                } elseif (!$ongoingMilestoneId) {
+                    // If there is no ongoing milestone at all, it means ALL are completed
+                    $isCompleted = true;
+                } else {
+                    // After the ongoing milestone, it must strictly be locked.
+                    $isLocked = true;
                 }
 
                 if ($isCompleted) {
