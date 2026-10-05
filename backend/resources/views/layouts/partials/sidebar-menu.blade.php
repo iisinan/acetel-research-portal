@@ -300,6 +300,9 @@ x-init="
             ->whereDoesntHave('evaluations', function($q) {
                 $q->where('evaluator_id', auth()->id());
             })
+            ->whereHas('thesis.milestones', function($q) {
+                $q->whereNotNull('defence_date');
+            })
             ->count();
     @endphp
     <div class="mb-4">

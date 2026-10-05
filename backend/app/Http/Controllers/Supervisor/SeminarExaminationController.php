@@ -18,6 +18,9 @@ class SeminarExaminationController extends Controller
             ->whereHas('panelMembers', function($q) use ($user) {
                 $q->where('user_id', $user->id);
             })
+            ->whereHas('thesis.milestones', function($q) {
+                $q->whereNotNull('defence_date');
+            })
             ->with(['thesis.student.user', 'thesis.milestones' => function($q) {
                 $q->whereHas('template', function($q2) {
                     $q2->where('slug', 'seminar_as_a_course');

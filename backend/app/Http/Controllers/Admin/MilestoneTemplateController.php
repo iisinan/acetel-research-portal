@@ -534,14 +534,21 @@ class MilestoneTemplateController extends Controller
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
             $today = now()->toDateString();
-            $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+            
+            // Get all unapproved milestones to clear dates
+            $scheduledMilestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
                 ->whereNotNull('defence_date')
                 ->where('status', '!=', 'approved')
                 ->get();
 
-            $thesisIds = $milestones->pluck('thesis_project_id')->filter()->unique();
+            // Get ALL unapproved milestones to delete their events (including phantom ones)
+            $allMilestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+                ->where('status', '!=', 'approved')
+                ->get();
 
-            foreach ($milestones as $sm) {
+            $thesisIds = $allMilestones->pluck('thesis_project_id')->filter()->unique();
+
+            foreach ($scheduledMilestones as $sm) {
                 $sm->update([
                     'defence_date' => null,
                     'defence_time' => null,
@@ -561,9 +568,18 @@ class MilestoneTemplateController extends Controller
                 'progress_report_2' => 'progress_report_2',
                 default => 'first_seminar',
             };
+            
             \App\Models\DefenceEvent::whereIn('thesis_project_id', $thesisIds)
                 ->where('type', $type)
                 ->delete();
+
+            // Also clear examiner metadata from template
+            $metadata = $template->metadata ?? [];
+            if (isset($metadata['examiner_profile_ids'])) {
+                unset($metadata['examiner_profile_ids']);
+                $template->metadata = $metadata;
+                $template->save();
+            }
 
             \Illuminate\Support\Facades\DB::commit();
 

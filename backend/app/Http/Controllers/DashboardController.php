@@ -236,6 +236,9 @@ class DashboardController extends Controller
                 ->whereDoesntHave('evaluations', function($q) use ($user) {
                     $q->where('evaluator_id', $user->id);
                 })
+                ->whereHas('thesis.milestones', function($q) {
+                    $q->whereNotNull('defence_date');
+                })
                 ->with(['thesis.student.user'])
                 ->get();
         }
@@ -492,6 +495,8 @@ class DashboardController extends Controller
                 $q->where('user_id', $user->id);
             })->whereDoesntHave('evaluations', function($q) use ($user) {
                 $q->where('evaluator_id', $user->id);
+            })->whereHas('thesis.milestones', function($q) {
+                $q->whereNotNull('defence_date');
             })->with('thesis.student.user')->get();
 
         $unreadCounts = $this->getUnreadMessagesCount($user);
