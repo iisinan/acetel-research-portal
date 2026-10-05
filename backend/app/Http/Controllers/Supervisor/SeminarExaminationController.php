@@ -19,7 +19,7 @@ class SeminarExaminationController extends Controller
                 $q->where('user_id', $user->id);
             })
             ->whereHas('thesis.milestones', function($q) {
-                $q->whereNotNull('defence_date');
+                $q->whereNotNull('student_milestones.defence_date');
             })
             ->with(['thesis.student.user', 'thesis.milestones' => function($q) {
                 $q->whereHas('template', function($q2) {

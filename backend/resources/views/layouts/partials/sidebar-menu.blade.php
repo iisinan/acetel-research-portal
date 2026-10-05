@@ -293,17 +293,21 @@ x-init="
 <!-- Supervisor Section -->
 <div x-show="activeRole === 'Supervisor'" x-cloak>
     @php
-        $pendingSeminarCount = \App\Models\DefenceEvent::where('type', 'seminar')
-            ->whereHas('panelMembers', function($q) {
-                $q->where('user_id', auth()->id());
-            })
-            ->whereDoesntHave('evaluations', function($q) {
-                $q->where('evaluator_id', auth()->id());
-            })
-            ->whereHas('thesis.milestones', function($q) {
-                $q->whereNotNull('defence_date');
-            })
-            ->count();
+        try {
+            $pendingSeminarCount = \App\Models\DefenceEvent::where('type', 'seminar')
+                ->whereHas('panelMembers', function($q) {
+                    $q->where('user_id', auth()->id());
+                })
+                ->whereDoesntHave('evaluations', function($q) {
+                    $q->where('evaluator_id', auth()->id());
+                })
+                ->whereHas('thesis.milestones', function($q) {
+                    $q->whereNotNull('student_milestones.defence_date');
+                })
+                ->count();
+        } catch (\Exception $e) {
+            $pendingSeminarCount = 0;
+        }
     @endphp
     <div class="mb-4">
         <p class="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Supervision</p>
