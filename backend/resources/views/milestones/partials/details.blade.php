@@ -439,7 +439,7 @@
                                 @csrf
                                 
                                 @php
-                                    $subTypes = $milestone->template->submission_type ?? ['file'];
+                                    $subTypes = $milestone->template?->submission_type ?? ['file'];
                                     $bothAllowed = in_array('ppt', $subTypes) && in_array('file', $subTypes);
                                     $hasPptSub = $milestone->submissions->where('type', 'ppt')->count() > 0;
                                     $hasFileSub = $milestone->submissions->whereIn('type', ['file', 'manuscript'])->count() > 0;
@@ -507,7 +507,7 @@
                                 </div>
                                 @endif
 
-                                @if(in_array('publication', $milestone->template->submission_type) || in_array('publications', $milestone->template->submission_type))
+                                @if(in_array('publication', $subTypes) || in_array('publications', $subTypes))
                                 <div>
                                     <label class="block text-sm font-semibold text-slate-700 mb-2">
                                         Upload Publications (PDF Only, Select one or more)
@@ -533,7 +533,7 @@
                                     <button type="submit" 
                                         :disabled="uploading"
                                         class="inline-flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-emerald-600 transition-colors shadow-xl shadow-slate-200/40 disabled:opacity-50 disabled:cursor-not-allowed">
-                                        <span x-text="uploading ? 'Transmitting...' : '{{ in_array('publication', $milestone->template->submission_type) && count($milestone->template->submission_type) > 1 ? 'Submit Documentation & Publication' : (in_array('publication', $milestone->template->submission_type) ? 'Submit Publication' : 'Upload Document') }}'"></span>
+                                        <span x-text="uploading ? 'Transmitting...' : '{{ in_array('publication', $subTypes) && count($subTypes) > 1 ? 'Submit Documentation & Publication' : (in_array('publication', $subTypes) ? 'Submit Publication' : 'Upload Document') }}'"></span>
                                         <svg x-show="!uploading" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
                                         <svg x-show="uploading" class="animate-spin -ml-1 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" style="display: none;">
                                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -553,7 +553,7 @@
                         <h3 class="text-lg font-bold text-slate-900 tracking-tight mb-2">No Document Upload Required</h3>
                         <p class="text-sm font-medium text-slate-500 max-w-sm">This specific phase does not require any file submissions to proceed.</p>
                         
-                        @if(str_contains(strtolower($milestone->template->name), 'assigned supervisor'))
+                        @if(str_contains(strtolower($milestone->template?->name ?? ''), 'assigned supervisor'))
                             <div class="mt-6 px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-xl text-sm font-semibold text-emerald-700">
                                 Please view the Scholarly Oversight panel to verify assigned administrative leaders.
                             </div>
@@ -781,9 +781,12 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     </div>
                     <div class="text-sm font-medium text-slate-600 leading-relaxed">
-                        @if(in_array('file', $milestone->template->submission_type) && in_array('publication', $milestone->template->submission_type))
+                        @php
+                            $subTypes = $milestone->template?->submission_type ?? [];
+                        @endphp
+                        @if(in_array('file', $subTypes) && in_array('publication', $subTypes))
                             <p class="mb-2">Please upload a comprehensive package containing both your working thesis chapter and your verified publication record. PDF format is mandatory.</p>
-                        @elseif(in_array('publication', $milestone->template->submission_type))
+                        @elseif(in_array('publication', $subTypes))
                             <p class="mb-2">Please upload a verified copy of your peer-reviewed publication record. PDF format is required for archiving purposes.</p>
                         @else
                             <p class="mb-2">Ensure your submission meets the core program requirements. Acceptable formats include PDF and DOCX (max 10MB).</p>
