@@ -48,8 +48,8 @@ class DefenceEvent extends Model
      */
     public function isAuthorizedEvaluator($userId)
     {
-        // 0. Check if it's a seminar and user is admin
-        if ($this->type === 'seminar') {
+        // 0. Check if user is admin for presentation/defence milestones
+        if (in_array($this->type, ['seminar', 'proposal', 'progress_report_1', 'progress_report_2'])) {
             $user = \App\Models\User::find($userId);
             if ($user && $user->hasRole('Admin')) {
                 return true;

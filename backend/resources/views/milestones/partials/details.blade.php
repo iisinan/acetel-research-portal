@@ -791,6 +791,50 @@
             <div class="bg-white rounded-[2.5rem] border-t-4 border-emerald-500 shadow-xl shadow-slate-200/40 p-6">
                 <h3 class="text-sm font-bold text-slate-900 tracking-tight mb-5 uppercase">Scholarly Oversight</h3>
                 
+                @php
+                    $milestoneEventType = $milestone->template?->defence_type ?? match($milestone->template?->slug) {
+                        'seminar_as_a_course' => 'seminar',
+                        'proposal_defence' => 'proposal',
+                        'progress_report_1' => 'progress_report_1',
+                        'progress_report_2' => 'progress_report_2',
+                        default => null,
+                    };
+                    $milestoneDefEvent = $milestoneEventType && $milestone->thesis 
+                        ? $milestone->thesis->defenceEvents->firstWhere('type', $milestoneEventType) 
+                        : null;
+                    $milestoneExaminers = $milestoneDefEvent ? $milestoneDefEvent->panelMembers->where('role', 'examiner') : collect();
+                @endphp
+                @if($milestoneExaminers->count() > 0)
+                    <div class="mb-6">
+                        <p class="text-[10px] font-bold text-indigo-600 uppercase tracking-widest mb-2">Assigned Defence Examiner(s)</p>
+                        <div class="space-y-2">
+                            @foreach($milestoneExaminers as $ex)
+                                <div class="p-3 bg-indigo-50/50 rounded-2xl border border-indigo-100 flex items-center justify-between">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-9 h-9 rounded-xl bg-white text-indigo-600 font-black flex items-center justify-center text-xs border border-indigo-100 shadow-sm">
+                                            {{ substr($ex->user?->name ?? 'E', 0, 1) }}
+                                        </div>
+                                        <div>
+                                            <p class="text-xs font-bold text-slate-800 leading-tight">{{ $ex->user?->name ?? 'Examiner' }}</p>
+                                            <p class="text-[10px] text-slate-400 font-medium mt-0.5">Examiner</p>
+                                        </div>
+                                    </div>
+                                    @if($ex->is_present)
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                                            Present
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-500">
+                                            Assigned
+                                        </span>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+                
                 @if($milestone->thesis->internalExaminer)
                     <div class="mb-6">
                         <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Assigned Internal Examiner</p>

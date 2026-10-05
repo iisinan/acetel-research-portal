@@ -157,7 +157,20 @@ class EvaluationController extends Controller
             \App\Events\EvaluationSubmitted::dispatch($evaluation, $userId);
         }
 
-        return redirect()->route('dashboard')->with('success', 'Evaluation submitted successfully.');
+        $templateSlug = match($defenceEvent->type) {
+            'proposal' => 'proposal_defence',
+            'progress_report_1' => 'progress_report_1',
+            'progress_report_2' => 'progress_report_2',
+            'seminar' => 'seminar_as_a_course',
+            default => null,
+        };
+
+        if ($templateSlug && \App\Models\MilestoneTemplate::where('slug', $templateSlug)->exists()) {
+            return redirect()->route('presentations.show', $templateSlug)
+                ->with('success', 'Evaluation submitted successfully. Written feedback and verdict have been delivered to candidate inbox.');
+        }
+
+        return redirect()->route('dashboard')->with('success', 'Evaluation submitted successfully. Written feedback and verdict have been delivered to candidate inbox.');
     }
 
     /**

@@ -970,23 +970,32 @@ class="space-y-8 animate-in">
             <div class="flex items-center justify-between border-b border-slate-50 pb-4">
                 <div class="flex items-center gap-3">
                     <div class="w-2 h-6 bg-blue-500 rounded-full"></div>
-                    <h3 class="text-base font-black text-slate-800 tracking-tight">SEMINAR DEFENCE EVALUATIONS</h3>
+                    <h3 class="text-base font-black text-slate-800 tracking-tight">PENDING DEFENCE EVALUATIONS</h3>
                 </div>
                 <span class="px-2.5 py-1 bg-blue-50 text-blue-700 text-[10px] font-black rounded-lg uppercase">
-                    {{ $pending_seminars->count() }} Pending Evaluation
+                    {{ $pending_seminars->count() }} Pending Evaluation{{ $pending_seminars->count() === 1 ? '' : 's' }}
                 </span>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 @foreach($pending_seminars as $event)
+                @php
+                    $eventBadge = match($event->type) {
+                        'proposal' => 'Proposal Defence',
+                        'progress_report_1' => 'Progress Report 1',
+                        'progress_report_2' => 'Progress Report 2',
+                        'seminar' => 'Seminar Defence',
+                        default => ucfirst(str_replace('_', ' ', $event->type)),
+                    };
+                @endphp
                 <div class="p-5 bg-blue-50/40 border border-blue-100 rounded-2xl space-y-3">
                     <div>
-                        <span class="text-[9px] font-black uppercase tracking-widest text-blue-600 bg-blue-100 px-2 py-0.5 rounded">Seminar Defence</span>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-blue-600 bg-blue-100 px-2 py-0.5 rounded">{{ $eventBadge }}</span>
                         <h4 class="text-sm font-black text-slate-800 mt-2">{{ $event->thesis->student->user->name }}</h4>
                         <p class="text-xs text-slate-500 truncate">{{ $event->thesis->title }}</p>
                     </div>
                     <a href="{{ route('evaluations.create', ['defenceEvent' => $event->id]) }}" class="block text-center py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs">
-                        Grade Presentation
+                        Grade Defence
                     </a>
                 </div>
                 @endforeach

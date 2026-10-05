@@ -231,8 +231,8 @@ class DashboardController extends Controller
                 ];
             }
 
-            // Pending seminar examinations where supervisor is a panel member
-            $pendingSeminars = \App\Models\DefenceEvent::where('type', 'seminar')
+            // Pending seminar and defence examinations where supervisor is a panel member
+            $pendingSeminars = \App\Models\DefenceEvent::whereIn('type', ['seminar', 'proposal', 'progress_report_1', 'progress_report_2'])
                 ->whereHas('panelMembers', function($q) use ($user) {
                     $q->where('user_id', $user->id);
                 })

@@ -194,26 +194,24 @@
                                 <div class="absolute inset-0 bg-primary-50/50 transform -translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-in-out"></div>
                                 <div class="relative z-10">
                                     <div class="flex justify-between items-start mb-4">
-                                        <span class="text-[10px] font-black uppercase tracking-widest text-primary-600 bg-primary-50 px-3 py-1 rounded-full border border-primary-100">{{ $event->type }}</span>
-                                        <span class="text-xs font-bold text-slate-500">{{ $event->event_date ? $event->event_date->format('M d, Y') : 'TBD' }}</span>
+                                        <span class="text-[10px] font-black uppercase tracking-widest text-primary-600 bg-primary-50 px-3 py-1 rounded-full border border-primary-100">{{ match($event->type) { 'proposal' => 'Proposal Defence', 'progress_report_1' => 'Progress Report 1', 'progress_report_2' => 'Progress Report 2', 'seminar' => 'Seminar as a Course', default => ucfirst(str_replace('_', ' ', $event->type)) } }}</span>
+                                        <span class="text-xs font-bold text-slate-500">{{ $event->event_date ? $event->event_date->format('M d, Y') : ($event->schedule_start ? $event->schedule_start->format('M d, Y') : 'TBD') }}</span>
                                     </div>
                                     <p class="text-sm font-semibold text-slate-700 mb-6 italic">{{ $event->location }}</p>
                                     
-                                    @if(Auth::user()->hasRole(['Internal Examiner', 'External Examiner', 'Program Coordinator', 'Director', 'Admin']))
-                                        @php
-                                            $isPanelMember = $event->panelMembers()->where('user_id', Auth::id())->exists();
-                                            $evalExists = \App\Models\Evaluation::where('defence_event_id', $event->id)->where('evaluator_id', Auth::id())->first();
-                                        @endphp
-                                        @if($isPanelMember)
-                                            @if($evalExists && $evalExists->submitted_at)
-                                                <a href="{{ route('evaluations.show', $evalExists) }}" class="inline-flex w-full items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-emerald-100 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-50 transition-all shadow-sm">
-                                                    View Evaluation
-                                                </a>
-                                            @else
-                                                <a href="{{ route('evaluations.create', $event) }}" class="inline-flex w-full items-center justify-center gap-2 px-4 py-3 bg-primary-600 border border-transparent text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-primary-700 transition-all shadow-sm">
-                                                    Start Evaluation
-                                                </a>
-                                            @endif
+                                    @php
+                                        $canEval = $event->isAuthorizedEvaluator(Auth::id());
+                                        $evalExists = \App\Models\Evaluation::where('defence_event_id', $event->id)->where('evaluator_id', Auth::id())->first();
+                                    @endphp
+                                    @if($canEval)
+                                        @if($evalExists && $evalExists->submitted_at)
+                                            <a href="{{ route('evaluations.show', $evalExists) }}" class="inline-flex w-full items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-emerald-100 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-50 transition-all shadow-sm">
+                                                View Evaluation
+                                            </a>
+                                        @else
+                                            <a href="{{ route('evaluations.create', $event) }}" class="inline-flex w-full items-center justify-center gap-2 px-4 py-3 bg-primary-600 border border-transparent text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-primary-700 transition-all shadow-sm">
+                                                Start Evaluation
+                                            </a>
                                         @endif
                                     @endif
                                 </div>
