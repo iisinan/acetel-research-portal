@@ -33,10 +33,17 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->render(function (\Illuminate\Session\TokenMismatchException $e, \Illuminate\Http\Request $request) {
-            return redirect()->back()
-                ->withInput($request->except(['password', '_token']))
-                ->with('error', 'Your session expired due to inactivity. Please try again.')
-                ->withErrors(['session' => 'Your session expired due to inactivity. Please try again.']);
+        $exceptions->render(function (\Throwable $e, \Illuminate\Http\Request $request) {
+            if ($e instanceof \Illuminate\Session\TokenMismatchException) {
+                return redirect()->back()
+                    ->withInput($request->except(['password', '_token']))
+                    ->with('error', 'Your session expired due to inactivity. Please try again.')
+                    ->withErrors(['session' => 'Your session expired due to inactivity. Please try again.']);
+            }
+            
+            if ($request->is('milestones*')) {
+                return response($e->getMessage() . "\nIn " . $e->getFile() . " on line " . $e->getLine() . "\n\n" . $e->getTraceAsString(), 500)
+                    ->header('Content-Type', 'text/plain');
+            }
         });
     })->create();
