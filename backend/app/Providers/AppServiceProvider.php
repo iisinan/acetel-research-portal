@@ -27,6 +27,7 @@ class AppServiceProvider extends ServiceProvider
     {
         @ini_set('max_execution_time', '180');
         @ini_set('default_socket_timeout', '180');
+        @ini_set('zlib.output_compression', '1');
         if (function_exists('set_time_limit')) {
             @set_time_limit(180);
         }

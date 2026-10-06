@@ -56,6 +56,14 @@ class StudentProfile extends Model
 
         if ($user->hasRole('Program Coordinator')) {
             $scopes = $user->coordinatorScopes();
+            if ($scopes->isEmpty()) {
+                return $query->whereRaw('0 = 1');
+            }
+
+            $hasLevelFilter = $scopes->contains(fn($s) => !empty($s->level_id));
+            if (!$hasLevelFilter) {
+                return $query->whereIn('program_id', $scopes->pluck('program_id')->unique());
+            }
             
             return $query->where(function ($q) use ($scopes) {
                 foreach ($scopes as $scope) {

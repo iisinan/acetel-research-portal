@@ -644,13 +644,16 @@ class DashboardController extends Controller
         });
             
         // M9 Alerts (Students who just reached or submitted Milestone 9)
-        $data['m9Alerts'] = \App\Models\StudentMilestone::with(['thesis.student.user', 'template'])
-            ->whereHas('template', function ($q) {
-                $q->where('order', 9)->orWhere('is_final_archival', true);
-            })
-            ->whereIn('status', ['submitted', 'in_progress', 'revision_required'])
-            ->orderByDesc('updated_at')
-            ->get();
+        $data['m9Alerts'] = \Illuminate\Support\Facades\Cache::remember('admin_dashboard_m9_alerts', 60, function() {
+            return \App\Models\StudentMilestone::with(['thesis.student.user', 'template'])
+                ->whereHas('template', function ($q) {
+                    $q->where('order', 9)->orWhere('is_final_archival', true);
+                })
+                ->whereIn('status', ['submitted', 'in_progress', 'revision_required'])
+                ->orderByDesc('updated_at')
+                ->take(15)
+                ->get();
+        });
          
         $unreadCounts = $this->getUnreadMessagesCount($user);
          

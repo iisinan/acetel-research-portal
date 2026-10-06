@@ -78,10 +78,11 @@ class DirectorAnalyticsService
             $avgCompletionDays = StudentProfile::where('program_id', $program->id)
                 ->where('enrollment_status', 'graduated')
                 ->whereHas('thesis.milestones', fn($q) => $q->where('status', 'approved')->whereHas('template', fn($t) => $t->where('order', 1)))
+                ->with(['thesis.milestones.template'])
                 ->get()
                 ->map(function($student) {
-                    $m1 = $student->thesis->milestones->first(fn($m) => $m->template->order == 1);
-                    $m10 = $student->thesis->milestones->first(fn($m) => $m->template->order == 10 || $m->template->is_final_archival);
+                    $m1 = $student->thesis?->milestones->first(fn($m) => $m->template?->order == 1);
+                    $m10 = $student->thesis?->milestones->first(fn($m) => ($m->template?->order == 10 || !empty($m->template?->is_final_archival)));
                     if ($m1 && $m10 && $m1->approved_at && $m10->approved_at) {
                         return $m1->approved_at->diffInDays($m10->approved_at);
                     }
@@ -123,18 +124,20 @@ class DirectorAnalyticsService
             ->orderBy('order')
             ->get();
 
+        $counts = StudentMilestone::whereIn('milestone_template_id', $templates->pluck('id'))
+            ->where('status', 'approved')
+            ->whereHas('thesis.student', function($q) use ($filters) {
+                $this->applyFilters($q, $filters);
+            })
+            ->groupBy('milestone_template_id')
+            ->selectRaw('milestone_template_id, count(*) as count')
+            ->pluck('count', 'milestone_template_id');
+
         $pipeline = [];
         foreach ($templates as $template) {
-            $count = StudentMilestone::where('milestone_template_id', $template->id)
-                ->where('status', 'approved')
-                ->whereHas('thesis.student', function($q) use ($filters) {
-                    $this->applyFilters($q, $filters);
-                })
-                ->count();
-            
             $pipeline[] = [
                 'name' => $template->name,
-                'count' => $count,
+                'count' => $counts->get($template->id, 0),
             ];
         }
 
@@ -261,13 +264,15 @@ class DirectorAnalyticsService
      */
     public function getCohortMonitoring($filters = [])
     {
-        $query = Cohort::withCount(['students as total_students'])
-             ->orderBy('intake_year', 'desc');
+        $query = Cohort::withCount([
+            'students as total_students',
+            'students as graduated_students' => fn($q) => $q->where('enrollment_status', 'graduated')
+        ])->orderBy('intake_year', 'desc');
 
         $query = $this->applyFilters($query, $filters, 'cohort');
 
         return $query->take(10)->get()->map(function($cohort) {
-            $completed_students = StudentProfile::where('cohort_id', $cohort->id)->where('enrollment_status', 'graduated')->count();
+            $completed_students = $cohort->graduated_students ?? 0;
             $completion_rate = $cohort->total_students > 0 ? round(($completed_students / $cohort->total_students) * 100) . '%' : '0%';
             return [
                 'name' => $cohort->name,
@@ -332,28 +337,27 @@ class DirectorAnalyticsService
             }])
             ->get();
 
-        return $supervisors->map(function($s) {
-            // Get avg response time for THIS supervisor
-            $avgResponseHours = DB::table('messages as m1')
-                ->join('messages as m2', function($join) {
-                    $join->on('m1.channel_id', '=', 'm2.channel_id')
-                        ->whereColumn('m2.created_at', '>', 'm1.created_at');
-                })
-                ->where('m2.user_id', $s->user_id)
-                ->whereExists(function ($query) use ($s) {
-                    $query->select(DB::raw(1))
-                        ->from('model_has_roles')
-                        ->join('roles', 'model_has_roles.role_id', '=', 'roles.id')
-                        ->whereColumn('model_has_roles.model_id', 'messages.user_id')
-                        ->where('roles.name', 'Student')
-                        ->where('messages.channel_id', 'm1.channel_id');
-                }, 'm1')
-                ->select(DB::raw('AVG(EXTRACT(EPOCH FROM (m2.created_at - m1.created_at))/3600) as avg_hours'))
-                ->value('avg_hours') ?: 0;
+        // Calculate average response hours per supervisor in 1 single grouped query
+        $responseTimes = DB::table('messages as m1')
+            ->join('messages as m2', function($join) {
+                $join->on('m1.channel_id', '=', 'm2.channel_id')
+                    ->whereColumn('m2.created_at', '>', 'm1.created_at');
+            })
+            ->join('model_has_roles as mhr1', function($join) {
+                $join->on('m1.user_id', '=', 'mhr1.model_id')->where('mhr1.model_type', 'App\Models\User');
+            })
+            ->join('roles as r1', 'mhr1.role_id', '=', 'r1.id')
+            ->where('r1.name', 'Student')
+            ->groupBy('m2.user_id')
+            ->select('m2.user_id', DB::raw('AVG(EXTRACT(EPOCH FROM (m2.created_at - m1.created_at))/3600) as avg_hours'))
+            ->pluck('avg_hours', 'm2.user_id');
+
+        return $supervisors->map(function($s) use ($responseTimes) {
+            $avgResponseHours = (float) ($responseTimes->get($s->user_id, 0));
 
             return [
                 'id' => $s->id,
-                'name' => $s->user->name,
+                'name' => $s->user?->name ?? 'Supervisor',
                 'graduated_count' => $s->total_graduated,
                 'avg_response_hours' => round($avgResponseHours, 1),
                 'response_time_display' => $avgResponseHours > 0 

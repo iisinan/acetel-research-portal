@@ -97,10 +97,12 @@ class User extends Authenticatable
     {
         // 1. Institutional leadership (Admin & Director) oversees all programs and levels
         if ($this->hasAnyRole(['Admin', 'Director'])) {
-            $allPrograms = \App\Models\Program::all();
-            return $allPrograms->map(function ($program) {
+            $programIds = \Illuminate\Support\Facades\Cache::remember('all_program_ids_list', 3600, function() {
+                return \App\Models\Program::pluck('id');
+            });
+            return $programIds->map(function ($id) {
                 return (object)[
-                    'program_id' => $program->id,
+                    'program_id' => $id,
                     'level_id' => null,
                 ];
             });
