@@ -387,24 +387,29 @@ class MilestoneWorkflowService
      */
     public function recordSupervisorReview(StudentMilestone $milestone, \App\Models\User $user, string $decision, ?string $remarks = null): array
     {
-        $submission = $milestone->submissions()->latest()->first();
+        $submissions = $milestone->submissions()->get();
 
-        // 1. Record feedback per supervisor
-        if ($submission) {
-            \App\Models\Feedback::updateOrCreate(
-                [
-                    'submission_id' => $submission->id,
-                    'created_by' => $user->id,
-                ],
-                [
-                    'decision' => ($decision === 'approved') ? 'approved' : 'revision_required',
-                    'remarks' => $remarks,
-                ]
-            );
+        // 1. Record feedback per supervisor across all milestone submissions
+        if ($submissions->isNotEmpty()) {
+            foreach ($submissions as $sub) {
+                \App\Models\Feedback::updateOrCreate(
+                    [
+                        'submission_id' => $sub->id,
+                        'created_by' => $user->id,
+                    ],
+                    [
+                        'decision' => ($decision === 'approved') ? 'approved' : 'revision_required',
+                        'remarks' => $remarks,
+                    ]
+                );
+            }
         }
 
         // 2. Store supervisor review in milestone approvals JSON
         $approvals = $milestone->approvals ?? [];
+        if (is_string($approvals)) {
+            $approvals = json_decode($approvals, true) ?: [];
+        }
         $reviews = $approvals['supervisor_reviews'] ?? [];
         $reviews[(string) $user->id] = [
             'user_id' => $user->id,
@@ -412,7 +417,7 @@ class MilestoneWorkflowService
             'decision' => ($decision === 'approved') ? 'approved' : 'rejected',
             'remarks' => $remarks,
             'reviewed_at' => now()->toDateTimeString(),
-            'submission_id' => $submission?->id,
+            'submission_id' => $submissions->first()?->id,
         ];
         $approvals['supervisor_reviews'] = $reviews;
         $milestone->approvals = $approvals;

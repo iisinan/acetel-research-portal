@@ -650,6 +650,7 @@
                                                     <div class="flex gap-2">
                                                         <form action="{{ route('milestones.accept_upload', $milestone) }}" method="POST" class="inline" data-confirm="Are you sure you want to accept this document?" data-confirm-title="Accept Document" data-confirm-type="success" data-confirm-btn="Accept Upload">
                                                             @csrf
+                                                            <input type="hidden" name="submission_id" value="{{ $submission->id }}">
                                                             <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-600 transition-colors shadow-xl shadow-emerald-500/20">
                                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
                                                                 Accept Upload
@@ -657,6 +658,7 @@
                                                         </form>
                                                         <form action="{{ route('milestones.reject_upload', $milestone) }}" method="POST" class="inline" data-confirm="Are you sure you want to reject this document? The student will be notified to revise it." data-confirm-title="Reject Document" data-confirm-type="danger" data-confirm-btn="Reject Upload">
                                                             @csrf
+                                                            <input type="hidden" name="submission_id" value="{{ $submission->id }}">
                                                             <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-rose-500 text-white rounded-xl text-xs font-bold hover:bg-rose-600 transition-colors shadow-xl shadow-rose-500/20">
                                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
                                                                 Reject Upload
