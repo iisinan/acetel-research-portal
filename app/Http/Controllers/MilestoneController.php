@@ -15,99 +15,151 @@ class MilestoneController extends Controller
      */
     public function index(Request $request)
     {
-        $user = Auth::user();
-        $thesis = null;
+        @ini_set('max_execution_time', '180');
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(180);
+        }
 
-        if ($user->hasRole('Student')) {
-            $student = $user->studentProfile;
-            if (!$student || !$student->thesis) {
-                  return redirect()->route('dashboard')->with('error', 'No active thesis found.');
-            }
-            $thesis = $student->thesis;
-        } elseif ($user->hasRole(['Supervisor', 'Program Coordinator', 'Internal Examiner', 'Admin'])) {
-            $thesisId = $request->query('thesis_id');
-            if (!$thesisId) {
-                return redirect()->route('dashboard')->with('error', 'No thesis specified.');
-            }
-            $thesis = \App\Models\ThesisProject::findOrFail($thesisId);
-            
-            // Basic security check: Is the user authorized for this thesis?
-            // (In a real app, use a Policy, but for now we'll check relations)
-            $isAuthorized = false;
-            if ($user->hasRole('Admin')) $isAuthorized = true;
-            if ($user->hasRole('Supervisor') && $thesis->assignments()->where('supervisor_profile_id', '=', $user->supervisorProfile?->id)->exists()) $isAuthorized = true;
-            if ($user->hasRole('Internal Examiner') && $user->internalExaminerProfiles()->where('id', $thesis->internal_examiner_profile_id)->exists()) $isAuthorized = true;
-            if ($user->hasRole('Program Coordinator')) {
-                if ($thesis->student && $user->coordinatorProfiles()->where('program_id', '=', $thesis->student->program_id)->exists()) {
-                    $isAuthorized = true;
+        try {
+            $user = Auth::user();
+            $thesis = null;
+
+            if ($user->hasRole('Student')) {
+                $student = $user->studentProfile;
+                if (!$student || !$student->thesis) {
+                    return redirect()->route('dashboard')->with('error', 'No active thesis found.');
+                }
+                $thesis = $student->thesis;
+            } elseif ($user->hasRole(['Supervisor', 'Program Coordinator', 'Internal Examiner', 'Admin'])) {
+                $thesisId = $request->query('thesis_id');
+                if (!$thesisId) {
+                    return redirect()->route('dashboard')->with('error', 'No thesis specified.');
+                }
+                $thesis = \App\Models\ThesisProject::findOrFail($thesisId);
+                
+                // Basic security check: Is the user authorized for this thesis?
+                $isAuthorized = false;
+                if ($user->hasRole('Admin')) $isAuthorized = true;
+                if ($user->hasRole('Supervisor') && $thesis->assignments()->where('supervisor_profile_id', '=', $user->supervisorProfile?->id)->exists()) $isAuthorized = true;
+                if ($user->hasRole('Internal Examiner') && $user->internalExaminerProfiles()->where('id', $thesis->internal_examiner_profile_id)->exists()) $isAuthorized = true;
+                if ($user->hasRole('Program Coordinator')) {
+                    if ($thesis->student && $user->coordinatorProfiles()->where('program_id', '=', $thesis->student->program_id)->exists()) {
+                        $isAuthorized = true;
+                    }
+                }
+
+                if (!$isAuthorized) {
+                    return redirect()->route('dashboard')->with('error', 'Unauthorized access to this thesis.');
                 }
             }
 
-            if (!$isAuthorized) {
-                return redirect()->route('dashboard')->with('error', 'Unauthorized access to this thesis.');
-            }
-        }
-
-        if ($thesis) {
-            $thesis->load(['student.user', 'assignments.supervisor.user', 'internalExaminer.user']);
-            
-            $milestones = $thesis->milestones()
-                ->with(['template', 'submissions.submittedBy', 'messages.sender', 'unlockedBy'])
-                ->get()
-                ->sortBy('template.order');
-
-            $templatesCount = \App\Models\MilestoneTemplate::whereNull('program_id')
-                ->orWhere('program_id', $thesis->student->program_id ?? null)
-                ->count();
-
-            if ($milestones->count() < $templatesCount || $milestones->isEmpty()) {
-                $thesis->syncMilestones();
+            if ($thesis) {
+                $thesis->load([
+                    'student.user',
+                    'student.program',
+                    'student.level',
+                    'assignments.supervisor.user',
+                    'internalExaminer.user',
+                    'defenceEvents.evaluations',
+                    'defenceEvents.panelMembers.user',
+                ]);
+                
                 $milestones = $thesis->milestones()
-                    ->with(['template', 'submissions.submittedBy', 'messages.sender', 'unlockedBy'])
+                    ->with([
+                        'template',
+                        'submissions.submittedBy',
+                        'submissions.feedbacks',
+                        'messages.sender',
+                        'unlockedBy'
+                    ])
                     ->get()
                     ->sortBy('template.order');
+
+                $templatesCount = \App\Models\MilestoneTemplate::whereNull('program_id')
+                    ->orWhere('program_id', $thesis->student?->program_id)
+                    ->count();
+
+                if ($milestones->count() < $templatesCount || $milestones->isEmpty()) {
+                    $thesis->syncMilestones();
+                    $milestones = $thesis->milestones()
+                        ->with([
+                            'template',
+                            'submissions.submittedBy',
+                            'submissions.feedbacks',
+                            'messages.sender',
+                            'unlockedBy'
+                        ])
+                        ->get()
+                        ->sortBy('template.order');
+                }
+
+                // Link parent relation on all milestones so in-memory queries never trigger lazy loading
+                foreach ($milestones as $m) {
+                    $m->setRelation('thesis', $thesis);
+                }
+                
+                // Get supervisors
+                $supervisors = $thesis->assignments->map(function ($assignment) {
+                    return $assignment->supervisor;
+                })->filter();
+
+                // Always get program coordinators
+                $coordinators = collect();
+                if ($thesis->student && $thesis->student->program_id) {
+                    $coordinators = \App\Models\CoordinatorProfile::where('program_id', '=', $thesis->student->program_id)
+                        ->where('active', '=', true)
+                        ->with('user')
+                        ->get();
+                }
+
+                // Internal Examiner
+                $internalExaminer = $thesis->internalExaminer;
+
+                // All supervisors for assignment (Coordinators/Admins only) - Restricted by Program Scope
+                $allSupervisors = collect();
+                if ($user->hasAnyRole(['Program Coordinator', 'Admin']) && $thesis->student && $thesis->student->program_id) {
+                    $allSupervisors = \App\Models\SupervisorProfile::with('user')
+                        ->whereHas('programs', function($q) use ($thesis) {
+                            $q->where('programs.id', $thesis->student->program_id);
+                        })
+                        ->get();
+                }
+
+                // Identify the "Ongoing" milestone (first one that's not 100% complete)
+                $ongoingMilestoneId = null;
+                foreach ($milestones as $m) {
+                    if (!$m->progress_track['is_fully_complete']) {
+                        $ongoingMilestoneId = $m->id;
+                        break;
+                    }
+                }
+
+                $expandedMilestoneId = $request->query('expanded') ?: $ongoingMilestoneId;
+
+                return view('milestones.index', compact(
+                    'milestones',
+                    'supervisors',
+                    'coordinators',
+                    'thesis',
+                    'internalExaminer',
+                    'allSupervisors',
+                    'ongoingMilestoneId',
+                    'expandedMilestoneId'
+                ));
             }
             
-            // Get supervisors
-            $supervisors = $thesis->assignments->map(function ($assignment) {
-                return $assignment->supervisor;
-            })->filter();
+            return redirect()->route('dashboard');
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Error loading milestones: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'thesis_id' => $request->query('thesis_id'),
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString(),
+            ]);
 
-            // Always get program coordinators
-            $coordinators = collect();
-            if ($thesis->student && $thesis->student->program_id) {
-                $coordinators = \App\Models\CoordinatorProfile::where('program_id', '=', $thesis->student->program_id)
-                    ->where('active', '=', true)
-                    ->with('user')
-                    ->get();
-            }
-
-            // Internal Examiner
-            $internalExaminer = $thesis->internalExaminer;
-
-            // All supervisors for assignment (Coordinators/Admins only) - Restricted by Program Scope
-            $allSupervisors = collect();
-            if ($user->hasAnyRole(['Program Coordinator', 'Admin']) && $thesis->student) {
-                $allSupervisors = \App\Models\SupervisorProfile::with('user')
-                    ->whereHas('programs', function($q) use ($thesis) {
-                        $q->where('programs.id', $thesis->student->program_id);
-                    })
-                    ->get();
-            }
-
-            // Identify the "Ongoing" milestone (first one that's not 100% complete)
-            $ongoingMilestoneId = null;
-            foreach ($milestones as $m) {
-                if (!$m->progress_track['is_fully_complete']) {
-                    $ongoingMilestoneId = $m->id;
-                    break;
-                }
-            }
-
-            return view('milestones.index', compact('milestones', 'supervisors', 'coordinators', 'thesis', 'internalExaminer', 'allSupervisors', 'ongoingMilestoneId'));
+            return redirect()->route('dashboard')->with('error', 'Unable to load milestone workspace right now. The error has been logged. Please try again.');
         }
-        
-        return redirect()->route('dashboard');
     }
 
     /**

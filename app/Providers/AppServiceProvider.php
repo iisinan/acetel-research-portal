@@ -25,6 +25,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        @ini_set('max_execution_time', '180');
+        @ini_set('default_socket_timeout', '180');
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(180);
+        }
+
         User::observe(AuditObserver::class);
         ThesisProject::observe(AuditObserver::class);
         ThesisProject::observe(\App\Observers\ThesisProjectObserver::class);

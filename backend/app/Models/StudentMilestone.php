@@ -268,7 +268,7 @@ class StudentMilestone extends Model
 
         // 3. Student Submission
         if ($this->template?->requires_submission) {
-            $hasSubmission = $this->submissions()->count() > 0;
+            $hasSubmission = $this->relationLoaded('submissions') ? $this->submissions->isNotEmpty() : ($this->submissions()->count() > 0);
             $isTentative = ($this->template->slug === 'supervisors_assigned');
             $tasks[] = [
                 'id' => 'student_submission',
@@ -327,16 +327,42 @@ class StudentMilestone extends Model
             
             foreach($requiredRoles as $role) {
                 if ($role === 'Supervisor') {
-                    $activeSupervisors = $this->thesis->assignments->where('status', 'active');
+                    $activeSupervisors = $this->thesis?->assignments ? $this->thesis->assignments->where('status', 'active') : collect();
 
                     if ($activeSupervisors->count() > 0) {
                         foreach ($activeSupervisors as $assignment) {
                             $supUserId = $assignment->supervisor?->user_id;
                             $approvalsArr = is_string($this->approvals) ? json_decode($this->approvals, true) : ($this->approvals ?? []);
+                            
+                            $hasFeedbackApproved = false;
+                            if ($this->relationLoaded('submissions')) {
+                                foreach ($this->submissions as $sub) {
+                                    if ($sub->relationLoaded('feedbacks')) {
+                                        if ($sub->feedbacks->contains(fn($f) => $f->created_by == $supUserId && $f->decision === 'approved')) {
+                                            $hasFeedbackApproved = true;
+                                            break;
+                                        }
+                                    } elseif ($sub->relationLoaded('feedback')) {
+                                        $fbs = $sub->feedback instanceof \Illuminate\Support\Collection ? $sub->feedback : collect([$sub->feedback])->filter();
+                                        if ($fbs->contains(fn($f) => $f->created_by == $supUserId && $f->decision === 'approved')) {
+                                            $hasFeedbackApproved = true;
+                                            break;
+                                        }
+                                    } else {
+                                        if ($sub->feedbacks()->where('created_by', $supUserId)->where('decision', 'approved')->exists()) {
+                                            $hasFeedbackApproved = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            } else {
+                                $hasFeedbackApproved = $this->submissions()->whereHas('feedbacks', fn($q) => $q->where('created_by', $supUserId)->where('decision', 'approved'))->exists();
+                            }
+
                             $isApproved = $this->status === 'approved'
                                 || (($approvalsArr['supervisor_reviews'][(string)$supUserId]['decision'] ?? null) === 'approved')
                                 || $userApprovals->where('user_id', $supUserId)->isNotEmpty()
-                                || $this->submissions()->whereHas('feedbacks', fn($q) => $q->where('created_by', $supUserId)->where('decision', 'approved'))->exists();
+                                || $hasFeedbackApproved;
                             $tasks[] = [
                                 'id' => 'supervisor_clearance_' . $assignment->id,
                                 'name' => "Clearance: " . ($assignment->supervisor?->user?->name ?? 'Supervisor'),

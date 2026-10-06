@@ -199,7 +199,7 @@ class ThesisProject extends Model
     public function syncMilestones()
     {
         $templates = MilestoneTemplate::whereNull('program_id')
-            ->orWhere('program_id', $this->student->program_id)
+            ->when($this->student?->program_id, fn($q, $pid) => $q->orWhere('program_id', $pid))
             ->orderBy('order')
             ->get();
 

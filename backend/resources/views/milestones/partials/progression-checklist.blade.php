@@ -17,8 +17,8 @@
         $isApproved = ($milestone->status === 'approved');
         $endSessionBlockReason = $workflow->getEndSessionBlockReason($milestone);
         $canEndPresentation = is_null($endSessionBlockReason);
-        $latestPptSub = $milestone->submissions()->where('type', 'ppt')->latest()->first() 
-            ?? $milestone->submissions()->latest()->first();
+        $latestPptSub = $milestone->submissions->where('type', 'ppt')->sortByDesc('created_at')->first() 
+            ?? $milestone->submissions->sortByDesc('created_at')->first();
         $pptUrl = $latestPptSub?->file_url ? (str_starts_with($latestPptSub->file_url, 'http') ? $latestPptSub->file_url : \Illuminate\Support\Facades\Storage::url($latestPptSub->file_url)) : null;
 
         // Next destination name
@@ -42,7 +42,9 @@
             default => null
         };
         $checklistEvent = $checklistEventType && $milestone->thesis 
-            ? $milestone->thesis->defenceEvents->firstWhere('type', $checklistEventType) 
+            ? ($milestone->thesis->relationLoaded('defenceEvents') 
+                ? $milestone->thesis->defenceEvents->firstWhere('type', $checklistEventType) 
+                : $milestone->thesis->defenceEvents()->where('type', $checklistEventType)->first()) 
             : null;
         $evaluatorId = $checklistEvent?->evaluations?->first()?->evaluator_id;
 
@@ -165,7 +167,7 @@
                             <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST">
                                 @csrf
                                 <button type="submit" 
-                                    data-confirm="Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis->student->user->name) }}? The student will be advanced to Supervisors Assigned."
+                                    data-confirm="Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis?->student?->user?->name ?? 'Candidate') }}? The student will be advanced to Supervisors Assigned."
                                     data-confirm-title="End Presentation Session"
                                     data-confirm-type="success"
                                     data-confirm-btn="End Presentation"
@@ -190,8 +192,8 @@
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 pt-6">
                 {{-- Step 1: Upload PPT / Document --}}
                 @php
-                    $hasPptType = $milestone->submissions()->whereIn('type', ['ppt', 'presentation'])->exists();
-                    $hasDocType = $milestone->submissions()->whereIn('type', ['manuscript', 'file'])->exists() || ($milestone->submissions()->exists() && !$hasPptType);
+                    $hasPptType = $milestone->submissions->whereIn('type', ['ppt', 'presentation'])->isNotEmpty();
+                    $hasDocType = $milestone->submissions->whereIn('type', ['manuscript', 'file'])->isNotEmpty() || ($milestone->submissions->isNotEmpty() && !$hasPptType);
 
                     $step1Title = match($slug) {
                         'proposal_defence' => ($hasDocType && !$hasPptType ? 'Upload Proposal Document' : ($hasPptType && !$hasDocType ? 'Upload Presentation (PPT)' : 'Upload Proposal / Presentation')),
@@ -231,7 +233,7 @@
                         <button type="button" 
                             @click.prevent="$dispatch('open-document-preview', { 
                                 url: '{{ $pptUrl }}', 
-                                title: '{{ addslashes($step1Title) }} - {{ addslashes($milestone->thesis->student->user->name) }}', 
+                                title: '{{ addslashes($step1Title) }} - {{ addslashes($milestone->thesis?->student?->user?->name ?? 'Candidate') }}', 
                                 type: '{{ (str_contains(strtolower($pptUrl), '.pdf') || str_contains(strtolower($latestPptSub?->file_meta['mime_type'] ?? ''), 'pdf')) ? 'pdf' : 'document' }}' 
                             })"
                             class="w-full inline-flex items-center justify-center gap-2 px-3 py-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-colors shadow-sm cursor-pointer">
@@ -271,7 +273,7 @@
                         </p>
                     </div>
 
-                    @if(!$isSupervisorApproved && (auth()->user()->hasRole('Supervisor') || auth()->user()->hasRole('Admin')) && $milestone->submissions()->exists())
+                    @if(!$isSupervisorApproved && (auth()->user()->hasRole('Supervisor') || auth()->user()->hasRole('Admin')) && $milestone->submissions->isNotEmpty())
                         <div class="flex gap-2">
                             <form action="{{ route('milestones.accept_upload', $milestone) }}" method="POST" class="flex-1"
                                 data-confirm="Are you sure you want to accept this document?"
@@ -389,7 +391,7 @@
                             <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST">
                                 @csrf
                                 <button type="submit" 
-                                    data-confirm="Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis->student->user->name) }}? {{ $isFail ? 'The candidate received a FAIL grade and will repeat this milestone.' : 'The student will be advanced to ' . $nextDestination . '.' }}"
+                                    data-confirm="Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis?->student?->user?->name ?? 'Candidate') }}? {{ $isFail ? 'The candidate received a FAIL grade and will repeat this milestone.' : 'The student will be advanced to ' . $nextDestination . '.' }}"
                                     data-confirm-title="End Presentation Session"
                                     data-confirm-type="{{ $isFail ? 'danger' : 'success' }}"
                                     data-confirm-btn="{{ $isFail ? 'End & Repeat Milestone' : 'End Presentation' }}"

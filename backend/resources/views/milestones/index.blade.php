@@ -11,7 +11,7 @@
 @section('content')
 <div class="space-y-8 pb-20" id="milestones-page">
 <script>
-    var _expandedMilestone = '{{ $ongoingMilestoneId }}';
+    var _expandedMilestone = '{{ $expandedMilestoneId ?? $ongoingMilestoneId }}';
     function toggleMilestone(id) {
         var all = document.querySelectorAll('.milestone-body');
         all.forEach(function(el) {
@@ -274,10 +274,11 @@
                             </form>
                         @elseif(auth()->user()->can('review', $milestone))
                             @php
-                                $canQuickApprove = !$milestone->template->requires_submission || 
-                                                   ($milestone->submissions->last() && 
-                                                    $milestone->submissions->last()->feedback && 
-                                                    $milestone->submissions->last()->feedback->decision === 'approved');
+                                $lastSub = $milestone->submissions->sortBy('created_at')->last();
+                                $hasSubFbApproved = $lastSub && ($lastSub->relationLoaded('feedbacks') 
+                                    ? $lastSub->feedbacks->contains(fn($f) => $f->decision === 'approved') 
+                                    : ($lastSub->feedback?->decision === 'approved'));
+                                $canQuickApprove = !$milestone->template->requires_submission || $hasSubFbApproved;
                             @endphp
                             @if($canQuickApprove && $milestone->status !== 'approved')
                             <form action="{{ route('milestones.review.update', $milestone) }}" method="POST" class="inline-block relative z-20" onclick="event.stopPropagation();">

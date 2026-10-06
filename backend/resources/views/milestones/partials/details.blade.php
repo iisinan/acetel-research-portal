@@ -31,7 +31,7 @@
             <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST" class="inline">
                 @csrf
                 <button type="submit" 
-                    data-confirm="Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis->student->user?->name ?? 'User') }}? If all requirements are met (presentation conducted, PPT uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
+                    data-confirm="Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis?->student?->user?->name ?? 'Candidate') }}? If all requirements are met (presentation conducted, PPT uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
                     data-confirm-title="End Presentation Session"
                     data-confirm-type="success"
                     data-confirm-btn="End Presentation"
@@ -44,8 +44,8 @@
             </form>
             @endif
 
-            @if(auth()->id() !== $milestone->thesis->student->user_id && ($milestone->template->has_chat || $milestone->template->slug === 'supervisors_assigned'))
-            <button type="button" @click.prevent.stop="setTimeout(() => { showStudentMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($milestone->thesis->student->user?->name ?? 'User') }}; }, 50)" class="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl shadow-xl shadow-slate-200/40 transition-colors">
+            @if(auth()->id() !== ($milestone->thesis?->student?->user_id ?? null) && ($milestone->template?->has_chat || $milestone->template?->slug === 'supervisors_assigned'))
+            <button type="button" @click.prevent.stop="setTimeout(() => { showStudentMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($milestone->thesis?->student?->user?->name ?? 'Candidate') }}; }, 50)" class="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl shadow-xl shadow-slate-200/40 transition-colors">
                 <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
                 <span class="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Message Student</span>
             </button>
@@ -190,7 +190,7 @@
                                     <div class="flex items-center justify-between">
                                         @if(auth()->user()->hasRole('Admin') && $milestone->status !== 'approved' && $isDateExpired)
                                             <button type="button" 
-                                                onclick="if (confirm('Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis->student->user?->name ?? 'User') }}? If all requirements are met, the candidate will be advanced to the next milestone.')) { document.getElementById('end-pres-form-expired-{{ $milestone->id }}').submit(); }"
+                                                onclick="if (confirm('Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis?->student?->user?->name ?? 'Candidate') }}? If all requirements are met, the candidate will be advanced to the next milestone.')) { document.getElementById('end-pres-form-expired-{{ $milestone->id }}').submit(); }"
                                                 class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-[0.2em] rounded-xl active:scale-95 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer">
                                                 <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -273,7 +273,7 @@
                                     <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST" class="inline">
                                         @csrf
                                         <button type="submit" 
-                                            data-confirm="Are you sure you want to end the presentation for {{ addslashes($milestone->thesis->student->user?->name ?? 'User') }}? If all requirements are met (presentation conducted, PPT uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
+                                            data-confirm="Are you sure you want to end the presentation for {{ addslashes($milestone->thesis?->student?->user?->name ?? 'Candidate') }}? If all requirements are met (presentation conducted, PPT uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
                                             data-confirm-title="End Presentation Session"
                                             data-confirm-type="success"
                                             data-confirm-btn="End Presentation"
@@ -295,11 +295,15 @@
             <!-- Latest Feedback -->
             @if($milestone->status === 'revision_required' && auth()->user()->hasRole('Student'))
                 @php
-                    $rejectFeedback = \App\Models\Feedback::whereIn('submission_id', $milestone->submissions()->pluck('id'))
-                        ->where('decision', 'revision_required')
-                        ->latest()
-                        ->first();
-                    $rejectedBy = $rejectFeedback ? \App\Models\User::find($rejectFeedback->created_by) : null;
+                    $rejectFeedback = null;
+                    foreach ($milestone->submissions->sortByDesc('created_at') as $sub) {
+                        $fb = ($sub->relationLoaded('feedbacks') ? $sub->feedbacks : $sub->feedbacks()->get())
+                            ->where('decision', 'revision_required')
+                            ->sortByDesc('created_at')
+                            ->first();
+                        if ($fb) { $rejectFeedback = $fb; break; }
+                    }
+                    $rejectedBy = $rejectFeedback ? ($rejectFeedback->relationLoaded('author') ? $rejectFeedback->author : \App\Models\User::find($rejectFeedback->created_by)) : null;
                 @endphp
                 <div class="overflow-hidden rounded-2xl bg-red-50 border border-red-100 shadow-xl shadow-slate-200/40 relative mb-6">
                     <div class="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
