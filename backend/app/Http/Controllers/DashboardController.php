@@ -803,7 +803,7 @@ class DashboardController extends Controller
                 }
             } else {
                 $hasFeedbackApproved = $milestone->submissions()
-                    ->whereHas('feedback', fn($q) => $q->where('created_by', $userId)->where('decision', 'approved'))
+                    ->whereHas('feedbacks', fn($q) => $q->where('created_by', $userId)->where('decision', 'approved'))
                     ->exists();
                 if ($hasFeedbackApproved) {
                     return false;

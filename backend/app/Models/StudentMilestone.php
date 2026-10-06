@@ -336,7 +336,7 @@ class StudentMilestone extends Model
                             $isApproved = $this->status === 'approved'
                                 || (($approvalsArr['supervisor_reviews'][(string)$supUserId]['decision'] ?? null) === 'approved')
                                 || $userApprovals->where('user_id', $supUserId)->isNotEmpty()
-                                || $this->submissions()->whereHas('feedback', fn($q) => $q->where('created_by', $supUserId)->where('decision', 'approved'))->exists();
+                                || $this->submissions()->whereHas('feedbacks', fn($q) => $q->where('created_by', $supUserId)->where('decision', 'approved'))->exists();
                             $tasks[] = [
                                 'id' => 'supervisor_clearance_' . $assignment->id,
                                 'name' => "Clearance: " . ($assignment->supervisor?->user?->name ?? 'Supervisor'),
