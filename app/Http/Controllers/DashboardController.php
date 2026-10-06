@@ -184,7 +184,7 @@ class DashboardController extends Controller
                         $q->whereJsonContains('required_approvers', 'Supervisor');
                     })
                     ->whereNotNull('submitted_at')
-                    ->with(['thesis.student.user', 'template'])
+                    ->with(['thesis.student.user', 'template', 'thesis.assignments.supervisor.user', 'submissions.feedback'])
                     ->latest()
                     ->get()
                     ->filter(function($milestone) use ($user) {
@@ -715,6 +715,8 @@ class DashboardController extends Controller
      * - Standing approvals: if a supervisor already approved, it stands across re-uploads.
      * - Pending re-review: if supervisor requested revision and candidate re-uploaded, it needs re-review.
      * - Inactive during candidate revision: if status is revision_required, candidate must act first.
+     * - Upload acceptance completion: once a supervisor accepts upload or candidate is eligible to present
+     *   on presentation-gated milestones, no further supervisor review action is required.
      */
     private function isMilestonePendingReviewForUser($milestone, $userId, ?string $role = null): bool
     {
@@ -727,6 +729,10 @@ class DashboardController extends Controller
         }
 
         $approvals = $milestone->approvals ?? [];
+        if (is_string($approvals)) {
+            $approvals = json_decode($approvals, true) ?: [];
+        }
+
         $userIdStr = (string) $userId;
 
         // 1. Multi-supervisor review tracking
@@ -749,8 +755,78 @@ class DashboardController extends Controller
             }
         }
 
-        // 2. Role-keyed approval (e.g. 'Admin:1', 'Supervisor:2') or list of approval entries
+        // 2. Supervisor-specific checks (via MilestoneWorkflowService & Feedback)
+        if ($role === 'Supervisor' || empty($role)) {
+            $workflow = app(\App\Services\MilestoneWorkflowService::class);
+            $summary = $workflow->getSupervisorReviewSummary($milestone);
+
+            $myReview = collect($summary['supervisors'] ?? [])->firstWhere('user_id', (int) $userId);
+            if ($myReview) {
+                if ($myReview['status'] === 'approved') {
+                    return false;
+                }
+                if ($myReview['status'] === 'rejected') {
+                    return false;
+                }
+                if ($myReview['status'] === 'pending_re_review') {
+                    return true;
+                }
+                // If candidate is already eligible to present with 0 active rejections/re-reviews
+                if ($summary['is_eligible'] && $summary['approved_count'] > 0 && $summary['rejected_count'] === 0 && $summary['pending_rereview_count'] === 0) {
+                    return false;
+                }
+            }
+
+            // For presentation-gated milestones (proposal defence, progress report 1 & 2):
+            // The supervisor's role is upload acceptance. Once the milestone upload is accepted/eligible,
+            // candidate is cleared to present and supervisor mentorship review is complete.
+            if (in_array($milestone->template?->slug, \App\Services\MilestoneWorkflowService::PRESENTATION_GATED_SLUGS)) {
+                if ($workflow->isSupervisorApproved($milestone)) {
+                    return false;
+                }
+            }
+
+            // Direct check on submissions feedback for this supervisor
+            if ($milestone->relationLoaded('submissions')) {
+                $hasFeedbackApproved = $milestone->submissions->contains(function($sub) use ($userId) {
+                    if (!$sub->relationLoaded('feedback')) {
+                        return $sub->feedback()->where('created_by', $userId)->where('decision', 'approved')->exists();
+                    }
+                    $fb = $sub->feedback;
+                    if ($fb instanceof \Illuminate\Support\Collection) {
+                        return $fb->contains(fn($f) => $f->created_by == $userId && $f->decision === 'approved');
+                    }
+                    return $fb && $fb->created_by == $userId && $fb->decision === 'approved';
+                });
+                if ($hasFeedbackApproved) {
+                    return false;
+                }
+            } else {
+                $hasFeedbackApproved = $milestone->submissions()
+                    ->whereHas('feedbacks', fn($q) => $q->where('created_by', $userId)->where('decision', 'approved'))
+                    ->exists();
+                if ($hasFeedbackApproved) {
+                    return false;
+                }
+            }
+
+            // Direct check on is_supervisor_approved attribute/column
+            if (!empty($milestone->is_supervisor_approved)) {
+                if (!$myReview || $myReview['status'] !== 'pending_re_review') {
+                    return false;
+                }
+            }
+        }
+
+        // 3. Role-keyed approval (e.g. 'Admin:1', 'Supervisor:2') or list of approval entries
         if (is_array($approvals)) {
+            if ($role && isset($approvals["{$role}:{$userId}"])) {
+                $item = $approvals["{$role}:{$userId}"];
+                if (($item['decision'] ?? '') === 'approved' || !isset($item['decision'])) {
+                    return false;
+                }
+            }
+
             foreach ($approvals as $key => $item) {
                 if (is_array($item) && ($item['user_id'] ?? null) == $userId) {
                     if (($item['decision'] ?? '') === 'approved' || !isset($item['decision'])) {

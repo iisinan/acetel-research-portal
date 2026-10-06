@@ -331,7 +331,12 @@ class StudentMilestone extends Model
 
                     if ($activeSupervisors->count() > 0) {
                         foreach ($activeSupervisors as $assignment) {
-                            $isApproved = $userApprovals->where('user_id', $assignment->supervisor?->user_id)->isNotEmpty() || $this->status === 'approved';
+                            $supUserId = $assignment->supervisor?->user_id;
+                            $approvalsArr = is_string($this->approvals) ? json_decode($this->approvals, true) : ($this->approvals ?? []);
+                            $isApproved = $this->status === 'approved'
+                                || (($approvalsArr['supervisor_reviews'][(string)$supUserId]['decision'] ?? null) === 'approved')
+                                || $userApprovals->where('user_id', $supUserId)->isNotEmpty()
+                                || $this->submissions()->whereHas('feedbacks', fn($q) => $q->where('created_by', $supUserId)->where('decision', 'approved'))->exists();
                             $tasks[] = [
                                 'id' => 'supervisor_clearance_' . $assignment->id,
                                 'name' => "Clearance: " . ($assignment->supervisor?->user?->name ?? 'Supervisor'),
