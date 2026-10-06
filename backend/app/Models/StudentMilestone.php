@@ -134,8 +134,10 @@ class StudentMilestone extends Model
         }
 
         if ($slug === 'supervisors_assigned') {
-            $hasProposal = $this->submissions()->exists();
-            $hasSupervisors = $this->thesis?->assignments()->where('status', 'active')->exists();
+            $hasProposal = $this->relationLoaded('submissions') ? $this->submissions->isNotEmpty() : $this->submissions()->exists();
+            $hasSupervisors = ($this->thesis && $this->thesis->relationLoaded('assignments'))
+                ? $this->thesis->assignments->where('status', 'active')->isNotEmpty()
+                : $this->thesis?->assignments()->where('status', 'active')->exists();
             $isApproved = $this->status === 'approved';
 
             $tasks = [
@@ -175,7 +177,7 @@ class StudentMilestone extends Model
 
         if (in_array($slug, ['proposal_defence', 'progress_report_1', 'progress_report_2'])) {
             $workflow = app(\App\Services\MilestoneWorkflowService::class);
-            $hasUploaded = $workflow->hasUploadedPresentation($this) || $this->submissions()->exists();
+            $hasUploaded = $workflow->hasUploadedPresentation($this) || ($this->relationLoaded('submissions') ? $this->submissions->isNotEmpty() : $this->submissions()->exists());
             $isSupervisorApproved = $workflow->isSupervisorApproved($this);
             $isScheduled = !empty($this->defence_date);
             $presented = ($isScheduled && \Carbon\Carbon::parse($this->defence_date)->startOfDay()->lte(now()->startOfDay()))
@@ -242,7 +244,9 @@ class StudentMilestone extends Model
         
         // 1. Supervisor Assignment
         if ($this->template?->show_supervisor_assignment) {
-            $hasAssignments = $this->thesis?->assignments->where('status', 'active')->count() > 0;
+            $hasAssignments = ($this->thesis && $this->thesis->relationLoaded('assignments'))
+                ? $this->thesis->assignments->where('status', 'active')->isNotEmpty()
+                : ($this->thesis?->assignments()->where('status', 'active')->exists());
             $tasks[] = [
                 'id' => 'supervisor_allocation',
                 'name' => 'Supervisor Allocation',

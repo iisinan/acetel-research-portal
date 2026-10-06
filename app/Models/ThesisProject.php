@@ -166,6 +166,12 @@ class ThesisProject extends Model
 
     public function isAuditableByAdmin(): bool
     {
+        if ($this->relationLoaded('milestones')) {
+            return $this->milestones->contains(function ($m) {
+                return ($m->template?->order ?? 0) >= 6 && $m->status === 'approved';
+            });
+        }
+
         return $this->milestones()
             ->whereHas('template', function ($t) {
                 $t->where('order', '>=', 6);
@@ -175,6 +181,12 @@ class ThesisProject extends Model
 
     public function isPubliclyVisible(): bool
     {
+        if ($this->relationLoaded('milestones')) {
+            return $this->milestones->contains(function ($m) {
+                return !empty($m->template?->is_final_archival) && $m->status === 'approved';
+            });
+        }
+
         return $this->milestones()
             ->whereHas('template', function ($t) { $t->where('is_final_archival', true); })
             ->where('status', 'approved')
@@ -186,6 +198,15 @@ class ThesisProject extends Model
      */
     public function getLibraryCopyAttribute()
     {
+        if ($this->relationLoaded('milestones')) {
+            $milestone = $this->milestones->first(fn($m) => !empty($m->template?->is_final_archival));
+            if ($milestone) {
+                return $milestone->relationLoaded('submissions')
+                    ? $milestone->submissions->sortByDesc('created_at')->first()
+                    : $milestone->submissions()->latest()->first();
+            }
+        }
+
         $milestone = $this->milestones()
             ->whereHas('template', function ($t) { $t->where('is_final_archival', true); })
             ->first();
@@ -216,6 +237,17 @@ class ThesisProject extends Model
 
     public function getProgressPercentageAttribute()
     {
+        if ($this->relationLoaded('milestones')) {
+            $total = $this->milestones->count();
+            if ($total === 0) return 0;
+
+            $approved = $this->milestones
+                ->where('status', 'approved')
+                ->count();
+
+            return round(($approved / $total) * 100);
+        }
+
         $total = $this->milestones()->count();
         if ($total === 0) return 0;
         

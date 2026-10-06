@@ -236,7 +236,7 @@ class MilestoneWorkflowService
         }
 
         try {
-            if (static::$hasSeminarGradesTable ??= \Illuminate\Support\Facades\Schema::hasTable('seminar_grades')) {
+            if ($type && (static::$hasSeminarGradesTable ??= \Illuminate\Support\Facades\Schema::hasTable('seminar_grades'))) {
                 if (\Illuminate\Support\Facades\DB::table('seminar_grades')->where('student_milestone_id', (string) $milestone->id)->exists()) {
                     return true;
                 }

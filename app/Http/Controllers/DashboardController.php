@@ -165,9 +165,8 @@ class DashboardController extends Controller
                     'assignments.thesis.student.user', 
                     'assignments.thesis.student.program', 
                     'assignments.thesis.student.level',
-                    'assignments.thesis.currentMilestone.template',
                     'assignments.thesis.milestones.template', 
-                    'assignments.thesis.milestones.submissions',
+                    'assignments.thesis.milestones.submissions.feedbacks',
                     'programs'
                 ])
                 ->first();
@@ -184,7 +183,7 @@ class DashboardController extends Controller
                         $q->whereJsonContains('required_approvers', 'Supervisor');
                     })
                     ->whereNotNull('submitted_at')
-                    ->with(['thesis.student.user', 'template', 'thesis.assignments.supervisor.user', 'submissions.feedback'])
+                    ->with(['thesis.student.user', 'template', 'thesis.assignments.supervisor.user', 'submissions.feedbacks'])
                     ->latest()
                     ->get()
                     ->filter(function($milestone) use ($user) {
@@ -201,7 +200,12 @@ class DashboardController extends Controller
                     $s->overall_progress = $a->thesis->progress_percentage;
                     $s->thesis_title = $a->thesis->title ?? 'Postgraduate Thesis Investigation';
                     $s->assignment_role = $a->role ?? 'Supervisor';
-                    $currentM = $a->thesis->currentMilestone;
+                    $currentM = $a->thesis->relationLoaded('milestones')
+                        ? $a->thesis->milestones
+                            ->filter(fn($m) => !in_array($m->status, ['completed', 'approved']))
+                            ->sortBy(fn($m) => $m->template?->order ?? 999)
+                            ->first()
+                        : $a->thesis->currentMilestone;
                     $s->current_milestone_name = $currentM?->template?->name ?? 'Initiation Phase';
                     $s->current_milestone_order = $currentM?->template?->order ?? 1;
                     $s->has_pending_review = in_array($a->thesis_project_id, $pendingSupervisorMilestoneThesisIds);
@@ -310,16 +314,20 @@ class DashboardController extends Controller
                 ->get();
 
             $denom = $totalCoordStudents ?: 1;
+            $approvedCounts = \App\Models\StudentMilestone::whereHas('thesis.student', function($q) use ($user) {
+                    $q->forCoordinator($user);
+                })
+                ->where('student_milestones.status', 'approved')
+                ->join('milestone_templates', 'student_milestones.milestone_template_id', '=', 'milestone_templates.id')
+                ->whereIn('milestone_templates.order', [1, 2, 6])
+                ->groupBy('milestone_templates.order')
+                ->selectRaw('milestone_templates.order, count(*) as count')
+                ->pluck('count', 'order');
+
             $coordinatorClearanceMetrics = [
-                'm1' => round((\App\Models\StudentMilestone::whereHas('thesis.student', function($q) use ($user) {
-                        $q->forCoordinator($user);
-                    })->whereHas('template', fn($q) => $q->where('order', 1))->where('status', 'approved')->count() / $denom) * 100),
-                'm2' => round((\App\Models\StudentMilestone::whereHas('thesis.student', function($q) use ($user) {
-                        $q->forCoordinator($user);
-                    })->whereHas('template', fn($q) => $q->where('order', 2))->where('status', 'approved')->count() / $denom) * 100),
-                'm6' => round((\App\Models\StudentMilestone::whereHas('thesis.student', function($q) use ($user) {
-                        $q->forCoordinator($user);
-                    })->whereHas('template', fn($q) => $q->where('order', 6))->where('status', 'approved')->count() / $denom) * 100),
+                'm1' => round((($approvedCounts->get(1, 0)) / $denom) * 100),
+                'm2' => round((($approvedCounts->get(2, 0)) / $denom) * 100),
+                'm6' => round((($approvedCounts->get(6, 0)) / $denom) * 100),
             ];
 
             $coordinatorStats = [
@@ -416,11 +424,11 @@ class DashboardController extends Controller
                 $q->orWhereHas('thesis.student', fn($sq) => $sq->forCoordinator($user));
             }
             if ($isInternalExaminer) {
-                $internalIds = $user->internalExaminerProfiles()->pluck('id')->toArray();
+                $internalIds = $internalProfileIds ?? $user->internalExaminerProfiles()->pluck('id')->toArray();
                 $q->orWhereHas('thesis', fn($sq) => $sq->whereIn('internal_examiner_profile_id', $internalIds));
             }
             if ($isExternalExaminer) {
-                $externalIds = $user->externalExaminerProfiles()->pluck('id')->toArray();
+                $externalIds = $externalProfileIds ?? $user->externalExaminerProfiles()->pluck('id')->toArray();
                 $q->orWhereHas('thesis', fn($sq) => $sq->whereIn('external_examiner_profile_id', $externalIds));
             }
         })
@@ -433,7 +441,9 @@ class DashboardController extends Controller
         $data['upcomingDefences'] = $upcomingDefences;
 
         // 7. GLOBAL MILESTONE TEMPLATES (for milestone jump)
-        $data['milestone_templates'] = \App\Models\MilestoneTemplate::orderBy('order')->get();
+        $data['milestone_templates'] = \Illuminate\Support\Facades\Cache::remember('all_milestone_templates', 3600, function() {
+            return \App\Models\MilestoneTemplate::orderBy('order')->get();
+        });
 
         // 7. AGGREGATED STATS MATRIX
         $unreadCounts = $this->getUnreadMessagesCount($user);
@@ -789,14 +799,17 @@ class DashboardController extends Controller
             // Direct check on submissions feedback for this supervisor
             if ($milestone->relationLoaded('submissions')) {
                 $hasFeedbackApproved = $milestone->submissions->contains(function($sub) use ($userId) {
-                    if (!$sub->relationLoaded('feedback')) {
-                        return $sub->feedback()->where('created_by', $userId)->where('decision', 'approved')->exists();
+                    if ($sub->relationLoaded('feedbacks')) {
+                        return $sub->feedbacks->contains(fn($f) => $f->created_by == $userId && $f->decision === 'approved');
                     }
-                    $fb = $sub->feedback;
-                    if ($fb instanceof \Illuminate\Support\Collection) {
-                        return $fb->contains(fn($f) => $f->created_by == $userId && $f->decision === 'approved');
+                    if ($sub->relationLoaded('feedback')) {
+                        $fb = $sub->feedback;
+                        if ($fb instanceof \Illuminate\Support\Collection) {
+                            return $fb->contains(fn($f) => $f->created_by == $userId && $f->decision === 'approved');
+                        }
+                        return $fb && $fb->created_by == $userId && $fb->decision === 'approved';
                     }
-                    return $fb && $fb->created_by == $userId && $fb->decision === 'approved';
+                    return $sub->feedbacks()->where('created_by', $userId)->where('decision', 'approved')->exists();
                 });
                 if ($hasFeedbackApproved) {
                     return false;
