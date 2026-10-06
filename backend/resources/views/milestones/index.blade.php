@@ -256,12 +256,6 @@
                     </div>
                     
                     <div class="flex items-center gap-2 md:gap-8 shrink-0">
-                        @if($milestone->due_date && !str_contains(strtolower($milestone->template?->name ?? ''), 'viva'))
-                            <div class="hidden lg:flex flex-col items-end">
-                                <span class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">Deadline</span>
-                                <span class="text-sm font-bold text-gray-900">{{ $milestone->due_date->format('M d, Y') }}</span>
-                            </div>
-                        @endif
 
                         @if(auth()->user()->hasRole('Admin') && $milestone->status !== 'approved' && (!empty($milestone->defence_date) || in_array($milestone->template?->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2'])))
                             <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST" class="inline-block relative z-20" onclick="event.stopPropagation();">
