@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 
 @section('content')
 <div class="min-h-[80vh] flex flex-col items-center justify-center px-6 py-12">
@@ -21,15 +21,15 @@
         </div>
         
         <div class="relative z-10 mt-10">
-            <button onclick="window.location.reload()" class="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-brand-600 text-white rounded-xl font-bold uppercase tracking-widest text-sm hover:bg-brand-700 hover:shadow-md transition-all shadow-sm active:scale-95">
+            <button onclick="window.location.href = window.location.pathname" class="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-brand-600 text-white rounded-xl font-bold uppercase tracking-widest text-sm hover:bg-brand-700 hover:shadow-md transition-all shadow-sm active:scale-95">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
                 Refresh Page
             </button>
             
-            <a href="{{ url('/') }}" class="inline-flex items-center justify-center gap-2 px-6 py-3.5 mt-4 w-full text-brand-600 bg-white border-2 border-brand-100 rounded-xl font-bold uppercase tracking-widest text-sm hover:bg-brand-50 hover:shadow-md transition-all shadow-sm active:scale-95">
-                Return Home
+            <a href="{{ route('login') }}" class="inline-flex items-center justify-center gap-2 px-6 py-3.5 mt-4 w-full text-brand-600 bg-white border-2 border-brand-100 rounded-xl font-bold uppercase tracking-widest text-sm hover:bg-brand-50 hover:shadow-md transition-all shadow-sm active:scale-95">
+                Return to Login
             </a>
         </div>
     </div>
