@@ -35,7 +35,7 @@ class AppServiceProvider extends ServiceProvider
         \Illuminate\Support\Facades\Gate::policy(DefenceEvent::class, \App\Policies\DefenceEventPolicy::class);
         \Illuminate\Support\Facades\Gate::policy(ThesisProject::class, \App\Policies\ThesisProjectPolicy::class);
         
-        if(env('FORCE_HTTPS', false)) {
+        if (app()->environment('production') || env('FORCE_HTTPS', false) || str_starts_with(env('APP_URL', ''), 'https://')) {
             \Illuminate\Support\Facades\URL::forceScheme('https');
         }
     }
