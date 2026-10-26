@@ -12,9 +12,6 @@ use Exception;
 
 class MilestoneWorkflowService
 {
-    protected static ?bool $hasSeminarGradesTable = null;
-    protected array $reviewSummaryCache = [];
-
     /**
      * Check if a milestone can be transitioned based on business rules.
      */
@@ -212,37 +209,19 @@ class MilestoneWorkflowService
             'progress_report_2' => 'progress_report_2',
             default => null,
         };
+        $events = $milestone->thesis?->defenceEvents()
+            ->when($type, fn($q) => $q->where('type', $type))
+            ->withCount('evaluations')
+            ->get() ?? collect();
 
-        if ($milestone->thesis?->relationLoaded('defenceEvents')) {
-            $events = $milestone->thesis->defenceEvents;
-            if ($type) {
-                $events = $events->where('type', $type);
-            }
-            $hasEval = $events->contains(function($e) {
-                return ($e->relationLoaded('evaluations') ? $e->evaluations->count() : $e->evaluations()->count()) > 0;
-            });
-            if ($hasEval) {
-                return true;
-            }
-        } else {
-            $events = $milestone->thesis?->defenceEvents()
-                ->when($type, fn($q) => $q->where('type', $type))
-                ->withCount('evaluations')
-                ->get() ?? collect();
-
-            if ($events->sum('evaluations_count') > 0) {
-                return true;
-            }
+        if ($events->sum('evaluations_count') > 0) {
+            return true;
         }
 
-        try {
-            if ($type && (static::$hasSeminarGradesTable ??= \Illuminate\Support\Facades\Schema::hasTable('seminar_grades'))) {
-                if (\Illuminate\Support\Facades\DB::table('seminar_grades')->where('student_milestone_id', (string) $milestone->id)->exists()) {
-                    return true;
-                }
+        if (\Illuminate\Support\Facades\Schema::hasTable('seminar_grades')) {
+            if (\Illuminate\Support\Facades\DB::table('seminar_grades')->where('student_milestone_id', $milestone->id)->exists()) {
+                return true;
             }
-        } catch (\Throwable $e) {
-            // Ignore missing table or SQL type mismatches
         }
 
         return false;
@@ -291,11 +270,6 @@ class MilestoneWorkflowService
      */
     public function getSupervisorReviewSummary(StudentMilestone $milestone): array
     {
-        $milestoneId = (string) $milestone->id;
-        if (isset($this->reviewSummaryCache[$milestoneId])) {
-            return $this->reviewSummaryCache[$milestoneId];
-        }
-
         $approvals = $milestone->approvals ?? [];
         $reviews = $approvals['supervisor_reviews'] ?? [];
 
@@ -308,11 +282,10 @@ class MilestoneWorkflowService
             $hasAnyFeedbackApproved = false;
             if ($milestone->relationLoaded('submissions')) {
                 foreach ($milestone->submissions as $sub) {
-                    if ($sub->relationLoaded('feedback')) {
-                        $fbs = $sub->feedback instanceof \Illuminate\Support\Collection ? $sub->feedback : collect([$sub->feedback])->filter();
-                        if ($fbs->contains(fn($f) => $f->decision === 'approved')) { $hasAnyFeedbackApproved = true; break; }
-                    } elseif ($sub->relationLoaded('feedbacks')) {
+                    if ($sub->relationLoaded('feedbacks')) {
                         if ($sub->feedbacks->contains(fn($f) => $f->decision === 'approved')) { $hasAnyFeedbackApproved = true; break; }
+                    } elseif ($sub->relationLoaded('feedback') && $sub->feedback) {
+                        if ($sub->feedback->decision === 'approved') { $hasAnyFeedbackApproved = true; break; }
                     } else {
                         if ($sub->feedbacks()->where('decision', 'approved')->exists()) { $hasAnyFeedbackApproved = true; break; }
                     }
@@ -324,7 +297,7 @@ class MilestoneWorkflowService
             $isDirectlyApproved = !empty($milestone->getRawOriginal('is_supervisor_approved'))
                 || $hasAnyFeedbackApproved;
 
-            $result = [
+            return [
                 'has_supervisors' => false,
                 'total_assigned' => 0,
                 'approved_count' => $isDirectlyApproved ? 1 : 0,
@@ -335,8 +308,6 @@ class MilestoneWorkflowService
                 'status_label' => $isDirectlyApproved ? 'Approved' : 'Pending',
                 'supervisors' => [],
             ];
-            $this->reviewSummaryCache[$milestoneId] = $result;
-            return $result;
         }
 
         $supervisorsList = [];
@@ -370,16 +341,16 @@ class MilestoneWorkflowService
                 // Fallback: check historical feedback for this user
                 $hasFeedbackApproved = false;
                 $hasFeedbackRejected = false;
-                
+
                 if ($milestone->relationLoaded('submissions')) {
                     foreach ($milestone->submissions as $sub) {
-                        if ($sub->relationLoaded('feedback')) {
-                            $fbs = $sub->feedback instanceof \Illuminate\Support\Collection ? $sub->feedback : collect([$sub->feedback])->filter();
-                            if ($fbs->contains(fn($f) => $f->created_by == $supUser->id && $f->decision === 'approved')) { $hasFeedbackApproved = true; }
-                            if ($fbs->contains(fn($f) => $f->created_by == $supUser->id && $f->decision === 'revision_required')) { $hasFeedbackRejected = true; }
-                        } elseif ($sub->relationLoaded('feedbacks')) {
+                        if ($sub->relationLoaded('feedbacks')) {
                             if ($sub->feedbacks->contains(fn($f) => $f->created_by == $supUser->id && $f->decision === 'approved')) { $hasFeedbackApproved = true; }
                             if ($sub->feedbacks->contains(fn($f) => $f->created_by == $supUser->id && $f->decision === 'revision_required')) { $hasFeedbackRejected = true; }
+                        } elseif ($sub->relationLoaded('feedback') && $sub->feedback) {
+                            $fb = $sub->feedback;
+                            if ($fb->created_by == $supUser->id && $fb->decision === 'approved') { $hasFeedbackApproved = true; }
+                            if ($fb->created_by == $supUser->id && $fb->decision === 'revision_required') { $hasFeedbackRejected = true; }
                         } else {
                             if ($sub->feedbacks()->where('created_by', $supUser->id)->where('decision', 'approved')->exists()) { $hasFeedbackApproved = true; }
                             if ($sub->feedbacks()->where('created_by', $supUser->id)->where('decision', 'revision_required')->exists()) { $hasFeedbackRejected = true; }
@@ -431,7 +402,7 @@ class MilestoneWorkflowService
             $statusLabel = 'Approved (' . $approvedCount . '/' . count($supervisorsList) . ')';
         }
 
-        $result = [
+        return [
             'has_supervisors' => true,
             'total_assigned' => count($supervisorsList),
             'approved_count' => $approvedCount,
@@ -442,8 +413,6 @@ class MilestoneWorkflowService
             'status_label' => $statusLabel,
             'supervisors' => $supervisorsList,
         ];
-        $this->reviewSummaryCache[$milestoneId] = $result;
-        return $result;
     }
 
     /**
@@ -451,29 +420,24 @@ class MilestoneWorkflowService
      */
     public function recordSupervisorReview(StudentMilestone $milestone, \App\Models\User $user, string $decision, ?string $remarks = null): array
     {
-        $submissions = $milestone->submissions()->get();
+        $submission = $milestone->submissions()->latest()->first();
 
-        // 1. Record feedback per supervisor across all milestone submissions
-        if ($submissions->isNotEmpty()) {
-            foreach ($submissions as $sub) {
-                \App\Models\Feedback::updateOrCreate(
-                    [
-                        'submission_id' => $sub->id,
-                        'created_by' => $user->id,
-                    ],
-                    [
-                        'decision' => ($decision === 'approved') ? 'approved' : 'revision_required',
-                        'remarks' => $remarks,
-                    ]
-                );
-            }
+        // 1. Record feedback per supervisor
+        if ($submission) {
+            \App\Models\Feedback::updateOrCreate(
+                [
+                    'submission_id' => $submission->id,
+                    'created_by' => $user->id,
+                ],
+                [
+                    'decision' => ($decision === 'approved') ? 'approved' : 'revision_required',
+                    'remarks' => $remarks,
+                ]
+            );
         }
 
         // 2. Store supervisor review in milestone approvals JSON
         $approvals = $milestone->approvals ?? [];
-        if (is_string($approvals)) {
-            $approvals = json_decode($approvals, true) ?: [];
-        }
         $reviews = $approvals['supervisor_reviews'] ?? [];
         $reviews[(string) $user->id] = [
             'user_id' => $user->id,
@@ -481,7 +445,7 @@ class MilestoneWorkflowService
             'decision' => ($decision === 'approved') ? 'approved' : 'rejected',
             'remarks' => $remarks,
             'reviewed_at' => now()->toDateTimeString(),
-            'submission_id' => $submissions->first()?->id,
+            'submission_id' => $submission?->id,
         ];
         $approvals['supervisor_reviews'] = $reviews;
         $milestone->approvals = $approvals;
@@ -507,8 +471,6 @@ class MilestoneWorkflowService
         if ($studentUser) {
             \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
         }
-
-        unset($this->reviewSummaryCache[(string) $milestone->id]);
 
         return $this->getSupervisorReviewSummary($milestone);
     }
@@ -540,8 +502,6 @@ class MilestoneWorkflowService
             $milestone->approvals = $approvals;
         }
 
-        unset($this->reviewSummaryCache[(string) $milestone->id]);
-
         // Re-compute eligibility
         $milestone->is_supervisor_approved = $this->computeSupervisorApprovalEligibility($milestone);
         $milestone->save();
@@ -552,17 +512,13 @@ class MilestoneWorkflowService
      */
     public function hasUploadedPresentation(StudentMilestone $milestone): bool
     {
-        $subs = $milestone->relationLoaded('submissions') ? $milestone->submissions : $milestone->submissions()->get();
-        if ($subs->isEmpty()) {
-            return false;
-        }
-
         // 1. Direct type match
-        if ($subs->contains(fn($s) => in_array($s->type, ['ppt', 'presentation']))) {
+        if ($milestone->submissions()->whereIn('type', ['ppt', 'presentation'])->exists()) {
             return true;
         }
 
         // 2. Scan submissions case-insensitively
+        $subs = $milestone->submissions()->get();
         foreach ($subs as $sub) {
             $desc = strtolower($sub->description ?? '');
             $url = strtolower($sub->file_url ?? '');
@@ -577,7 +533,11 @@ class MilestoneWorkflowService
         }
 
         // 3. Fallback: Any submission uploaded for this milestone (manuscript, proposal document, etc.)
-        return true;
+        if ($milestone->submissions()->exists()) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -643,25 +603,17 @@ class MilestoneWorkflowService
             default => null,
         };
 
-        if ($milestone->thesis?->relationLoaded('defenceEvents')) {
-            $events = $milestone->thesis->defenceEvents;
-            if ($type) {
-                $events = $events->where('type', $type);
-            }
-        } else {
-            $events = \App\Models\DefenceEvent::where('thesis_project_id', $milestone->thesis_project_id);
-            if ($type) {
-                $events->where('type', $type);
-            }
-            $events = $events->with('evaluations')->get();
+        $events = \App\Models\DefenceEvent::where('thesis_project_id', $milestone->thesis_project_id);
+        if ($type) {
+            $events->where('type', $type);
         }
+        $events = $events->with('evaluations')->get();
 
         $passCount = 0;
         $failCount = 0;
 
         foreach ($events as $event) {
-            $evals = $event->relationLoaded('evaluations') ? $event->evaluations : $event->evaluations()->get();
-            foreach ($evals as $eval) {
+            foreach ($event->evaluations as $eval) {
                 $verdict = strtolower($eval->score['verdict'] ?? $eval->recommendation ?? '');
                 if ($verdict === 'pass') {
                     $passCount++;

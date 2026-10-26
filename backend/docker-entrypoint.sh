@@ -77,9 +77,9 @@ try {
 
 # ── Start Queue Worker (Background) ──
 echo "=== Starting Background Queue Worker ==="
-php artisan queue:work --sleep=3 --tries=3 &
+php -d max_execution_time=0 artisan queue:work --sleep=3 --tries=3 &
 
 # ── Start Laravel Octane ─────────────────────────────────────────
 echo "=== Starting application server (Laravel Octane + FrankenPHP) ==="
 export PORT="${PORT:-8000}"
-exec php artisan octane:start --server=frankenphp --host=0.0.0.0 --port=$PORT --workers=auto --task-workers=auto --max-requests=500
+exec php -d max_execution_time=0 artisan octane:start --server=frankenphp --host=0.0.0.0 --port=$PORT --workers=${OCTANE_WORKERS:-2} --task-workers=${OCTANE_TASK_WORKERS:-2} --max-requests=500

@@ -15,87 +15,58 @@ class MilestoneController extends Controller
      */
     public function index(Request $request)
     {
-        @ini_set('max_execution_time', '180');
-        if (function_exists('set_time_limit')) {
-            @set_time_limit(180);
-        }
+        $user = Auth::user();
+        $thesis = null;
 
-        try {
-            $user = Auth::user();
-            $thesis = null;
-
-            if ($user->hasRole('Student')) {
-                $student = $user->studentProfile;
-                if (!$student || !$student->thesis) {
-                    return redirect()->route('dashboard')->with('error', 'No active thesis found.');
-                }
-                $thesis = $student->thesis;
-            } elseif ($user->hasRole(['Supervisor', 'Program Coordinator', 'Internal Examiner', 'Admin'])) {
-                $thesisId = $request->query('thesis_id');
-                if (!$thesisId) {
-                    return redirect()->route('dashboard')->with('error', 'No thesis specified.');
-                }
-                $thesis = \App\Models\ThesisProject::findOrFail($thesisId);
-                
-                // Basic security check: Is the user authorized for this thesis?
-                $isAuthorized = false;
-                if ($user->hasRole('Admin')) $isAuthorized = true;
-                if ($user->hasRole('Supervisor') && $thesis->assignments()->where('supervisor_profile_id', '=', $user->supervisorProfile?->id)->exists()) $isAuthorized = true;
-                if ($user->hasRole('Internal Examiner') && $user->internalExaminerProfiles()->where('id', $thesis->internal_examiner_profile_id)->exists()) $isAuthorized = true;
-                if ($user->hasRole('Program Coordinator')) {
-                    if ($thesis->student && $user->coordinatorProfiles()->where('program_id', '=', $thesis->student->program_id)->exists()) {
-                        $isAuthorized = true;
-                    }
-                }
-
-                if (!$isAuthorized) {
-                    return redirect()->route('dashboard')->with('error', 'Unauthorized access to this thesis.');
+        if ($user->hasRole('Student')) {
+            $student = $user->studentProfile;
+            if (!$student || !$student->thesis) {
+                  return redirect()->route('dashboard')->with('error', 'No active thesis found.');
+            }
+            $thesis = $student->thesis;
+        } elseif ($user->hasRole(['Supervisor', 'Program Coordinator', 'Internal Examiner', 'Admin'])) {
+            $thesisId = $request->query('thesis_id');
+            if (!$thesisId) {
+                return redirect()->route('dashboard')->with('error', 'No thesis specified.');
+            }
+            $thesis = \App\Models\ThesisProject::findOrFail($thesisId);
+            
+            // Basic security check: Is the user authorized for this thesis?
+            // (In a real app, use a Policy, but for now we'll check relations)
+            $isAuthorized = false;
+            if ($user->hasRole('Admin')) $isAuthorized = true;
+            if ($user->hasRole('Supervisor') && $thesis->assignments()->where('supervisor_profile_id', '=', $user->supervisorProfile?->id)->exists()) $isAuthorized = true;
+            if ($user->hasRole('Internal Examiner') && $user->internalExaminerProfiles()->where('id', $thesis->internal_examiner_profile_id)->exists()) $isAuthorized = true;
+            if ($user->hasRole('Program Coordinator')) {
+                if ($thesis->student && $user->coordinatorProfiles()->where('program_id', '=', $thesis->student->program_id)->exists()) {
+                    $isAuthorized = true;
                 }
             }
 
-            if ($thesis) {
-                $thesis->load([
-                    'student.user',
-                    'student.program',
-                    'student.level',
-                    'assignments.supervisor.user',
-                    'internalExaminer.user',
-                    'defenceEvents.evaluations',
-                    'defenceEvents.panelMembers.user',
-                ]);
+            if (!$isAuthorized) {
+                return redirect()->route('dashboard')->with('error', 'Unauthorized access to this thesis.');
+            }
+        }
+
+        if ($thesis) {
+            try {
+                $thesis->load(['student.user', 'assignments.supervisor.user', 'internalExaminer.user']);
                 
                 $milestones = $thesis->milestones()
-                    ->with([
-                        'template',
-                        'submissions.submittedBy',
-                        'submissions.feedbacks',
-                        'messages.sender',
-                        'unlockedBy'
-                    ])
+                    ->with(['template', 'submissions.submittedBy', 'submissions.feedback', 'submissions.feedbacks', 'messages.sender', 'unlockedBy'])
                     ->get()
                     ->sortBy('template.order');
 
                 $templatesCount = \App\Models\MilestoneTemplate::whereNull('program_id')
-                    ->orWhere('program_id', $thesis->student?->program_id)
+                    ->orWhere('program_id', $thesis->student->program_id ?? null)
                     ->count();
 
                 if ($milestones->count() < $templatesCount || $milestones->isEmpty()) {
                     $thesis->syncMilestones();
                     $milestones = $thesis->milestones()
-                        ->with([
-                            'template',
-                            'submissions.submittedBy',
-                            'submissions.feedbacks',
-                            'messages.sender',
-                            'unlockedBy'
-                        ])
+                        ->with(['template', 'submissions.submittedBy', 'submissions.feedback', 'submissions.feedbacks', 'messages.sender', 'unlockedBy'])
                         ->get()
                         ->sortBy('template.order');
-                }
-
-                // Link parent relation on all milestones so in-memory queries never trigger lazy loading
-                foreach ($milestones as $m) {
-                    $m->setRelation('thesis', $thesis);
                 }
                 
                 // Get supervisors
@@ -117,7 +88,7 @@ class MilestoneController extends Controller
 
                 // All supervisors for assignment (Coordinators/Admins only) - Restricted by Program Scope
                 $allSupervisors = collect();
-                if ($user->hasAnyRole(['Program Coordinator', 'Admin']) && $thesis->student && $thesis->student->program_id) {
+                if ($user->hasAnyRole(['Program Coordinator', 'Admin']) && $thesis->student) {
                     $allSupervisors = \App\Models\SupervisorProfile::with('user')
                         ->whereHas('programs', function($q) use ($thesis) {
                             $q->where('programs.id', $thesis->student->program_id);
@@ -134,32 +105,17 @@ class MilestoneController extends Controller
                     }
                 }
 
-                $expandedMilestoneId = $request->query('expanded') ?: $ongoingMilestoneId;
-
-                return view('milestones.index', compact(
-                    'milestones',
-                    'supervisors',
-                    'coordinators',
-                    'thesis',
-                    'internalExaminer',
-                    'allSupervisors',
-                    'ongoingMilestoneId',
-                    'expandedMilestoneId'
-                ));
+                return view('milestones.index', compact('milestones', 'supervisors', 'coordinators', 'thesis', 'internalExaminer', 'allSupervisors', 'ongoingMilestoneId'));
+            } catch (\Throwable $e) {
+                \Log::error('Milestones index failed: ' . $e->getMessage(), ['file' => $e->getFile(), 'line' => $e->getLine(), 'trace' => $e->getTraceAsString()]);
+                if ($user->hasRole('Admin')) {
+                    return response('<pre style="white-space:pre-wrap;font-size:12px;background:#fef2f2;color:#991b1b;padding:16px;border-radius:12px;">' . e(get_class($e) . ': ' . $e->getMessage() . "\n" . $e->getFile() . ':' . $e->getLine()) . '</pre>', 500);
+                }
+                throw $e;
             }
-            
-            return redirect()->route('dashboard');
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('Error loading milestones: ' . $e->getMessage(), [
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'thesis_id' => $request->query('thesis_id'),
-                'user_id' => Auth::id(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return redirect()->route('dashboard')->with('error', 'Unable to load milestone workspace right now. The error has been logged. Please try again.');
         }
+        
+        return redirect()->route('dashboard');
     }
 
     /**
@@ -172,12 +128,18 @@ class MilestoneController extends Controller
             abort(403, 'Unauthorized. Only the assigned supervisor or an administrator can review uploaded documents.');
         }
 
+        $request->validate([
+            'remarks' => 'required|string|max:2000'
+        ], [
+            'remarks.required' => 'A comment is required to explain your decision.'
+        ]);
+
         $workflowService = app(\App\Services\MilestoneWorkflowService::class);
         $summary = $workflowService->recordSupervisorReview(
             $milestone,
             $user,
             'approved',
-            $request->input('remarks', 'Document accepted by supervisor.')
+            $request->input('remarks')
         );
 
         $workflowService->notifyUpdate($milestone, "Supervisor {$user->name} accepted the uploaded document for: {$milestone->template->name}");
@@ -196,14 +158,18 @@ class MilestoneController extends Controller
             abort(403, 'Unauthorized. Only the assigned supervisor or an administrator can review uploaded documents.');
         }
 
-        $remarks = $request->input('remarks', 'Document requires revision. Please check supervisor notes and upload a new version.');
+        $request->validate([
+            'remarks' => 'required|string|max:2000'
+        ], [
+            'remarks.required' => 'A comment is required to explain your decision.'
+        ]);
 
         $workflowService = app(\App\Services\MilestoneWorkflowService::class);
         $workflowService->recordSupervisorReview(
             $milestone,
             $user,
             'rejected',
-            $remarks
+            $request->input('remarks')
         );
 
         $workflowService->notifyUpdate($milestone, "Supervisor {$user->name} requested revisions for: {$milestone->template->name}");
