@@ -62,13 +62,13 @@ x-init="
         Inbox
         @php
             $unreadInbox = 0;
-            if (\Illuminate\Support\Facades\Schema::hasTable('inbox_message_recipients')) {
+            try {
                 $unreadInbox = \Illuminate\Support\Facades\DB::table('inbox_message_recipients')
                     ->where('user_id', auth()->id())
                     ->whereNull('read_at')
                     ->where('is_archived', false)
                     ->count();
-            }
+            } catch (\Throwable $e) {}
         @endphp
         @if($unreadInbox > 0)
             <span class="ml-auto px-2 py-0.5 bg-primary-500 text-white text-[9px] font-black rounded-full leading-none shadow-sm shadow-primary-500/30 animate-blink">{{ $unreadInbox }}</span>
@@ -88,8 +88,10 @@ x-init="
 
 <!-- Milestone Presentations (Visible to All Users when a Schedule is Active) -->
 @php
-    $activePresentations = \App\Models\MilestoneTemplate::getActivePresentations();
     $todayStr = now()->toDateString();
+    $activePresentations = \Illuminate\Support\Facades\Cache::remember('sidebar_active_pres_' . $todayStr, 60, function() {
+        return \App\Models\MilestoneTemplate::getActivePresentations();
+    });
     $anyLiveToday = $activePresentations->contains(function ($pt) use ($todayStr) {
         return $pt->studentMilestones
             ->where('status', '!=', 'approved')

@@ -274,14 +274,28 @@ class MilestoneWorkflowService
         $reviews = $approvals['supervisor_reviews'] ?? [];
 
         // Active supervisor assignments for this thesis
-        $assignments = $milestone->thesis?->assignments()
-            ->where('status', 'active')
-            ->with(['supervisor.user'])
-            ->get() ?? collect();
+        $assignments = $milestone->thesis?->relationLoaded('assignments')
+            ? $milestone->thesis->assignments->where('status', 'active')
+            : ($milestone->thesis?->assignments()->where('status', 'active')->with(['supervisor.user'])->get() ?? collect());
 
         if ($assignments->isEmpty()) {
+            $hasAnyFeedbackApproved = false;
+            if ($milestone->relationLoaded('submissions')) {
+                foreach ($milestone->submissions as $sub) {
+                    if ($sub->relationLoaded('feedbacks')) {
+                        if ($sub->feedbacks->contains(fn($f) => $f->decision === 'approved')) { $hasAnyFeedbackApproved = true; break; }
+                    } elseif ($sub->relationLoaded('feedback') && $sub->feedback) {
+                        if ($sub->feedback->decision === 'approved') { $hasAnyFeedbackApproved = true; break; }
+                    } else {
+                        if ($sub->feedbacks()->where('decision', 'approved')->exists()) { $hasAnyFeedbackApproved = true; break; }
+                    }
+                }
+            } else {
+                $hasAnyFeedbackApproved = $milestone->submissions()->whereHas('feedbacks', fn($q) => $q->where('decision', 'approved'))->exists();
+            }
+
             $isDirectlyApproved = !empty($milestone->getRawOriginal('is_supervisor_approved'))
-                || $milestone->submissions()->whereHas('feedbacks', fn($q) => $q->where('decision', 'approved'))->exists();
+                || $hasAnyFeedbackApproved;
 
             return [
                 'has_supervisors' => false,
@@ -325,13 +339,32 @@ class MilestoneWorkflowService
                 $pendingRereviewCount++;
             } else {
                 // Fallback: check historical feedback for this user
-                $hasFeedbackApproved = $milestone->submissions()
-                    ->whereHas('feedbacks', fn($q) => $q->where('created_by', $supUser->id)->where('decision', 'approved'))
-                    ->exists();
+                $hasFeedbackApproved = false;
+                $hasFeedbackRejected = false;
 
-                $hasFeedbackRejected = $milestone->submissions()
-                    ->whereHas('feedbacks', fn($q) => $q->where('created_by', $supUser->id)->where('decision', 'revision_required'))
-                    ->exists();
+                if ($milestone->relationLoaded('submissions')) {
+                    foreach ($milestone->submissions as $sub) {
+                        if ($sub->relationLoaded('feedbacks')) {
+                            if ($sub->feedbacks->contains(fn($f) => $f->created_by == $supUser->id && $f->decision === 'approved')) { $hasFeedbackApproved = true; }
+                            if ($sub->feedbacks->contains(fn($f) => $f->created_by == $supUser->id && $f->decision === 'revision_required')) { $hasFeedbackRejected = true; }
+                        } elseif ($sub->relationLoaded('feedback') && $sub->feedback) {
+                            $fb = $sub->feedback;
+                            if ($fb->created_by == $supUser->id && $fb->decision === 'approved') { $hasFeedbackApproved = true; }
+                            if ($fb->created_by == $supUser->id && $fb->decision === 'revision_required') { $hasFeedbackRejected = true; }
+                        } else {
+                            if ($sub->feedbacks()->where('created_by', $supUser->id)->where('decision', 'approved')->exists()) { $hasFeedbackApproved = true; }
+                            if ($sub->feedbacks()->where('created_by', $supUser->id)->where('decision', 'revision_required')->exists()) { $hasFeedbackRejected = true; }
+                        }
+                    }
+                } else {
+                    $hasFeedbackApproved = $milestone->submissions()
+                        ->whereHas('feedbacks', fn($q) => $q->where('created_by', $supUser->id)->where('decision', 'approved'))
+                        ->exists();
+
+                    $hasFeedbackRejected = $milestone->submissions()
+                        ->whereHas('feedbacks', fn($q) => $q->where('created_by', $supUser->id)->where('decision', 'revision_required'))
+                        ->exists();
+                }
 
                 if ($hasFeedbackRejected && $milestone->status === 'revision_required') {
                     $status = 'rejected';

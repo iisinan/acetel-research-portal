@@ -216,6 +216,17 @@ class ThesisProject extends Model
 
     public function getProgressPercentageAttribute()
     {
+        if ($this->relationLoaded('milestones')) {
+            $total = $this->milestones->count();
+            if ($total === 0) return 0;
+            
+            $approved = $this->milestones
+                ->where('status', 'approved')
+                ->count();
+                
+            return (int) round(($approved / $total) * 100);
+        }
+
         $total = $this->milestones()->count();
         if ($total === 0) return 0;
         
@@ -223,7 +234,7 @@ class ThesisProject extends Model
             ->where('status', 'approved')
             ->count();
             
-        return round(($approved / $total) * 100);
+        return (int) round(($approved / $total) * 100);
     }
 }
 

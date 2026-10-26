@@ -53,7 +53,7 @@ class MilestoneController extends Controller
                 $thesis->load(['student.user', 'assignments.supervisor.user', 'internalExaminer.user']);
                 
                 $milestones = $thesis->milestones()
-                    ->with(['template', 'submissions.submittedBy', 'messages.sender', 'unlockedBy'])
+                    ->with(['template', 'submissions.submittedBy', 'submissions.feedback', 'submissions.feedbacks', 'messages.sender', 'unlockedBy'])
                     ->get()
                     ->sortBy('template.order');
 
@@ -64,7 +64,7 @@ class MilestoneController extends Controller
                 if ($milestones->count() < $templatesCount || $milestones->isEmpty()) {
                     $thesis->syncMilestones();
                     $milestones = $thesis->milestones()
-                        ->with(['template', 'submissions.submittedBy', 'messages.sender', 'unlockedBy'])
+                        ->with(['template', 'submissions.submittedBy', 'submissions.feedback', 'submissions.feedbacks', 'messages.sender', 'unlockedBy'])
                         ->get()
                         ->sortBy('template.order');
                 }
