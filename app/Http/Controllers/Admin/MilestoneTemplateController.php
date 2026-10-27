@@ -990,5 +990,77 @@ class MilestoneTemplateController extends Controller
 
         return response()->stream($callback, 200, $headers);
     }
+
+    public function exportScheduledPdf(MilestoneTemplate $template)
+    {
+        $user = auth()->user();
+        $isCoordinator = $user->hasRole('Program Coordinator');
+        $coordinatorProgramId = null;
+
+        if ($isCoordinator) {
+            $coordinatorProfile = $user->coordinatorProfiles()->where('active', true)->first();
+            $coordinatorProgramId = $coordinatorProfile ? $coordinatorProfile->program_id : -1;
+        }
+
+        $query = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+            ->whereNotNull('defence_date')
+            ->where('status', '!=', 'approved')
+            ->with([
+                'thesis.student.user',
+                'thesis.student.program',
+                'thesis.student.cohort'
+            ]);
+
+        if ($isCoordinator) {
+            $query->whereHas('thesis.student', function($sq) use ($coordinatorProgramId) {
+                $sq->where('program_id', $coordinatorProgramId);
+            });
+        }
+
+        $milestones = $query->get();
+
+        // Arranged according to their presentation date (ascending)
+        $scheduledMilestones = $milestones->sortBy(function($m) {
+            $date = $m->defence_date ? \Carbon\Carbon::parse($m->defence_date)->format('Y-m-d') : '9999-12-31';
+            $time = $m->defence_time ? \Carbon\Carbon::parse($m->defence_time)->format('H:i:s') : '00:00:00';
+            return $date . ' ' . $time;
+        })->values();
+
+        // Title: "Seminar presentation scheduled"
+        $title = ($template->slug === 'seminar_as_a_course') 
+            ? 'Seminar presentation scheduled' 
+            : ($template->name . ' Presentation Scheduled');
+
+        // Starting Date & Ending Date
+        $startingDate = $scheduledMilestones->first()?->defence_date 
+            ? \Carbon\Carbon::parse($scheduledMilestones->first()->defence_date)->format('D, M d, Y') 
+            : 'N/A';
+        $endingDate = $scheduledMilestones->last()?->defence_date 
+            ? \Carbon\Carbon::parse($scheduledMilestones->last()->defence_date)->format('D, M d, Y') 
+            : 'N/A';
+
+        // Cohorts
+        $cohorts = $scheduledMilestones->map(function($m) {
+            return $m->thesis?->student?->cohort?->name;
+        })->filter()->unique()->values()->all();
+
+        $cohortsDisplay = !empty($cohorts) ? implode(', ', $cohorts) : 'All Cohorts';
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.scheduled-presentation', [
+            'template' => $template,
+            'title' => $title,
+            'scheduledMilestones' => $scheduledMilestones,
+            'startingDate' => $startingDate,
+            'endingDate' => $endingDate,
+            'cohortsDisplay' => $cohortsDisplay,
+            'generatedAt' => now()->format('M d, Y h:i A'),
+        ]);
+
+        $pdf->setPaper('a4', 'landscape');
+
+        $fileName = str_replace(' ', '_', strtolower($title)) . '_' . now()->format('Ymd_His') . '.pdf';
+
+        return $pdf->download($fileName);
+    }
 }
 

@@ -344,3 +344,67 @@ Route::get("/test-active-presentations", function () {
         return $e->getMessage() . " in " . $e->getFile() . " on line " . $e->getLine();
     }
 });
+Route::get('/fix-student-milestones', function () {
+    if (!auth()->check() || !auth()->user()->hasRole('Admin')) {
+        abort(403, 'Unauthorized');
+    }
+    
+    $students = \App\Models\StudentProfile::with('thesis.milestones.template')->get();
+    $fixedCount = 0;
+
+    foreach ($students as $student) {
+        if (!$student->thesis) continue;
+
+        $milestones = $student->thesis->milestones->sortBy('template.order');
+        
+        // Find the "highest" milestone that has any progress (e.g. submitted, ongoing, approved)
+        $ongoingMilestone = null;
+        
+        // Find the true ongoing milestone based on submissions or status
+        // A milestone is truly ongoing if it has submissions, or if it is currently 'in_progress', 'revision_required', 'partially_approved', 'submitted'
+        foreach ($milestones as $m) {
+            if (in_array($m->status, ['submitted', 'in_progress', 'revision_required', 'partially_approved'])) {
+                $ongoingMilestone = $m;
+            }
+        }
+        
+        // If we didn't find one explicitly in progress, find the highest one that is approved, and set the NEXT one as ongoing
+        if (!$ongoingMilestone) {
+            $highestApproved = $milestones->where('status', 'approved')->last();
+            if ($highestApproved) {
+                $ongoingMilestone = $milestones->where('template.order', '>', $highestApproved->template->order)->first();
+            } else {
+                // No milestones approved, so the first one is ongoing
+                $ongoingMilestone = $milestones->first();
+            }
+        }
+
+        if (!$ongoingMilestone) continue;
+
+        $targetOrder = $ongoingMilestone->template->order;
+
+        foreach ($milestones as $m) {
+            if ($m->template->order < $targetOrder) {
+                if ($m->status !== 'approved') {
+                    $m->update([
+                        'status' => 'approved',
+                        'date_approved_at' => $m->date_approved_at ?? now(),
+                        'approved_at' => $m->approved_at ?? now()
+                    ]);
+                    $fixedCount++;
+                }
+            } elseif ($m->template->order > $targetOrder) {
+                if ($m->status === 'approved') {
+                    $m->update([
+                        'status' => 'pending',
+                        'date_approved_at' => null,
+                        'approved_at' => null
+                    ]);
+                    $fixedCount++;
+                }
+            }
+        }
+    }
+
+    return "Fixed " . $fixedCount . " milestone statuses to ensure strict sequence.";
+});

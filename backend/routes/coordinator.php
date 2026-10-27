@@ -66,6 +66,7 @@ Route::get('milestone-templates', [\App\Http\Controllers\Admin\MilestoneTemplate
 Route::get('milestone-templates/{template}/export-students', [\App\Http\Controllers\Admin\MilestoneTemplateController::class, 'exportStudents'])->name('milestone-templates.export-students');
 Route::get('milestone-templates/{template}/export-scheduled-scores', [\App\Http\Controllers\Admin\MilestoneTemplateController::class, 'exportScheduledScores'])->name('milestone-templates.export-scheduled-scores');
 Route::get('milestone-templates/{template}/export-examiner-attendance', [\App\Http\Controllers\Admin\MilestoneTemplateController::class, 'exportExaminerAttendance'])->name('milestone-templates.export-examiner-attendance');
+Route::get('milestone-templates/{template}/export-scheduled-pdf', [\App\Http\Controllers\Admin\MilestoneTemplateController::class, 'exportScheduledPdf'])->name('milestone-templates.export-scheduled-pdf');
 Route::post('milestone-templates/{milestone}/assign-examiner', [\App\Http\Controllers\Admin\MilestoneTemplateController::class, 'assignExaminer'])->name('milestone-templates.assign-examiner');
 Route::post('milestone-templates/{template}/assign-examiner-global', [\App\Http\Controllers\Admin\MilestoneTemplateController::class, 'assignExaminerGlobal'])->name('milestone-templates.assign-examiner-global');
 
