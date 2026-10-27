@@ -347,10 +347,12 @@
                             <div class="col-span-6 sm:col-span-3">
                                 <label for="program_id" class="block text-sm font-semibold text-black mb-1">Program</label>
                                 <select id="program_id" name="program_id" 
+                                    x-model="studentProgram"
+                                    @change="onProgramChange($event.target.value)"
                                     class="block w-full py-2.5 px-4 border border-slate-300 bg-white rounded-xl shadow-sm focus:outline-none focus:ring-acetel-500 focus:border-acetel-500 sm:text-sm font-medium text-black">
                                     <option value="">Select Program...</option>
                                     @foreach($programs as $program)
-                                        <option value="{{ $program->id }}" {{ old('program_id', $user->studentProfile?->program_id) == $program->id ? 'selected' : '' }}>{{ $program->name }}</option>
+                                        <option value="{{ $program->id }}" {{ (string)$initialProgramId === (string)$program->id ? 'selected' : '' }}>{{ $program->name }}</option>
                                     @endforeach
                                 </select>
                                 @error('program_id') <p class="text-red-500 text-xs mt-1.5 font-medium">{{ $message }}</p> @enderror
@@ -359,10 +361,11 @@
                             <div class="col-span-6 sm:col-span-3">
                                 <label for="level_id" class="block text-sm font-semibold text-black mb-1">Level</label>
                                 <select id="level_id" name="level_id" 
+                                    x-model="studentLevel"
                                     class="block w-full py-2.5 px-4 border border-slate-300 bg-white rounded-xl shadow-sm focus:outline-none focus:ring-acetel-500 focus:border-acetel-500 sm:text-sm font-medium text-black">
                                     <option value="">Select Level...</option>
                                     @foreach($levels as $level)
-                                        <option value="{{ $level->id }}" {{ old('level_id', $user->studentProfile?->level_id) == $level->id ? 'selected' : '' }}>{{ $level->name }}</option>
+                                        <option value="{{ $level->id }}" {{ (string)$initialLevelId === (string)$level->id ? 'selected' : '' }}>{{ $level->name }}</option>
                                     @endforeach
                                 </select>
                                 @error('level_id') <p class="text-red-500 text-xs mt-1.5 font-medium">{{ $message }}</p> @enderror
