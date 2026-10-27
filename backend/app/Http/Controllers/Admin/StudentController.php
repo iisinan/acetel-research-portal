@@ -223,4 +223,192 @@ class StudentController extends Controller
 
         return back()->with('success', 'Student demoted to the previous milestone successfully.');
     }
+
+    /**
+     * Completely remove a student and all related thesis/submission/user records from the system.
+     */
+    private function deleteStudentRecord(StudentProfile $student): void
+    {
+        DB::transaction(function () use ($student) {
+            $user = $student->user;
+            $userId = $student->user_id;
+            $thesis = $student->thesis;
+
+            if ($thesis) {
+                $milestoneIds = $thesis->milestones()->pluck('id')->all();
+
+                if (!empty($milestoneIds)) {
+                    // Delete seminar grades
+                    if (Schema::hasTable('seminar_grades')) {
+                        DB::table('seminar_grades')->whereIn('student_milestone_id', $milestoneIds)->delete();
+                    }
+
+                    // Delete submissions, feedback, and storage files
+                    $submissions = DB::table('submissions')->whereIn('student_milestone_id', $milestoneIds)->get();
+                    foreach ($submissions as $sub) {
+                        if (!empty($sub->file_url)) {
+                            try {
+                                Storage::delete($sub->file_url);
+                            } catch (\Throwable $e) {}
+                        }
+                        if (Schema::hasTable('feedback')) {
+                            DB::table('feedback')->where('submission_id', $sub->id)->delete();
+                        }
+                    }
+                    DB::table('submissions')->whereIn('student_milestone_id', $milestoneIds)->delete();
+                }
+
+                // Delete any submissions submitted_by this user
+                if ($userId) {
+                    $userSubs = DB::table('submissions')->where('submitted_by', $userId)->get();
+                    foreach ($userSubs as $sub) {
+                        if (!empty($sub->file_url)) {
+                            try {
+                                Storage::delete($sub->file_url);
+                            } catch (\Throwable $e) {}
+                        }
+                        if (Schema::hasTable('feedback')) {
+                            DB::table('feedback')->where('submission_id', $sub->id)->delete();
+                        }
+                    }
+                    DB::table('submissions')->where('submitted_by', $userId)->delete();
+                }
+
+                // Delete action items
+                if (Schema::hasTable('action_items')) {
+                    DB::table('action_items')->where('thesis_project_id', $thesis->id)->delete();
+                }
+
+                // Defence events, panel members, evaluations
+                if (Schema::hasTable('defence_events')) {
+                    $events = DB::table('defence_events')->where('thesis_project_id', $thesis->id)->get();
+                    foreach ($events as $event) {
+                        if (Schema::hasTable('panel_members')) {
+                            DB::table('panel_members')->where('defence_event_id', $event->id)->delete();
+                        }
+                        if (Schema::hasTable('evaluations')) {
+                            DB::table('evaluations')->where('defence_event_id', $event->id)->delete();
+                        }
+                    }
+                    DB::table('defence_events')->where('thesis_project_id', $thesis->id)->delete();
+                }
+
+                // Supervision and examiner assignments
+                if (Schema::hasTable('supervision_assignments')) {
+                    DB::table('supervision_assignments')->where('thesis_project_id', $thesis->id)->delete();
+                }
+                if (Schema::hasTable('examiner_assignments')) {
+                    DB::table('examiner_assignments')->where('thesis_project_id', $thesis->id)->delete();
+                }
+
+                // Messages & communication channels
+                if (Schema::hasTable('messages')) {
+                    DB::table('messages')->where('thesis_project_id', $thesis->id)->delete();
+                }
+                if (Schema::hasTable('communication_channels')) {
+                    DB::table('communication_channels')->where('thesis_project_id', $thesis->id)->delete();
+                }
+
+                // Delete student milestones
+                DB::table('student_milestones')->where('thesis_project_id', $thesis->id)->delete();
+
+                // Delete thesis project
+                DB::table('thesis_projects')->where('id', $thesis->id)->delete();
+            }
+
+            if ($userId) {
+                if (Schema::hasTable('messages')) {
+                    DB::table('messages')->where('sender_id', $userId)->orWhere('receiver_id', $userId)->delete();
+                }
+                if (Schema::hasTable('inbox_messages')) {
+                    DB::table('inbox_messages')->where('sender_id', $userId)->orWhere('recipient_id', $userId)->delete();
+                }
+                if (Schema::hasTable('audit_logs')) {
+                    DB::table('audit_logs')->where('user_id', $userId)->delete();
+                }
+                if (Schema::hasTable('evaluations')) {
+                    DB::table('evaluations')->where('evaluator_id', $userId)->delete();
+                }
+                if (Schema::hasTable('notifications')) {
+                    DB::table('notifications')->where('notifiable_id', $userId)->delete();
+                }
+                if (Schema::hasTable('model_has_roles')) {
+                    DB::table('model_has_roles')->where('model_id', $userId)->delete();
+                }
+                if (Schema::hasTable('model_has_permissions')) {
+                    DB::table('model_has_permissions')->where('model_id', $userId)->delete();
+                }
+            }
+
+            // Delete student profile
+            $student->delete();
+
+            // Delete user account
+            if ($user) {
+                $user->delete();
+            } elseif ($userId) {
+                DB::table('users')->where('id', $userId)->delete();
+            }
+        });
+    }
+
+    /**
+     * Remove the specified student from storage.
+     */
+    public function destroy(StudentProfile $student)
+    {
+        $name = $student->user->name ?? $student->student_id_number ?? 'Student';
+        $matric = $student->student_id_number ?? '';
+
+        $this->deleteStudentRecord($student);
+
+        $label = $matric ? "{$name} ({$matric})" : $name;
+        return back()->with('success', "Student record for {$label} has been permanently deleted from the system.");
+    }
+
+    /**
+     * Bulk delete selected students.
+     */
+    public function bulkDestroy(Request $request)
+    {
+        $milestoneIds = $request->input('milestone_ids', []);
+        $studentIds = $request->input('student_ids', []);
+
+        if (empty($milestoneIds) && empty($studentIds)) {
+            return back()->with('error', 'No students were selected for deletion.');
+        }
+
+        $studentsToDelete = collect();
+
+        if (!empty($milestoneIds)) {
+            $milestones = StudentMilestone::with('thesis.student.user')
+                ->whereIn('id', $milestoneIds)
+                ->get();
+            foreach ($milestones as $sm) {
+                if ($sm->thesis && $sm->thesis->student) {
+                    $studentsToDelete->push($sm->thesis->student);
+                }
+            }
+        }
+
+        if (!empty($studentIds)) {
+            $profiles = StudentProfile::with('user')->whereIn('id', $studentIds)->get();
+            foreach ($profiles as $profile) {
+                $studentsToDelete->push($profile);
+            }
+        }
+
+        $studentsToDelete = $studentsToDelete->unique('id');
+        $count = $studentsToDelete->count();
+
+        if ($count === 0) {
+            return back()->with('error', 'No valid student profiles were found to delete.');
+        }
+
+        foreach ($studentsToDelete as $student) {
+            $this->deleteStudentRecord($student);
+        }
+
+        return back()->with('success', "Successfully deleted {$count} student record(s) from the system.");
+    }
 }
