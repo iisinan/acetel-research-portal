@@ -23,6 +23,8 @@ Route::resource('users', UserManagementController::class);
 Route::patch('/users/{user}/toggle-status', [UserManagementController::class, 'toggleStatus'])->name('users.toggle-status');
 Route::post('/users/{user}/reset-password', [UserManagementController::class, 'resetPassword'])->name('users.reset_password');
 
+Route::delete('/students/bulk-destroy', [StudentController::class, 'bulkDestroy'])->name('students.bulk-destroy');
+Route::delete('/students/{student}', [StudentController::class, 'destroy'])->name('students.destroy');
 Route::get('/students/{student}', [StudentController::class, 'show'])->name('students.show');
 Route::post('/students/{student}/assign-examiner', [StudentController::class, 'assignInternalExaminer'])->name('students.assign-examiner');
 Route::post('/students/{student}/promote-milestone', [StudentController::class, 'promoteMilestone'])->name('students.promote-milestone');
