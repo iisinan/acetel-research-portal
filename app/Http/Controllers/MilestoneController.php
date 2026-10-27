@@ -372,11 +372,11 @@ class MilestoneController extends Controller
         if (in_array('ppt', $subTypes) && in_array('file', $subTypes)) {
             $requirePpt = !$hasPptSub && !$request->hasFile('file');
             $requireFile = !$hasFileSub && !$request->hasFile('ppt');
-            $rules['ppt'] = [($requirePpt ? 'required' : 'nullable'), 'file', 'mimes:pdf,ppt,pptx', 'max:51200'];
+            $rules['ppt'] = [($requirePpt ? 'required' : 'nullable'), 'file', 'mimes:pdf', 'max:51200'];
             $rules['file'] = [($requireFile ? 'required' : 'nullable'), 'file', 'mimes:pdf', 'max:51200'];
         } else {
             if (in_array('ppt', $subTypes)) {
-                $rules['ppt'] = [($hasPptSub ? 'nullable' : 'required'), 'file', 'mimes:pdf,ppt,pptx', 'max:51200'];
+                $rules['ppt'] = [($hasPptSub ? 'nullable' : 'required'), 'file', 'mimes:pdf', 'max:51200'];
             }
             if (in_array('file', $subTypes)) {
                 $rules['file'] = [($hasFileSub ? 'nullable' : 'required'), 'file', 'mimes:pdf', 'max:51200'];
@@ -396,10 +396,16 @@ class MilestoneController extends Controller
             $rules['keywords'] = 'nullable|string|max:500';
         }
 
+        $messages = [
+            'ppt.mimes' => 'The presentation slide deck must be in PDF format. PowerPoint (PPT/PPTX) files are not accepted.',
+            'file.mimes' => 'The document must be in PDF format. Word documents (DOC/DOCX) are not accepted.',
+            'publications.*.mimes' => 'Each publication file must be in PDF format.',
+        ];
+
         \Illuminate\Support\Facades\Log::info("Request Data: ", $request->all());
         
         try {
-            $request->validate($rules);
+            $request->validate($rules, $messages);
         } catch (\Illuminate\Validation\ValidationException $e) {
             \Illuminate\Support\Facades\Log::error("Validation Failed: ", $e->errors());
             throw $e;
@@ -428,7 +434,7 @@ class MilestoneController extends Controller
                     'size' => $pptFile->getSize(),
                 ],
                 'checksum' => md5_file($pptFile->getRealPath()),
-                'description' => 'Presentation Slide Deck',
+                'description' => 'Presentation Slide Deck (PDF)',
                 'version' => $milestone->submissions()->where('type', 'ppt')->count() + 1,
             ]);
         }

@@ -11,7 +11,7 @@
 @section('content')
 <div class="space-y-8 pb-20" id="milestones-page">
 <script>
-    var _expandedMilestone = '{{ $expandedMilestoneId ?? $ongoingMilestoneId }}';
+    var _expandedMilestone = '{{ $ongoingMilestoneId }}';
     function toggleMilestone(id) {
         var all = document.querySelectorAll('.milestone-body');
         all.forEach(function(el) {
@@ -261,7 +261,7 @@
                             <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST" class="inline-block relative z-20" onclick="event.stopPropagation();">
                                 @csrf
                                 <button type="submit" 
-                                    data-confirm="Are you sure you want to end the presentation for {{ addslashes($thesis->student?->user?->name ?? 'Candidate') }}? If all requirements are met (presentation conducted, PPT uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
+                                    data-confirm="Are you sure you want to end the presentation for {{ addslashes($thesis->student?->user?->name ?? 'Candidate') }}? If all requirements are met (presentation conducted, presentation PDF uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
                                     data-confirm-title="End Presentation Session" 
                                     data-confirm-type="success" 
                                     data-confirm-btn="End Presentation" 
@@ -274,11 +274,10 @@
                             </form>
                         @elseif(auth()->user()->can('review', $milestone))
                             @php
-                                $lastSub = $milestone->submissions->sortBy('created_at')->last();
-                                $hasSubFbApproved = $lastSub && ($lastSub->relationLoaded('feedbacks') 
-                                    ? $lastSub->feedbacks->contains(fn($f) => $f->decision === 'approved') 
-                                    : ($lastSub->feedback?->decision === 'approved'));
-                                $canQuickApprove = !$milestone->template->requires_submission || $hasSubFbApproved;
+                                $canQuickApprove = !$milestone->template->requires_submission || 
+                                                   ($milestone->submissions->last() && 
+                                                    $milestone->submissions->last()->feedback && 
+                                                    $milestone->submissions->last()->feedback->decision === 'approved');
                             @endphp
                             @if($canQuickApprove && $milestone->status !== 'approved')
                             <form action="{{ route('milestones.review.update', $milestone) }}" method="POST" class="inline-block relative z-20" onclick="event.stopPropagation();">

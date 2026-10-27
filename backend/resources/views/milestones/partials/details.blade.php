@@ -31,7 +31,7 @@
             <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST" class="inline">
                 @csrf
                 <button type="submit" 
-                    data-confirm="Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis?->student?->user?->name ?? 'Candidate') }}? If all requirements are met (presentation conducted, PPT uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
+                    data-confirm="Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis->student->user?->name ?? 'User') }}? If all requirements are met (presentation conducted, presentation PDF uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
                     data-confirm-title="End Presentation Session"
                     data-confirm-type="success"
                     data-confirm-btn="End Presentation"
@@ -44,8 +44,8 @@
             </form>
             @endif
 
-            @if(auth()->id() !== ($milestone->thesis?->student?->user_id ?? null) && ($milestone->template?->has_chat || $milestone->template?->slug === 'supervisors_assigned'))
-            <button type="button" @click.prevent.stop="setTimeout(() => { showStudentMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($milestone->thesis?->student?->user?->name ?? 'Candidate') }}; }, 50)" class="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl shadow-xl shadow-slate-200/40 transition-colors">
+            @if(auth()->id() !== $milestone->thesis->student->user_id && ($milestone->template->has_chat || $milestone->template->slug === 'supervisors_assigned'))
+            <button type="button" @click.prevent.stop="setTimeout(() => { showStudentMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($milestone->thesis->student->user?->name ?? 'User') }}; }, 50)" class="inline-flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl shadow-xl shadow-slate-200/40 transition-colors">
                 <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
                 <span class="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Message Student</span>
             </button>
@@ -190,7 +190,7 @@
                                     <div class="flex items-center justify-between">
                                         @if(auth()->user()->hasRole('Admin') && $milestone->status !== 'approved' && $isDateExpired)
                                             <button type="button" 
-                                                onclick="if (confirm('Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis?->student?->user?->name ?? 'Candidate') }}? If all requirements are met, the candidate will be advanced to the next milestone.')) { document.getElementById('end-pres-form-expired-{{ $milestone->id }}').submit(); }"
+                                                onclick="if (confirm('Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis->student->user?->name ?? 'User') }}? If all requirements are met, the candidate will be advanced to the next milestone.')) { document.getElementById('end-pres-form-expired-{{ $milestone->id }}').submit(); }"
                                                 class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-[0.2em] rounded-xl active:scale-95 transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer">
                                                 <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -273,7 +273,7 @@
                                     <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST" class="inline">
                                         @csrf
                                         <button type="submit" 
-                                            data-confirm="Are you sure you want to end the presentation for {{ addslashes($milestone->thesis?->student?->user?->name ?? 'Candidate') }}? If all requirements are met (presentation conducted, PPT uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
+                                            data-confirm="Are you sure you want to end the presentation for {{ addslashes($milestone->thesis->student->user?->name ?? 'User') }}? If all requirements are met (presentation conducted, presentation PDF uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
                                             data-confirm-title="End Presentation Session"
                                             data-confirm-type="success"
                                             data-confirm-btn="End Presentation"
@@ -295,15 +295,11 @@
             <!-- Latest Feedback -->
             @if($milestone->status === 'revision_required' && auth()->user()->hasRole('Student'))
                 @php
-                    $rejectFeedback = null;
-                    foreach ($milestone->submissions->sortByDesc('created_at') as $sub) {
-                        $fb = ($sub->relationLoaded('feedbacks') ? $sub->feedbacks : $sub->feedbacks()->get())
-                            ->where('decision', 'revision_required')
-                            ->sortByDesc('created_at')
-                            ->first();
-                        if ($fb) { $rejectFeedback = $fb; break; }
-                    }
-                    $rejectedBy = $rejectFeedback ? ($rejectFeedback->relationLoaded('author') ? $rejectFeedback->author : \App\Models\User::find($rejectFeedback->created_by)) : null;
+                    $rejectFeedback = \App\Models\Feedback::whereIn('submission_id', $milestone->submissions()->pluck('id'))
+                        ->where('decision', 'revision_required')
+                        ->latest()
+                        ->first();
+                    $rejectedBy = $rejectFeedback ? \App\Models\User::find($rejectFeedback->created_by) : null;
                 @endphp
                 <div class="overflow-hidden rounded-2xl bg-red-50 border border-red-100 shadow-xl shadow-slate-200/40 relative mb-6">
                     <div class="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
@@ -452,22 +448,22 @@
                                 @if(in_array('ppt', $subTypes))
                                 <div>
                                     <label class="block text-sm font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                                        <span>Upload Presentation Slide Deck (PDF or PPT/PPTX)</span>
+                                        <span>Upload Presentation Slide Deck (PDF Only)</span>
                                         @if($bothAllowed && !$hasPptSub && $hasFileSub)
                                             <span class="text-xs font-normal text-slate-400">(Optional if manuscript already uploaded)</span>
                                         @endif
                                     </label>
                                     <div class="relative w-full">
-                                        <input type="file" name="ppt" accept=".pdf,.ppt,.pptx" {{ (!$bothAllowed && !$hasPptSub) ? 'required' : '' }} class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                        <input type="file" name="ppt" accept=".pdf" {{ (!$bothAllowed && !$hasPptSub) ? 'required' : '' }} class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
                                             @change="
                                                 const file = $event.target.files[0];
-                                                document.getElementById('ppt-name-{{ $milestone->id }}').textContent = file ? file.name : 'Click or drop to select PPT';
+                                                document.getElementById('ppt-name-{{ $milestone->id }}').textContent = file ? file.name : 'Click or drop to select presentation PDF';
                                             "/>
                                         <div class="w-full flex flex-col items-center justify-center gap-3 px-4 py-8 bg-slate-50 border-2 border-slate-200 border-dashed rounded-2xl hover:border-emerald-300 hover:bg-emerald-50/50 transition-colors">
                                             <div class="w-10 h-10 rounded-full bg-white text-slate-400 flex items-center justify-center shadow-xl shadow-slate-200/40">
                                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 12l3-3 3 3M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
                                             </div>
-                                            <span id="ppt-name-{{ $milestone->id }}" class="text-sm font-medium text-slate-600">Click or drop to select PPT</span>
+                                            <span id="ppt-name-{{ $milestone->id }}" class="text-sm font-medium text-slate-600">Click or drop to select presentation PDF</span>
                                         </div>
                                     </div>
                                     @error('ppt') <span class="text-xs font-bold text-red-500 mt-2 block">{{ $message }}</span> @enderror
@@ -479,7 +475,7 @@
                                     <label class="block text-sm font-semibold text-slate-700 mb-1 flex items-center justify-between">
                                         <span>{{ $milestone->template->slug === 'supervisors_assigned' ? 'Upload Tentative Proposal (PDF Only)' : 'Upload ' . $milestone->template->name . ' Document (PDF Only)' }}</span>
                                         @if($bothAllowed && !$hasFileSub && $hasPptSub)
-                                            <span class="text-xs font-normal text-slate-400">(Optional if PPT already uploaded)</span>
+                                            <span class="text-xs font-normal text-slate-400">(Optional if presentation already uploaded)</span>
                                         @endif
                                     </label>
                                     @if($milestone->template->slug === 'supervisors_assigned')
@@ -637,52 +633,19 @@
                                                 </div>
                                             @endif
                                         </div>
-                                        <div class="flex items-center gap-2">
-                                            <button type="button"
-                                                @click.prevent="$dispatch('open-document-preview', { 
-                                                    url: '{{ Storage::url($submission->file_url) }}', 
-                                                    title: 'Submission v.0{{ $submission->version }}',
-                                                    type: '{{ str_ends_with(strtolower($submission->file_url), '.pdf') ? 'pdf' : 'document' }}'
-                                                })"
-                                                class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors shadow-xl shadow-slate-200/40 w-fit">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                                View Document
-                                            </button>
-                                            
-                                            @if(auth()->user()->hasRole(['Supervisor', 'Admin']))
-                                                @if(!$submission->feedback || !in_array($submission->feedback->decision, ['approved', 'revision_required']))
-                                                    <div class="flex gap-2">
-                                                        <form action="{{ route('milestones.accept_upload', $milestone) }}" method="POST" class="inline" data-confirm="Are you sure you want to accept this document?" data-confirm-title="Accept Document" data-confirm-type="success" data-confirm-btn="Accept Upload">
-                                                            @csrf
-                                                            <input type="hidden" name="submission_id" value="{{ $submission->id }}">
-                                                            <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold hover:bg-emerald-600 transition-colors shadow-xl shadow-emerald-500/20">
-                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
-                                                                Accept Upload
-                                                            </button>
-                                                        </form>
-                                                        <form action="{{ route('milestones.reject_upload', $milestone) }}" method="POST" class="inline" data-confirm="Are you sure you want to reject this document? The student will be notified to revise it." data-confirm-title="Reject Document" data-confirm-type="danger" data-confirm-btn="Reject Upload">
-                                                            @csrf
-                                                            <input type="hidden" name="submission_id" value="{{ $submission->id }}">
-                                                            <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-rose-500 text-white rounded-xl text-xs font-bold hover:bg-rose-600 transition-colors shadow-xl shadow-rose-500/20">
-                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                                                Reject Upload
-                                                            </button>
-                                                        </form>
-                                                    </div>
-                                                @else
-                                                    @if($submission->feedback->decision === 'approved')
-                                                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-black uppercase tracking-widest">
-                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
-                                                            Upload Accepted
-                                                        </span>
-                                                    @else
-                                                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-[10px] font-black uppercase tracking-widest">
-                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                                            Upload Rejected
-                                                        </span>
-                                                    @endif
-                                                @endif
-                                            @else
+                                        <div class="flex flex-col items-end gap-3 w-full">
+                                            <div class="flex items-center gap-2">
+                                                <button type="button"
+                                                    @click.prevent="$dispatch('open-document-preview', { 
+                                                        url: '{{ Storage::url($submission->file_url) }}', 
+                                                        title: 'Submission v.0{{ $submission->version }}',
+                                                        type: '{{ str_ends_with(strtolower($submission->file_url), '.pdf') ? 'pdf' : 'document' }}'
+                                                    })"
+                                                    class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors shadow-xl shadow-slate-200/40 w-fit">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                                    View Document
+                                                </button>
+                                                
                                                 @if($submission->feedback && $submission->feedback->decision === 'approved')
                                                     <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-black uppercase tracking-widest">
                                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
@@ -694,6 +657,28 @@
                                                         Upload Rejected
                                                     </span>
                                                 @endif
+                                            </div>
+
+                                            @if($submission->feedback && in_array($submission->feedback->decision, ['approved', 'revision_required']) && !empty($submission->feedback->remarks))
+                                                <div class="w-full max-w-sm text-xs rounded-xl p-3 border {{ $submission->feedback->decision === 'approved' ? 'bg-emerald-50/60 border-emerald-100 text-emerald-900' : 'bg-rose-50/60 border-rose-100 text-rose-900' }}">
+                                                    <p class="text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">Supervisor Comment</p>
+                                                    <p class="whitespace-pre-line">{{ $submission->feedback->remarks }}</p>
+                                                </div>
+                                            @endif
+
+                                            @if(auth()->user()->hasRole(['Supervisor', 'Admin']) && (!$submission->feedback || !in_array($submission->feedback->decision, ['approved', 'revision_required'])))
+                                                <form method="POST" x-data="{ remarks: '' }" @submit="if(!remarks.trim()) { alert('A comment is required to accept or reject the upload.'); $event.preventDefault(); }" class="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 shadow-sm w-full max-w-sm mt-1">
+                                                    @csrf
+                                                    <textarea name="remarks" x-model="remarks" rows="2" class="w-full text-xs rounded-xl border-slate-300 focus:ring-indigo-500 focus:border-indigo-500 mb-2 p-2.5 shadow-sm resize-none bg-white placeholder:text-slate-400" placeholder="Required: Explain your decision..." required></textarea>
+                                                    <div class="flex gap-2">
+                                                        <button type="submit" formaction="{{ route('milestones.accept_upload', $milestone) }}" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-2 rounded-xl text-xs font-bold transition-colors">
+                                                            Accept Upload
+                                                        </button>
+                                                        <button type="submit" formaction="{{ route('milestones.reject_upload', $milestone) }}" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white py-2 rounded-xl text-xs font-bold transition-colors">
+                                                            Reject Upload
+                                                        </button>
+                                                    </div>
+                                                </form>
                                             @endif
                                         </div>
                                     </div>
@@ -795,7 +780,7 @@
                         @elseif(in_array('publication', $subTypes))
                             <p class="mb-2">Please upload a verified copy of your peer-reviewed publication record. PDF format is required for archiving purposes.</p>
                         @else
-                            <p class="mb-2">Ensure your submission meets the core program requirements. Acceptable formats include PDF and DOCX (max 10MB).</p>
+                            <p class="mb-2">Ensure your submission meets the core program requirements. Acceptable format is strictly PDF (max 50MB).</p>
                         @endif
                         <p>Upon submission, your designated committee will be notified automatically.</p>
                     </div>

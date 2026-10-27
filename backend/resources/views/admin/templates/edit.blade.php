@@ -70,7 +70,7 @@
                                     </label>
                                     <span class="pl-1">or drag and drop here</span>
                                 </div>
-                                <p class="text-xs text-black font-medium uppercase tracking-tighter">PDF, DOCX, PPTX, XLS, Images up to 10MB.</p>
+                                <p class="text-xs text-black font-medium uppercase tracking-tighter">PDF ONLY UP TO 10MB.</p>
                                 <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 italic">Leave blank to keep current file ({{ basename($template->file_path) }})</p>
                             </div>
                         </div>

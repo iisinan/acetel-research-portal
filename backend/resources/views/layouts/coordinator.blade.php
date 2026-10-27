@@ -45,29 +45,47 @@
 <body class="font-sans antialiased text-slate-800 coordinator-main selection:bg-brand-200 selection:text-brand-800 h-full overflow-hidden">
     <div class="flex h-screen overflow-hidden relative">
         
+        <!-- Mobile Backdrop Overlay -->
+        <div x-show="$store.sidebar.open" 
+             @click="$store.sidebar.close()"
+             x-transition:enter="transition-opacity ease-linear duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition-opacity ease-linear duration-300"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 md:hidden"
+             x-cloak></div>
+
         <!-- Sidebar Navigation -->
-        <aside class="fixed inset-y-0 left-0 z-50 w-72 light-sidebar transition-all duration-500 transform md:translate-x-0 md:relative flex flex-col group"
-               :class="$store.sidebar.open ? 'translate-x-0' : '-translate-x-full'"
+        <aside class="fixed inset-y-0 left-0 z-50 w-72 light-sidebar transition-all duration-300 ease-in-out transform flex flex-col md:static shrink-0"
+               :class="$store.sidebar.open ? 'translate-x-0 md:ml-0' : '-translate-x-full md:translate-x-0 md:-ml-72'"
                x-cloak>
             
-            <div class="flex items-center px-8 h-24 shrink-0 border-b border-green-100">
-                <div class="flex items-center gap-4 cursor-pointer">
-                    <div class="w-12 h-12 bg-green-50 border-2 border-green-200 rounded-2xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform duration-300">
+            <div class="flex items-center justify-between px-6 md:px-8 h-20 md:h-24 shrink-0 border-b border-green-100">
+                <div class="flex items-center gap-3 md:gap-4 cursor-pointer">
+                    <div class="w-10 h-10 md:w-12 md:h-12 bg-green-50 border-2 border-green-200 rounded-2xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform duration-300">
                         <img src="{{ asset('images/acetel-logo.jpeg') }}" alt="Logo" class="w-full h-full object-cover rounded-xl">
                     </div>
                     <div>
-                        <span class="block text-xl font-black tracking-tight text-slate-800 leading-none uppercase">ACETEL</span>
-                        <span class="block text-[9px] font-bold text-green-600 uppercase tracking-[0.35em] mt-1">Coordinator Hub</span>
+                        <span class="block text-lg md:text-xl font-black tracking-tight text-slate-800 leading-none uppercase">ACETEL</span>
+                        <span class="block text-[8px] md:text-[9px] font-bold text-green-600 uppercase tracking-[0.35em] mt-1">Coordinator Hub</span>
                     </div>
                 </div>
+                <!-- Close Button for Mobile -->
+                <button @click="$store.sidebar.close()" 
+                        class="md:hidden p-2 text-slate-400 hover:text-green-700 hover:bg-green-50 rounded-xl transition-colors"
+                        title="Close sidebar">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
             </div>
 
             <nav class="flex-1 overflow-y-auto pt-6 pb-6 px-4 space-y-1 custom-scrollbar">
                 @include('layouts.partials.sidebar-menu')
             </nav>
             
-            <div class="p-6 bg-green-50 border-t border-green-100 shrink-0">
-                <div class="flex items-center gap-4 group/user">
+            <div class="p-4 md:p-6 bg-green-50 border-t border-green-100 shrink-0">
+                <div class="flex items-center gap-3 md:gap-4 group/user">
                     <div class="w-10 h-10 rounded-xl sidebar-avatar flex items-center justify-center font-black text-sm shadow-sm group-hover/user:scale-105 transition-transform">
                         {{ substr(Auth::user()->name, 0, 1) }}
                     </div>
@@ -89,21 +107,23 @@
         <div class="flex flex-col flex-1 min-w-0 overflow-hidden relative">
             
             <!-- Global Header -->
-            <header class="h-20 flex items-center justify-between px-10 light-header z-40 shrink-0">
-                <div class="flex items-center gap-6">
-                    <button @click="Alpine.store('sidebar').toggle()" class="md:hidden p-3 bg-green-50 rounded-xl text-green-700 border border-green-200">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            <header class="h-16 md:h-20 flex items-center justify-between px-4 sm:px-6 md:px-10 light-header z-30 shrink-0">
+                <div class="flex items-center gap-3 sm:gap-4 md:gap-6 min-w-0">
+                    <button @click="Alpine.store('sidebar').toggle()" 
+                            class="p-2 sm:p-2.5 bg-green-50 hover:bg-green-100 rounded-xl text-green-700 border border-green-200 transition-colors shrink-0 focus:outline-none focus:ring-2 focus:ring-green-400"
+                            title="Toggle Sidebar (Ctrl+B)">
+                        <svg class="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"></path></svg>
                     </button>
-                    <div>
-                        <h1 class="text-2xl font-black text-slate-800 tracking-tight">
+                    <div class="min-w-0">
+                        <h1 class="text-base sm:text-lg md:text-2xl font-black text-slate-800 tracking-tight truncate">
                             @yield('header', 'Program Governance')
                         </h1>
                     </div>
                 </div>
 
-                <div class="flex items-center gap-4">
+                <div class="flex items-center gap-3 md:gap-4 shrink-0">
                     <div class="relative">
-                        <button class="p-3 bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 rounded-xl transition-all duration-300 border border-green-200 relative">
+                        <button class="p-2 sm:p-3 bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 rounded-xl transition-all duration-300 border border-green-200 relative">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
                             @if(Auth::user()->unreadNotifications->count() > 0)
                                 <span class="absolute top-1.5 right-1.5 block h-3 w-3 rounded-full ring-2 ring-white bg-red-500 animate-pulse-subtle"></span>
@@ -114,8 +134,8 @@
             </header>
 
             <!-- Scrollable Workspace -->
-            <main class="flex-1 overflow-x-hidden overflow-y-auto p-10 custom-scrollbar">
-                <div class="max-w-[1400px] mx-auto space-y-8 pb-16 animate-in-up">
+            <main class="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 md:p-10 pb-20 md:pb-16 custom-scrollbar">
+                <div class="max-w-[1400px] mx-auto space-y-6 md:space-y-8 pb-16 animate-in-up">
 
                     
                     @if (session('success'))

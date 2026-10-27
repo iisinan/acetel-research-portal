@@ -69,7 +69,7 @@
                                             @foreach($milestone->submissions->where('type', 'ppt') as $submission)
                                                 <a href="{{ Storage::url($submission->file_url) }}" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all w-max shadow-sm">
                                                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                                    View PPT
+                                                    View Presentation (PDF)
                                                 </a>
                                             @endforeach
                                         </div>

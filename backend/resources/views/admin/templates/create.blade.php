@@ -57,7 +57,7 @@
                                     </label>
                                     <span class="pl-1">or drag and drop here</span>
                                 </div>
-                                <p class="text-xs text-black font-medium uppercase tracking-tighter">PDF, DOCX, PPTX, XLS, Images up to 10MB.</p>
+                                <p class="text-xs text-black font-medium uppercase tracking-tighter">PDF ONLY UP TO 10MB.</p>
                             </div>
                         </div>
                          @error('file') <p class="text-red-500 text-xs mt-1.5 font-medium">{{ $message }}</p> @enderror

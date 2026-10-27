@@ -585,7 +585,7 @@
                         <span x-text="errorMessage"></span>
                     </div>
                     
-                    <p class="text-slate-500 font-medium text-sm mb-6">Please upload your Presentation file (PPT) to be scheduled for the next available presentation slot.</p>
+                    <p class="text-slate-500 font-medium text-sm mb-6">Please upload your Presentation file (PDF) to be scheduled for the next available presentation slot.</p>
 
                     <div x-show="getCurrentSubStepNoType() === 'progress_presentation_1_schedule'" x-cloak>
                         <div class="mb-6 space-y-4">
@@ -987,7 +987,7 @@
                 if (activeBlock) {
                     let fileInput = activeBlock.querySelector('input[type="file"]');
                     if (fileInput && !fileInput.value) {
-                        this.errorMessage = 'Please upload your Presentation (PPT) file before continuing.';
+                        this.errorMessage = 'Please upload your Presentation (PDF) file before continuing.';
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                         return;
                     }

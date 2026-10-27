@@ -51,29 +51,48 @@
 <body class="font-sans antialiased text-slate-800 dashboard-main selection:bg-brand-200 selection:text-brand-800 h-full overflow-hidden">
     <div class="flex h-screen overflow-hidden relative">
         
+        <!-- Mobile Backdrop Overlay -->
+        <div x-show="$store.sidebar.open" 
+             @click="$store.sidebar.close()"
+             x-transition:enter="transition-opacity ease-linear duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition-opacity ease-linear duration-300"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 md:hidden"
+             x-cloak></div>
+
         <!-- Sidebar Navigation -->
-        <aside class="fixed inset-y-0 left-0 z-50 w-72 light-sidebar transition-all duration-500 transform md:translate-x-0 md:relative flex flex-col group"
-               :class="$store.sidebar.open ? 'translate-x-0' : '-translate-x-full'">
+        <aside class="fixed inset-y-0 left-0 z-50 w-72 light-sidebar transition-all duration-300 ease-in-out transform flex flex-col md:static shrink-0"
+               :class="$store.sidebar.open ? 'translate-x-0 md:ml-0' : '-translate-x-full md:translate-x-0 md:-ml-72'"
+               x-cloak>
 
             
-            <div class="flex items-center px-8 h-24 shrink-0 border-b border-green-100">
-                <div class="flex items-center gap-4 cursor-pointer">
-                    <div class="w-12 h-12 bg-green-50 border-2 border-green-200 rounded-2xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform duration-300">
+            <div class="flex items-center justify-between px-6 md:px-8 h-20 md:h-24 shrink-0 border-b border-green-100">
+                <div class="flex items-center gap-3 md:gap-4 cursor-pointer">
+                    <div class="w-10 h-10 md:w-12 md:h-12 bg-green-50 border-2 border-green-200 rounded-2xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform duration-300">
                         <img src="{{ asset('images/acetel-logo.jpeg') }}" alt="Logo" class="w-full h-full object-cover rounded-xl">
                     </div>
                     <div>
-                        <span class="block text-xl font-black tracking-tight text-slate-800 leading-none uppercase">ACETEL</span>
-                        <span class="block text-[9px] font-bold text-green-600 uppercase tracking-[0.35em] mt-1">Trajectory Hub</span>
+                        <span class="block text-lg md:text-xl font-black tracking-tight text-slate-800 leading-none uppercase">ACETEL</span>
+                        <span class="block text-[8px] md:text-[9px] font-bold text-green-600 uppercase tracking-[0.35em] mt-1">Trajectory Hub</span>
                     </div>
                 </div>
+                <!-- Close Button for Mobile -->
+                <button @click="$store.sidebar.close()" 
+                        class="md:hidden p-2 text-slate-400 hover:text-green-700 hover:bg-green-50 rounded-xl transition-colors"
+                        title="Close sidebar">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
             </div>
 
             <nav class="flex-1 overflow-y-auto pt-6 pb-6 px-4 space-y-1 custom-scrollbar">
                 @include('layouts.partials.sidebar-menu')
             </nav>
             
-            <div class="p-6 bg-green-50 border-t border-green-100 shrink-0">
-                <div class="flex items-center gap-4 group/user">
+            <div class="p-4 md:p-6 bg-green-50 border-t border-green-100 shrink-0">
+                <div class="flex items-center gap-3 md:gap-4 group/user">
                     <div class="w-10 h-10 rounded-xl sidebar-avatar flex items-center justify-center font-black text-sm shadow-sm group-hover/user:scale-105 transition-transform">
                         {{ substr(Auth::user()->name, 0, 1) }}
                     </div>
@@ -100,13 +119,15 @@
         <div class="flex flex-col flex-1 min-w-0 overflow-hidden relative">
             
             <!-- Global Header -->
-            <header class="h-16 md:h-20 flex items-center justify-between px-6 md:px-10 light-header z-40 shrink-0">
-                <div class="flex items-center gap-4 md:gap-6">
-                    <button @click="Alpine.store('sidebar').toggle()" class="p-2.5 bg-green-50 rounded-xl text-green-700 border border-green-200">
+            <header class="h-16 md:h-20 flex items-center justify-between px-4 sm:px-6 md:px-10 light-header z-30 shrink-0">
+                <div class="flex items-center gap-3 sm:gap-4 md:gap-6 min-w-0">
+                    <button @click="Alpine.store('sidebar').toggle()" 
+                            class="p-2 sm:p-2.5 bg-green-50 hover:bg-green-100 rounded-xl text-green-700 border border-green-200 transition-colors shrink-0 focus:outline-none focus:ring-2 focus:ring-green-400"
+                            title="Toggle Sidebar (Ctrl+B)">
                         <svg class="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"></path></svg>
                     </button>
-                    <div>
-                        <h1 class="text-lg md:text-2xl font-black text-slate-800 tracking-tight truncate max-w-[150px] md:max-w-none">
+                    <div class="min-w-0">
+                        <h1 class="text-base sm:text-lg md:text-2xl font-black text-slate-800 tracking-tight truncate">
                             @yield('header', 'Trajectory Oversight')
                         </h1>
                     </div>
@@ -182,7 +203,7 @@
     </div>
 
     {{-- Mobile Bottom Navigation (Native App Feel) --}}
-    <div class="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-2xl border-t border-green-100 px-6 py-3 pb-safe flex items-center justify-between shadow-[0_-8px_30px_rgb(0,0,0,0.08)]">
+    <div class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/90 backdrop-blur-2xl border-t border-green-100 px-6 py-3 pb-safe flex items-center justify-between shadow-[0_-8px_30px_rgb(0,0,0,0.08)]">
         <a href="{{ route('dashboard') }}" class="flex flex-col items-center gap-1 {{ request()->routeIs('dashboard') ? 'text-green-600 font-bold' : 'text-slate-400' }}">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="{{ request()->routeIs('dashboard') ? '2.5' : '2' }}"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
             <span class="text-[8px] uppercase tracking-widest leading-none">Home</span>

@@ -7,12 +7,59 @@ window.Alpine = Alpine;
 window.Chart = Chart;
 
 Alpine.store('sidebar', {
-    open: localStorage.getItem('sidebar-open') === 'true',
+    // Desktop: default to open unless explicitly collapsed ('false')
+    // Mobile: default to closed
+    open: (function() {
+        if (typeof window === 'undefined') return true;
+        const isDesktop = window.innerWidth >= 768;
+        if (!isDesktop) return false;
+        const saved = localStorage.getItem('sidebar-desktop-open');
+        return saved === null ? true : saved === 'true';
+    })(),
     toggle() {
         this.open = !this.open;
-        localStorage.setItem('sidebar-open', this.open);
+        if (window.innerWidth >= 768) {
+            localStorage.setItem('sidebar-desktop-open', this.open ? 'true' : 'false');
+        }
+    },
+    close() {
+        this.open = false;
+        if (window.innerWidth >= 768) {
+            localStorage.setItem('sidebar-desktop-open', 'false');
+        }
+    },
+    openSidebar() {
+        this.open = true;
+        if (window.innerWidth >= 768) {
+            localStorage.setItem('sidebar-desktop-open', 'true');
+        }
     }
 });
+
+// Synchronize sidebar state on window resize across desktop/mobile breakpoint
+if (typeof window !== 'undefined') {
+    let lastWidth = window.innerWidth;
+    window.addEventListener('resize', () => {
+        const currentWidth = window.innerWidth;
+        if (lastWidth < 768 && currentWidth >= 768) {
+            const saved = localStorage.getItem('sidebar-desktop-open');
+            Alpine.store('sidebar').open = saved === null ? true : saved === 'true';
+        } else if (lastWidth >= 768 && currentWidth < 768) {
+            Alpine.store('sidebar').open = false;
+        }
+        lastWidth = currentWidth;
+    });
+
+    // Keyboard shortcuts: Ctrl+B or Cmd+B to toggle, Escape to close on mobile
+    window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
+            e.preventDefault();
+            Alpine.store('sidebar').toggle();
+        } else if (e.key === 'Escape' && Alpine.store('sidebar').open && window.innerWidth < 768) {
+            Alpine.store('sidebar').close();
+        }
+    });
+}
 
 Alpine.store('darkMode', {
     on: localStorage.getItem('dark-mode') === 'true',

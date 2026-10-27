@@ -17,8 +17,8 @@
         $isApproved = ($milestone->status === 'approved');
         $endSessionBlockReason = $workflow->getEndSessionBlockReason($milestone);
         $canEndPresentation = is_null($endSessionBlockReason);
-        $latestPptSub = $milestone->submissions->where('type', 'ppt')->sortByDesc('created_at')->first() 
-            ?? $milestone->submissions->sortByDesc('created_at')->first();
+        $latestPptSub = $milestone->submissions()->where('type', 'ppt')->latest()->first() 
+            ?? $milestone->submissions()->latest()->first();
         $pptUrl = $latestPptSub?->file_url ? (str_starts_with($latestPptSub->file_url, 'http') ? $latestPptSub->file_url : \Illuminate\Support\Facades\Storage::url($latestPptSub->file_url)) : null;
 
         // Next destination name
@@ -42,9 +42,7 @@
             default => null
         };
         $checklistEvent = $checklistEventType && $milestone->thesis 
-            ? ($milestone->thesis->relationLoaded('defenceEvents') 
-                ? $milestone->thesis->defenceEvents->firstWhere('type', $checklistEventType) 
-                : $milestone->thesis->defenceEvents()->where('type', $checklistEventType)->first()) 
+            ? $milestone->thesis->defenceEvents->firstWhere('type', $checklistEventType) 
             : null;
         $evaluatorId = $checklistEvent?->evaluations?->first()?->evaluator_id;
 
@@ -167,7 +165,7 @@
                             <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST">
                                 @csrf
                                 <button type="submit" 
-                                    data-confirm="Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis?->student?->user?->name ?? 'Candidate') }}? The student will be advanced to Supervisors Assigned."
+                                    data-confirm="Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis->student->user->name) }}? The student will be advanced to Supervisors Assigned."
                                     data-confirm-title="End Presentation Session"
                                     data-confirm-type="success"
                                     data-confirm-btn="End Presentation"
@@ -190,27 +188,27 @@
         @else
             {{-- Proposal Defence / Progress Report 1 / Progress Report 2: 5 Steps --}}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 pt-6">
-                {{-- Step 1: Upload PPT / Document --}}
+                {{-- Step 1: Upload Presentation / Document (PDF Only) --}}
                 @php
-                    $hasPptType = $milestone->submissions->whereIn('type', ['ppt', 'presentation'])->isNotEmpty();
-                    $hasDocType = $milestone->submissions->whereIn('type', ['manuscript', 'file'])->isNotEmpty() || ($milestone->submissions->isNotEmpty() && !$hasPptType);
+                    $hasPptType = $milestone->submissions()->whereIn('type', ['ppt', 'presentation'])->exists();
+                    $hasDocType = $milestone->submissions()->whereIn('type', ['manuscript', 'file'])->exists() || ($milestone->submissions()->exists() && !$hasPptType);
 
                     $step1Title = match($slug) {
-                        'proposal_defence' => ($hasDocType && !$hasPptType ? 'Upload Proposal Document' : ($hasPptType && !$hasDocType ? 'Upload Presentation (PPT)' : 'Upload Proposal / Presentation')),
-                        'progress_report_1', 'progress_report_2' => ($hasDocType && !$hasPptType ? 'Upload Progress Report' : ($hasPptType && !$hasDocType ? 'Upload Presentation (PPT)' : 'Upload Report / Presentation')),
-                        default => ($hasPptType ? 'Upload Presentation (PPT)' : 'Upload Submission Document'),
+                        'proposal_defence' => ($hasDocType && !$hasPptType ? 'Upload Proposal Document (PDF)' : ($hasPptType && !$hasDocType ? 'Upload Presentation (PDF)' : 'Upload Proposal / Presentation (PDF)')),
+                        'progress_report_1', 'progress_report_2' => ($hasDocType && !$hasPptType ? 'Upload Progress Report (PDF)' : ($hasPptType && !$hasDocType ? 'Upload Presentation (PDF)' : 'Upload Report / Presentation (PDF)')),
+                        default => ($hasPptType ? 'Upload Presentation (PDF)' : 'Upload Submission Document (PDF)'),
                     };
 
                     $step1UploadedText = match($slug) {
-                        'proposal_defence' => ($hasDocType && !$hasPptType ? 'Proposal document uploaded by student.' : ($hasPptType && !$hasDocType ? 'Slide deck uploaded by student.' : 'Proposal document / slide deck uploaded.')),
-                        'progress_report_1', 'progress_report_2' => ($hasDocType && !$hasPptType ? 'Progress report uploaded by student.' : ($hasPptType && !$hasDocType ? 'Slide deck uploaded by student.' : 'Progress report / slide deck uploaded.')),
+                        'proposal_defence' => ($hasDocType && !$hasPptType ? 'Proposal document uploaded by student.' : ($hasPptType && !$hasDocType ? 'Presentation slides (PDF) uploaded by student.' : 'Proposal document / presentation PDF uploaded.')),
+                        'progress_report_1', 'progress_report_2' => ($hasDocType && !$hasPptType ? 'Progress report uploaded by student.' : ($hasPptType && !$hasDocType ? 'Presentation slides (PDF) uploaded by student.' : 'Progress report / presentation PDF uploaded.')),
                         default => 'Submission document uploaded by student.',
                     };
 
                     $step1PendingText = match($slug) {
-                        'proposal_defence' => 'Candidate must upload proposal document or presentation slides.',
-                        'progress_report_1', 'progress_report_2' => 'Candidate must upload progress report or presentation slides.',
-                        default => 'Candidate must upload required document or presentation slides.',
+                        'proposal_defence' => 'Candidate must upload proposal document or presentation slides (PDF).',
+                        'progress_report_1', 'progress_report_2' => 'Candidate must upload progress report or presentation slides (PDF).',
+                        default => 'Candidate must upload required document or presentation slides (PDF).',
                     };
 
                     $previewBtnLabel = ($hasPptType && !$hasDocType) ? 'Preview Slides' : 'View Document';
@@ -233,7 +231,7 @@
                         <button type="button" 
                             @click.prevent="$dispatch('open-document-preview', { 
                                 url: '{{ $pptUrl }}', 
-                                title: '{{ addslashes($step1Title) }} - {{ addslashes($milestone->thesis?->student?->user?->name ?? 'Candidate') }}', 
+                                title: '{{ addslashes($step1Title) }} - {{ addslashes($milestone->thesis->student->user->name) }}', 
                                 type: '{{ (str_contains(strtolower($pptUrl), '.pdf') || str_contains(strtolower($latestPptSub?->file_meta['mime_type'] ?? ''), 'pdf')) ? 'pdf' : 'document' }}' 
                             })"
                             class="w-full inline-flex items-center justify-center gap-2 px-3 py-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-colors shadow-sm cursor-pointer">
@@ -273,31 +271,21 @@
                         </p>
                     </div>
 
-                    @if(!$isSupervisorApproved && (auth()->user()->hasRole('Supervisor') || auth()->user()->hasRole('Admin')) && $milestone->submissions->isNotEmpty())
-                        <div class="flex gap-2">
-                            <form action="{{ route('milestones.accept_upload', $milestone) }}" method="POST" class="flex-1"
-                                data-confirm="Are you sure you want to accept this document?"
-                                data-confirm-title="Accept Document"
-                                data-confirm-type="success"
-                                data-confirm-btn="Accept Upload">
-                                @csrf
-                                <button type="submit" class="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer">
-                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                    <span>Accept</span>
+                    @if(!$isSupervisorApproved && (auth()->user()->hasRole('Supervisor') || auth()->user()->hasRole('Admin')) && $milestone->submissions()->exists())
+                        <form method="POST" x-data="{ remarks: '' }" @submit="if(!remarks.trim()) { alert('A comment is required to accept or reject the upload.'); event.preventDefault(); }" class="mt-4 pt-4 border-t border-slate-100">
+                            @csrf
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">Review Decision <span class="text-rose-500">*</span></label>
+                            <textarea name="remarks" x-model="remarks" rows="2" class="w-full text-xs rounded-xl border-slate-200 focus:ring-indigo-500 focus:border-indigo-500 p-2.5 mb-2 shadow-sm resize-none bg-white placeholder:text-slate-400" placeholder="Required: Explain your decision..." required></textarea>
+                            
+                            <div class="flex gap-2">
+                                <button type="submit" formaction="{{ route('milestones.accept_upload', $milestone) }}" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-2 rounded-xl text-xs font-bold transition-colors">
+                                    Accept Upload
                                 </button>
-                            </form>
-                            <form action="{{ route('milestones.reject_upload', $milestone) }}" method="POST" class="flex-1"
-                                data-confirm="Are you sure you want to reject this document? The student will be notified to revise it."
-                                data-confirm-title="Reject Document"
-                                data-confirm-type="danger"
-                                data-confirm-btn="Reject Upload">
-                                @csrf
-                                <button type="submit" class="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer">
-                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                                    <span>Reject</span>
+                                <button type="submit" formaction="{{ route('milestones.reject_upload', $milestone) }}" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white py-2 rounded-xl text-xs font-bold transition-colors">
+                                    Reject Upload
                                 </button>
-                            </form>
-                        </div>
+                            </div>
+                        </form>
                     @endif
                 </div>
 
@@ -391,7 +379,7 @@
                             <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST">
                                 @csrf
                                 <button type="submit" 
-                                    data-confirm="Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis?->student?->user?->name ?? 'Candidate') }}? {{ $isFail ? 'The candidate received a FAIL grade and will repeat this milestone.' : 'The student will be advanced to ' . $nextDestination . '.' }}"
+                                    data-confirm="Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis->student->user->name) }}? {{ $isFail ? 'The candidate received a FAIL grade and will repeat this milestone.' : 'The student will be advanced to ' . $nextDestination . '.' }}"
                                     data-confirm-title="End Presentation Session"
                                     data-confirm-type="{{ $isFail ? 'danger' : 'success' }}"
                                     data-confirm-btn="{{ $isFail ? 'End & Repeat Milestone' : 'End Presentation' }}"

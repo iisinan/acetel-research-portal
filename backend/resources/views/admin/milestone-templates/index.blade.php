@@ -156,6 +156,15 @@
                                     </a>
                                     @endif
 
+                                    @if($template->slug !== 'supervisors_assigned')
+                                    <a href="{{ isset($isCoordinator) && $isCoordinator ? route('coordinator.milestone-templates.export-scheduled-pdf', $template->id) : route('admin.milestone-templates.export-scheduled-pdf', $template->id) }}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm">
+                                        <svg class="w-3.5 h-3.5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                        </svg>
+                                        SCHEDULED PDF
+                                    </a>
+                                    @endif
+
                                     @if($template->studentMilestones->count() > 0)
                                         <button @click="showStudents = !showStudents; if(showStudents) $nextTick(() => $refs.searchInput?.focus())" 
                                             class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
@@ -280,7 +289,7 @@
 
                                             <form action="{{ route('admin.milestone-templates.end-schedule', $template->id) }}" method="POST" class="inline">
                                                 @csrf
-                                                <button type="submit" data-confirm="Are you sure you want to end the presentation session for {{ addslashes($template->name) }}? Eligible scheduled students who have completed all requirements (presentation, PPT upload, and supervisor approval) will be approved and advanced to the next milestone."
+                                                <button type="submit" data-confirm="Are you sure you want to end the presentation session for {{ addslashes($template->name) }}? Eligible scheduled students who have completed all requirements (presentation, presentation PDF upload, and supervisor approval) will be approved and advanced to the next milestone."
                                                     data-confirm-title="End Presentation Session"
                                                     data-confirm-type="success"
                                                     data-confirm-btn="End Session"
@@ -579,7 +588,7 @@
                                                         @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Examiner(s)</th>
                                                         @if($template->slug === 'seminar_as_a_course')
-                                                        <th class="px-4 py-3 font-semibold text-slate-700">PPT</th>
+                                                        <th class="px-4 py-3 font-semibold text-slate-700">Presentation (PDF)</th>
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Score</th>
                                                         @else
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Grade / Result</th>
