@@ -188,27 +188,27 @@
         @else
             {{-- Proposal Defence / Progress Report 1 / Progress Report 2: 5 Steps --}}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 pt-6">
-                {{-- Step 1: Upload PPT / Document --}}
+                {{-- Step 1: Upload Presentation / Document (PDF Only) --}}
                 @php
                     $hasPptType = $milestone->submissions()->whereIn('type', ['ppt', 'presentation'])->exists();
                     $hasDocType = $milestone->submissions()->whereIn('type', ['manuscript', 'file'])->exists() || ($milestone->submissions()->exists() && !$hasPptType);
 
                     $step1Title = match($slug) {
-                        'proposal_defence' => ($hasDocType && !$hasPptType ? 'Upload Proposal Document' : ($hasPptType && !$hasDocType ? 'Upload Presentation (PPT)' : 'Upload Proposal / Presentation')),
-                        'progress_report_1', 'progress_report_2' => ($hasDocType && !$hasPptType ? 'Upload Progress Report' : ($hasPptType && !$hasDocType ? 'Upload Presentation (PPT)' : 'Upload Report / Presentation')),
-                        default => ($hasPptType ? 'Upload Presentation (PPT)' : 'Upload Submission Document'),
+                        'proposal_defence' => ($hasDocType && !$hasPptType ? 'Upload Proposal Document (PDF)' : ($hasPptType && !$hasDocType ? 'Upload Presentation (PDF)' : 'Upload Proposal / Presentation (PDF)')),
+                        'progress_report_1', 'progress_report_2' => ($hasDocType && !$hasPptType ? 'Upload Progress Report (PDF)' : ($hasPptType && !$hasDocType ? 'Upload Presentation (PDF)' : 'Upload Report / Presentation (PDF)')),
+                        default => ($hasPptType ? 'Upload Presentation (PDF)' : 'Upload Submission Document (PDF)'),
                     };
 
                     $step1UploadedText = match($slug) {
-                        'proposal_defence' => ($hasDocType && !$hasPptType ? 'Proposal document uploaded by student.' : ($hasPptType && !$hasDocType ? 'Slide deck uploaded by student.' : 'Proposal document / slide deck uploaded.')),
-                        'progress_report_1', 'progress_report_2' => ($hasDocType && !$hasPptType ? 'Progress report uploaded by student.' : ($hasPptType && !$hasDocType ? 'Slide deck uploaded by student.' : 'Progress report / slide deck uploaded.')),
+                        'proposal_defence' => ($hasDocType && !$hasPptType ? 'Proposal document uploaded by student.' : ($hasPptType && !$hasDocType ? 'Presentation slides (PDF) uploaded by student.' : 'Proposal document / presentation PDF uploaded.')),
+                        'progress_report_1', 'progress_report_2' => ($hasDocType && !$hasPptType ? 'Progress report uploaded by student.' : ($hasPptType && !$hasDocType ? 'Presentation slides (PDF) uploaded by student.' : 'Progress report / presentation PDF uploaded.')),
                         default => 'Submission document uploaded by student.',
                     };
 
                     $step1PendingText = match($slug) {
-                        'proposal_defence' => 'Candidate must upload proposal document or presentation slides.',
-                        'progress_report_1', 'progress_report_2' => 'Candidate must upload progress report or presentation slides.',
-                        default => 'Candidate must upload required document or presentation slides.',
+                        'proposal_defence' => 'Candidate must upload proposal document or presentation slides (PDF).',
+                        'progress_report_1', 'progress_report_2' => 'Candidate must upload progress report or presentation slides (PDF).',
+                        default => 'Candidate must upload required document or presentation slides (PDF).',
                     };
 
                     $previewBtnLabel = ($hasPptType && !$hasDocType) ? 'Preview Slides' : 'View Document';

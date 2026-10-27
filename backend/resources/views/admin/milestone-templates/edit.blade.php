@@ -132,7 +132,7 @@
                         <div class="grid grid-cols-3 gap-3">
                             <label class="flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all bg-white hover:border-blue-300">
                                 <input type="checkbox" name="submission_type[]" value="ppt" {{ in_array('ppt', $subTypes) ? 'checked' : '' }} class="w-4 h-4 rounded text-blue-600 border-slate-300">
-                                <span class="text-sm font-bold text-slate-700">PPT / Presentation</span>
+                                <span class="text-sm font-bold text-slate-700">Presentation (PDF)</span>
                             </label>
                             <label class="flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all bg-white hover:border-blue-300">
                                 <input type="checkbox" name="submission_type[]" value="file" {{ in_array('file', $subTypes) ? 'checked' : '' }} class="w-4 h-4 rounded text-blue-600 border-slate-300">

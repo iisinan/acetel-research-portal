@@ -31,7 +31,7 @@
             <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST" class="inline">
                 @csrf
                 <button type="submit" 
-                    data-confirm="Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis->student->user?->name ?? 'User') }}? If all requirements are met (presentation conducted, PPT uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
+                    data-confirm="Are you sure you want to end the presentation session for {{ addslashes($milestone->thesis->student->user?->name ?? 'User') }}? If all requirements are met (presentation conducted, presentation PDF uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
                     data-confirm-title="End Presentation Session"
                     data-confirm-type="success"
                     data-confirm-btn="End Presentation"
@@ -273,7 +273,7 @@
                                     <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST" class="inline">
                                         @csrf
                                         <button type="submit" 
-                                            data-confirm="Are you sure you want to end the presentation for {{ addslashes($milestone->thesis->student->user?->name ?? 'User') }}? If all requirements are met (presentation conducted, PPT uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
+                                            data-confirm="Are you sure you want to end the presentation for {{ addslashes($milestone->thesis->student->user?->name ?? 'User') }}? If all requirements are met (presentation conducted, presentation PDF uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
                                             data-confirm-title="End Presentation Session"
                                             data-confirm-type="success"
                                             data-confirm-btn="End Presentation"
@@ -448,22 +448,22 @@
                                 @if(in_array('ppt', $subTypes))
                                 <div>
                                     <label class="block text-sm font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                                        <span>Upload Presentation Slide Deck (PDF or PPT/PPTX)</span>
+                                        <span>Upload Presentation Slide Deck (PDF Only)</span>
                                         @if($bothAllowed && !$hasPptSub && $hasFileSub)
                                             <span class="text-xs font-normal text-slate-400">(Optional if manuscript already uploaded)</span>
                                         @endif
                                     </label>
                                     <div class="relative w-full">
-                                        <input type="file" name="ppt" accept=".pdf,.ppt,.pptx" {{ (!$bothAllowed && !$hasPptSub) ? 'required' : '' }} class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                        <input type="file" name="ppt" accept=".pdf" {{ (!$bothAllowed && !$hasPptSub) ? 'required' : '' }} class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
                                             @change="
                                                 const file = $event.target.files[0];
-                                                document.getElementById('ppt-name-{{ $milestone->id }}').textContent = file ? file.name : 'Click or drop to select PPT';
+                                                document.getElementById('ppt-name-{{ $milestone->id }}').textContent = file ? file.name : 'Click or drop to select presentation PDF';
                                             "/>
                                         <div class="w-full flex flex-col items-center justify-center gap-3 px-4 py-8 bg-slate-50 border-2 border-slate-200 border-dashed rounded-2xl hover:border-emerald-300 hover:bg-emerald-50/50 transition-colors">
                                             <div class="w-10 h-10 rounded-full bg-white text-slate-400 flex items-center justify-center shadow-xl shadow-slate-200/40">
                                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 12l3-3 3 3M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
                                             </div>
-                                            <span id="ppt-name-{{ $milestone->id }}" class="text-sm font-medium text-slate-600">Click or drop to select PPT</span>
+                                            <span id="ppt-name-{{ $milestone->id }}" class="text-sm font-medium text-slate-600">Click or drop to select presentation PDF</span>
                                         </div>
                                     </div>
                                     @error('ppt') <span class="text-xs font-bold text-red-500 mt-2 block">{{ $message }}</span> @enderror
@@ -475,7 +475,7 @@
                                     <label class="block text-sm font-semibold text-slate-700 mb-1 flex items-center justify-between">
                                         <span>{{ $milestone->template->slug === 'supervisors_assigned' ? 'Upload Tentative Proposal (PDF Only)' : 'Upload ' . $milestone->template->name . ' Document (PDF Only)' }}</span>
                                         @if($bothAllowed && !$hasFileSub && $hasPptSub)
-                                            <span class="text-xs font-normal text-slate-400">(Optional if PPT already uploaded)</span>
+                                            <span class="text-xs font-normal text-slate-400">(Optional if presentation already uploaded)</span>
                                         @endif
                                     </label>
                                     @if($milestone->template->slug === 'supervisors_assigned')
@@ -780,7 +780,7 @@
                         @elseif(in_array('publication', $subTypes))
                             <p class="mb-2">Please upload a verified copy of your peer-reviewed publication record. PDF format is required for archiving purposes.</p>
                         @else
-                            <p class="mb-2">Ensure your submission meets the core program requirements. Acceptable formats include PDF and DOCX (max 10MB).</p>
+                            <p class="mb-2">Ensure your submission meets the core program requirements. Acceptable format is strictly PDF (max 50MB).</p>
                         @endif
                         <p>Upon submission, your designated committee will be notified automatically.</p>
                     </div>

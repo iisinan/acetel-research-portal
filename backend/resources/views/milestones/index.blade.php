@@ -261,7 +261,7 @@
                             <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST" class="inline-block relative z-20" onclick="event.stopPropagation();">
                                 @csrf
                                 <button type="submit" 
-                                    data-confirm="Are you sure you want to end the presentation for {{ addslashes($thesis->student?->user?->name ?? 'Candidate') }}? If all requirements are met (presentation conducted, PPT uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
+                                    data-confirm="Are you sure you want to end the presentation for {{ addslashes($thesis->student?->user?->name ?? 'Candidate') }}? If all requirements are met (presentation conducted, presentation PDF uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
                                     data-confirm-title="End Presentation Session" 
                                     data-confirm-type="success" 
                                     data-confirm-btn="End Presentation" 

@@ -289,7 +289,7 @@
 
                                             <form action="{{ route('admin.milestone-templates.end-schedule', $template->id) }}" method="POST" class="inline">
                                                 @csrf
-                                                <button type="submit" data-confirm="Are you sure you want to end the presentation session for {{ addslashes($template->name) }}? Eligible scheduled students who have completed all requirements (presentation, PPT upload, and supervisor approval) will be approved and advanced to the next milestone."
+                                                <button type="submit" data-confirm="Are you sure you want to end the presentation session for {{ addslashes($template->name) }}? Eligible scheduled students who have completed all requirements (presentation, presentation PDF upload, and supervisor approval) will be approved and advanced to the next milestone."
                                                     data-confirm-title="End Presentation Session"
                                                     data-confirm-type="success"
                                                     data-confirm-btn="End Session"
@@ -588,7 +588,7 @@
                                                         @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Examiner(s)</th>
                                                         @if($template->slug === 'seminar_as_a_course')
-                                                        <th class="px-4 py-3 font-semibold text-slate-700">PPT</th>
+                                                        <th class="px-4 py-3 font-semibold text-slate-700">Presentation (PDF)</th>
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Score</th>
                                                         @else
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Grade / Result</th>
