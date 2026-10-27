@@ -25,12 +25,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        @ini_set('max_execution_time', '180');
-        @ini_set('default_socket_timeout', '180');
-        @ini_set('zlib.output_compression', '1');
-        if (function_exists('set_time_limit')) {
-            @set_time_limit(180);
+        if (app()->runningInConsole()) {
+            @ini_set('max_execution_time', '0');
+            if (function_exists('set_time_limit')) {
+                @set_time_limit(0);
+            }
+        } else {
+            @ini_set('max_execution_time', '120');
+            @ini_set('default_socket_timeout', '120');
         }
+        @ini_set('zlib.output_compression', '1');
 
         User::observe(AuditObserver::class);
         ThesisProject::observe(AuditObserver::class);

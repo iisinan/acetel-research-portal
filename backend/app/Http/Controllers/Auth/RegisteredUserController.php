@@ -169,14 +169,17 @@ class RegisteredUserController extends Controller
             $user->assignRole($role);
 
             $program = \App\Models\Program::find($request->program_id);
-            $isPhd = stripos($program->name, 'phd') !== false;
+            $pName = strtolower(($program->name ?? '') . ' ' . ($program->degree_type ?? ''));
+            $isPhd = str_contains($pName, 'phd') || str_contains($pName, 'ph.d') || str_contains($pName, 'doctor');
             
-            $levelId = null;
-            if ($isPhd) {
-                $levelId = \App\Models\Level::where('name', 'like', '%PhD%')->value('id');
-            } else {
-                $levelId = \App\Models\Level::where('name', 'like', '%MSc%')->value('id');
-            }
+            $allLevels = \App\Models\Level::all();
+            $matchedLevel = $allLevels->first(function ($lvl) use ($isPhd) {
+                $lName = strtolower($lvl->name);
+                return $isPhd
+                    ? (str_contains($lName, 'phd') || str_contains($lName, 'doctor'))
+                    : (str_contains($lName, 'msc') || str_contains($lName, 'master'));
+            });
+            $levelId = $matchedLevel?->id ?? $allLevels->first()?->id;
 
             // 3. Create StudentProfile
             $student = StudentProfile::create([

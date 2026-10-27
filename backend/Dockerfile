@@ -45,8 +45,8 @@ RUN { \
     echo 'upload_max_filesize=50M'; \
     echo 'post_max_size=50M'; \
     echo 'memory_limit=512M'; \
-    echo 'max_execution_time=180'; \
-    echo 'default_socket_timeout=180'; \
+    echo 'max_execution_time=0'; \
+    echo 'default_socket_timeout=120'; \
 } > /usr/local/etc/php/conf.d/uploads.ini
 
 # Install Composer

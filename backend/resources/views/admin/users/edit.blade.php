@@ -26,11 +26,40 @@
                 if (empty($defaultRoles)) {
                     $defaultRoles = ['Supervisor'];
                 }
+
+                // Map each program to its appropriate level ID
+                $programLevelMap = [];
+                foreach ($programs as $prog) {
+                    $pName = strtolower($prog->name . ' ' . ($prog->degree_type ?? ''));
+                    $isPhd = str_contains($pName, 'phd') || str_contains($pName, 'ph.d') || str_contains($pName, 'doctor');
+                    $matched = $levels->first(function ($lvl) use ($isPhd) {
+                        $lName = strtolower($lvl->name);
+                        return $isPhd
+                            ? (str_contains($lName, 'phd') || str_contains($lName, 'doctor'))
+                            : (str_contains($lName, 'msc') || str_contains($lName, 'master'));
+                    });
+                    $programLevelMap[$prog->id] = $matched?->id ?? ($levels->first()?->id ?? '');
+                }
+
+                $initialProgramId = old('program_id', $user->studentProfile?->program_id ?? ($programs->first()?->id ?? ''));
+                $initialLevelId = old('level_id', $user->studentProfile?->level_id ?? ($programLevelMap[$initialProgramId] ?? ($levels->first()?->id ?? '')));
+                if (empty($initialLevelId) && !empty($initialProgramId)) {
+                    $initialLevelId = $programLevelMap[$initialProgramId] ?? ($levels->first()?->id ?? '');
+                }
             @endphp
             <form action="{{ route('admin.users.update', $user) }}" method="POST" x-data="{ 
                 accountCategory: '{{ old('account_category', $initCat) }}',
                 selectedRoles: {{ json_encode($defaultRoles) }},
                 adminRole: '{{ old('admin_role', in_array('Director', $existingRoles) ? 'Director' : 'Admin') }}',
+                studentProgram: '{{ $initialProgramId }}',
+                studentLevel: '{{ $initialLevelId }}',
+                progLevelMap: {{ json_encode($programLevelMap) }},
+                onProgramChange(pId) {
+                    this.studentProgram = pId;
+                    if (this.progLevelMap[pId]) {
+                        this.studentLevel = this.progLevelMap[pId];
+                    }
+                },
                 programs: {{ 
                     json_encode(old('coordinator_programs', array_values(array_unique(array_filter(array_merge(
                         $user->coordinatorProfiles->pluck('program_id')->toArray(),

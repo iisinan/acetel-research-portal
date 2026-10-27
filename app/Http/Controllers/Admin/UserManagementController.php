@@ -15,6 +15,42 @@ use Illuminate\Validation\Rule;
 class UserManagementController extends Controller
 {
     /**
+     * Resolve level ID from provided level ID or infer from program ID.
+     */
+    private function resolveLevelId(?string $levelId, ?string $programId): ?string
+    {
+        $levels = Level::all();
+        if ($levels->isEmpty()) {
+            return null;
+        }
+
+        if (!empty($levelId) && $levels->contains('id', $levelId)) {
+            return $levelId;
+        }
+
+        if (!empty($programId)) {
+            $program = Program::find($programId);
+            if ($program) {
+                $pName = strtolower($program->name . ' ' . ($program->degree_type ?? ''));
+                $isPhd = str_contains($pName, 'phd') || str_contains($pName, 'ph.d') || str_contains($pName, 'doctor');
+
+                $matched = $levels->first(function ($lvl) use ($isPhd) {
+                    $lName = strtolower($lvl->name);
+                    return $isPhd
+                        ? (str_contains($lName, 'phd') || str_contains($lName, 'doctor'))
+                        : (str_contains($lName, 'msc') || str_contains($lName, 'master'));
+                });
+
+                if ($matched) {
+                    return $matched->id;
+                }
+            }
+        }
+
+        return $levels->first()->id;
+    }
+
+    /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
@@ -111,10 +147,16 @@ class UserManagementController extends Controller
             if (count($roles) > 1) {
                 return back()->withInput()->withErrors(['roles' => 'The Student role cannot be combined with faculty or administrative roles.']);
             }
+            if (empty($request->level_id) && $request->filled('program_id')) {
+                $resolvedLevelId = $this->resolveLevelId($request->level_id, $request->program_id);
+                if ($resolvedLevelId) {
+                    $request->merge(['level_id' => $resolvedLevelId]);
+                }
+            }
             $rules = array_merge($rules, [
                 'cohort_id' => 'required|exists:cohorts,id',
                 'program_id' => 'required|exists:programs,id',
-                'level_id' => 'required|exists:levels,id',
+                'level_id' => 'nullable|exists:levels,id',
                 'student_id_number' => ['required', 'string', 'unique:student_profiles,student_id_number', new \App\Rules\ValidMatricNumber],
             ]);
         }
@@ -232,11 +274,12 @@ class UserManagementController extends Controller
 
             // 5. Student Profile Assignment
             if (in_array('Student', $roles)) {
+                $finalLevelId = $this->resolveLevelId($validated['level_id'] ?? null, $validated['program_id']);
                 $profile = \App\Models\StudentProfile::create([
                     'user_id' => $user->id,
                     'cohort_id' => $validated['cohort_id'],
                     'program_id' => $validated['program_id'],
-                    'level_id' => $validated['level_id'],
+                    'level_id' => $finalLevelId,
                     'student_id_number' => $validated['student_id_number'],
                     'enrollment_status' => 'active',
                     'current_semester' => 1,
@@ -285,6 +328,16 @@ class UserManagementController extends Controller
         foreach ($userRoles as $uRole) {
             if (!in_array($uRole, $allowedRoles)) {
                 $allowedRoles[] = $uRole;
+            }
+        }
+
+        // Proactively heal missing level_id if null
+        if ($user->studentProfile && empty($user->studentProfile->level_id) && $user->studentProfile->program_id) {
+            $resolvedLevelId = $this->resolveLevelId(null, $user->studentProfile->program_id);
+            if ($resolvedLevelId) {
+                $user->studentProfile->level_id = $resolvedLevelId;
+                $user->studentProfile->saveQuietly();
+                $user->load('studentProfile.level');
             }
         }
 
@@ -346,10 +399,16 @@ class UserManagementController extends Controller
             if (count($roles) > 1) {
                 return back()->withInput()->withErrors(['roles' => 'The Student role cannot be combined with faculty or administrative roles.']);
             }
+            if (empty($request->level_id) && $request->filled('program_id')) {
+                $resolvedLevelId = $this->resolveLevelId($request->level_id, $request->program_id);
+                if ($resolvedLevelId) {
+                    $request->merge(['level_id' => $resolvedLevelId]);
+                }
+            }
             $rules = array_merge($rules, [
                 'cohort_id' => 'required|exists:cohorts,id',
                 'program_id' => 'required|exists:programs,id',
-                'level_id' => 'required|exists:levels,id',
+                'level_id' => 'nullable|exists:levels,id',
                 'student_id_number' => ['required', 'string', Rule::unique('student_profiles')->ignore($user->studentProfile?->id), new \App\Rules\ValidMatricNumber],
             ]);
         }
@@ -475,12 +534,13 @@ class UserManagementController extends Controller
 
             // 5. Student Profile Sync
             if (in_array('Student', $roles)) {
+                $finalLevelId = $this->resolveLevelId($validated['level_id'] ?? null, $validated['program_id']);
                 $user->studentProfile()->updateOrCreate(
                     ['user_id' => $user->id],
                     [
                         'cohort_id' => $validated['cohort_id'],
                         'program_id' => $validated['program_id'],
-                        'level_id' => $validated['level_id'],
+                        'level_id' => $finalLevelId,
                         'student_id_number' => $validated['student_id_number'],
                     ]
                 );
@@ -634,7 +694,7 @@ class UserManagementController extends Controller
                 $user->studentProfile()->create([
                     'cohort_id' => $latestCohort->id,
                     'program_id' => $program->id,
-                    'level_id' => $defaultLevel ? $defaultLevel->id : null,
+                    'level_id' => $this->resolveLevelId(null, $program->id),
                     'student_id_number' => $studentIdNumber,
                     'enrollment_status' => 'active',
                 ]);
