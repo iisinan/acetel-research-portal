@@ -7,6 +7,10 @@ use App\Models\StudentProfile;
 
 use Illuminate\Http\Request;
 use App\Models\InternalExaminerProfile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class StudentController extends Controller
 {
@@ -234,104 +238,73 @@ class StudentController extends Controller
             $userId = $student->user_id;
             $thesis = $student->thesis;
 
+            // 1. Delete physical submission files from Storage disk
             if ($thesis) {
-                $milestoneIds = $thesis->milestones()->pluck('id')->all();
+                try {
+                    $milestoneIds = $thesis->milestones()->pluck('id')->all();
+                    if (!empty($milestoneIds)) {
+                        $submissions = DB::table('submissions')
+                            ->whereIn('student_milestone_id', $milestoneIds)
+                            ->whereNotNull('file_url')
+                            ->get(['id', 'file_url']);
 
-                if (!empty($milestoneIds)) {
-                    // Delete seminar grades
-                    if (Schema::hasTable('seminar_grades')) {
-                        DB::table('seminar_grades')->whereIn('student_milestone_id', $milestoneIds)->delete();
-                    }
-
-                    // Delete submissions, feedback, and storage files
-                    $submissions = DB::table('submissions')->whereIn('student_milestone_id', $milestoneIds)->get();
-                    foreach ($submissions as $sub) {
-                        if (!empty($sub->file_url)) {
-                            try {
-                                Storage::delete($sub->file_url);
-                            } catch (\Throwable $e) {}
-                        }
-                        if (Schema::hasTable('feedback')) {
-                            DB::table('feedback')->where('submission_id', $sub->id)->delete();
+                        foreach ($submissions as $sub) {
+                            if (!empty($sub->file_url)) {
+                                try {
+                                    Storage::delete($sub->file_url);
+                                } catch (\Throwable $e) {}
+                            }
                         }
                     }
-                    DB::table('submissions')->whereIn('student_milestone_id', $milestoneIds)->delete();
+                } catch (\Throwable $e) {
+                    Log::warning("Could not delete submission files: " . $e->getMessage());
                 }
+            }
 
-                // Delete any submissions submitted_by this user
-                if ($userId) {
-                    $userSubs = DB::table('submissions')->where('submitted_by', $userId)->get();
+            if ($userId) {
+                try {
+                    $userSubs = DB::table('submissions')
+                        ->where('submitted_by', $userId)
+                        ->whereNotNull('file_url')
+                        ->get(['id', 'file_url']);
+
                     foreach ($userSubs as $sub) {
                         if (!empty($sub->file_url)) {
                             try {
                                 Storage::delete($sub->file_url);
                             } catch (\Throwable $e) {}
                         }
-                        if (Schema::hasTable('feedback')) {
-                            DB::table('feedback')->where('submission_id', $sub->id)->delete();
-                        }
                     }
-                    DB::table('submissions')->where('submitted_by', $userId)->delete();
-                }
-
-                // Delete action items
-                if (Schema::hasTable('action_items')) {
-                    DB::table('action_items')->where('thesis_project_id', $thesis->id)->delete();
-                }
-
-                // Defence events, panel members, evaluations
-                if (Schema::hasTable('defence_events')) {
-                    $events = DB::table('defence_events')->where('thesis_project_id', $thesis->id)->get();
-                    foreach ($events as $event) {
-                        if (Schema::hasTable('panel_members')) {
-                            DB::table('panel_members')->where('defence_event_id', $event->id)->delete();
-                        }
-                        if (Schema::hasTable('evaluations')) {
-                            DB::table('evaluations')->where('defence_event_id', $event->id)->delete();
-                        }
-                    }
-                    DB::table('defence_events')->where('thesis_project_id', $thesis->id)->delete();
-                }
-
-                // Supervision and examiner assignments
-                if (Schema::hasTable('supervision_assignments')) {
-                    DB::table('supervision_assignments')->where('thesis_project_id', $thesis->id)->delete();
-                }
-                if (Schema::hasTable('examiner_assignments')) {
-                    DB::table('examiner_assignments')->where('thesis_project_id', $thesis->id)->delete();
-                }
-
-                // Messages & communication channels
-                if (Schema::hasTable('messages')) {
-                    DB::table('messages')->where('thesis_project_id', $thesis->id)->delete();
-                }
-                if (Schema::hasTable('communication_channels')) {
-                    DB::table('communication_channels')->where('thesis_project_id', $thesis->id)->delete();
-                }
-
-                // Delete student milestones
-                DB::table('student_milestones')->where('thesis_project_id', $thesis->id)->delete();
-
-                // Delete thesis project
-                DB::table('thesis_projects')->where('id', $thesis->id)->delete();
+                } catch (\Throwable $e) {}
             }
 
+            // 2. Clear non-cascading relations that could violate foreign key constraints on users
             if ($userId) {
-                if (Schema::hasTable('messages')) {
-                    DB::table('messages')->where('sender_id', $userId)->orWhere('receiver_id', $userId)->delete();
+                // Action items assigned to this user
+                if (Schema::hasTable('action_items')) {
+                    DB::table('action_items')->where('assigned_to', $userId)->delete();
                 }
-                if (Schema::hasTable('inbox_messages')) {
-                    DB::table('inbox_messages')->where('sender_id', $userId)->orWhere('recipient_id', $userId)->delete();
+                // Communication channels created by this user
+                if (Schema::hasTable('communication_channels')) {
+                    DB::table('communication_channels')->where('created_by', $userId)->delete();
                 }
+                // Feedback created by this user
+                if (Schema::hasTable('feedback')) {
+                    DB::table('feedback')->where('created_by', $userId)->delete();
+                }
+                // Examiner assignments where user was examiner or assigner
+                if (Schema::hasTable('examiner_assignments')) {
+                    DB::table('examiner_assignments')->where('examiner_id', $userId)->orWhere('assigned_by', $userId)->delete();
+                }
+                // Audit logs referencing this user
                 if (Schema::hasTable('audit_logs')) {
                     DB::table('audit_logs')->where('user_id', $userId)->delete();
                 }
-                if (Schema::hasTable('evaluations')) {
-                    DB::table('evaluations')->where('evaluator_id', $userId)->delete();
-                }
+                // System notifications for this user
                 if (Schema::hasTable('notifications')) {
                     DB::table('notifications')->where('notifiable_id', $userId)->delete();
                 }
+                // Spatie roles and permissions
                 if (Schema::hasTable('model_has_roles')) {
                     DB::table('model_has_roles')->where('model_id', $userId)->delete();
                 }
@@ -340,14 +313,17 @@ class StudentController extends Controller
                 }
             }
 
-            // Delete student profile
-            $student->delete();
+            // 3. Delete thesis project if present (cascades milestones, defence events, channels, assignments, etc.)
+            if ($thesis) {
+                $thesis->delete();
+            }
 
-            // Delete user account
+            // 4. Delete user account and student profile
+            // Deleting the user account triggers DB-level ON DELETE CASCADE on student_profiles, inbox_messages, etc.
             if ($user) {
                 $user->delete();
-            } elseif ($userId) {
-                DB::table('users')->where('id', $userId)->delete();
+            } else {
+                $student->delete();
             }
         });
     }
@@ -355,14 +331,24 @@ class StudentController extends Controller
     /**
      * Remove the specified student from storage.
      */
-    public function destroy(StudentProfile $student)
+    public function destroy(Request $request, StudentProfile $student)
     {
         $name = $student->user->name ?? $student->student_id_number ?? 'Student';
         $matric = $student->student_id_number ?? '';
+        $studentId = $student->id;
 
         $this->deleteStudentRecord($student);
 
         $label = $matric ? "{$name} ({$matric})" : $name;
+
+        $referer = $request->header('referer') ?? '';
+        $previous = url()->previous();
+
+        // If the delete request originated from the student's detail page, redirect to milestone templates
+        if (str_contains($referer, "/admin/students/{$studentId}") || str_contains($previous, "/admin/students/{$studentId}")) {
+            return redirect()->route('admin.milestone-templates.index')->with('success', "Student record for {$label} has been permanently deleted from the system.");
+        }
+
         return back()->with('success', "Student record for {$label} has been permanently deleted from the system.");
     }
 

@@ -70,6 +70,11 @@ class ThesisProject extends Model
         return $this->belongsTo(StudentProfile::class, 'student_profile_id');
     }
 
+    public function studentProfile()
+    {
+        return $this->student();
+    }
+
     public function internalExaminer()
     {
         return $this->belongsTo(InternalExaminerProfile::class, 'internal_examiner_profile_id');
