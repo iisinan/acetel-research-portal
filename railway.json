@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "export PHP_CLI_SERVER_WORKERS=10 && php artisan config:cache || true && php artisan route:cache || true && php artisan view:cache || true && php artisan event:cache || true && exec php artisan serve --host 0.0.0.0 --port $PORT --no-reload",
+    "startCommand": "php artisan serve --host 0.0.0.0 --port $PORT",
     "restartPolicyType": "ON_FAILURE"
   }
 }
