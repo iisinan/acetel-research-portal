@@ -23,7 +23,16 @@ class MilestoneTemplateController extends Controller
         $templates = MilestoneTemplate::with('program')
             ->with(['studentMilestones' => function($q) use ($isCoordinator, $coordinatorProgramId) { 
                 $q->whereIn('status', ['in_progress', 'submitted', 'revision_required', 'partially_approved'])
-                  ->with(['thesis.student.user', 'thesis.student.cohort', 'thesis.defenceEvents.panelMembers.user', 'thesis.defenceEvents.evaluations', 'submissions.feedback']); 
+                  ->with([
+                      'thesis.student.user', 
+                      'thesis.student.cohort', 
+                      'thesis.student.level',
+                      'thesis.defenceEvents.panelMembers.user', 
+                      'thesis.defenceEvents.evaluations', 
+                      'thesis.milestones',
+                      'thesis.assignments.supervisor.user',
+                      'submissions.feedback'
+                  ]); 
                 
                 if ($isCoordinator) {
                     $q->whereHas('thesis.student', function($sq) use ($coordinatorProgramId) {
