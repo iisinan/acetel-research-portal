@@ -57,9 +57,7 @@ class MilestoneController extends Controller
                     ->get()
                     ->sortBy('template.order');
 
-                $templatesCount = \App\Models\MilestoneTemplate::whereNull('program_id')
-                    ->orWhere('program_id', $thesis->student->program_id ?? null)
-                    ->count();
+                $templatesCount = $thesis->getApplicableMilestoneTemplates()->count();
 
                 if ($milestones->count() < $templatesCount || $milestones->isEmpty()) {
                     $thesis->syncMilestones();
@@ -68,6 +66,11 @@ class MilestoneController extends Controller
                         ->get()
                         ->sortBy('template.order');
                 }
+
+                // Ensure any exempt milestone is not included in student roadmap
+                $milestones = $milestones->reject(function ($m) use ($thesis) {
+                    return $thesis->isExemptFromMilestone($m->template);
+                })->values();
                 
                 // Get supervisors
                 $supervisors = $thesis->assignments->map(function ($assignment) {

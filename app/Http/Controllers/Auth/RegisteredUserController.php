@@ -369,8 +369,8 @@ class RegisteredUserController extends Controller
             $templates = MilestoneTemplate::orderBy('order')->get();
             $completedIds = $request->completed_milestones ?? [];
 
-            $programName = strtolower(\App\Models\Program::find($request->program_id)->name ?? '');
-            $isPhdAI = (str_contains($programName, 'phd') || str_contains($programName, 'doctor of philosophy')) && str_contains($programName, 'artificial intelligence');
+            $student->loadMissing(['program', 'level']);
+            $isPhdAI = $student->isPhdAI();
 
             // Determine the active milestone: the first template (by order) that is NOT completed.
             // All completed ones → 'approved'. The first non-completed → 'in_progress'. The rest → 'not_started'.

@@ -198,15 +198,45 @@ class ThesisProject extends Model
         return $milestone?->submissions()->latest()->first();
     }
 
+    public function isPhdAI(): bool
+    {
+        return $this->student?->isPhdAI() ?? false;
+    }
+
+    public function isExemptFromMilestone(MilestoneTemplate|string|null $template): bool
+    {
+        if (!$template) return false;
+        $slug = is_string($template) ? $template : $template->slug;
+        if ($slug === 'seminar_as_a_course' && $this->isPhdAI()) {
+            return true;
+        }
+        return false;
+    }
+
+    public function getApplicableMilestoneTemplates()
+    {
+        $templates = MilestoneTemplate::where(function ($q) {
+            $q->whereNull('program_id');
+            if ($this->student?->program_id) {
+                $q->orWhere('program_id', $this->student->program_id);
+            }
+        })->orderBy('order')->get();
+
+        if ($this->isPhdAI()) {
+            $templates = $templates->reject(function ($t) {
+                return $t->slug === 'seminar_as_a_course';
+            })->values();
+        }
+
+        return $templates;
+    }
+
     /**
      * Ensure all required milestones exist for this project.
      */
     public function syncMilestones()
     {
-        $templates = MilestoneTemplate::whereNull('program_id')
-            ->orWhere('program_id', $this->student->program_id)
-            ->orderBy('order')
-            ->get();
+        $templates = $this->getApplicableMilestoneTemplates();
 
         foreach ($templates as $template) {
             StudentMilestone::firstOrCreate(
@@ -216,6 +246,16 @@ class ThesisProject extends Model
                 ],
                 ['status' => 'not_started']
             );
+        }
+
+        // If this is a PhD AI project, purge any accidental seminar_as_a_course records
+        if ($this->isPhdAI()) {
+            $seminarTemplate = MilestoneTemplate::where('slug', 'seminar_as_a_course')->first();
+            if ($seminarTemplate) {
+                $this->milestones()
+                    ->where('milestone_template_id', $seminarTemplate->id)
+                    ->delete();
+            }
         }
     }
 
