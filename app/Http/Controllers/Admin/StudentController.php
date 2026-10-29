@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\StudentProfile;
+use App\Models\StudentMilestone;
 
 use Illuminate\Http\Request;
 use App\Models\InternalExaminerProfile;
