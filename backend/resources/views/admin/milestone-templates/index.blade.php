@@ -386,13 +386,29 @@
                                                 </div>
                                                 <div>
                                                     <p class="text-xs font-black text-indigo-900 uppercase tracking-wider">{{ $examinerBoxTitle }}</p>
-                                                    <p class="text-[10px] text-indigo-600 mt-0.5">
+                                                    <div class="flex flex-wrap items-center gap-2 mt-0.5">
+                                                        <p class="text-[10px] text-indigo-600">
+                                                            @if($currentExaminers->count() > 0)
+                                                                Currently: <strong>{{ $currentExaminers->map(fn($e) => $e->name)->implode(', ') }}</strong>
+                                                            @else
+                                                                No examiner assigned yet.
+                                                            @endif
+                                                        </p>
                                                         @if($currentExaminers->count() > 0)
-                                                            Currently: <strong>{{ $currentExaminers->map(fn($e) => $e->name)->implode(', ') }}</strong>
-                                                        @else
-                                                            No examiner assigned yet.
+                                                            <form action="{{ (auth()->user()->hasRole('Program Coordinator') && !auth()->user()->hasRole('Admin')) ? route('coordinator.milestone-templates.assign-examiner-global', $template->id) : route('admin.milestone-templates.assign-examiner-global', $template->id) }}" method="POST" class="inline">
+                                                                @csrf
+                                                                <button type="submit" 
+                                                                    data-confirm="Are you sure you want to remove all currently assigned examiners from this presentation milestone?"
+                                                                    data-confirm-title="Remove All Examiners"
+                                                                    data-confirm-type="danger"
+                                                                    data-confirm-btn="Yes, Remove All"
+                                                                    class="text-[10px] font-bold text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2 py-0.5 rounded transition-colors inline-flex items-center gap-1 cursor-pointer">
+                                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                                    Remove All
+                                                                </button>
+                                                            </form>
                                                         @endif
-                                                    </p>
+                                                    </div>
                                                 </div>
                                             </div>
                                             <form action="{{ (auth()->user()->hasRole('Program Coordinator') && !auth()->user()->hasRole('Admin')) ? route('coordinator.milestone-templates.assign-examiner-global', $template->id) : route('admin.milestone-templates.assign-examiner-global', $template->id) }}" method="POST" class="flex items-center gap-2 sm:ml-auto overflow-visible relative" 
@@ -416,7 +432,7 @@
                                                         return this.selected.length + ' selected';
                                                     }
                                                 }"
-                                                @submit="if(selected.length === 0) { (window.toast ? window.toast.warning('Please select at least one examiner.') : alert('Please select at least one examiner.')); $event.preventDefault(); }">
+                                                @submit="if(selected.length === 0) { if(!confirm('No examiners selected. Do you want to remove all examiners from this milestone?')) { $event.preventDefault(); } }">
                                                 @csrf
                                                 <template x-for="id in selected" :key="id">
                                                     <input type="hidden" name="supervisor_profile_ids[]" :value="id">
@@ -445,9 +461,12 @@
                                                                 </label>
                                                             </template>
                                                         </div>
-                                                        <div class="p-2 border-t border-slate-100 bg-slate-50">
-                                                            <textarea name="custom_message" placeholder="Custom Message (Optional)..." rows="2" class="w-full text-xs p-1 mb-2 border border-slate-200 rounded-md focus:ring-indigo-500 focus:border-indigo-500"></textarea>
-                                                            <button type="button" @click.stop="open = false" class="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold uppercase tracking-wider rounded">Done</button>
+                                                        <div class="p-2 border-t border-slate-100 bg-slate-50 space-y-2">
+                                                            <textarea name="custom_message" placeholder="Custom Message (Optional)..." rows="2" class="w-full text-xs p-1 border border-slate-200 rounded-md focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                                                            <div class="flex items-center gap-2">
+                                                                <button type="button" @click.stop="selected = []; $el.closest('form').submit();" class="py-1.5 px-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[10px] font-bold uppercase tracking-wider rounded">Remove All</button>
+                                                                <button type="button" @click.stop="open = false" class="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold uppercase tracking-wider rounded">Done</button>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>

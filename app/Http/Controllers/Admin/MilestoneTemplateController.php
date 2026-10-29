@@ -611,11 +611,10 @@ class MilestoneTemplateController extends Controller
         $template = $milestone->template;
 
         $profileIds = $request->supervisor_profile_ids ?? ($request->supervisor_profile_id ? [$request->supervisor_profile_id] : []);
-        if (empty($profileIds)) {
-            return back()->with('error', 'Please select at least one examiner to assign.');
+        $thesisId = $milestone->thesis_project_id ?? $milestone->thesis?->id;
+        if (!$thesisId) {
+            return back()->with('error', 'No linked research thesis project found for this milestone.');
         }
-
-        $supervisors = \App\Models\SupervisorProfile::with(['user', 'programs'])->whereIn('id', $profileIds)->get();
 
         $type = $template->defence_type ?? match($template->slug) {
             'seminar_as_a_course' => 'seminar',
@@ -625,10 +624,17 @@ class MilestoneTemplateController extends Controller
             default => 'first_seminar',
         };
 
-        $thesisId = $milestone->thesis_project_id ?? $milestone->thesis?->id;
-        if (!$thesisId) {
-            return back()->with('error', 'No linked research thesis project found for this milestone.');
+        $candidateName = $milestone->thesis?->student?->user?->name ?? 'candidate';
+
+        if (empty($profileIds)) {
+            $event = \App\Models\DefenceEvent::where('thesis_project_id', $thesisId)->where('type', $type)->first();
+            if ($event) {
+                \App\Models\PanelMember::where('defence_event_id', $event->id)->where('role', 'examiner')->delete();
+            }
+            return back()->with('success', "Examiner assignments cleared for {$candidateName}.");
         }
+
+        $supervisors = \App\Models\SupervisorProfile::with(['user', 'programs'])->whereIn('id', $profileIds)->get();
 
         $event = \App\Models\DefenceEvent::firstOrCreate(
             [
@@ -655,7 +661,6 @@ class MilestoneTemplateController extends Controller
             } catch (\Throwable $e) {}
         }
 
-        $candidateName = $milestone->thesis?->student?->user?->name ?? 'candidate';
         $names = $supervisors->map(fn($s) => $s->user->name)->implode(', ');
         return back()->with('success', "Examiner(s) ({$names}) assigned successfully for {$candidateName}.");
     }
@@ -663,16 +668,15 @@ class MilestoneTemplateController extends Controller
     public function assignExaminerGlobal(Request $request, $templateId)
     {
         $request->validate([
-            'supervisor_profile_ids' => 'required|array|min:1',
+            'supervisor_profile_ids' => 'nullable|array',
             'supervisor_profile_ids.*' => 'exists:supervisor_profiles,id'
         ]);
 
         $template = MilestoneTemplate::findOrFail($templateId);
-        $supervisors = \App\Models\SupervisorProfile::with(['user', 'programs'])->whereIn('id', $request->supervisor_profile_ids)->get();
-
-        if ($supervisors->isEmpty()) {
-            return back()->with('error', 'Please select at least one valid examiner.');
-        }
+        $profileIds = $request->input('supervisor_profile_ids', []);
+        $supervisors = !empty($profileIds) 
+            ? \App\Models\SupervisorProfile::with(['user', 'programs'])->whereIn('id', $profileIds)->get()
+            : collect();
 
         $isCoordinator = auth()->user()->hasRole('Program Coordinator') && !auth()->user()->hasRole('Admin');
         
@@ -697,6 +701,27 @@ class MilestoneTemplateController extends Controller
             'progress_report_2' => 'progress_report_2',
             default => 'first_seminar',
         };
+
+        // If no supervisors selected, clear/unassign all examiners
+        if ($supervisors->isEmpty()) {
+            $metadata = $template->metadata ?? [];
+            unset($metadata['examiner_profile_ids'], $metadata['examiner_user_ids']);
+            $template->update(['metadata' => $metadata]);
+
+            $clearedCount = 0;
+            foreach ($milestones as $milestone) {
+                $thesisId = $milestone->thesis_project_id ?? $milestone->thesis?->id;
+                if (!$thesisId) continue;
+
+                $event = \App\Models\DefenceEvent::where('thesis_project_id', $thesisId)->where('type', $type)->first();
+                if ($event) {
+                    \App\Models\PanelMember::where('defence_event_id', $event->id)->where('role', 'examiner')->delete();
+                    $clearedCount++;
+                }
+            }
+
+            return back()->with('success', "All examiner assignments removed successfully for {$template->name}.");
+        }
 
         // 1. Store on template metadata permanently
         $metadata = $template->metadata ?? [];
