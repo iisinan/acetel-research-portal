@@ -137,9 +137,9 @@
                             placeholder="Provide your constructive feedback, corrections, and observations. These comments will appear directly in the student's personal message inbox..."></textarea>
                     </div>
 
-                    <div class="mt-8 flex justify-end gap-4 border-t border-slate-100 pt-6">
-                        <a href="{{ route('dashboard') }}" class="px-6 py-3 text-xs font-black text-slate-600 uppercase tracking-widest hover:bg-slate-100 rounded-xl transition-colors">Cancel</a>
-                        <button type="submit" class="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary-500/20 transition-all active:scale-95 cursor-pointer">
+                    <div class="mt-8 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 sm:gap-4 border-t border-slate-100 pt-6">
+                        <a href="{{ route('dashboard') }}" class="w-full sm:w-auto text-center px-6 py-3 text-xs font-black text-slate-600 uppercase tracking-widest hover:bg-slate-100 rounded-xl transition-colors">Cancel</a>
+                        <button type="submit" class="w-full sm:w-auto px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary-500/20 transition-all active:scale-95 cursor-pointer">
                             Submit Grade & Mark Attendance
                         </button>
                     </div>
@@ -150,45 +150,45 @@
             <x-card title="Scoring Matrix">
                 <div class="space-y-8 p-2">
                     
-                    <div class="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-100">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100">
                         <div class="space-y-1">
                             <label class="block text-sm font-black text-slate-900">Originality & Contribution</label>
                             <p class="text-[10px] font-medium text-slate-500 max-w-sm">Does the thesis provide a novel contribution to the field of study?</p>
                         </div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 self-end sm:self-auto">
                             <input type="number" name="score[originality]" min="0" max="25" required class="w-20 text-center text-lg font-black bg-white border-slate-200 rounded-xl focus:ring-primary-500" placeholder="0-25">
                             <span class="text-xs font-black text-slate-400">/ 25</span>
                         </div>
                     </div>
 
-                    <div class="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-100">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100">
                         <div class="space-y-1">
                             <label class="block text-sm font-black text-slate-900">Methodology & Rigor</label>
                             <p class="text-[10px] font-medium text-slate-500 max-w-sm">Are the research methods appropriate, correctly applied, and rigorous?</p>
                         </div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 self-end sm:self-auto">
                             <input type="number" name="score[methodology]" min="0" max="25" required class="w-20 text-center text-lg font-black bg-white border-slate-200 rounded-xl focus:ring-primary-500" placeholder="0-25">
                             <span class="text-xs font-black text-slate-400">/ 25</span>
                         </div>
                     </div>
 
-                    <div class="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-100">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100">
                         <div class="space-y-1">
                             <label class="block text-sm font-black text-slate-900">Presentation & Document Quality</label>
                             <p class="text-[10px] font-medium text-slate-500 max-w-sm">Is the thesis well-written, structured logically, and correctly formatted?</p>
                         </div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 self-end sm:self-auto">
                             <input type="number" name="score[presentation]" min="0" max="25" required class="w-20 text-center text-lg font-black bg-white border-slate-200 rounded-xl focus:ring-primary-500" placeholder="0-25">
                             <span class="text-xs font-black text-slate-400">/ 25</span>
                         </div>
                     </div>
 
-                    <div class="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-100">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100">
                         <div class="space-y-1">
                             <label class="block text-sm font-black text-slate-900">Q&A Defense Capability</label>
                             <p class="text-[10px] font-medium text-slate-500 max-w-sm">How well did the candidate defend their work against panel questions?</p>
                         </div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2 self-end sm:self-auto">
                             <input type="number" name="score[qa]" min="0" max="25" required class="w-20 text-center text-lg font-black bg-white border-slate-200 rounded-xl focus:ring-primary-500" placeholder="0-25">
                             <span class="text-xs font-black text-slate-400">/ 25</span>
                         </div>
@@ -236,9 +236,9 @@
                     </div>
                 </div>
                 
-                <div class="mt-8 flex justify-end gap-4 border-t border-slate-100 pt-6">
-                    <a href="{{ route('dashboard') }}" class="px-6 py-3 text-xs font-black text-slate-600 uppercase tracking-widest hover:bg-slate-100 rounded-xl transition-colors">Cancel</a>
-                    <button type="submit" class="px-6 py-3 bg-primary-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-primary-700 shadow-lg shadow-primary-500/20 transition-all active:scale-95">
+                <div class="mt-8 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 sm:gap-4 border-t border-slate-100 pt-6">
+                    <a href="{{ route('dashboard') }}" class="w-full sm:w-auto text-center px-6 py-3 text-xs font-black text-slate-600 uppercase tracking-widest hover:bg-slate-100 rounded-xl transition-colors">Cancel</a>
+                    <button type="submit" class="w-full sm:w-auto px-6 py-3 bg-primary-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-primary-700 shadow-lg shadow-primary-500/20 transition-all active:scale-95">
                         Submit Evaluation Protocol
                     </button>
                 </div>

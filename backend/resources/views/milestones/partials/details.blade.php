@@ -1326,13 +1326,13 @@
             <div x-show="showStudentMessageModal" 
                  x-transition:enter="ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100" 
                  x-transition:leave="ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" 
-                 class="inline-block align-bottom bg-white rounded-[2.5rem] text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full border border-slate-100 relative z-10">
+                 class="inline-block align-bottom bg-white rounded-3xl sm:rounded-[2.5rem] text-left overflow-hidden shadow-xl transform transition-all my-6 sm:my-8 sm:align-middle w-full sm:max-w-xl border border-slate-100 relative z-10">
                  
                 <form action="{{ route('messages.store') }}" method="POST">
                     @csrf
                     <input type="hidden" name="thesis_project_id" value="{{ $milestone->thesis_project_id }}">
                     
-                    <div class="bg-white px-6 pt-8 pb-6 sm:p-8">
+                    <div class="bg-white px-5 sm:px-8 pt-6 sm:pt-8 pb-5 sm:pb-6">
                         <div class="sm:flex sm:items-start gap-5">
                             <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-xl bg-emerald-50 sm:mx-0 shadow-xl shadow-slate-200/40 border border-emerald-100">
                                 <svg class="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -1352,11 +1352,11 @@
                             </div>
                         </div>
                     </div>
-                    <div class="bg-slate-50 px-6 py-4 sm:px-8 border-t border-slate-100 flex items-center justify-end gap-3">
-                        <button type="button" @click="showStudentMessageModal = false" class="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors shadow-xl shadow-slate-200/40">
+                    <div class="bg-slate-50 px-5 sm:px-8 py-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3">
+                        <button type="button" @click="showStudentMessageModal = false" class="w-full sm:w-auto px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm text-center">
                             Cancel
                         </button>
-                        <button type="submit" class="px-5 py-2.5 bg-emerald-600 rounded-xl text-sm font-semibold text-white hover:bg-emerald-700 transition-colors shadow-xl shadow-slate-200/40 flex items-center gap-2">
+                        <button type="submit" class="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 rounded-xl text-sm font-semibold text-white hover:bg-emerald-700 transition-colors shadow-sm flex items-center justify-center gap-2">
                             Send Message
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
                         </button>

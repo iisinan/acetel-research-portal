@@ -79,20 +79,20 @@ class="relative z-[100]" aria-labelledby="modal-title" role="dialog" aria-modal=
                  class="relative transform overflow-hidden rounded-[2rem] bg-white text-left shadow-2xl transition-all w-full max-w-5xl h-[85vh] flex flex-col border border-slate-100">
                 
                 <!-- Header -->
-                <div class="bg-slate-50 px-6 py-4 flex items-center justify-between border-b border-slate-100 shrink-0">
-                    <div class="flex items-center gap-3 w-full pr-4">
-                        <div class="w-10 h-10 rounded-xl bg-acetel-50 text-acetel-600 flex items-center justify-center shrink-0">
+                <div class="bg-slate-50 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between border-b border-slate-100 shrink-0">
+                    <div class="flex items-center gap-2.5 sm:gap-3 min-w-0 pr-2 sm:pr-4">
+                        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-acetel-50 text-acetel-600 flex items-center justify-center shrink-0">
                             <!-- Document Icon -->
-                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
                         </div>
                         <div class="min-w-0">
-                            <h3 class="text-sm font-black text-slate-900 truncate" id="modal-title" x-text="documentTitle || 'Document Preview'"></h3>
-                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Secure Artifact Viewer</p>
+                            <h3 class="text-xs sm:text-sm font-black text-slate-900 truncate max-w-[150px] sm:max-w-md" id="modal-title" x-text="documentTitle || 'Document Preview'"></h3>
+                            <p class="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Secure Artifact Viewer</p>
                         </div>
                     </div>
                     
-                    <div class="flex items-center gap-2 shrink-0">
-                        <button type="button" @click="printDocument()" x-show="documentType === 'pdf' || documentType === 'image'" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-acetel-500 tooltip" title="Print Document">
+                    <div class="flex items-center gap-1 sm:gap-2 shrink-0">
+                        <button type="button" @click="printDocument()" x-show="documentType === 'pdf' || documentType === 'image'" class="hidden sm:inline-flex p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-acetel-500 tooltip" title="Print Document">
                             <span class="sr-only">Print</span>
                             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                         </button>

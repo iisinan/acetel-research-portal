@@ -1,9 +1,9 @@
 @extends('layouts.dashboard')
 
 @section('content')
-<div class="space-y-10 pb-10">
+<div class="space-y-6 sm:space-y-10 pb-10">
     <!-- Sophisticated Header -->
-    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 sm:gap-6">
         <div>
             <div class="flex items-center gap-3 mb-2 text-acetel-600">
                 <div class="p-1.5 rounded-lg bg-acetel-50">
@@ -11,24 +11,97 @@
                 </div>
                 <span class="text-[10px] font-black uppercase tracking-[0.3em]">Evaluation Panel</span>
             </div>
-            <h1 class="text-4xl font-black text-slate-900 tracking-tight">Seminar Examinations</h1>
-            <p class="mt-2 text-sm font-medium text-slate-500">View your assigned seminar examinations, review student presentations, and award scores.</p>
+            <h1 class="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tight">Seminar Examinations</h1>
+            <p class="mt-2 text-xs sm:text-sm font-medium text-slate-500">View your assigned seminar examinations, review student presentations, and award scores.</p>
         </div>
     </div>
 
-    <div class="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden">
-        <div class="overflow-x-auto">
-            @if($events->isEmpty())
-                <div class="text-center py-20 bg-slate-50/50">
-                    <div class="max-w-xs mx-auto">
-                        <div class="w-16 h-16 bg-white rounded-3xl border border-slate-100 flex items-center justify-center mx-auto mb-6 shadow-sm">
-                            <svg class="w-8 h-8 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                        </div>
-                        <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest">No Examinations Scheduled</h4>
-                        <p class="text-xs text-slate-500 mt-2 font-medium">You currently have no students assigned for seminar evaluation.</p>
+    <div class="bg-white rounded-3xl sm:rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden">
+        @if($events->isEmpty())
+            <div class="text-center py-20 bg-slate-50/50">
+                <div class="max-w-xs mx-auto">
+                    <div class="w-16 h-16 bg-white rounded-3xl border border-slate-100 flex items-center justify-center mx-auto mb-6 shadow-sm">
+                        <svg class="w-8 h-8 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                     </div>
+                    <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest">No Examinations Scheduled</h4>
+                    <p class="text-xs text-slate-500 mt-2 font-medium">You currently have no students assigned for seminar evaluation.</p>
                 </div>
-            @else
+            </div>
+        @else
+            <!-- Mobile Examination Cards View -->
+            <div class="block md:hidden divide-y divide-slate-100 p-4 space-y-4">
+                @foreach($events as $event)
+                    @php
+                        $milestone = $event->thesis->milestones->first();
+                        $evaluation = $event->evaluations->first();
+                    @endphp
+                    <div class="bg-white rounded-2xl border border-slate-200/80 p-4 space-y-4 shadow-xs">
+                        {{-- Top Meta --}}
+                        <div class="flex items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-500">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-black text-slate-900">{{ $event->schedule_start->format('M d, Y') }}</p>
+                                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{{ $event->schedule_start->format('H:i') }}</p>
+                                </div>
+                            </div>
+                            @if($evaluation)
+                                <span class="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    Scored: {{ $evaluation->score['total'] ?? '' }}/100
+                                </span>
+                            @else
+                                <span class="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+                                    Pending Evaluation
+                                </span>
+                            @endif
+                        </div>
+
+                        {{-- Candidate Info --}}
+                        <div>
+                            <h3 class="text-sm font-black text-slate-900">{{ $event->thesis->student->user->name }}</h3>
+                            <p class="text-[11px] font-medium text-slate-500 mt-0.5">{{ $event->thesis->student->matric_number }}</p>
+                            <p class="text-xs text-slate-600 italic mt-1 line-clamp-2">"{{ $event->thesis->title }}"</p>
+                        </div>
+
+                        {{-- Presentation Download --}}
+                        <div>
+                            @if($milestone && $milestone->submissions->where('type', 'ppt')->count() > 0)
+                                @foreach($milestone->submissions->where('type', 'ppt') as $submission)
+                                    <a href="{{ Storage::url($submission->file_url) }}" target="_blank" class="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-slate-800 transition-colors">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                                        View Presentation (PDF)
+                                    </a>
+                                @endforeach
+                            @else
+                                <span class="inline-flex items-center px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 border border-slate-200">
+                                    Presentation not uploaded
+                                </span>
+                            @endif
+                        </div>
+
+                        {{-- Scoring Form --}}
+                        <form action="{{ route('supervisor.seminars.score', $event->id) }}" method="POST" class="pt-3 border-t border-slate-100 space-y-3">
+                            @csrf
+                            <div class="flex items-center gap-3">
+                                <label class="text-xs font-bold text-slate-700 whitespace-nowrap">Score:</label>
+                                <div class="flex items-center gap-2">
+                                    <input type="number" name="score" value="{{ $evaluation ? $evaluation->score['total'] ?? '' : '' }}" min="0" max="100" required class="w-20 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:border-brand-500 text-center" placeholder="0">
+                                    <span class="text-xs font-bold text-slate-400">/ 100</span>
+                                </div>
+                            </div>
+                            <input type="text" name="comments" value="{{ $evaluation ? $evaluation->comments : '' }}" placeholder="Remarks (optional)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:border-brand-500">
+                            <button type="submit" class="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 {{ $evaluation ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-emerald-600 hover:bg-emerald-700 text-white' }} rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm">
+                                {{ $evaluation ? 'Update Score' : 'Save Marks' }}
+                            </button>
+                        </form>
+                    </div>
+                @endforeach
+            </div>
+
+            <!-- Desktop Examination Table View -->
+            <div class="hidden md:block overflow-x-auto">
                 <table class="w-full text-left border-collapse">
                     <thead class="bg-slate-50/50">
                         <tr>
@@ -79,9 +152,9 @@
                                         </span>
                                     @endif
                                 </td>
-                                <form action="{{ route('supervisor.seminars.score', $event->id) }}" method="POST">
-                                    @csrf
-                                    <td class="px-6 py-7">
+                                <td class="px-6 py-7">
+                                    <form id="score-form-{{ $event->id }}" action="{{ route('supervisor.seminars.score', $event->id) }}" method="POST">
+                                        @csrf
                                         <div class="flex flex-col gap-3 max-w-xs">
                                             <div class="flex items-center gap-2">
                                                 <input type="number" name="score" value="{{ $evaluation ? $evaluation->score['total'] ?? '' : '' }}" min="0" max="100" required class="w-20 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-center" placeholder="0">
@@ -89,24 +162,21 @@
                                             </div>
                                             <input type="text" name="comments" value="{{ $evaluation ? $evaluation->comments : '' }}" placeholder="Remarks (optional)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
                                         </div>
-                                    </td>
-                                    <td class="px-8 py-7 text-right align-middle">
-                                        <div class="flex flex-col gap-2 items-end">
-                                            @if($milestone)
-                                                <!-- Meeting Link removed -->
-                                            @endif
-                                            <button type="submit" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 {{ $evaluation ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-emerald-600 hover:bg-emerald-700 text-white' }} rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm w-max">
-                                                {{ $evaluation ? 'Update Score' : 'Save Marks' }}
-                                            </button>
-                                        </div>
-                                    </td>
-                                </form>
+                                    </form>
+                                </td>
+                                <td class="px-8 py-7 text-right align-middle">
+                                    <div class="flex flex-col gap-2 items-end">
+                                        <button form="score-form-{{ $event->id }}" type="submit" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 {{ $evaluation ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-emerald-600 hover:bg-emerald-700 text-white' }} rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm w-max">
+                                            {{ $evaluation ? 'Update Score' : 'Save Marks' }}
+                                        </button>
+                                    </div>
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>
                 </table>
-            @endif
-        </div>
+            </div>
+        @endif
     </div>
 </div>
 @endsection

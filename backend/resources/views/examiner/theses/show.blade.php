@@ -40,19 +40,19 @@
                             @if($milestone->submissions->isNotEmpty())
                                 <ul class="space-y-3">
                                     @foreach($milestone->submissions as $submission)
-                                        <li class="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-slate-50">
+                                        <li class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl border border-slate-200 bg-slate-50">
                                             <div class="flex items-center gap-3">
-                                                <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                                <svg class="w-6 h-6 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                                                 <div>
                                                     <p class="text-sm font-bold text-slate-700">Version {{ $submission->version }}</p>
                                                     <p class="text-xs text-slate-500">{{ $submission->created_at->format('M d, Y H:i') }}</p>
                                                 </div>
                                             </div>
-                                            <div class="flex gap-2">
-                                                <a href="{{ Storage::url($submission->file_url) }}" target="_blank" class="px-3 py-1 text-xs font-bold text-brand-600 bg-brand-50 border border-brand-100 rounded-lg hover:bg-brand-100 transition-colors">
+                                            <div class="flex items-center gap-2 self-end sm:self-auto">
+                                                <a href="{{ Storage::url($submission->file_url) }}" target="_blank" class="px-3 py-1.5 text-xs font-bold text-brand-600 bg-brand-50 border border-brand-100 rounded-lg hover:bg-brand-100 transition-colors">
                                                     Download
                                                 </a>
-                                                <a href="{{ route('submissions.view', $submission->id) }}" class="px-3 py-1 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                                                <a href="{{ route('submissions.view', $submission->id) }}" class="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
                                                     View Details
                                                 </a>
                                             </div>
