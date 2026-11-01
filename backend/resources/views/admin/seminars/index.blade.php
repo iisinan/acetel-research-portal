@@ -25,22 +25,103 @@
                         Download Examiner Attendance
                     </a>
                 </div>
-                <form action="{{ route('seminars.schedule') }}" method="POST" class="flex gap-4 items-end">
+                <form action="{{ route('seminars.schedule') }}" method="POST"
+                    x-data="{
+                        activeDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+                        dayOptions: [
+                            { key: 'monday', label: 'Mon', full: 'Monday' },
+                            { key: 'tuesday', label: 'Tue', full: 'Tuesday' },
+                            { key: 'wednesday', label: 'Wed', full: 'Wednesday' },
+                            { key: 'thursday', label: 'Thu', full: 'Thursday' },
+                            { key: 'friday', label: 'Fri', full: 'Friday' },
+                            { key: 'saturday', label: 'Sat', full: 'Saturday' },
+                            { key: 'sunday', label: 'Sun', full: 'Sunday' }
+                        ],
+                        toggleDay(dayKey) {
+                            if (this.activeDays.includes(dayKey)) {
+                                if (this.activeDays.length === 1) {
+                                    alert('At least one active day must remain selected.');
+                                    return;
+                                }
+                                this.activeDays = this.activeDays.filter(d => d !== dayKey);
+                            } else {
+                                this.activeDays.push(dayKey);
+                            }
+                        },
+                        excludedDates: [],
+                        newExcludedDate: '',
+                        addExcludedDate() {
+                            if (!this.newExcludedDate) return;
+                            if (!this.excludedDates.includes(this.newExcludedDate)) {
+                                this.excludedDates.push(this.newExcludedDate);
+                                this.excludedDates.sort();
+                            }
+                            this.newExcludedDate = '';
+                        },
+                        removeExcludedDate(dateStr) {
+                            this.excludedDates = this.excludedDates.filter(d => d !== dateStr);
+                        }
+                    }">
                     @csrf
                     <template x-for="id in selectedMilestones">
                         <input type="hidden" name="milestone_ids[]" :value="id">
                     </template>
+                    <template x-for="day in activeDays" :key="'sem-day-' + day">
+                        <input type="hidden" name="active_days[]" :value="day">
+                    </template>
+                    <template x-for="exDate in excludedDates" :key="'sem-ex-' + exDate">
+                        <input type="hidden" name="excluded_dates[]" :value="exDate">
+                    </template>
                     
-                    <div class="w-1/3">
-                        <label class="block text-sm font-medium text-gray-700">Start Date</label>
-                        <input type="date" name="start_date" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Start Date</label>
+                            <input type="date" name="start_date" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Students Per Day</label>
+                            <input type="number" name="students_per_day" value="5" min="1" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        </div>
                     </div>
-                    <div class="w-1/3">
-                        <label class="block text-sm font-medium text-gray-700">Students Per Day</label>
-                        <input type="number" name="students_per_day" value="5" min="1" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Schedule Days of Week</label>
+                            <div class="grid grid-cols-7 gap-1">
+                                <template x-for="day in dayOptions" :key="day.key">
+                                    <button type="button" @click="toggleDay(day.key)"
+                                        class="py-1.5 px-1 rounded text-xs font-bold border transition text-center"
+                                        :class="activeDays.includes(day.key) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-400 border-gray-200'">
+                                        <span x-text="day.label"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Exclude Specific Dates (e.g. Holidays)</label>
+                            <div class="flex gap-2 mb-1.5">
+                                <input type="date" x-model="newExcludedDate" @change="addExcludedDate()" class="flex-1 text-xs rounded border-gray-300 shadow-sm">
+                                <button type="button" @click="addExcludedDate()" class="px-2.5 py-1 bg-rose-600 text-white rounded text-xs font-semibold">+ Exclude</button>
+                            </div>
+                            <div class="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
+                                <template x-for="d in excludedDates" :key="d">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-rose-100 text-rose-800">
+                                        <span x-text="d"></span>
+                                        <button type="button" @click="removeExcludedDate(d)" class="text-rose-600 hover:text-rose-900 font-bold">&times;</button>
+                                    </span>
+                                </template>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50" :disabled="selectedMilestones.length === 0">
+
+                    <div class="flex items-center justify-between">
+                        <div class="text-xs text-gray-500">
+                            Active: <span class="font-semibold text-indigo-700" x-text="dayOptions.filter(d => activeDays.includes(d.key)).map(d => d.label).join(', ')"></span>
+                            <template x-if="excludedDates.length > 0">
+                                <span class="text-rose-600 ml-1 font-semibold">• <span x-text="excludedDates.length"></span> date(s) excluded</span>
+                            </template>
+                        </div>
+                        <button type="submit" class="inline-flex justify-center py-2 px-5 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50" :disabled="selectedMilestones.length === 0 || activeDays.length === 0">
                             Generate Schedule
                         </button>
                     </div>
