@@ -412,6 +412,22 @@ class MilestoneController extends Controller
             return back()->with('warning', $failMsg);
         }
 
+        $isInternalDefence = ($milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6);
+        if ($isInternalDefence) {
+            // Internal defence: Conclude presentation session and transition candidate to post-defence corrections!
+            // Candidate must upload corrected thesis, which must be approved by the Internal Examiner to advance.
+            $milestone->update([
+                'status' => 'revision_required',
+            ]);
+            $workflow->notifyUpdate($milestone, "Internal defence presentation session concluded. Candidate must upload corrected thesis incorporating defence comments for Internal Examiner review.");
+
+            $successMsg = "Internal defence presentation session concluded for {$studentName}. Candidate transitioned to Post-Defence Correction stage and notified to upload corrected thesis for Internal Examiner review.";
+            if ($request->expectsJson()) {
+                return response()->json(['success' => true, 'message' => $successMsg]);
+            }
+            return back()->with('success', $successMsg);
+        }
+
         $workflow->approveAndAdvance($milestone, "Presentation session ended and approved by Admin ({$user->name}).");
 
         $successMsg = "Presentation ended successfully for {$studentName}. Candidate advanced to the next milestone.";
@@ -459,9 +475,13 @@ class MilestoneController extends Controller
         $hasPptSub = $milestone->submissions()->where('type', 'ppt')->exists();
         $hasFileSub = $milestone->submissions()->whereIn('type', ['file', 'manuscript'])->exists();
 
+        $isInternalDefence = ($milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6);
+        $defenceDate = $milestone->defence_date ? \Carbon\Carbon::parse($milestone->defence_date) : null;
+        $isPostDefenceStage = $isInternalDefence && $defenceDate && ($defenceDate->isPast() || $defenceDate->isToday());
+
         if (in_array('ppt', $subTypes) && in_array('file', $subTypes)) {
-            $requirePpt = !$hasPptSub && !$request->hasFile('file');
-            $requireFile = !$hasFileSub && !$request->hasFile('ppt');
+            $requirePpt = !$hasPptSub && !$request->hasFile('file') && !$isPostDefenceStage;
+            $requireFile = (!$hasFileSub && !$request->hasFile('ppt')) || $isPostDefenceStage;
             $rules['ppt'] = [($requirePpt ? 'required' : 'nullable'), 'file', 'mimes:pdf', 'max:51200'];
             $rules['file'] = [($requireFile ? 'required' : 'nullable'), 'file', 'mimes:pdf', 'max:51200'];
         } else {
@@ -469,15 +489,23 @@ class MilestoneController extends Controller
                 $rules['ppt'] = [($hasPptSub ? 'nullable' : 'required'), 'file', 'mimes:pdf', 'max:51200'];
             }
             if (in_array('file', $subTypes)) {
-                $rules['file'] = [($hasFileSub ? 'nullable' : 'required'), 'file', 'mimes:pdf', 'max:51200'];
+                $requireFile = !$hasFileSub || $isPostDefenceStage;
+                $rules['file'] = [($requireFile ? 'required' : 'nullable'), 'file', 'mimes:pdf', 'max:51200'];
             }
         }
 
         if (in_array('publication', $subTypes) || in_array('publications', $subTypes)) {
             $existingCount = $milestone->submissions()->where('type', 'publication')->count();
-            $maxAllowed = 5 - $existingCount;
-            $rules['publications'] = [($existingCount > 0 ? 'nullable' : 'required'), 'array', 'min:1', "max:{$maxAllowed}"];
-            $rules['publications.*'] = 'file|mimes:pdf|max:51200';
+            $maxAllowed = max(1, 5 - $existingCount);
+            if ($existingCount > 0) {
+                if ($request->hasFile('publications')) {
+                    $rules['publications'] = ['nullable', 'array', "max:{$maxAllowed}"];
+                    $rules['publications.*'] = 'file|mimes:pdf|max:51200';
+                }
+            } else {
+                $rules['publications'] = ['required', 'array', 'min:1', "max:{$maxAllowed}"];
+                $rules['publications.*'] = 'file|mimes:pdf|max:51200';
+            }
         }
 
         if ($isFinalArchival) {

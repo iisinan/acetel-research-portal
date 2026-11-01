@@ -38,21 +38,17 @@ class ExaminerController extends Controller
                 ]
             );
 
-            // Backwards compatibility with the thesis->internal_examiner_profile_id
-            $profile = \App\Models\InternalExaminerProfile::where('user_id', $request->examiner_id)->first();
-            if ($profile) {
-                $thesis->update(['internal_examiner_profile_id' => $profile->id]);
-            }
+            // Ensure thesis->internal_examiner_profile_id is updated
+            $profile = \App\Models\InternalExaminerProfile::firstOrCreate(
+                ['user_id' => $request->examiner_id],
+                ['program_id' => $thesis->student?->program_id, 'active' => true]
+            );
+            $thesis->update(['internal_examiner_profile_id' => $profile->id]);
 
-            // M7 clearance logic
-            $m7 = $thesis->milestones()->whereHas('template', fn($q) => $q->where('order', 7))->first();
-            if ($m7 && $m7->status !== 'approved') {
-                $m7->update([
-                    'status' => 'approved',
-                    'approved_at' => now(),
-                    'approvals' => ['Program Coordinator' => ['user_id' => auth()->id(), 'approved_at' => now()->toDateTimeString()]]
-                ]);
-                $this->workflowService->afterApproval($m7);
+            $internalMilestone = $thesis->milestones()->whereHas('template', fn($q) => $q->where('slug', 'internal_defence')->orWhere('order', 6))->first();
+            if ($internalMilestone) {
+                $examinerUser = User::find($request->examiner_id);
+                $this->workflowService->notifyUpdate($internalMilestone, "Internal Examiner {$examinerUser?->name} was assigned to this candidate.");
             }
 
             DB::commit();

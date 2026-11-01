@@ -52,15 +52,17 @@
                 @if($submission)
                     <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600 mb-6">
                         <div class="flex items-center justify-between mb-4">
-                            <span class="text-sm text-black dark:text-black">Submitted on {{ $submission->created_at->format('M d, Y at H:i') }}</span>
-                            <span class="text-xs font-mono bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded">v{{ $submission->version }}</span>
+                            <span class="text-sm text-black dark:text-gray-300">Submitted on {{ $submission->created_at->format('M d, Y at H:i') }}</span>
+                            <span class="text-xs font-bold uppercase {{ $submission->type === 'publication' ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800' }} px-2 py-1 rounded">
+                                {{ $submission->type === 'publication' ? 'Publication' : 'Thesis Manuscript' }} v{{ $submission->version }}
+                            </span>
                         </div>
                         
                         <div class="flex items-center space-x-3 mb-4">
                             <svg class="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"></path></svg>
-                            <div>
-                                <h4 class="text-sm font-medium text-black dark:text-white">{{ $submission->file_meta['original_name'] ?? 'document.pdf' }}</h4>
-                                <p class="text-xs text-black dark:text-black">{{ number_format(($submission->file_meta['size'] ?? 0) / 1024, 2) }} KB</p>
+                            <div class="min-w-0 flex-1">
+                                <h4 class="text-sm font-medium text-black dark:text-white truncate">{{ $submission->file_meta['original_name'] ?? 'document.pdf' }}</h4>
+                                <p class="text-xs text-black dark:text-gray-400">{{ number_format(($submission->file_meta['size'] ?? 0) / 1024, 2) }} KB</p>
                             </div>
                             <a href="{{ Storage::url($submission->file_url) }}" target="_blank" class="ml-auto bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 px-3 py-1 rounded text-sm font-medium text-black dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
                                 Download
@@ -82,15 +84,18 @@
             
             @if($milestone->submissions->count() > 1)
                 <div class="mt-6">
-                    <h3 class="text-lg font-medium text-black dark:text-white mb-3">Previous Versions</h3>
+                    <h3 class="text-lg font-medium text-black dark:text-white mb-3">All Submissions & Publications</h3>
                     <ul class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                         @foreach($milestone->submissions->where('id', '!=', $submission?->id)->sortByDesc('created_at') as $oldSub)
                              <li class="px-4 py-3 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                <div class="text-sm">
-                                    <span class="font-medium text-black dark:text-white">v{{ $oldSub->version }}</span>
-                                    <span class="text-black dark:text-black ml-2">{{ $oldSub->created_at->format('M d') }}</span>
+                                <div class="text-sm flex items-center gap-2 min-w-0 flex-1 mr-3">
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase {{ $oldSub->type === 'publication' ? 'bg-purple-100 text-purple-800' : 'bg-slate-200 text-slate-800' }} shrink-0">
+                                        {{ $oldSub->type === 'publication' ? 'Publication' : 'Manuscript' }} v{{ $oldSub->version }}
+                                    </span>
+                                    <span class="text-xs text-slate-700 dark:text-slate-300 truncate">{{ $oldSub->file_meta['original_name'] ?? 'document.pdf' }}</span>
+                                    <span class="text-slate-400 text-xs ml-auto shrink-0">{{ $oldSub->created_at->format('M d') }}</span>
                                 </div>
-                                <a href="{{ Storage::url($oldSub->file_url) }}" class="text-acetel-600 dark:text-acetel-400 text-sm hover:underline">View</a>
+                                <a href="{{ Storage::url($oldSub->file_url) }}" target="_blank" class="text-acetel-600 dark:text-acetel-400 text-xs font-bold hover:underline shrink-0">View</a>
                              </li>
                         @endforeach
                     </ul>

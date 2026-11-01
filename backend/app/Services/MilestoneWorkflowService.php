@@ -901,8 +901,12 @@ class MilestoneWorkflowService
             $recipients = $recipients->merge($coords);
         }
 
-        // 4. Admin (if not the one doing the update, but usually admin is the one being asked about)
-        // We'll just notify everyone unique
+        // 4. Assigned Internal Examiner
+        if ($milestone->thesis && $milestone->thesis->internalExaminer && $milestone->thesis->internalExaminer->user_id) {
+            $recipients->push($milestone->thesis->internalExaminer->user_id);
+        }
+
+        // Admin / All unique recipients
         $recipients = $recipients->unique()->filter();
 
         foreach ($recipients as $userId) {

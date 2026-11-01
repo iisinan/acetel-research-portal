@@ -320,15 +320,15 @@
                                     <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST" class="inline">
                                         @csrf
                                         <button type="submit" 
-                                            data-confirm="Are you sure you want to end the presentation for {{ addslashes($milestone->thesis->student->user?->name ?? 'User') }}? If all requirements are met (presentation conducted, presentation PDF uploaded, and supervisor approved), the candidate will be advanced to the next milestone."
-                                            data-confirm-title="End Presentation Session"
+                                            data-confirm="{{ $isInternalDefence ? 'Are you sure you want to conclude the internal defence presentation for ' . addslashes($milestone->thesis->student->user?->name ?? 'Candidate') . '? The candidate will enter the Post-Defence Correction stage to upload their revised thesis for Internal Examiner approval before advancing to Viva Voce.' : 'Are you sure you want to end the presentation for ' . addslashes($milestone->thesis->student->user?->name ?? 'User') . '? If all requirements are met (presentation conducted, presentation PDF uploaded, and supervisor approved), the candidate will be advanced to the next milestone.' }}"
+                                            data-confirm-title="{{ $isInternalDefence ? 'Conclude Internal Defence Session' : 'End Presentation Session' }}"
                                             data-confirm-type="success"
-                                            data-confirm-btn="End Presentation"
+                                            data-confirm-btn="{{ $isInternalDefence ? 'Conclude & Require Corrections' : 'End Presentation' }}"
                                             class="inline-flex items-center justify-center gap-2 px-5 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-blue-600/20 active:scale-95">
                                             <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                             </svg>
-                                            <span>End Presentation</span>
+                                            <span>{{ $isInternalDefence ? 'Conclude Defence Session' : 'End Presentation' }}</span>
                                         </button>
                                     </form>
                                 @endif
@@ -666,9 +666,16 @@
                                 <div class="bg-slate-50 border border-slate-100 rounded-2xl p-5 hover:bg-white hover:border-slate-200 hover:shadow-xl shadow-slate-200/40 transition-all">
                                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                         <div class="flex items-center gap-4">
-                                            <div class="flex items-center gap-3">
-                                                <span class="px-2.5 py-1 bg-slate-200 text-slate-700 rounded-md text-xs font-bold uppercase">v.0{{ $submission->version }}</span>
-                                                <span class="text-xs font-semibold text-slate-500">{{ $submission->created_at->format('M d, Y • H:i') }}</span>
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <span class="px-2.5 py-1 {{ $submission->type === 'publication' ? 'bg-purple-100 text-purple-800' : ($submission->type === 'ppt' ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-800') }} rounded-md text-[11px] font-black uppercase tracking-wider">
+                                                    {{ $submission->type === 'publication' ? 'Publication' : ($submission->type === 'ppt' ? 'Slides' : ($isPostDefenceStage && $defenceDate && $submission->created_at->gte($defenceDate->copy()->startOfDay()) ? 'Corrected Thesis' : 'Thesis Manuscript')) }} v.0{{ $submission->version }}
+                                                </span>
+                                                @if($submission->type === 'publication' && !empty($submission->file_meta['original_name']))
+                                                    <span class="text-[11px] text-slate-500 font-medium truncate max-w-[180px]" title="{{ $submission->file_meta['original_name'] }}">
+                                                        {{ $submission->file_meta['original_name'] }}
+                                                    </span>
+                                                @endif
+                                                <span class="text-xs font-semibold text-slate-400">• {{ $submission->created_at->format('M d, Y • H:i') }}</span>
                                             </div>
                                             
                                             @if($submission->plagiarism_data)

@@ -239,11 +239,64 @@ class MilestoneTemplateController extends Controller
             'start_date' => 'required|date',
             'start_time' => 'nullable|string|max:20',
             'meeting_link' => 'nullable|url|max:500',
-            'students_per_day' => 'required|integer|min:1'
+            'students_per_day' => 'required|integer|min:1',
+            'active_days' => 'nullable|array',
+            'active_days.*' => 'string|in:monday,tuesday,wednesday,thursday,friday,saturday,sunday',
+            'excluded_dates' => 'nullable|array',
+            'excluded_dates.*' => 'nullable|string',
         ]);
+
+        // Active days of the week (default to Monday-Friday if not supplied or empty)
+        $activeDays = $request->input('active_days');
+        if (empty($activeDays) || !is_array($activeDays)) {
+            $activeDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+        } else {
+            $activeDays = array_values(array_unique(array_map('strtolower', $activeDays)));
+        }
+
+        // Specific excluded dates (e.g. '2026-10-04', '2026-10-05')
+        $excludedDates = [];
+        if ($request->filled('excluded_dates')) {
+            $rawExcluded = is_array($request->excluded_dates) ? $request->excluded_dates : explode(',', (string)$request->excluded_dates);
+            foreach ($rawExcluded as $d) {
+                $d = trim((string)$d);
+                if ($d !== '') {
+                    try {
+                        $excludedDates[] = \Carbon\Carbon::parse($d)->format('Y-m-d');
+                    } catch (\Throwable $e) {
+                        // ignore malformed date
+                    }
+                }
+            }
+            $excludedDates = array_values(array_unique($excludedDates));
+        }
+
+        $isDateValid = function(\Carbon\Carbon $date) use ($activeDays, $excludedDates) {
+            $dayName = strtolower($date->format('l'));
+            if (!in_array($dayName, $activeDays, true)) {
+                return false;
+            }
+            if (in_array($date->format('Y-m-d'), $excludedDates, true)) {
+                return false;
+            }
+            return true;
+        };
+
+        $advanceToValidDate = function(\Carbon\Carbon $date) use ($isDateValid) {
+            $safety = 0;
+            while (!$isDateValid($date) && $safety < 1000) {
+                $date->addDay();
+                $safety++;
+            }
+            return $date;
+        };
 
         $ids = $request->milestone_ids;
         $currentDate = \Carbon\Carbon::parse($request->start_date);
+        
+        // Ensure starting date begins on a valid scheduled day
+        $advanceToValidDate($currentDate);
+
         $count = 0;
 
         $hour = 10;
@@ -333,9 +386,7 @@ class MilestoneTemplateController extends Controller
                 $count++;
                 if ($count % $request->students_per_day === 0) {
                     $currentDate->addDay();
-                    while ($currentDate->isWeekend()) {
-                        $currentDate->addDay();
-                    }
+                    $advanceToValidDate($currentDate);
                 }
             }
             \Illuminate\Support\Facades\DB::commit();

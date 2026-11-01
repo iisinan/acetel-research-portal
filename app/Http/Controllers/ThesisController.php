@@ -180,6 +180,19 @@ class ThesisController extends Controller
         $thesis->update([
             'internal_examiner_profile_id' => $request->internal_examiner_profile_id
         ]);
+
+        $examiner = \App\Models\InternalExaminerProfile::with('user')->find($request->internal_examiner_profile_id);
+        $studentName = $thesis->student?->user?->name ?? 'Candidate';
+        $examinerName = $examiner?->user?->name ?? 'Internal Examiner';
+
+        $milestone = $thesis->milestones()->whereHas('template', function($q) {
+            $q->where('slug', 'internal_defence')->orWhere('order', 6);
+        })->first();
+
+        if ($milestone) {
+            $workflow = app(\App\Services\MilestoneWorkflowService::class);
+            $workflow->notifyUpdate($milestone, "{$examinerName} was assigned as the Internal Examiner for {$studentName}.");
+        }
         
         if ($request->wantsJson()) {
             return response()->json(['success' => true, 'message' => 'Internal Examiner assigned successfully.', 'thesis_id' => $thesis->id]);

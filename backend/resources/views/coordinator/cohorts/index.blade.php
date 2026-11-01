@@ -5,7 +5,7 @@
 @section('content')
 <div class="space-y-10 pb-10" x-data="cohortTracker()" x-init="startPolling">
     <!-- Sophisticated Header -->
-    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 sm:gap-6">
         <div>
             <div class="flex items-center gap-3 mb-2 text-acetel-600">
                 <div class="p-1.5 rounded-lg bg-acetel-50">
@@ -13,11 +13,11 @@
                 </div>
                 <span class="text-[10px] font-black uppercase tracking-[0.3em]">Cohort Management</span>
             </div>
-            <h1 class="text-4xl font-black text-slate-900 tracking-tight">Cohort Overview</h1>
-            <p class="mt-2 text-sm font-medium text-slate-500">Overview of academic intake progress and student milestones.</p>
+            <h1 class="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">Cohort Overview</h1>
+            <p class="mt-1 sm:mt-2 text-xs sm:text-sm font-medium text-slate-500">Overview of academic intake progress and student milestones.</p>
         </div>
-        <div class="flex items-center gap-3">
-            <div class="px-6 py-3 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-3">
+        <div class="flex items-center gap-3 self-start sm:self-auto">
+            <div class="px-4 sm:px-6 py-2.5 sm:py-3 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-3">
                 <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                 <span class="text-xs font-black text-slate-900 tracking-tighter">{{ $cohorts->count() }} <span class="text-slate-400">Active Cohorts</span></span>
             </div>
@@ -25,26 +25,26 @@
     </div>
 
     <!-- Cohort Intelligence Grid -->
-    <div id="cohort-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 relative">
+    <div id="cohort-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-8 relative">
         <div x-show="loading" class="absolute top-0 right-0 -mt-8 text-acetel-500 flex items-center justify-center p-2">
              <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
         </div>
         @forelse($cohorts as $cohort)
             <a href="{{ route('coordinator.cohorts.show', $cohort) }}" class="group block relative">
-                <div class="bg-white rounded-[2.5rem] border border-slate-100 p-8 h-full flex flex-col justify-between transition-all duration-500 hover:-translate-y-2 shadow-xl shadow-slate-200/40 hover:shadow-acetel-500/10 hover:border-acetel-200 overflow-hidden">
+                <div class="bg-white rounded-2xl sm:rounded-[2.5rem] border border-slate-100 p-5 sm:p-8 h-full flex flex-col justify-between transition-all duration-500 hover:-translate-y-2 shadow-xl shadow-slate-200/40 hover:shadow-acetel-500/10 hover:border-acetel-200 overflow-hidden">
                     <!-- Glassy Background Accent -->
                     <div class="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-acetel-50 transition-colors duration-500"></div>
 
                     <div class="relative z-10">
                         <!-- Card Header -->
-                        <div class="flex justify-between items-start mb-8">
-                            <div class="flex items-center gap-4">
-                                <div class="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center text-white shadow-lg shadow-slate-900/10 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500">
-                                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                        <div class="flex justify-between items-start mb-6 sm:mb-8">
+                            <div class="flex items-center gap-3 sm:gap-4">
+                                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-slate-900 flex items-center justify-center text-white shadow-lg shadow-slate-900/10 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shrink-0">
+                                    <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
                                 </div>
-                                <div>
-                                    <h3 class="text-xl font-black text-slate-900 leading-none group-hover:text-acetel-600 transition-colors">{{ $cohort->name }}</h3>
-                                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-2">Intake {{ $cohort->intake_year }} <span class="mx-1 text-slate-200">|</span> {{ $cohort->code }}</p>
+                                <div class="min-w-0">
+                                    <h3 class="text-lg sm:text-xl font-black text-slate-900 leading-none group-hover:text-acetel-600 transition-colors truncate">{{ $cohort->name }}</h3>
+                                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1.5 sm:mt-2 truncate">Intake {{ $cohort->intake_year }} <span class="mx-1 text-slate-200">|</span> {{ $cohort->code }}</p>
                                 </div>
                             </div>
                         </div>

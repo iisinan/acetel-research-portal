@@ -182,77 +182,77 @@
 }" class="space-y-8 pb-16">
 
     <!-- Sophisticated Header -->
-    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+    <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 sm:gap-6">
         <div>
-            <div class="flex items-center gap-3 mb-2 text-acetel-600">
+            <div class="flex items-center gap-2.5 sm:gap-3 mb-2 text-acetel-600">
                 <div class="p-1.5 rounded-lg bg-acetel-50">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
                 </div>
-                <span class="text-[10px] font-black uppercase tracking-[0.3em]">Supervisory Allocation • Milestone 2</span>
+                <span class="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.25em] sm:tracking-[0.3em]">Supervisory Allocation • Milestone 2</span>
             </div>
-            <h1 class="text-2xl md:text-4xl font-black text-slate-900 tracking-tight">Assigned Supervisor</h1>
-            <p class="mt-2 text-sm font-medium text-slate-500">Manage and allocate academic supervisors for candidates currently on the Supervisors Assigned milestone.</p>
+            <h1 class="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tight">Assigned Supervisor</h1>
+            <p class="mt-1 sm:mt-2 text-xs sm:text-sm font-medium text-slate-500">Manage and allocate academic supervisors for candidates currently on the Supervisors Assigned milestone.</p>
         </div>
     </div>
 
     <!-- Quick Analytics Stat Cards -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        <div class="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+        <div class="p-4 sm:p-6 bg-white rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
             <div>
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Candidates on M2</p>
-                <p class="text-2xl sm:text-3xl font-black text-slate-900 mt-1">{{ number_format($totalCount) }}</p>
-                <p class="text-[11px] font-bold text-slate-400 mt-1">Supervisors Assigned</p>
+                <p class="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest">Candidates on M2</p>
+                <p class="text-xl sm:text-3xl font-black text-slate-900 mt-1">{{ number_format($totalCount) }}</p>
+                <p class="text-[10px] sm:text-[11px] font-bold text-slate-400 mt-1">Supervisors Assigned</p>
             </div>
-            <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+            <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
             </div>
         </div>
 
-        <div class="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
+        <div class="p-4 sm:p-6 bg-white rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
             <div>
-                <p class="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Proposal Uploaded</p>
-                <p class="text-2xl sm:text-3xl font-black text-slate-900 mt-1">{{ number_format($uploadedCount) }}</p>
-                <p class="text-[11px] font-bold text-emerald-600 mt-1">Ready for Allocation</p>
+                <p class="text-[9px] sm:text-[10px] font-black text-emerald-600 uppercase tracking-widest">Proposal Uploaded</p>
+                <p class="text-xl sm:text-3xl font-black text-slate-900 mt-1">{{ number_format($uploadedCount) }}</p>
+                <p class="text-[10px] sm:text-[11px] font-bold text-emerald-600 mt-1">Ready for Allocation</p>
             </div>
-            <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
             </div>
         </div>
 
-        <div class="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
+        <div class="p-4 sm:p-6 bg-white rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
             <div>
-                <p class="text-[10px] font-black text-amber-600 uppercase tracking-widest">Awaiting Proposal</p>
-                <p class="text-2xl sm:text-3xl font-black text-slate-900 mt-1">{{ number_format($awaitingCount) }}</p>
-                <p class="text-[11px] font-bold text-amber-600 mt-1">Pending Upload</p>
+                <p class="text-[9px] sm:text-[10px] font-black text-amber-600 uppercase tracking-widest">Awaiting Proposal</p>
+                <p class="text-xl sm:text-3xl font-black text-slate-900 mt-1">{{ number_format($awaitingCount) }}</p>
+                <p class="text-[10px] sm:text-[11px] font-bold text-amber-600 mt-1">Pending Upload</p>
             </div>
-            <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
         </div>
 
-        <div class="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
+        <div class="p-4 sm:p-6 bg-white rounded-2xl sm:rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between">
             <div>
-                <p class="text-[10px] font-black text-acetel-600 uppercase tracking-widest">Panel Allocated</p>
-                <p class="text-2xl sm:text-3xl font-black text-slate-900 mt-1">{{ number_format($assignedCount) }}</p>
-                <p class="text-[11px] font-bold text-acetel-600 mt-1">Active Committees</p>
+                <p class="text-[9px] sm:text-[10px] font-black text-acetel-600 uppercase tracking-widest">Panel Allocated</p>
+                <p class="text-xl sm:text-3xl font-black text-slate-900 mt-1">{{ number_format($assignedCount) }}</p>
+                <p class="text-[10px] sm:text-[11px] font-bold text-acetel-600 mt-1">Active Committees</p>
             </div>
-            <div class="w-12 h-12 rounded-2xl bg-acetel-50 text-acetel-600 flex items-center justify-center shrink-0">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-acetel-50 text-acetel-600 flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
         </div>
     </div>
 
     <!-- Filter Bar -->
     <div class="flex items-center gap-3 flex-wrap">
-        <form method="GET" action="{{ route('coordinator.assigned-supervisors.index') }}" class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+        <form method="GET" action="{{ route('coordinator.assigned-supervisors.index') }}" class="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5 sm:gap-3 w-full lg:w-auto">
             <div class="relative w-full sm:w-80">
                 <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                <input type="text" name="search" value="{{ request('search') }}" placeholder="Search name, matric, thesis..." class="w-full bg-white border border-slate-200 rounded-2xl pl-11 pr-4 py-2.5 placeholder-slate-400 text-sm focus:ring-2 focus:ring-acetel-500/20 focus:border-acetel-500 text-slate-900 font-medium shadow-sm transition-all outline-none">
+                <input type="text" name="search" value="{{ request('search') }}" placeholder="Search name, matric, thesis..." class="w-full bg-white border border-slate-200 rounded-2xl pl-11 pr-4 py-2.5 placeholder-slate-400 text-xs sm:text-sm focus:ring-2 focus:ring-acetel-500/20 focus:border-acetel-500 text-slate-900 font-medium shadow-sm transition-all outline-none">
             </div>
 
             @if(isset($programs) && count($programs) > 1)
-                <div class="px-5 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-2 hover:border-acetel-300 transition-colors">
-                    <select name="program_id" onchange="this.form.submit()" class="bg-transparent border-none text-xs font-bold uppercase tracking-widest text-slate-500 focus:ring-0 cursor-pointer">
+                <div class="px-4 sm:px-5 py-2 sm:py-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-2 hover:border-acetel-300 transition-colors">
+                    <select name="program_id" onchange="this.form.submit()" class="w-full sm:w-auto bg-transparent border-none text-[11px] sm:text-xs font-bold uppercase tracking-widest text-slate-500 focus:ring-0 cursor-pointer">
                         <option value="">All Programs</option>
                         @foreach($programs as $prog)
                             <option value="{{ $prog->id }}" {{ request('program_id') == $prog->id ? 'selected' : '' }}>{{ $prog->name }}</option>
@@ -262,8 +262,8 @@
             @endif
 
             @if(isset($cohorts) && count($cohorts) > 0)
-                <div class="px-5 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-2 hover:border-acetel-300 transition-colors">
-                    <select name="cohort_id" onchange="this.form.submit()" class="bg-transparent border-none text-xs font-bold uppercase tracking-widest text-slate-500 focus:ring-0 cursor-pointer">
+                <div class="px-4 sm:px-5 py-2 sm:py-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-2 hover:border-acetel-300 transition-colors">
+                    <select name="cohort_id" onchange="this.form.submit()" class="w-full sm:w-auto bg-transparent border-none text-[11px] sm:text-xs font-bold uppercase tracking-widest text-slate-500 focus:ring-0 cursor-pointer">
                         <option value="">All Cohorts</option>
                         @foreach($cohorts as $coh)
                             <option value="{{ $coh->id }}" {{ request('cohort_id') == $coh->id ? 'selected' : '' }}>{{ $coh->name }}</option>
@@ -272,24 +272,24 @@
                 </div>
             @endif
 
-            <div class="px-5 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-2 hover:border-acetel-300 transition-colors">
-                <select name="batch" onchange="this.form.submit()" class="bg-transparent border-none text-xs font-bold uppercase tracking-widest text-slate-500 focus:ring-0 cursor-pointer">
+            <div class="px-4 sm:px-5 py-2 sm:py-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-2 hover:border-acetel-300 transition-colors">
+                <select name="batch" onchange="this.form.submit()" class="w-full sm:w-auto bg-transparent border-none text-[11px] sm:text-xs font-bold uppercase tracking-widest text-slate-500 focus:ring-0 cursor-pointer">
                     <option value="">All Batches</option>
                     <option value="1" {{ request('batch') == '1' ? 'selected' : '' }}>Batch 1</option>
                     <option value="2" {{ request('batch') == '2' ? 'selected' : '' }}>Batch 2</option>
                 </select>
             </div>
 
-            <div class="px-5 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-2 hover:border-acetel-300 transition-colors">
-                <select name="proposal_status" onchange="this.form.submit()" class="bg-transparent border-none text-xs font-bold uppercase tracking-widest text-slate-500 focus:ring-0 cursor-pointer">
+            <div class="px-4 sm:px-5 py-2 sm:py-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-2 hover:border-acetel-300 transition-colors">
+                <select name="proposal_status" onchange="this.form.submit()" class="w-full sm:w-auto bg-transparent border-none text-[11px] sm:text-xs font-bold uppercase tracking-widest text-slate-500 focus:ring-0 cursor-pointer">
                     <option value="">All Proposal Status</option>
                     <option value="uploaded" {{ request('proposal_status') == 'uploaded' ? 'selected' : '' }}>Uploaded (Ready)</option>
                     <option value="awaiting" {{ request('proposal_status') == 'awaiting' ? 'selected' : '' }}>Awaiting Proposal</option>
                 </select>
             </div>
 
-            <div class="px-5 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-2 hover:border-acetel-300 transition-colors">
-                <select name="assignment_status" onchange="this.form.submit()" class="bg-transparent border-none text-xs font-bold uppercase tracking-widest text-slate-500 focus:ring-0 cursor-pointer">
+            <div class="px-4 sm:px-5 py-2 sm:py-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-2 hover:border-acetel-300 transition-colors">
+                <select name="assignment_status" onchange="this.form.submit()" class="w-full sm:w-auto bg-transparent border-none text-[11px] sm:text-xs font-bold uppercase tracking-widest text-slate-500 focus:ring-0 cursor-pointer">
                     <option value="">All Assignment Status</option>
                     <option value="assigned" {{ request('assignment_status') == 'assigned' ? 'selected' : '' }}>Allocated</option>
                     <option value="pending" {{ request('assignment_status') == 'pending' ? 'selected' : '' }}>Pending Allocation</option>
@@ -303,31 +303,145 @@
             @endif
             <button type="submit" class="hidden"></button>
         </form>
-        <div class="px-5 py-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-3">
+        <div class="px-4 sm:px-5 py-2 sm:py-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center gap-3">
             <span class="text-xs font-bold text-slate-600">Total: {{ number_format($students->total()) }}</span>
         </div>
     </div>
 
     <!-- Main Candidates Table Container -->
-    <div class="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden min-h-[500px] flex flex-col">
-        <div class="px-10 py-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
+    <div class="bg-white rounded-2xl sm:rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden min-h-[500px] flex flex-col">
+        <div class="px-5 sm:px-10 py-5 sm:py-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
             <div>
-                <h3 class="text-xl font-black text-slate-900 tracking-tight">Candidates Awaiting / On Supervisors Assigned Milestone</h3>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Click any candidate name or button to view proposal and allocate supervisors</p>
+                <h3 class="text-lg sm:text-xl font-black text-slate-900 tracking-tight">Candidates Awaiting / On Supervisors Assigned Milestone</h3>
+                <p class="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] sm:tracking-[0.2em] mt-1">Click any candidate name or button to view proposal and allocate supervisors</p>
             </div>
         </div>
 
         <div class="flex-1">
             @if(isset($students) && $students->count() > 0)
-                <div class="overflow-x-auto">
+                <!-- Mobile Card View (screens < 640px) -->
+                <div class="block sm:hidden divide-y divide-slate-100 p-3 space-y-3">
+                    @foreach($students as $student)
+                        @php
+                            $thesis = $student->thesis;
+                            $ms = $thesis && $thesis->milestones
+                                ? ($thesis->milestones->firstWhere(fn($m) => ($m->template?->slug === 'supervisors_assigned' || $m->template?->order == 2))
+                                   ?? $thesis->milestones->first())
+                                : null;
+
+                            $submissions = $ms && $ms->relationLoaded('submissions') ? $ms->submissions : ($ms?->submissions ?? collect());
+                            $latestSub = $submissions instanceof \Illuminate\Support\Collection && $submissions->isNotEmpty()
+                                ? $submissions->sortByDesc('created_at')->first()
+                                : null;
+                            $hasUpload = !is_null($latestSub);
+
+                            $assignments = $thesis && $thesis->relationLoaded('assignments') ? $thesis->assignments : ($thesis?->assignments ?? collect());
+                            $activeAssignments = $assignments instanceof \Illuminate\Support\Collection
+                                ? $assignments->where('status', 'active')->values()
+                                : collect();
+                            $hasSupervisors = $activeAssignments->count() > 0;
+                            $leadSup = $activeAssignments->firstWhere('role', 'primary') ?? $activeAssignments->first();
+                        @endphp
+                        <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-xs space-y-3">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <div class="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100/60 flex items-center justify-center text-indigo-600 font-black text-sm shrink-0">
+                                        {{ substr($student->user?->name ?? 'Student', 0, 1) }}
+                                    </div>
+                                    <div class="min-w-0">
+                                        <button type="button" 
+                                                @click="openAssignModal('{{ $student->id }}')" 
+                                                class="text-sm font-black text-slate-900 hover:text-indigo-600 transition-colors text-left truncate block">
+                                            {{ $student->user?->name ?? 'Student' }}
+                                        </button>
+                                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{{ $student->student_id_number }}</p>
+                                    </div>
+                                </div>
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md @if(str_contains(strtolower($student->level->name ?? ''), 'phd')) bg-indigo-50 text-indigo-700 @else bg-amber-50 text-amber-700 @endif text-[8px] font-black uppercase tracking-tighter border border-current/10 shrink-0">
+                                    {{ $student->level?->name ?? '--' }}
+                                </span>
+                            </div>
+
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[9px] font-bold">
+                                    {{ $student->program?->name ?? '--' }}
+                                </span>
+                                @if($student->cohort)
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[8px] font-bold uppercase tracking-tighter border border-slate-200">
+                                        {{ $student->cohort->name }}
+                                    </span>
+                                @endif
+                            </div>
+
+                            <!-- Proposal status in mobile card -->
+                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-100/80 flex items-center justify-between gap-2">
+                                <div class="min-w-0">
+                                    <p class="text-[9px] font-black uppercase tracking-widest text-slate-400">Proposal Document</p>
+                                    @if($hasUpload)
+                                        <p class="text-xs font-bold text-emerald-700 flex items-center gap-1.5 mt-0.5">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                            Ready ({{ $latestSub && $latestSub->created_at ? $latestSub->created_at->format('M d, Y') : 'Uploaded' }})
+                                        </p>
+                                    @else
+                                        <p class="text-xs font-bold text-amber-700 flex items-center gap-1.5 mt-0.5">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                            Awaiting Proposal
+                                        </p>
+                                    @endif
+                                </div>
+                                @if($hasUpload)
+                                    <button type="button" 
+                                            @click="openPreview('{{ $student->thesis && $student->thesis->milestones ? (optional($student->thesis->milestones->firstWhere(fn($m) => ($m->template?->slug === 'supervisors_assigned' || $m->template?->order == 2)))->submissions?->sortByDesc('created_at')->first()?->file_url ? (str_starts_with(optional($student->thesis->milestones->firstWhere(fn($m) => ($m->template?->slug === 'supervisors_assigned' || $m->template?->order == 2)))->submissions?->sortByDesc('created_at')->first()->file_url, 'http') ? optional($student->thesis->milestones->firstWhere(fn($m) => ($m->template?->slug === 'supervisors_assigned' || $m->template?->order == 2)))->submissions?->sortByDesc('created_at')->first()->file_url : \Illuminate\Support\Facades\Storage::url(optional($student->thesis->milestones->firstWhere(fn($m) => ($m->template?->slug === 'supervisors_assigned' || $m->template?->order == 2)))->submissions?->sortByDesc('created_at')->first()->file_url)) : '' }}', 'Tentative Proposal - {{ addslashes($student->user?->name ?? 'Student') }}')" 
+                                            class="px-2.5 py-1 bg-white border border-emerald-300 text-emerald-800 text-[10px] font-bold rounded-lg shadow-xs hover:bg-emerald-50 shrink-0">
+                                        Preview
+                                    </button>
+                                @endif
+                            </div>
+
+                            <!-- Supervisory Committee summary -->
+                            <div class="space-y-1">
+                                <p class="text-[9px] font-black uppercase tracking-widest text-slate-400">Assigned Committee</p>
+                                @if($hasSupervisors)
+                                    <div class="space-y-1">
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                            <span class="text-xs font-bold text-slate-800">{{ $leadSup?->supervisor?->user?->name ?? 'Lead Supervisor' }}</span>
+                                            <span class="text-[8px] font-black text-indigo-600 uppercase bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-100">Prof</span>
+                                        </div>
+                                        @foreach($activeAssignments->filter(fn($a) => $a->id !== $leadSup?->id) as $subSup)
+                                            <div class="flex items-center gap-1.5 text-xs text-slate-500 pl-3">
+                                                <span>• {{ $subSup->supervisor?->user?->name ?? 'Co-Supervisor' }}</span>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @else
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 text-[9px] font-bold uppercase tracking-wider">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                        Pending Allocation
+                                    </span>
+                                @endif
+                            </div>
+
+                            <button type="button" 
+                                    @click="openAssignModal('{{ $student->id }}')" 
+                                    class="w-full text-center justify-center inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-indigo-600 text-white text-xs font-bold shadow-md hover:shadow-indigo-500/20 transition-all duration-200">
+                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                                <span>{{ $hasSupervisors ? 'Manage Committee' : 'Assign Supervisors' }}</span>
+                            </button>
+                        </div>
+                    @endforeach
+                </div>
+
+                <!-- Desktop Table (screens >= 640px) -->
+                <div class="hidden sm:block overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead class="bg-slate-50/50">
                             <tr>
-                                <th class="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Candidate</th>
-                                <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Program & Level</th>
-                                <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tentative Proposal</th>
-                                <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Supervisory Committee</th>
-                                <th class="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                                <th class="px-6 lg:px-10 py-4 lg:py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Candidate</th>
+                                <th class="px-4 lg:px-6 py-4 lg:py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Program & Level</th>
+                                <th class="px-4 lg:px-6 py-4 lg:py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tentative Proposal</th>
+                                <th class="px-4 lg:px-6 py-4 lg:py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Supervisory Committee</th>
+                                <th class="px-6 lg:px-10 py-4 lg:py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-50">
@@ -354,9 +468,9 @@
                                 @endphp
                                 <tr class="hover:bg-slate-50/40 transition-colors group">
                                     {{-- Candidate Name & Matric --}}
-                                    <td class="px-10 py-6">
-                                        <div class="flex items-center gap-4">
-                                            <div class="w-11 h-11 rounded-2xl bg-indigo-50 border border-indigo-100/60 flex items-center justify-center text-indigo-600 font-black text-sm shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                                    <td class="px-6 lg:px-10 py-4 lg:py-6">
+                                        <div class="flex items-center gap-3 lg:gap-4">
+                                            <div class="w-11 h-11 rounded-2xl bg-indigo-50 border border-indigo-100/60 flex items-center justify-center text-indigo-600 font-black text-sm shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all shrink-0">
                                                 {{ substr($student->user?->name ?? 'Student', 0, 1) }}
                                             </div>
                                             <div>
@@ -371,7 +485,7 @@
                                     </td>
 
                                     {{-- Program & Level --}}
-                                    <td class="px-6 py-6 font-medium">
+                                    <td class="px-4 lg:px-6 py-4 lg:py-6 font-medium">
                                         <div class="space-y-1.5">
                                             <p class="text-xs font-bold text-slate-700 leading-none">{{ $student->program?->name ?? '--' }}</p>
                                             <div class="flex items-center gap-1.5 flex-wrap">
@@ -388,7 +502,7 @@
                                     </td>
 
                                     {{-- Tentative Proposal Status --}}
-                                    <td class="px-6 py-6">
+                                    <td class="px-4 lg:px-6 py-4 lg:py-6">
                                         @if($hasUpload)
                                             <div class="flex flex-col items-start gap-1">
                                                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[9px] font-black uppercase tracking-wider border border-emerald-100">
@@ -413,7 +527,7 @@
                                     </td>
 
                                     {{-- Supervisory Committee --}}
-                                    <td class="px-6 py-6">
+                                    <td class="px-4 lg:px-6 py-4 lg:py-6">
                                         @if($hasSupervisors)
                                             <div class="space-y-1">
                                                 <div class="flex items-center gap-1.5">
@@ -437,7 +551,7 @@
                                     </td>
 
                                     {{-- Action Button --}}
-                                    <td class="px-10 py-6 text-right">
+                                    <td class="px-6 lg:px-10 py-4 lg:py-6 text-right">
                                         <button type="button" 
                                                 @click="openAssignModal('{{ $student->id }}')" 
                                                 class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 hover:bg-indigo-600 text-white text-xs font-bold shadow-md hover:shadow-lg hover:shadow-indigo-500/20 transition-all duration-200">
@@ -499,7 +613,7 @@
                  x-transition:leave="ease-in duration-200" 
                  x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" 
                  x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" 
-                 class="inline-block align-bottom bg-white rounded-[2.5rem] text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full border border-slate-100 relative z-10">
+                 class="inline-block align-bottom bg-white rounded-2xl sm:rounded-[2.5rem] text-left overflow-hidden shadow-2xl transform transition-all my-4 sm:my-8 sm:align-middle w-full max-w-lg sm:max-w-2xl border border-slate-100 relative z-10">
                 
                 <template x-if="activeStudent">
                     <form :action="`/coordinator/assigned-supervisors/${activeStudent.id}/assign`" 
@@ -508,39 +622,39 @@
                         @csrf
 
                         {{-- Modal Header --}}
-                        <div class="px-8 pt-8 pb-6 border-b border-slate-100 flex items-start justify-between bg-slate-50/50">
-                            <div class="flex items-center gap-4">
-                                <div class="w-12 h-12 rounded-2xl bg-indigo-500 text-white flex items-center justify-center font-black text-lg shadow-md shadow-indigo-500/20">
+                        <div class="px-4 sm:px-8 pt-5 sm:pt-8 pb-4 sm:pb-6 border-b border-slate-100 flex items-start justify-between bg-slate-50/50">
+                            <div class="flex items-center gap-3 sm:gap-4">
+                                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-indigo-500 text-white flex items-center justify-center font-black text-base sm:text-lg shadow-md shadow-indigo-500/20 shrink-0">
                                     <span x-text="activeStudent.name.charAt(0)"></span>
                                 </div>
-                                <div>
-                                    <div class="flex items-center gap-2">
-                                        <h3 class="text-xl font-black text-slate-900 tracking-tight" x-text="activeStudent.name"></h3>
-                                        <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider" 
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <h3 class="text-base sm:text-xl font-black text-slate-900 tracking-tight truncate" x-text="activeStudent.name"></h3>
+                                        <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shrink-0" 
                                               :class="activeStudent.is_phd ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-amber-50 text-amber-700 border border-amber-200'"
                                               x-text="activeStudent.level_name"></span>
                                     </div>
-                                    <p class="text-xs font-semibold text-slate-500 mt-0.5">
+                                    <p class="text-xs font-semibold text-slate-500 mt-0.5 truncate">
                                         <span x-text="activeStudent.matric"></span> • <span x-text="activeStudent.program_name"></span>
                                     </p>
                                 </div>
                             </div>
-                            <button type="button" @click="showAssignModal = false" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors">
+                            <button type="button" @click="showAssignModal = false" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors shrink-0">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                         </div>
 
                         {{-- Modal Body --}}
-                        <div class="px-8 py-6 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                        <div class="px-4 sm:px-8 py-5 sm:py-6 space-y-5 sm:space-y-6 max-h-[72vh] overflow-y-auto custom-scrollbar">
 
                             {{-- ========================================================= --}}
                             {{-- 1. TENTATIVE PROPOSAL SUBMISSION STATUS                   --}}
                             {{-- ========================================================= --}}
                             <div class="rounded-2xl p-5 border transition-all" 
                                  :class="activeStudent.has_upload ? 'bg-emerald-50/60 border-emerald-200' : 'bg-amber-50/60 border-amber-200'">
-                                <div class="flex items-start justify-between gap-4">
-                                    <div class="flex items-start gap-3.5">
-                                        <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
+                                <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                                    <div class="flex items-start gap-3 sm:gap-3.5">
+                                        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
                                              :class="activeStudent.has_upload ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'">
                                             <template x-if="activeStudent.has_upload">
                                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
@@ -550,10 +664,10 @@
                                             </template>
                                         </div>
                                         <div>
-                                            <div class="flex items-center gap-2">
-                                                <h4 class="text-sm font-black text-slate-900" 
+                                            <div class="flex items-center gap-2 flex-wrap">
+                                                <h4 class="text-xs sm:text-sm font-black text-slate-900" 
                                                     x-text="activeStudent.has_upload ? 'Tentative Research Proposal Submitted' : 'Awaiting Student Tentative Proposal'"></h4>
-                                                <span class="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider"
+                                                <span class="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider shrink-0"
                                                       :class="activeStudent.has_upload ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'"
                                                       x-text="activeStudent.has_upload ? 'Uploaded' : 'Pending'"></span>
                                             </div>
@@ -563,7 +677,7 @@
                                     </div>
 
                                     {{-- Actions for Proposal --}}
-                                    <div class="shrink-0 flex items-center gap-2">
+                                    <div class="shrink-0 flex items-center gap-2 self-start sm:self-auto">
                                         <template x-if="activeStudent.has_upload">
                                             <button type="button" 
                                                     @click="openPreview(activeStudent.proposal_url, `Tentative Proposal - ${activeStudent.name}`)" 
@@ -706,15 +820,15 @@
                         </div>
 
                         {{-- Modal Footer --}}
-                        <div class="px-8 py-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                        <div class="px-4 sm:px-8 py-4 sm:py-5 border-t border-slate-100 bg-slate-50/50 flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
                             <button type="button" 
                                     @click="showAssignModal = false" 
-                                    class="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-100 transition-colors">
+                                    class="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-100 transition-colors text-center justify-center">
                                 Cancel
                             </button>
                             <button type="submit" 
                                     :disabled="formSubmitting || isDuplicateSelected || !modalForm.lead_id || !modalForm.second_id || (activeStudent.is_phd && !modalForm.third_id)" 
-                                    class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-indigo-600 text-white text-xs font-black shadow-md hover:shadow-lg hover:shadow-indigo-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-indigo-600 text-white text-xs font-black shadow-md hover:shadow-lg hover:shadow-indigo-500/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">
                                 <template x-if="formSubmitting">
                                     <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
                                 </template>
@@ -744,18 +858,18 @@
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
 
             <div x-show="showPreviewModal" 
-                 class="inline-block align-bottom bg-white rounded-[2.5rem] text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-5xl sm:w-full border border-slate-100 relative z-10">
-                <div class="px-8 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                    <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                 class="inline-block align-bottom bg-white rounded-2xl sm:rounded-[2.5rem] text-left overflow-hidden shadow-2xl transform transition-all my-4 sm:my-8 sm:align-middle w-full sm:max-w-5xl border border-slate-100 relative z-10">
+                <div class="px-4 sm:px-8 py-4 sm:py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold shrink-0">
                             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                         </div>
-                        <div>
-                            <h3 class="text-base font-black text-slate-900" x-text="previewTitle"></h3>
+                        <div class="min-w-0">
+                            <h3 class="text-sm sm:text-base font-black text-slate-900 truncate" x-text="previewTitle"></h3>
                             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Document Preview</p>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 shrink-0">
                         <a :href="previewUrl" target="_blank" download class="p-2 text-slate-400 hover:text-indigo-600 rounded-xl hover:bg-slate-100 transition-colors" title="Open in new tab">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                         </a>
@@ -764,8 +878,8 @@
                         </button>
                     </div>
                 </div>
-                <div class="h-[75vh] w-full bg-slate-100 p-2">
-                    <iframe :src="previewUrl" class="w-full h-full rounded-2xl border-none"></iframe>
+                <div class="h-[65vh] sm:h-[75vh] w-full bg-slate-100 p-2">
+                    <iframe :src="previewUrl" class="w-full h-full rounded-xl sm:rounded-2xl border-none"></iframe>
                 </div>
             </div>
         </div>
@@ -787,27 +901,27 @@
             <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
 
             <div x-show="showMessageModal" 
-                 class="inline-block align-bottom bg-white rounded-[2.5rem] text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-slate-100 relative z-10">
+                 class="inline-block align-bottom bg-white rounded-2xl sm:rounded-[2.5rem] text-left overflow-hidden shadow-2xl transform transition-all my-4 sm:my-8 sm:align-middle w-full sm:max-w-lg border border-slate-100 relative z-10">
                 <form action="{{ route('inbox.store') }}" method="POST">
                     @csrf
                     <input type="hidden" name="to[]" :value="messageRecipientUserId">
 
-                    <div class="px-8 pt-8 pb-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                    <div class="px-4 sm:px-8 pt-5 sm:pt-8 pb-4 sm:pb-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold shrink-0">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
                             </div>
-                            <div>
-                                <h3 class="text-base font-black text-slate-900">Message Candidate</h3>
-                                <p class="text-xs font-semibold text-slate-500" x-text="`To: ${messageRecipientName}`"></p>
+                            <div class="min-w-0">
+                                <h3 class="text-sm sm:text-base font-black text-slate-900 truncate">Message Candidate</h3>
+                                <p class="text-xs font-semibold text-slate-500 truncate" x-text="`To: ${messageRecipientName}`"></p>
                             </div>
                         </div>
-                        <button type="button" @click="showMessageModal = false" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors">
+                        <button type="button" @click="showMessageModal = false" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors shrink-0">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                     </div>
 
-                    <div class="p-8 space-y-4">
+                    <div class="p-4 sm:p-8 space-y-4">
                         <div>
                             <label class="block text-xs font-black uppercase tracking-wider text-slate-700 mb-2">Subject</label>
                             <input type="text" name="subject" value="Action Required: Upload Tentative Research Proposal" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none">
@@ -819,11 +933,11 @@
                         </div>
                     </div>
 
-                    <div class="px-8 py-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                        <button type="button" @click="showMessageModal = false" class="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-100 transition-colors">
+                    <div class="px-4 sm:px-8 py-4 sm:py-5 border-t border-slate-100 bg-slate-50/50 flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
+                        <button type="button" @click="showMessageModal = false" class="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-100 transition-colors text-center">
                             Cancel
                         </button>
-                        <button type="submit" class="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-amber-600 text-white text-xs font-black shadow-md hover:shadow-lg transition-all">
+                        <button type="submit" class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-amber-600 text-white text-xs font-black shadow-md hover:shadow-lg transition-all text-center">
                             Send Message
                         </button>
                     </div>

@@ -482,10 +482,74 @@
                                 {{-- Schedule Form (Admin only) --}}
                                 @if($template->studentMilestones->count() > 0 && (!isset($isCoordinator) || !$isCoordinator))
                                 <div x-ref="scheduleForm" x-show="showStudents" x-cloak class="mb-6 bg-gradient-to-br from-slate-50 via-emerald-50/20 to-white p-5 rounded-2xl border border-emerald-100 shadow-sm">
-                                    <form action="{{ route('admin.milestone-templates.schedule') }}" method="POST">
+                                    <form action="{{ route('admin.milestone-templates.schedule') }}" method="POST"
+                                        x-data="{
+                                            activeDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+                                            dayOptions: [
+                                                { key: 'monday', label: 'Mon', full: 'Monday' },
+                                                { key: 'tuesday', label: 'Tue', full: 'Tuesday' },
+                                                { key: 'wednesday', label: 'Wed', full: 'Wednesday' },
+                                                { key: 'thursday', label: 'Thu', full: 'Thursday' },
+                                                { key: 'friday', label: 'Fri', full: 'Friday' },
+                                                { key: 'saturday', label: 'Sat', full: 'Saturday' },
+                                                { key: 'sunday', label: 'Sun', full: 'Sunday' }
+                                            ],
+                                            toggleDay(dayKey) {
+                                                if (this.activeDays.includes(dayKey)) {
+                                                    if (this.activeDays.length === 1) {
+                                                        alert('At least one day of the week must remain active for scheduling.');
+                                                        return;
+                                                    }
+                                                    this.activeDays = this.activeDays.filter(d => d !== dayKey);
+                                                } else {
+                                                    this.activeDays.push(dayKey);
+                                                }
+                                            },
+                                            setDaysPreset(preset) {
+                                                if (preset === 'weekdays') {
+                                                    this.activeDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+                                                } else if (preset === 'all') {
+                                                    this.activeDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+                                                } else if (preset === 'mon_thu') {
+                                                    this.activeDays = ['monday', 'tuesday', 'wednesday', 'thursday'];
+                                                }
+                                            },
+                                            excludedDates: [],
+                                            newExcludedDate: '',
+                                            addExcludedDate() {
+                                                if (!this.newExcludedDate) return;
+                                                if (!this.excludedDates.includes(this.newExcludedDate)) {
+                                                    this.excludedDates.push(this.newExcludedDate);
+                                                    this.excludedDates.sort();
+                                                }
+                                                this.newExcludedDate = '';
+                                            },
+                                            removeExcludedDate(dateStr) {
+                                                this.excludedDates = this.excludedDates.filter(d => d !== dateStr);
+                                            },
+                                            formatDateChip(dateStr) {
+                                                try {
+                                                    const parts = dateStr.split('-');
+                                                    if (parts.length === 3) {
+                                                        const year = parseInt(parts[0], 10);
+                                                        const month = parseInt(parts[1], 10) - 1;
+                                                        const day = parseInt(parts[2], 10);
+                                                        const d = new Date(year, month, day);
+                                                        return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+                                                    }
+                                                } catch (e) {}
+                                                return dateStr;
+                                            }
+                                        }">
                                         @csrf
                                         <template x-for="id in selected">
                                             <input type="hidden" name="milestone_ids[]" :value="id">
+                                        </template>
+                                        <template x-for="day in activeDays" :key="'active-day-' + day">
+                                            <input type="hidden" name="active_days[]" :value="day">
+                                        </template>
+                                        <template x-for="exDate in excludedDates" :key="'ex-date-' + exDate">
+                                            <input type="hidden" name="excluded_dates[]" :value="exDate">
                                         </template>
 
                                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-100">
@@ -504,11 +568,11 @@
                                                 </div>
                                             </div>
                                             <div class="flex items-center gap-2">
-                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-colors"
-                                                    :class="selected.length > 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'">
-                                                    <span class="w-2 h-2 rounded-full" :class="selected.length > 0 ? 'bg-emerald-600 animate-pulse' : 'bg-slate-400'"></span>
-                                                    <span x-text="selected.length + ' student' + (selected.length === 1 ? '' : 's') + ' selected'"></span>
-                                                </span>
+                                                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-colors"
+                                                     :class="selected.length > 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-500 border border-slate-200'">
+                                                     <span class="w-2 h-2 rounded-full" :class="selected.length > 0 ? 'bg-emerald-600 animate-pulse' : 'bg-slate-400'"></span>
+                                                     <span x-text="selected.length + ' student' + (selected.length === 1 ? '' : 's') + ' selected'"></span>
+                                                 </span>
                                             </div>
                                         </div>
 
@@ -549,14 +613,129 @@
                                             </div>
                                         </div>
 
+                                        {{-- Advanced Schedule Machine Settings: Active Days & Excluded Dates --}}
+                                        <div class="mt-4 pt-4 border-t border-slate-200/80 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                            {{-- 1. Active Days of Week --}}
+                                            <div class="bg-white/90 rounded-xl p-3.5 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+                                                <div>
+                                                    <div class="flex items-center justify-between gap-2 mb-1.5">
+                                                        <label class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                                                            <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                                            </svg>
+                                                            <span>Schedule Days of Week</span>
+                                                        </label>
+                                                        <div class="flex items-center gap-1 text-[10px]">
+                                                            <span class="text-slate-400">Presets:</span>
+                                                            <button type="button" @click="setDaysPreset('weekdays')" class="px-1.5 py-0.5 rounded font-semibold text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 transition cursor-pointer">Weekdays</button>
+                                                            <span class="text-slate-300">•</span>
+                                                            <button type="button" @click="setDaysPreset('all')" class="px-1.5 py-0.5 rounded font-semibold text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 transition cursor-pointer">All 7 Days</button>
+                                                            <span class="text-slate-300">•</span>
+                                                            <button type="button" @click="setDaysPreset('mon_thu')" class="px-1.5 py-0.5 rounded font-semibold text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 transition cursor-pointer">Mon–Thu</button>
+                                                        </div>
+                                                    </div>
+                                                    <p class="text-[11px] text-slate-500 mb-2.5 leading-snug">
+                                                        Click any day to include or remove it from the schedule (e.g. uncheck Fridays or add Sundays).
+                                                    </p>
+                                                </div>
+
+                                                <div class="grid grid-cols-7 gap-1.5">
+                                                    <template x-for="day in dayOptions" :key="day.key">
+                                                        <button type="button" 
+                                                            @click="toggleDay(day.key)"
+                                                            :title="activeDays.includes(day.key) ? (day.full + ' is scheduled. Click to remove.') : (day.full + ' is skipped. Click to add.')"
+                                                            class="py-2 px-1 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-0.5 transition-all border cursor-pointer"
+                                                            :class="activeDays.includes(day.key) 
+                                                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs hover:bg-emerald-700' 
+                                                                : 'bg-slate-50 text-slate-400 border-slate-200 hover:border-slate-300 hover:text-slate-600 hover:bg-slate-100'">
+                                                            <span x-text="day.label" class="tracking-tight"></span>
+                                                            <span class="text-[9px] font-bold leading-none" :class="activeDays.includes(day.key) ? 'text-emerald-100' : 'text-slate-400'">
+                                                                <span x-show="activeDays.includes(day.key)">✓</span>
+                                                                <span x-show="!activeDays.includes(day.key)">✕</span>
+                                                            </span>
+                                                        </button>
+                                                    </template>
+                                                </div>
+                                            </div>
+
+                                            {{-- 2. Exclude Specific Dates (e.g. 4th or 5th of October) --}}
+                                            <div class="bg-white/90 rounded-xl p-3.5 border border-slate-200/80 shadow-xs flex flex-col justify-between">
+                                                <div>
+                                                    <div class="flex items-center justify-between gap-2 mb-1.5">
+                                                        <label class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                                                            <svg class="w-3.5 h-3.5 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                                                            </svg>
+                                                            <span>Exclude Specific Dates</span>
+                                                        </label>
+                                                        <template x-if="excludedDates.length > 0">
+                                                            <button type="button" @click="excludedDates = []" class="text-[10px] font-semibold text-rose-600 hover:text-rose-800 hover:underline cursor-pointer">
+                                                                Clear all (<span x-text="excludedDates.length"></span>)
+                                                            </button>
+                                                        </template>
+                                                    </div>
+                                                    <p class="text-[11px] text-slate-500 mb-2 leading-snug">
+                                                        Select specific dates to remove from the schedule (e.g. 4th or 5th of October, holidays).
+                                                    </p>
+
+                                                    <div class="flex items-center gap-2 mb-2">
+                                                        <input type="date" x-model="newExcludedDate" @change="addExcludedDate()" @keydown.enter.prevent="addExcludedDate()"
+                                                            class="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition">
+                                                        <button type="button" @click="addExcludedDate()"
+                                                            :disabled="!newExcludedDate"
+                                                            class="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg shadow-xs transition flex items-center gap-1 shrink-0 cursor-pointer">
+                                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+                                                            </svg>
+                                                            <span>Exclude Date</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div class="min-h-[36px] max-h-24 overflow-y-auto">
+                                                    <template x-if="excludedDates.length === 0">
+                                                        <div class="flex items-center gap-1.5 text-[11px] text-slate-400 italic py-1">
+                                                            <svg class="w-3.5 h-3.5 text-slate-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                            <span>No specific dates excluded. Use the picker above to add dates to skip.</span>
+                                                        </div>
+                                                    </template>
+                                                    <template x-if="excludedDates.length > 0">
+                                                        <div class="flex flex-wrap gap-1.5">
+                                                            <template x-for="d in excludedDates" :key="d">
+                                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200/80 shadow-2xs">
+                                                                    <svg class="w-3 h-3 text-rose-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                                                    </svg>
+                                                                    <span x-text="formatDateChip(d)"></span>
+                                                                    <button type="button" @click="removeExcludedDate(d)" class="text-rose-400 hover:text-rose-700 ml-0.5 rounded-full p-0.5 hover:bg-rose-100 transition cursor-pointer" title="Remove exclusion">
+                                                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                                    </button>
+                                                                </span>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         <div class="mt-4 pt-3.5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
-                                            <p class="text-xs text-slate-400 font-medium flex items-center gap-1.5">
-                                                <svg class="w-4 h-4 text-emerald-600/70 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                                <span>Weekends are automatically skipped. Only supervisor-approved candidates will be scheduled.</span>
-                                            </p>
+                                            <div class="text-xs text-slate-500 font-medium flex flex-wrap items-center gap-2">
+                                                <span class="inline-flex items-center gap-1 text-slate-700 font-bold">
+                                                    <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                    Active Days:
+                                                </span>
+                                                <span class="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100" 
+                                                    x-text="dayOptions.filter(d => activeDays.includes(d.key)).map(d => d.label).join(', ')"></span>
+                                                <template x-if="excludedDates.length > 0">
+                                                    <span class="inline-flex items-center gap-1 text-rose-700 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-100">
+                                                        <span x-text="excludedDates.length"></span> date(s) skipped
+                                                    </span>
+                                                </template>
+                                                <span class="text-slate-400 text-[11px]">• Only supervisor-approved candidates will be scheduled</span>
+                                            </div>
                                             <button type="submit" 
-                                                class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/20 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none" 
-                                                :disabled="selected.length === 0">
+                                                class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/20 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none cursor-pointer" 
+                                                :disabled="selected.length === 0 || activeDays.length === 0">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                                 </svg>

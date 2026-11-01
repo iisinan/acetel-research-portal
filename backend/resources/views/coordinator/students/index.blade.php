@@ -15,13 +15,13 @@
                 </div>
                 <span class="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">Student Directory</span>
             </div>
-            <h1 class="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">Student List</h1>
-            <p class="mt-1.5 text-sm font-medium text-slate-500">List of all enrolled students and their research supervision status.</p>
+            <h1 class="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tight">Student List</h1>
+            <p class="mt-1 text-xs sm:text-sm font-medium text-slate-500">List of all enrolled students and their research supervision status.</p>
         </div>
 
         <!-- Metric Counter Pill -->
-        <div class="flex items-center gap-3 shrink-0">
-            <div class="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+        <div class="flex items-center gap-3 shrink-0 self-start sm:self-auto">
+            <div class="inline-flex items-center gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
                 <span class="relative flex h-2.5 w-2.5">
                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
@@ -286,8 +286,8 @@
     </div>
 
     <!-- Premium Table Container -->
-    <div class="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden min-h-[500px] flex flex-col">
-        <div class="px-8 sm:px-10 py-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-slate-50/40">
+    <div class="bg-white rounded-2xl sm:rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden min-h-[500px] flex flex-col">
+        <div class="px-5 sm:px-10 py-5 sm:py-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-slate-50/40">
             <div>
                 <h3 class="text-lg sm:text-xl font-black text-slate-900 tracking-tight">Enrolled Students</h3>
                 <p class="text-xs font-semibold text-slate-400 mt-0.5">
@@ -308,24 +308,125 @@
 
         <div class="flex-1">
             @if(isset($students) && $students->count() > 0)
-                <div class="overflow-x-auto">
+                <!-- Mobile Card View (screens < 640px) -->
+                <div class="block sm:hidden divide-y divide-slate-100 p-3 space-y-3">
+                    @foreach($students as $student)
+                        @php
+                            $daysSinceLastUpdate = $student->thesis ? $student->thesis->updated_at->diffInDays(now()) : 0;
+                            $statusClass = 'bg-emerald-50 text-emerald-600 border border-emerald-100';
+                            $statusText = 'On Track';
+                            $dotClass = 'bg-emerald-500';
+                            
+                            if ($student->thesis) {
+                                if ($daysSinceLastUpdate > 30) {
+                                    $statusClass = 'bg-rose-50 text-rose-600 border border-rose-100';
+                                    $statusText = 'Stalled (' . $daysSinceLastUpdate . 'd)';
+                                    $dotClass = 'bg-rose-500 animate-pulse';
+                                } elseif ($daysSinceLastUpdate > 14) {
+                                    $statusClass = 'bg-amber-50 text-amber-600 border border-amber-100';
+                                    $statusText = 'Delayed';
+                                    $dotClass = 'bg-amber-500';
+                                }
+
+                                if($student->thesis->status === 'completed') {
+                                    $statusClass = 'bg-blue-50 text-blue-600 border border-blue-100';
+                                    $statusText = 'Archived';
+                                    $dotClass = 'bg-blue-500';
+                                }
+                            }
+                        @endphp
+                        <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-xs space-y-3">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 font-black text-sm shrink-0 shadow-sm ring-1 ring-slate-100">
+                                        {{ substr($student->user->name, 0, 1) }}
+                                    </div>
+                                    <div class="min-w-0">
+                                        <a href="{{ route('coordinator.students.show', $student) }}" class="text-sm font-bold text-slate-900 truncate block hover:text-acetel-600 transition-colors">
+                                            {{ $student->user->name }}
+                                        </a>
+                                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{{ $student->student_id_number }}</p>
+                                    </div>
+                                </div>
+                                @if($student->thesis)
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full {{ $statusClass }} text-[8px] font-black uppercase tracking-wider shrink-0">
+                                        <span class="w-1.5 h-1.5 rounded-full {{ $dotClass }}"></span>
+                                        {{ $statusText }}
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 text-[8px] font-black uppercase tracking-wider shrink-0">
+                                        Pending Init
+                                    </span>
+                                @endif
+                            </div>
+
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[9px] font-bold">
+                                    {{ $student->program->name ?? '--' }}
+                                </span>
+                                <span class="px-2 py-0.5 rounded-md @if(str_contains(strtolower($student->level->name ?? ''), 'phd')) bg-acetel-50 text-acetel-600 @else bg-amber-50 text-amber-600 @endif text-[8px] font-black uppercase tracking-tighter border border-current/10">
+                                    {{ $student->level->name ?? '--' }}
+                                </span>
+                                @if($student->cohort)
+                                    <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[8px] font-bold uppercase tracking-tighter border border-slate-200">
+                                        {{ $student->cohort->name }}
+                                    </span>
+                                @endif
+                            </div>
+
+                            @if($student->thesis)
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100/80 space-y-2">
+                                    <p class="text-xs font-semibold text-slate-800 line-clamp-2" title="{{ $student->thesis->title }}">{{ $student->thesis->title }}</p>
+                                    @php $current = $student->thesis->currentMilestone; @endphp
+                                    <div class="flex items-center justify-between text-[9px]">
+                                        @if($current)
+                                            <span class="font-bold text-primary-600 uppercase tracking-tight">
+                                                M{{ $current->template->order ?? '?' }}: {{ Str::limit($current->template->name ?? 'Unknown', 24) }}
+                                            </span>
+                                        @else
+                                            <span class="font-bold text-emerald-600 uppercase tracking-tight">COMPLETED</span>
+                                        @endif
+                                        <span class="font-bold text-slate-500">{{ $student->thesis->progress_percentage }}% Cleared</span>
+                                    </div>
+                                    <div class="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                                        <div class="bg-acetel-500 h-1.5 rounded-full" style="width: {{ $student->thesis->progress_percentage }}%"></div>
+                                    </div>
+                                </div>
+                            @endif
+
+                            <div class="flex items-center justify-between pt-2 border-t border-slate-50 gap-2">
+                                @if($student->thesis)
+                                    <a href="{{ route('milestones.index', ['thesis_id' => $student->thesis->id]) }}" class="flex-1 text-center py-2 px-3 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-acetel-50 hover:text-acetel-600 transition-colors">
+                                        Milestones
+                                    </a>
+                                @endif
+                                <a href="{{ route('coordinator.students.show', $student) }}" class="flex-1 text-center py-2 px-3 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-acetel-600 transition-colors">
+                                    View Details
+                                </a>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+
+                <!-- Desktop Table (screens >= 640px) -->
+                <div class="hidden sm:block overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead class="bg-slate-50/50">
                             <tr>
-                                <th class="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Student</th>
-                                <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Program</th>
-                                <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Thesis</th>
-                                <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress</th>
-                                <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Alert Status</th>
-                                <th class="px-10 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                                <th class="px-6 lg:px-10 py-4 lg:py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Student</th>
+                                <th class="px-4 lg:px-6 py-4 lg:py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Program</th>
+                                <th class="px-4 lg:px-6 py-4 lg:py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Thesis</th>
+                                <th class="px-4 lg:px-6 py-4 lg:py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Progress</th>
+                                <th class="px-4 lg:px-6 py-4 lg:py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Alert Status</th>
+                                <th class="px-6 lg:px-10 py-4 lg:py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-50">
                             @foreach($students as $student)
                                 <tr class="hover:bg-slate-50/30 transition-colors group">
-                                    <td class="px-10 py-6">
-                                        <div class="flex items-center gap-4">
-                                            <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-acetel-50 group-hover:text-acetel-500 transition-all font-black text-sm shadow-sm ring-1 ring-slate-100 group-hover:ring-acetel-100">
+                                    <td class="px-6 lg:px-10 py-4 lg:py-6">
+                                        <div class="flex items-center gap-3 lg:gap-4">
+                                            <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-acetel-50 group-hover:text-acetel-500 transition-all font-black text-sm shadow-sm ring-1 ring-slate-100 group-hover:ring-acetel-100 shrink-0">
                                                 {{ substr($student->user->name, 0, 1) }}
                                             </div>
                                             <div>
@@ -334,15 +435,12 @@
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-6 py-6 font-medium">
+                                    <td class="px-4 lg:px-6 py-4 lg:py-6 font-medium">
                                         <div class="space-y-1.5">
                                             <p class="text-xs font-bold text-slate-700 leading-none">{{ $student->program->name ?? '--' }}</p>
-                                                @php
-                                                    $rowLevel = $student->level?->name ?? ($student->program?->degree_type ?? (str_contains(strtolower($student->program?->name ?? ''), 'phd') ? 'PhD' : (str_contains(strtolower($student->program?->name ?? ''), 'master') ? 'MSc' : '--')));
-                                                    $isRowPhd = str_contains(strtolower($rowLevel), 'phd');
-                                                @endphp
-                                                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md @if($isRowPhd) bg-acetel-50 text-acetel-600 @else bg-amber-50 text-amber-600 @endif text-[8px] font-black uppercase tracking-tighter shadow-sm border border-current/10">
-                                                    {{ $rowLevel }}
+                                            <div class="flex items-center gap-1.5 flex-wrap">
+                                                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md @if(str_contains(strtolower($student->level->name ?? ''), 'phd')) bg-acetel-50 text-acetel-600 @else bg-amber-50 text-amber-600 @endif text-[8px] font-black uppercase tracking-tighter shadow-sm border border-current/10">
+                                                    {{ $student->level->name ?? '--' }}
                                                 </span>
                                                 @if($student->cohort)
                                                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[8px] font-bold uppercase tracking-tighter shadow-sm border border-slate-200" title="Cohort">
@@ -352,7 +450,7 @@
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-6 py-6">
+                                    <td class="px-4 lg:px-6 py-4 lg:py-6">
                                         @if($student->thesis)
                                             <div class="flex flex-col">
                                                 <span class="text-xs font-bold text-slate-900 truncate max-w-[200px]" title="{{ $student->thesis->title }}">{{ $student->thesis->title }}</span>
@@ -361,7 +459,7 @@
                                                 @endphp
                                                 @if($current)
                                                     <span class="text-[8px] font-black text-primary-600 uppercase tracking-tighter mt-1 italic">
-                                                        Current: M{{ $current->template->order ?? '?' }} - {{ $current->template->name ?? 'Unknown' }}
+                                                        Current: M{{ $current->template->order ?? '?' }} - {{ Str::limit($current->template->name ?? 'Unknown', 25) }}
                                                     </span>
                                                 @else
                                                     <span class="text-[8px] font-black text-emerald-600 uppercase tracking-tighter mt-1 italic">
@@ -373,9 +471,9 @@
                                             <span class="text-[8px] font-black text-slate-400 uppercase tracking-widest italic">No Thesis Init</span>
                                         @endif
                                     </td>
-                                    <td class="px-6 py-6">
+                                    <td class="px-4 lg:px-6 py-4 lg:py-6">
                                         @if($student->thesis)
-                                            <div class="w-full bg-slate-100 rounded-full h-1.5 mb-1 overlow-hidden">
+                                            <div class="w-full bg-slate-100 rounded-full h-1.5 mb-1 overflow-hidden">
                                                 <div class="bg-acetel-500 h-1.5 rounded-full" style="width: {{ $student->thesis->progress_percentage }}%"></div>
                                             </div>
                                             <span class="text-[8px] font-black text-slate-500 uppercase">{{ $student->thesis->progress_percentage }}% Cleared</span>
@@ -383,7 +481,7 @@
                                             <span class="text-[8px] font-black text-slate-400 uppercase tracking-widest italic">N/A</span>
                                         @endif
                                     </td>
-                                    <td class="px-6 py-6">
+                                    <td class="px-4 lg:px-6 py-4 lg:py-6">
                                         @if($student->thesis)
                                             @php
                                                 $daysSinceLastUpdate = $student->thesis->updated_at->diffInDays(now());
@@ -407,18 +505,18 @@
                                                     $dotClass = 'bg-blue-500';
                                                 }
                                             @endphp
-                                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full {{ $statusClass }} text-[8px] font-black uppercase tracking-widest shadow-sm ring-1 ring-current/10">
+                                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full {{ $statusClass }} text-[8px] font-black uppercase tracking-widest shadow-sm ring-1 ring-current/10 whitespace-nowrap">
                                                 <span class="w-1.5 h-1.5 rounded-full {{ $dotClass }}"></span>
                                                 {{ $statusText }}
                                             </span>
                                         @else
-                                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-500 text-[8px] font-black uppercase tracking-widest shadow-sm ring-1 ring-current/10">
+                                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-500 text-[8px] font-black uppercase tracking-widest shadow-sm ring-1 ring-current/10 whitespace-nowrap">
                                                 <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
                                                 Pending Init
                                             </span>
                                         @endif
                                     </td>
-                                    <td class="px-10 py-6 text-right">
+                                    <td class="px-6 lg:px-10 py-4 lg:py-6 text-right">
                                         <div class="flex justify-end items-center gap-2">
                                             @if($student->thesis)
                                                 <a href="{{ route('milestones.index', ['thesis_id' => $student->thesis->id]) }}" class="inline-flex items-center justify-center p-2 rounded-xl bg-slate-50 border border-slate-100 text-slate-400 hover:border-acetel-500 hover:text-acetel-500 translate-y-0 hover:-translate-y-1 transition-all" title="Milestones">
@@ -436,7 +534,7 @@
                     </table>
                 </div>
             @else
-                <div class="flex flex-col items-center justify-center h-[400px] text-center px-10">
+                <div class="flex flex-col items-center justify-center h-[400px] text-center px-4 sm:px-10">
                     <div class="w-20 h-20 rounded-[2rem] bg-slate-50 border border-slate-100 flex items-center justify-center mb-6 shadow-inner">
                         <svg class="w-10 h-10 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
                     </div>
@@ -447,7 +545,7 @@
         </div>
 
         @if($students->hasPages())
-            <div class="px-10 py-6 bg-slate-50/50 border-t border-slate-50">
+            <div class="px-5 sm:px-10 py-5 sm:py-6 bg-slate-50/50 border-t border-slate-50">
                 {{ $students->links() }}
             </div>
         @endif

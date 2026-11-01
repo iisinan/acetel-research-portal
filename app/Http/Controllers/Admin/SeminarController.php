@@ -35,11 +35,59 @@ class SeminarController extends Controller
         $request->validate([
             "milestone_ids" => "required|array",
             "start_date" => "required|date",
-            "students_per_day" => "required|integer|min:1"
+            "students_per_day" => "required|integer|min:1",
+            "active_days" => "nullable|array",
+            "active_days.*" => "string|in:monday,tuesday,wednesday,thursday,friday,saturday,sunday",
+            "excluded_dates" => "nullable|array",
+            "excluded_dates.*" => "nullable|string",
         ]);
+
+        // Active days of week (default to Monday-Friday if not supplied)
+        $activeDays = $request->input('active_days');
+        if (empty($activeDays) || !is_array($activeDays)) {
+            $activeDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+        } else {
+            $activeDays = array_values(array_unique(array_map('strtolower', $activeDays)));
+        }
+
+        // Specific excluded dates
+        $excludedDates = [];
+        if ($request->filled('excluded_dates')) {
+            $rawExcluded = is_array($request->excluded_dates) ? $request->excluded_dates : explode(',', (string)$request->excluded_dates);
+            foreach ($rawExcluded as $d) {
+                $d = trim((string)$d);
+                if ($d !== '') {
+                    try {
+                        $excludedDates[] = \Carbon\Carbon::parse($d)->format('Y-m-d');
+                    } catch (\Throwable $e) {}
+                }
+            }
+            $excludedDates = array_values(array_unique($excludedDates));
+        }
+
+        $isDateValid = function(\Carbon\Carbon $date) use ($activeDays, $excludedDates) {
+            $dayName = strtolower($date->format('l'));
+            if (!in_array($dayName, $activeDays, true)) {
+                return false;
+            }
+            if (in_array($date->format('Y-m-d'), $excludedDates, true)) {
+                return false;
+            }
+            return true;
+        };
+
+        $advanceToValidDate = function(\Carbon\Carbon $date) use ($isDateValid) {
+            $safety = 0;
+            while (!$isDateValid($date) && $safety < 1000) {
+                $date->addDay();
+                $safety++;
+            }
+            return $date;
+        };
 
         $ids = $request->milestone_ids;
         $currentDate = \Carbon\Carbon::parse($request->start_date);
+        $advanceToValidDate($currentDate);
         $count = 0;
 
         DB::beginTransaction();
@@ -66,9 +114,7 @@ class SeminarController extends Controller
                 $count++;
                 if ($count % $request->students_per_day === 0) {
                     $currentDate->addDay();
-                    while ($currentDate->isWeekend()) {
-                        $currentDate->addDay();
-                    }
+                    $advanceToValidDate($currentDate);
                 }
             }
             DB::commit();
