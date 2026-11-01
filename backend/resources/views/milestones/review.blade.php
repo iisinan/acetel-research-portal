@@ -76,9 +76,9 @@
                                         Scopus Indexed
                                     </span>
                                 @elseif($submission->doi)
-                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider bg-amber-50 text-amber-800 border border-amber-200">
-                                        <svg class="w-3 h-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                        DOI Verified (Not Indexed in Scopus)
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200">
+                                        <svg class="w-3 h-3 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                        Not Indexed in Scopus
                                     </span>
                                 @endif
                                 @if(!empty($submission->scopus_data['journal']))
@@ -123,8 +123,12 @@
                                             {{ $oldSub->type === 'publication' ? 'Publication' : 'Manuscript' }} v{{ $oldSub->version }}
                                         </span>
                                         @if($oldSub->is_scopus_indexed)
-                                            <span class="px-2 py-0.2 rounded-full text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 shrink-0">
+                                            <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 shrink-0">
                                                 Scopus Indexed
+                                            </span>
+                                        @elseif($oldSub->type === 'publication' && $oldSub->doi)
+                                            <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-rose-100 text-rose-800 shrink-0">
+                                                Not in Scopus
                                             </span>
                                         @endif
                                         <span class="text-xs text-slate-700 dark:text-slate-300 truncate font-semibold">{{ $oldSub->publication_title ?? ($oldSub->file_meta['original_name'] ?? 'document.pdf') }}</span>
