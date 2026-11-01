@@ -337,9 +337,12 @@
                                     <td class="px-6 py-6 font-medium">
                                         <div class="space-y-1.5">
                                             <p class="text-xs font-bold text-slate-700 leading-none">{{ $student->program->name ?? '--' }}</p>
-                                            <div class="flex items-center gap-1.5 flex-wrap">
-                                                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md @if(str_contains(strtolower($student->level->name ?? ''), 'phd')) bg-acetel-50 text-acetel-600 @else bg-amber-50 text-amber-600 @endif text-[8px] font-black uppercase tracking-tighter shadow-sm border border-current/10">
-                                                    {{ $student->level->name ?? '--' }}
+                                                @php
+                                                    $rowLevel = $student->level?->name ?? ($student->program?->degree_type ?? (str_contains(strtolower($student->program?->name ?? ''), 'phd') ? 'PhD' : (str_contains(strtolower($student->program?->name ?? ''), 'master') ? 'MSc' : '--')));
+                                                    $isRowPhd = str_contains(strtolower($rowLevel), 'phd');
+                                                @endphp
+                                                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md @if($isRowPhd) bg-acetel-50 text-acetel-600 @else bg-amber-50 text-amber-600 @endif text-[8px] font-black uppercase tracking-tighter shadow-sm border border-current/10">
+                                                    {{ $rowLevel }}
                                                 </span>
                                                 @if($student->cohort)
                                                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[8px] font-bold uppercase tracking-tighter shadow-sm border border-slate-200" title="Cohort">

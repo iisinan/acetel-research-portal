@@ -204,6 +204,7 @@ class CohortController extends Controller
             $profile = $user->studentProfile()->create([
                 'cohort_id' => $cohort->id,
                 'program_id' => $request->program_id,
+                'level_id' => \App\Models\StudentProfile::resolveLevelIdFromProgram($request->program_id),
                 'student_id_number' => $request->matrix_number,
                 'enrollment_status' => 'active',
                 'current_semester' => 1,
@@ -284,6 +285,7 @@ class CohortController extends Controller
                 $profile = $user->studentProfile()->create([
                     'cohort_id' => $cohort->id,
                     'program_id' => $program->id,
+                    'level_id' => \App\Models\StudentProfile::resolveLevelIdFromProgram($program->id),
                     'student_id_number' => $matrixNumber,
                     'enrollment_status' => 'active',
                     'current_semester' => 1,

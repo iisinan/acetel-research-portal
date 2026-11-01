@@ -11,7 +11,7 @@
 @section('content')
 <div class="space-y-8 pb-20" id="milestones-page">
 <script>
-    var _expandedMilestone = '{{ $ongoingMilestoneId }}';
+    var _expandedMilestone = '{{ request('expanded', $ongoingMilestoneId) }}';
     function toggleMilestone(id) {
         var all = document.querySelectorAll('.milestone-body');
         all.forEach(function(el) {
@@ -152,7 +152,7 @@
                     <div class="flex flex-col items-center min-w-[140px] group">
                         <!-- Connector Node -->
                         <div class="relative z-10 w-14 h-14 rounded-2xl flex items-center justify-center border-4 border-white shadow-lg transition-all duration-500 group-hover:scale-110 cursor-pointer"
-                             @click="expanded = expanded === '{{ $m->id }}' ? null : '{{ $m->id }}'; if(expanded) $nextTick(() => document.getElementById('milestone-container-' + '{{ $m->id }}').scrollIntoView({ behavior: 'smooth', block: 'center' }))"
+                             onclick="toggleMilestone('{{ $m->id }}')"
                              :class="{ 'bg-green-500 text-white': '{{ $isCompletedTimeline }}' === '1', 'bg-brand-500 text-white ring-8 ring-brand-50/50': '{{ $isActiveTimeline }}' === '1', 'bg-white text-gray-400 border-gray-100': '{{ !$isCompletedTimeline && !$isActiveTimeline }}' === '1' }">
                             @if($isCompletedTimeline)
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
@@ -231,12 +231,12 @@
             
             <div id="milestone-container-{{ $milestone->id }}" class="group/milestone relative bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden transition-all duration-300 {{ $isActive ? 'hover:shadow-md hover:border-gray-200 ring-2 ring-brand-200' : '' }}">
                 <!-- Milestone Header -->
-                <div @if($isCompleted || $isActive || $isPendingMatch)
+                <div @if($isCompleted || $isActive || $isPendingMatch || !auth()->user()->hasRole('Student'))
                             onclick="toggleMilestone('{{ $milestone->id }}')"
                         @else
                             onclick="window.toast.warning('Institutional Protocol: This milestone is currently locked. You must complete the ongoing phase first.');"
                         @endif
-                        class="w-full text-left flex items-center justify-between px-4 md:px-10 py-6 md:py-10 transition-all duration-300 {{ ($isCompleted || $isActive || $isPendingMatch) ? 'cursor-pointer hover:bg-gray-50/30' : 'cursor-not-allowed' }}">
+                        class="w-full text-left flex items-center justify-between px-4 md:px-10 py-6 md:py-10 transition-all duration-300 {{ ($isCompleted || $isActive || $isPendingMatch || !auth()->user()->hasRole('Student')) ? 'cursor-pointer hover:bg-gray-50/30' : 'cursor-not-allowed' }}">
                     <div class="flex items-center gap-3 md:gap-6">
                         <div class="relative">
                             <div class="w-10 h-10 md:w-14 md:h-14 rounded-2xl flex items-center justify-center text-base md:text-xl font-bold shadow-lg shadow-{{ $conf['color'] }}-500/10 border {{ $isCompleted ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-white border-gray-100 text-gray-900' }}">
@@ -297,7 +297,7 @@
                             {{ $conf['label'] }}
                         </span>
                         
-                        <div class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 group-hover/milestone:bg-brand-50 group-hover/milestone:text-brand-600 transition-all duration-300 transform" :class="expanded === '{{ $milestone->id }}' ? 'rotate-180' : ''">
+                        <div id="milestone-chevron-{{ $milestone->id }}" class="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 group-hover/milestone:bg-brand-50 group-hover/milestone:text-brand-600 transition-all duration-300 transform">
                             @cannot('view', $milestone)
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                             @else

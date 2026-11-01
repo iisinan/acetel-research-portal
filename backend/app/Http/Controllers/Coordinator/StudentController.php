@@ -132,6 +132,14 @@ class StudentController extends Controller
              abort(403, 'This student does not belong to your program.');
         }
 
+        if (empty($student->level_id) && !empty($student->program_id)) {
+            $resolvedLevelId = StudentProfile::resolveLevelIdFromProgram($student->program_id);
+            if ($resolvedLevelId) {
+                $student->level_id = $resolvedLevelId;
+                $student->saveQuietly();
+            }
+        }
+
         $student->load(['user', 'thesis.milestones.template', 'thesis.assignments.supervisor.user', 'program', 'level']);
         
         // Fetch supervisors matching the student's program (Restriction Protocol)

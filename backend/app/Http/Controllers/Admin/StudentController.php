@@ -28,6 +28,14 @@ class StudentController extends Controller
             }
         }
 
+        if (empty($student->level_id) && !empty($student->program_id)) {
+            $resolvedLevelId = \App\Models\StudentProfile::resolveLevelIdFromProgram($student->program_id);
+            if ($resolvedLevelId) {
+                $student->level_id = $resolvedLevelId;
+                $student->saveQuietly();
+            }
+        }
+
         $student->load([
             'user', 
             'program', 

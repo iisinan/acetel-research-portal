@@ -145,7 +145,7 @@
                         </div>
                         <div>
                             <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Degree Level</p>
-                            <p class="text-sm font-black text-slate-900">{{ $student->level->name ?? 'N/A' }}</p>
+                            <p class="text-sm font-black text-slate-900">{{ $student->level?->name ?? ($student->program?->degree_type ?? (str_contains(strtolower($student->program?->name ?? ''), 'doctor') || str_contains(strtolower($student->program?->name ?? ''), 'phd') ? 'PhD' : (str_contains(strtolower($student->program?->name ?? ''), 'master') ? 'MSc' : 'Postgraduate'))) }}</p>
                         </div>
                     </div>
                 </div>

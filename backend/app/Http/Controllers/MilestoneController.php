@@ -38,7 +38,7 @@ class MilestoneController extends Controller
             if ($user->hasRole('Supervisor') && $thesis->assignments()->where('supervisor_profile_id', '=', $user->supervisorProfile?->id)->exists()) $isAuthorized = true;
             if ($user->hasRole('Internal Examiner') && $user->internalExaminerProfiles()->where('id', $thesis->internal_examiner_profile_id)->exists()) $isAuthorized = true;
             if ($user->hasRole('Program Coordinator')) {
-                if ($thesis->student && $user->coordinatorProfiles()->where('program_id', '=', $thesis->student->program_id)->exists()) {
+                if ($thesis->student && ($user->hasCoordinatorAccess($thesis->student) || $user->coordinatorProfiles()->where('program_id', '=', $thesis->student->program_id)->exists())) {
                     $isAuthorized = true;
                 }
             }

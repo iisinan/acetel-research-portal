@@ -25,6 +25,42 @@ class StudentProfile extends Model
         'current_semester'
     ];
 
+    public static function resolveLevelIdFromProgram(?string $programId): ?string
+    {
+        if (empty($programId)) {
+            return null;
+        }
+
+        $levels = Level::all();
+        if ($levels->isEmpty()) {
+            return null;
+        }
+
+        $program = Program::find($programId);
+        if ($program) {
+            $pName = strtolower(($program->code ?? '') . ' ' . ($program->name ?? '') . ' ' . ($program->degree_type ?? ''));
+            $isPhd = str_contains($pName, 'phd') || str_contains($pName, 'ph.d') || str_contains($pName, 'doctor');
+            $isPgd = str_contains($pName, 'pgd') || str_contains($pName, 'diploma');
+
+            $matched = $levels->first(function ($lvl) use ($isPhd, $isPgd) {
+                $lName = strtolower($lvl->name);
+                if ($isPhd) {
+                    return str_contains($lName, 'phd') || str_contains($lName, 'doctor');
+                }
+                if ($isPgd) {
+                    return str_contains($lName, 'pgd') || str_contains($lName, 'diploma');
+                }
+                return str_contains($lName, 'msc') || str_contains($lName, 'master');
+            });
+
+            if ($matched) {
+                return $matched->id;
+            }
+        }
+
+        return $levels->first()?->id;
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -43,6 +79,40 @@ class StudentProfile extends Model
     public function level()
     {
         return $this->belongsTo(Level::class);
+    }
+
+    public function getLevelAttribute()
+    {
+        if ($this->relationLoaded('level') && $this->getRelation('level') !== null) {
+            return $this->getRelation('level');
+        }
+
+        if (!empty($this->attributes['level_id'] ?? null)) {
+            $lvl = Level::find($this->attributes['level_id']);
+            if ($lvl) {
+                $this->setRelation('level', $lvl);
+                return $lvl;
+            }
+        }
+
+        if (!empty($this->attributes['program_id'] ?? null)) {
+            $resolvedId = static::resolveLevelIdFromProgram($this->attributes['program_id']);
+            if ($resolvedId) {
+                $lvl = Level::find($resolvedId);
+                if ($lvl) {
+                    try {
+                        \Illuminate\Support\Facades\DB::table('student_profiles')
+                            ->where('id', $this->id)
+                            ->update(['level_id' => $resolvedId]);
+                        $this->attributes['level_id'] = $resolvedId;
+                    } catch (\Throwable $e) {}
+                    $this->setRelation('level', $lvl);
+                    return $lvl;
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -124,6 +194,12 @@ class StudentProfile extends Model
      */
     protected static function booted()
     {
+        static::saving(function ($student) {
+            if (empty($student->level_id) && !empty($student->program_id)) {
+                $student->level_id = static::resolveLevelIdFromProgram($student->program_id);
+            }
+        });
+
         static::deleting(function ($studentProfile) {
             // Delete associated thesis project (triggers further cascade)
             if ($studentProfile->thesis) {

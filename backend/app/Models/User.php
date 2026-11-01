@@ -191,12 +191,35 @@ class User extends Authenticatable
      */
     public function hasCoordinatorAccess($student)
     {
+        if (!$student) {
+            return false;
+        }
+
         if ($this->hasAnyRole(['Admin', 'Director'])) {
             return true;
         }
 
         if (!$this->hasRole('Program Coordinator')) {
             return false;
+        }
+
+        // Direct check on coordinator profiles for student's program
+        $matchingProfiles = $this->coordinatorProfiles()
+            ->where('program_id', $student->program_id)
+            ->get();
+
+        if ($matchingProfiles->isNotEmpty()) {
+            $hasLevelConstraint = $matchingProfiles->contains(fn($p) => !empty($p->level_id));
+            if (!$hasLevelConstraint) {
+                return true;
+            }
+
+            return $matchingProfiles->contains(function ($profile) use ($student) {
+                if (empty($profile->level_id) || empty($student->level_id)) {
+                    return true;
+                }
+                return $profile->level_id == $student->level_id;
+            });
         }
 
         $scopes = $this->coordinatorScopes();

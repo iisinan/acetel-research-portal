@@ -17,6 +17,40 @@ class StudentMilestonePolicy
             return true; 
         }
 
+        // Program Coordinator can view if assigned to the student's program
+        if ($user->hasRole('Program Coordinator')) {
+            $student = $milestone->thesis?->student;
+            if ($student && ($user->hasCoordinatorAccess($student) || $user->coordinatorProfiles()->where('program_id', $student->program_id)->exists())) {
+                return true;
+            }
+        }
+
+        // Supervisor can view if assigned to the thesis
+        if ($user->hasRole('Supervisor')) {
+            if ($user->supervisorProfile && $milestone->thesis->assignments()
+                ->where('supervisor_profile_id', $user->supervisorProfile->id)
+                ->whereIn('status', ['active', 'ended']) 
+                ->exists()) {
+                return true;
+            }
+        }
+
+        if ($user->hasRole('Internal Examiner')) {
+            if ($user->internalExaminerProfiles()
+                ->where('id', $milestone->thesis->internal_examiner_profile_id)
+                ->exists()) {
+                return true;
+            }
+        }
+
+        if ($user->hasRole('External Examiner')) {
+            if ($user->externalExaminerProfiles()
+                ->where('id', $milestone->thesis->external_examiner_profile_id)
+                ->exists()) {
+                return true;
+            }
+        }
+
         // Student can view their own milestones, BUT only if they are approved OR the current ongoing one
         if ($user->hasRole('Student')) {
             if ($milestone->thesis->student_profile_id !== $user->studentProfile?->id) {
@@ -32,32 +66,6 @@ class StudentMilestonePolicy
             $ongoing = $milestone->thesis->milestones()->get()->sortBy(fn($m) => $m->template?->order ?? 999)->first(fn($m) => $m->status !== 'approved');
             
             return $ongoing && $ongoing->id === $milestone->id;
-        }
-
-        // Supervisor can view if assigned to the thesis
-        if ($user->hasRole('Supervisor')) {
-            return $milestone->thesis->assignments()
-                ->where('supervisor_profile_id', $user->supervisorProfile?->id)
-                ->whereIn('status', ['active', 'ended']) 
-                ->exists();
-        }
-
-        if ($user->hasRole('Internal Examiner')) {
-            return $user->internalExaminerProfiles()
-                ->where('id', $milestone->thesis->internal_examiner_profile_id)
-                ->exists();
-        }
-
-        if ($user->hasRole('External Examiner')) {
-            return $user->externalExaminerProfiles()
-                ->where('id', $milestone->thesis->external_examiner_profile_id)
-                ->exists();
-        }
-
-        // Program Coordinator can view if assigned to the student's program
-        if ($user->hasRole('Program Coordinator')) {
-            $student = $milestone->thesis->student;
-            return $user->hasCoordinatorAccess($student);
         }
 
         return false;
@@ -115,8 +123,8 @@ class StudentMilestonePolicy
             }
 
             if ($user->hasRole('Program Coordinator')) {
-                $student = $milestone->thesis->student;
-                if ($user->hasCoordinatorAccess($student)) {
+                $student = $milestone->thesis?->student;
+                if ($student && ($user->hasCoordinatorAccess($student) || $user->coordinatorProfiles()->where('program_id', $student->program_id)->exists())) {
                     return true;
                 }
             }
@@ -142,8 +150,8 @@ class StudentMilestonePolicy
 
             // Role-specific scope checks
             if ($role === 'Program Coordinator') {
-                $student = $milestone->thesis->student;
-                if ($user->hasCoordinatorAccess($student)) {
+                $student = $milestone->thesis?->student;
+                if ($student && ($user->hasCoordinatorAccess($student) || $user->coordinatorProfiles()->where('program_id', $student->program_id)->exists())) {
                     return true;
                 }
             } elseif ($role === 'Supervisor') {

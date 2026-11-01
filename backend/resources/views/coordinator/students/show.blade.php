@@ -70,8 +70,14 @@
                     </div>
                     <div class="space-y-6">
                         <div class="flex items-center gap-4">
-                            <div class="w-12 h-12 rounded-2xl @if(str_contains(strtolower($student->level->name ?? ''), 'phd')) bg-acetel-50 text-acetel-500 @else bg-acetel-50 text-acetel-500 @endif flex items-center justify-center">
-                                @if(str_contains(strtolower($student->level->name ?? ''), 'phd'))
+                            @php
+                                $displayLevel = $student->level?->name 
+                                    ?? ($student->program?->degree_type 
+                                        ?? (str_contains(strtolower($student->program?->name ?? ''), 'doctor') || str_contains(strtolower($student->program?->name ?? ''), 'phd') ? 'PhD' : (str_contains(strtolower($student->program?->name ?? ''), 'master') ? 'MSc' : 'Postgraduate')));
+                                $isPhd = str_contains(strtolower($displayLevel), 'phd') || str_contains(strtolower($displayLevel), 'doctor');
+                            @endphp
+                            <div class="w-12 h-12 rounded-2xl @if($isPhd) bg-acetel-50 text-acetel-500 @else bg-acetel-50 text-acetel-500 @endif flex items-center justify-center">
+                                @if($isPhd)
                                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z" /><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm0 0V6" /></svg>
                                 @else
                                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
@@ -79,7 +85,7 @@
                             </div>
                             <div>
                                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Academic Level</p>
-                                <p class="text-sm font-bold text-slate-900 mt-0.5">{{ $student->level->name ?? 'N/A' }}</p>
+                                <p class="text-sm font-bold text-slate-900 mt-0.5">{{ $displayLevel }}</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-4">
