@@ -235,11 +235,11 @@ class="space-y-8 animate-in">
 
     {{-- Role Perspective Navigation Tabs (Adaptive Hub) --}}
     <div class="bg-white rounded-2xl border border-slate-200/80 p-2 shadow-xs">
-        <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
+        <div class="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-1">
             {{-- Tab 1: Overview --}}
             <button type="button" @click="switchTab('overview')"
                     :class="activeTab === 'overview' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'"
-                    class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all">
+                    class="whitespace-nowrap shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all">
                 <span>🌟 Overview</span>
                 @if($stats['total_pending_actions'] > 0)
                     <span :class="activeTab === 'overview' ? 'bg-amber-400 text-slate-900' : 'bg-amber-100 text-amber-800'" class="px-1.5 py-0.5 rounded-full text-[9px] font-black">
@@ -252,7 +252,7 @@ class="space-y-8 animate-in">
             @if($activeFacultyRoles['supervisor'])
                 <button type="button" @click="switchTab('supervision')"
                         :class="activeTab === 'supervision' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:text-emerald-700 hover:bg-emerald-50'"
-                        class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all">
+                        class="whitespace-nowrap shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all">
                     <span>🎓 Supervision</span>
                     <span :class="activeTab === 'supervision' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'" class="px-1.5 py-0.5 rounded-full text-[9px] font-black">
                         {{ $stats['assigned_students'] }}
@@ -267,7 +267,7 @@ class="space-y-8 animate-in">
             @if($activeFacultyRoles['coordinator'])
                 <button type="button" @click="switchTab('coordination')"
                         :class="activeTab === 'coordination' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-blue-700 hover:bg-blue-50'"
-                        class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all">
+                        class="whitespace-nowrap shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all">
                     <span>🏛️ Program Coordination</span>
                     <span :class="activeTab === 'coordination' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-800'" class="px-1.5 py-0.5 rounded-full text-[9px] font-black">
                         {{ $coordinatorStats['students'] }}
@@ -282,7 +282,7 @@ class="space-y-8 animate-in">
             @if($activeFacultyRoles['internal_examiner'])
                 <button type="button" @click="switchTab('internal_exam')"
                         :class="activeTab === 'internal_exam' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-600 hover:text-purple-700 hover:bg-purple-50'"
-                        class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all">
+                        class="whitespace-nowrap shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all">
                     <span>⚖️ Internal Examination</span>
                     <span :class="activeTab === 'internal_exam' ? 'bg-white/20 text-white' : 'bg-purple-100 text-purple-800'" class="px-1.5 py-0.5 rounded-full text-[9px] font-black">
                         {{ $stats['internal_theses'] }}
@@ -297,7 +297,7 @@ class="space-y-8 animate-in">
             @if($activeFacultyRoles['external_examiner'])
                 <button type="button" @click="switchTab('external_exam')"
                         :class="activeTab === 'external_exam' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-600 hover:text-amber-700 hover:bg-amber-50'"
-                        class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all">
+                        class="whitespace-nowrap shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all">
                     <span>🌐 External Examination</span>
                     <span :class="activeTab === 'external_exam' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'" class="px-1.5 py-0.5 rounded-full text-[9px] font-black">
                         {{ $stats['external_theses'] }}
@@ -838,25 +838,25 @@ class="space-y-8 animate-in">
                     </div>
 
                     {{-- Filter Chips --}}
-                    <div class="flex flex-wrap items-center gap-1.5 shrink-0">
+                    <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 shrink-0 w-full sm:w-auto">
                         <button type="button" @click="statusFilter = 'all'" 
                                 :class="statusFilter === 'all' ? 'bg-slate-900 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'" 
-                                class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all">
+                                class="whitespace-nowrap shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all">
                             All ({{ $students->count() }})
                         </button>
                         <button type="button" @click="statusFilter = 'action_needed'" 
                                 :class="statusFilter === 'action_needed' ? 'bg-amber-500 text-white shadow-xs' : 'bg-amber-50 text-amber-700 border border-amber-200/60 hover:bg-amber-100'" 
-                                class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all">
+                                class="whitespace-nowrap shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all">
                             ⚡ Review Pending ({{ $supervisionAnalytics['action_needed_count'] }})
                         </button>
                         <button type="button" @click="statusFilter = 'stalled'" 
                                 :class="statusFilter === 'stalled' ? 'bg-rose-500 text-white shadow-xs' : 'bg-rose-50 text-rose-700 border border-rose-200/60 hover:bg-rose-100'" 
-                                class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all">
+                                class="whitespace-nowrap shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all">
                             ⚠️ Inactive (&gt;30d) ({{ $supervisionAnalytics['stalled_count'] }})
                         </button>
                         <button type="button" @click="statusFilter = 'defense'" 
                                 :class="statusFilter === 'defense' ? 'bg-purple-600 text-white shadow-xs' : 'bg-purple-50 text-purple-700 border border-purple-200/60 hover:bg-purple-100'" 
-                                class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all">
+                                class="whitespace-nowrap shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all">
                             🎓 Viva Stage ({{ $supervisionAnalytics['stage_defense'] }})
                         </button>
                     </div>
@@ -952,7 +952,7 @@ class="space-y-8 animate-in">
                                     <button @click.prevent.stop="jumpMenuOpen = !jumpMenuOpen" class="flex items-center justify-center p-3 bg-white border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50 transition-all shadow-xs" title="Jump Milestone">
                                         <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
                                     </button>
-                                    <div x-show="jumpMenuOpen" @click.outside="jumpMenuOpen = false" x-cloak class="absolute right-0 top-12 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 z-50 overflow-hidden text-left" style="display: none;">
+                                    <div x-show="jumpMenuOpen" @click.outside="jumpMenuOpen = false" x-cloak class="absolute right-0 top-12 w-64 max-w-[85vw] bg-white rounded-2xl shadow-xl border border-slate-100 z-50 overflow-hidden text-left" style="display: none;">
                                         <div class="px-4 py-2.5 bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                             Jump Milestone
                                         </div>

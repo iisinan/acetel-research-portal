@@ -8,7 +8,7 @@
             {{ $cohort->code }} &bull; Class of {{ $cohort->intake_year ?? 'N/A' }}
         </p>
     </div>
-    <div class="mt-4 flex md:mt-0 md:ml-4 space-x-3">
+    <div class="mt-4 flex flex-wrap md:mt-0 md:ml-4 gap-2.5 sm:gap-3">
         <a href="{{ route('admin.cohorts.index') }}" class="inline-flex items-center px-4 py-2 border border-slate-300 rounded-xl shadow-sm text-sm font-bold text-black bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-acetel-500 transition-colors">
             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
             Back to Directory

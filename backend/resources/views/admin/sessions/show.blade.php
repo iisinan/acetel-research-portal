@@ -54,7 +54,8 @@
 
     <!-- Student List -->
     <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-        <table class="min-w-full divide-y divide-gray-200">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-semibold text-black uppercase tracking-wider">Student</th>
@@ -107,6 +108,7 @@
                 @endforelse
             </tbody>
         </table>
+        </div>
         @if($students->hasPages())
             <div class="bg-gray-50 px-4 py-3 border-t border-gray-200 sm:px-6">
                 {{ $students->appends(request()->query())->links() }}

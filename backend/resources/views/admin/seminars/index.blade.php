@@ -87,7 +87,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
                         <div>
                             <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">Schedule Days of Week</label>
-                            <div class="grid grid-cols-7 gap-1">
+                            <div class="grid grid-cols-4 sm:grid-cols-7 gap-1">
                                 <template x-for="day in dayOptions" :key="day.key">
                                     <button type="button" @click="toggleDay(day.key)"
                                         class="py-1.5 px-1 rounded text-xs font-bold border transition text-center"
@@ -129,8 +129,9 @@
             </div>
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 text-gray-900">
-                    <table class="min-w-full divide-y divide-gray-200">
+                <div class="p-4 sm:p-6 text-gray-900">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -224,6 +225,7 @@
                             @endforeach
                         </tbody>
                     </table>
+                    </div>
                     <div class="mt-4">
                         {{ $milestones->links() }}
                     </div>

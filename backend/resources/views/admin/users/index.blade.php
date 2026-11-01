@@ -272,8 +272,8 @@
                                 </span>
                             @endif
                         </td>
-                        <td class="px-10 py-8 text-right">
-                            <div class="flex items-center justify-end gap-2 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500">
+                        <td class="px-6 sm:px-10 py-6 sm:py-8 text-right">
+                            <div class="flex items-center justify-end gap-2 opacity-100 sm:opacity-0 sm:translate-x-4 sm:group-hover:opacity-100 sm:group-hover:translate-x-0 transition-all duration-300">
                                 <form action="{{ route('admin.users.reset_password', $user) }}" method="POST" class="contents"
                                     data-confirm="Securely reset password for {{ $user->name }}? Credentials will be dispatched to their institutional email address."
                                     data-confirm-title="Reset User Password"

@@ -7,12 +7,12 @@
 @section('content')
 <div class="space-y-10">
     {{-- Strategic Governance Header --}}
-    <div class="relative overflow-hidden rounded-[2.5rem] p-10 lg:p-14 bg-white border border-green-100 shadow-xl shadow-green-500/5">
+    <div class="relative overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 lg:p-14 bg-white border border-green-100 shadow-xl shadow-green-500/5">
         <div class="absolute top-0 right-0 w-[40rem] h-[40rem] bg-green-50/50 blur-[100px] rounded-full -mr-32 -mt-32 pointer-events-none"></div>
         <div class="absolute bottom-0 left-0 w-64 h-64 bg-green-50/30 blur-[80px] rounded-full -ml-32 -mb-32 pointer-events-none"></div>
 
-        <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-10">
-            <div class="flex-1 space-y-8">
+        <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8 sm:gap-10">
+            <div class="flex-1 space-y-6 sm:space-y-8">
                 <div class="inline-flex items-center gap-2.5 px-4 py-2 bg-green-50 border border-green-200 rounded-full text-green-700 text-[10px] font-black uppercase tracking-wider shadow-sm">
                     <span class="relative flex h-2 w-2">
                       <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -21,15 +21,15 @@
                     Institutional Governance Core
                 </div>
                 <div>
-                    <h1 class="text-4xl lg:text-6xl font-black text-slate-900 tracking-tight leading-none mb-6">
+                    <h1 class="text-3xl sm:text-4xl lg:text-6xl font-black text-slate-900 tracking-tight leading-none mb-4 sm:mb-6">
                         System <span class="text-green-600">Administration</span>
                     </h1>
-                    <p class="text-lg text-slate-500 font-medium leading-relaxed max-w-2xl">
+                    <p class="text-base sm:text-lg text-slate-500 font-medium leading-relaxed max-w-2xl">
                         Comprehensive administrative oversight for the ACETEL digital ecosystem. Monitor system health, manage users, and coordinate institutional protocols.
                     </p>
                 </div>
                 <div class="flex flex-wrap gap-4 pt-2">
-                    <a href="{{ route('admin.users.index') }}" class="px-8 py-3.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-green-600/20 flex items-center gap-2 group">
+                    <a href="{{ route('admin.users.index') }}" class="px-6 sm:px-8 py-3.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-green-600/20 flex items-center gap-2 group">
                         User Portfolio
                         <svg class="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                     </a>
@@ -56,14 +56,21 @@
                 </div>
             </div>
 
-            <div class="w-full md:w-auto relative group/dropdown">
-                <button type="button" class="w-full md:w-auto px-8 py-4 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-xl font-black tracking-widest uppercase text-[10px] transition-all border border-amber-200 flex items-center justify-between md:justify-center gap-3">
+            <div class="w-full md:w-auto relative" x-data="{ openM9: false }" @click.outside="openM9 = false">
+                <button type="button" @click="openM9 = !openM9" class="w-full md:w-auto px-6 sm:px-8 py-3.5 sm:py-4 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-xl font-black tracking-widest uppercase text-[10px] transition-all border border-amber-200 flex items-center justify-between md:justify-center gap-3">
                     Review Pending Cases
-                    <svg class="w-4 h-4 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                    <svg class="w-4 h-4 opacity-70 transition-transform duration-200" :class="openM9 ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
                 </button>
                 
                 {{-- Dropdown Container --}}
-                <div class="absolute right-0 top-full mt-2 w-full md:w-96 bg-white border border-slate-100 rounded-3xl shadow-2xl opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all duration-300 transform origin-top-right z-50 overflow-hidden">
+                <div x-show="openM9" x-cloak
+                     x-transition:enter="transition ease-out duration-200"
+                     x-transition:enter-start="opacity-0 scale-95"
+                     x-transition:enter-end="opacity-100 scale-100"
+                     x-transition:leave="transition ease-in duration-150"
+                     x-transition:leave-start="opacity-100 scale-100"
+                     x-transition:leave-end="opacity-0 scale-95"
+                     class="absolute right-0 top-full mt-2 w-full md:w-96 bg-white border border-slate-100 rounded-3xl shadow-2xl z-50 overflow-hidden">
                     <div class="bg-slate-50 border-b border-slate-100 px-6 py-4">
                         <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">Action Required</span>
                     </div>
@@ -83,7 +90,7 @@
                             </a>
 
                             {{-- Admin Quick Approve --}}
-                            <button type="button" @click.stop="quickApprove('{{ $alert->id }}', $el)" class="absolute right-6 bottom-5 p-2.5 bg-amber-600 text-white rounded-xl shadow-lg shadow-amber-600/30 opacity-0 group-hover/alert:opacity-100 translate-x-4 group-hover/alert:translate-x-0 transition-all duration-300">
+                            <button type="button" @click.stop="quickApprove('{{ $alert->id }}', $el)" class="absolute right-6 bottom-5 p-2.5 bg-amber-600 text-white rounded-xl shadow-lg shadow-amber-600/30 opacity-100 md:opacity-0 md:group-hover/alert:opacity-100 md:translate-x-4 md:group-hover/alert:translate-x-0 transition-all duration-300" title="Quick Approve">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
                             </button>
                         </div>

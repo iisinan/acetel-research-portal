@@ -74,42 +74,42 @@
     <div class="floating-orb bottom-20 -left-40 animate-float" style="animation-duration: 18s;"></div>
 
     <!-- Page Header -->
-    <div class="show-header pt-36 pb-24 px-6 lg:px-12 relative z-10">
+    <div class="show-header pt-20 sm:pt-28 lg:pt-36 pb-12 sm:pb-20 lg:pb-24 px-4 sm:px-6 lg:px-12 relative z-10">
         <div class="max-w-7xl mx-auto">
             
             <!-- Navigation Back -->
-            <div class="mb-12">
-                <a href="{{ route('repository.index') }}" class="inline-flex items-center gap-3 bg-white border border-acetel-100 text-slate-500 px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:border-acetel-300 hover:text-acetel-700 transition-all shadow-sm group">
+            <div class="mb-8 sm:mb-12">
+                <a href="{{ route('repository.index') }}" class="inline-flex items-center gap-3 bg-white border border-acetel-100 text-slate-500 px-5 sm:px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:border-acetel-300 hover:text-acetel-700 transition-all shadow-sm group">
                     <svg class="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
                     Return to Repository
                 </a>
             </div>
 
             <!-- Metadata Row -->
-            <div class="flex flex-wrap items-center gap-4 mb-10 animate-in-up">
-                <div class="inline-flex items-center gap-3 px-5 py-2.5 rounded-full meta-badge text-[10px] font-black uppercase tracking-[0.2em] shadow-sm">
+            <div class="flex flex-wrap items-center gap-3 sm:gap-4 mb-6 sm:mb-10 animate-in-up">
+                <div class="inline-flex items-center gap-3 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full meta-badge text-[10px] font-black uppercase tracking-[0.2em] shadow-sm">
                     <span class="w-1.5 h-1.5 rounded-full bg-acetel-500 animate-pulse"></span>
                     VIVA Officially Approved
                 </div>
-                <div class="inline-flex items-center px-5 py-2.5 rounded-full bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.25em] border border-slate-900 shadow-premium">
+                <div class="inline-flex items-center px-4 sm:px-5 py-2 sm:py-2.5 rounded-full bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.25em] border border-slate-900 shadow-premium">
                     {{ $thesis->student->program->code ?? 'PROJECT' }}
                 </div>
             </div>
 
             <!-- Main Title -->
-            <h1 class="text-5xl md:text-6xl lg:text-8xl font-black text-slate-950 tracking-tighter leading-[0.95] mb-12 max-w-6xl animate-in-up">
+            <h1 class="text-2xl sm:text-4xl md:text-6xl lg:text-7xl font-black text-slate-950 tracking-tight leading-tight sm:leading-[0.95] mb-8 sm:mb-12 max-w-6xl animate-in-up">
                 {{ $thesis->title }}
             </h1>
 
             <!-- Investigator Row -->
-            <div class="flex flex-wrap items-center gap-10 pt-12 border-t border-acetel-50 animate-in-up">
-                <div class="flex items-center gap-6">
-                    <div class="w-16 h-16 rounded-[2rem] bg-acetel-600 border border-acetel-500 flex items-center justify-center text-white font-black text-2xl shadow-premium animate-float" style="animation-duration: 8s;">
+            <div class="flex flex-wrap items-center gap-6 sm:gap-10 pt-8 sm:pt-12 border-t border-acetel-50 animate-in-up">
+                <div class="flex items-center gap-4 sm:gap-6">
+                    <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl sm:rounded-[2rem] bg-acetel-600 border border-acetel-500 flex items-center justify-center text-white font-black text-xl sm:text-2xl shadow-premium animate-float" style="animation-duration: 8s;">
                         {{ substr($thesis->student->user->name, 0, 1) }}
                     </div>
                     <div>
                         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Lead Investigator</p>
-                        <p class="text-xl font-black text-slate-950 leading-none tracking-tight">{{ $thesis->student->user->name }}</p>
+                        <p class="text-base sm:text-xl font-black text-slate-950 leading-none tracking-tight">{{ $thesis->student->user->name }}</p>
                     </div>
                 </div>
 
@@ -117,7 +117,7 @@
 
                 <div>
                     <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Academic Program</p>
-                    <p class="text-xl font-black text-slate-950 leading-none tracking-tight">{{ $thesis->student->program->name }}</p>
+                    <p class="text-base sm:text-xl font-black text-slate-950 leading-none tracking-tight">{{ $thesis->student->program->name }}</p>
                 </div>
 
                 <div class="ml-auto text-right hidden sm:block">
@@ -129,20 +129,20 @@
     </div>
 
     <!-- Main Content -->
-    <div class="max-w-7xl mx-auto px-6 lg:px-12 py-24 relative z-20">
-        <div class="grid lg:grid-cols-12 gap-20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 py-10 sm:py-16 lg:py-24 relative z-20">
+        <div class="grid lg:grid-cols-12 gap-8 lg:gap-20">
 
             <!-- Primary Content -->
-            <div class="lg:col-span-8 space-y-20">
+            <div class="lg:col-span-8 space-y-10 sm:space-y-16 lg:space-y-20">
 
                 <!-- Abstract Panel -->
-                <div class="paper-panel p-12 md:p-20 relative overflow-hidden animate-in-up">
+                <div class="paper-panel p-6 sm:p-12 md:p-20 relative overflow-hidden animate-in-up">
                     <div class="absolute -right-20 -bottom-20 w-80 h-80 bg-acetel-50/50 blur-[60px] rounded-full"></div>
-                    <div class="flex items-center gap-5 mb-12">
-                        <div class="w-14 h-1.5 bg-acetel-600 rounded-full shadow-[0_4px_12px_rgba(22,163,74,0.3)]"></div>
+                    <div class="flex items-center gap-4 sm:gap-5 mb-8 sm:mb-12">
+                        <div class="w-12 sm:w-14 h-1.5 bg-acetel-600 rounded-full shadow-[0_4px_12px_rgba(22,163,74,0.3)]"></div>
                         <h2 class="text-[11px] font-black text-slate-950 uppercase tracking-[0.4em]">Institutional Abstract</h2>
                     </div>
-                    <div class="abstract-text text-xl italic font-serif leading-10 text-slate-700">
+                    <div class="abstract-text text-base sm:text-lg md:text-xl italic font-serif leading-relaxed sm:leading-10 text-slate-700">
                         {{ $thesis->abstract }}
                     </div>
                 </div>
@@ -157,19 +157,19 @@
                     <div class="grid gap-6">
                         @foreach($thesis->milestones->where('status', 'approved')->sortByDesc('template.order') as $milestone)
                             @foreach($milestone->submissions as $submission)
-                                <div class="doc-unit p-8 flex flex-col sm:flex-row items-center justify-between gap-10 group shadow-sm">
-                                    <div class="flex items-center gap-8 min-w-0">
-                                        <div class="w-16 h-16 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-all duration-500 shadow-sm shrink-0">
-                                            <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                <div class="doc-unit p-5 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 sm:gap-10 group shadow-sm">
+                                    <div class="flex items-center gap-4 sm:gap-8 min-w-0 w-full sm:w-auto">
+                                        <div class="w-12 h-12 sm:w-16 sm:h-16 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-all duration-500 shadow-sm shrink-0">
+                                            <svg class="w-6 h-6 sm:w-8 sm:h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                                         </div>
                                         <div class="min-w-0">
-                                            <p class="text-xl font-black text-slate-950 mb-1 leading-none tracking-tight">{{ $milestone->template->name }}</p>
+                                            <p class="text-base sm:text-xl font-black text-slate-950 mb-1 leading-none tracking-tight">{{ $milestone->template->name }}</p>
                                             @if($submission->description)
-                                                <p class="text-sm font-semibold text-slate-500 mb-2 truncate" title="{{ $submission->description }}">{{ $submission->description }}</p>
+                                                <p class="text-xs sm:text-sm font-semibold text-slate-500 mb-2 truncate" title="{{ $submission->description }}">{{ $submission->description }}</p>
                                             @endif
-                                            <div class="flex items-center gap-3 mt-1">
-                                                <span class="px-3 py-1 bg-blue-50 text-blue-700 text-[9px] font-black uppercase tracking-widest rounded-lg border border-blue-100">REV v{{ $submission->version }}</span>
-                                                <span class="text-[9px] font-black uppercase tracking-widest text-slate-400">&bull; Secure SSL Signature Verified</span>
+                                            <div class="flex flex-wrap items-center gap-2 sm:gap-3 mt-1">
+                                                <span class="px-2.5 py-0.5 sm:px-3 sm:py-1 bg-blue-50 text-blue-700 text-[8px] sm:text-[9px] font-black uppercase tracking-widest rounded-lg border border-blue-100">REV v{{ $submission->version }}</span>
+                                                <span class="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-slate-400">&bull; Verified</span>
                                             </div>
                                         </div>
                                     </div>
@@ -181,7 +181,7 @@
                                                 title: '{{ addslashes($submission->file_meta['original_name'] ?? 'Version ' . $submission->version) }}',
                                                 type: '{{ str_contains($submission->file_meta['mime_type'] ?? '', 'image/') ? 'image' : (($submission->file_meta['mime_type'] ?? '') === 'application/pdf' ? 'pdf' : 'other') }}'
                                             })"
-                                            class="flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-5 rounded-3xl bg-white text-slate-900 font-black text-[10px] uppercase tracking-widest hover:bg-slate-950 hover:text-white border border-slate-100 shadow-sm transition-all"
+                                            class="flex-1 sm:flex-none flex items-center justify-center gap-2.5 sm:gap-3 px-5 sm:px-8 py-3.5 sm:py-5 rounded-2xl sm:rounded-3xl bg-white text-slate-900 font-black text-[10px] uppercase tracking-widest hover:bg-slate-950 hover:text-white border border-slate-100 shadow-sm transition-all"
                                             title="View Analysis">
                                             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                             Preview

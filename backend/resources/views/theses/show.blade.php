@@ -7,28 +7,28 @@
 @section('content')
 <div class="space-y-8 animate-in-up">
     <!-- Prestige Header -->
-    <div class="relative overflow-hidden rounded-[2.5rem] p-12 bg-grad-premium border border-white/20 shadow-premium group mb-8">
+    <div class="relative overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 md:p-12 bg-grad-premium border border-white/20 shadow-premium group mb-8">
         <div class="absolute top-0 right-0 -mt-20 -mr-20 w-96 h-96 bg-white/10 blur-[100px] rounded-full group-hover:bg-white/15 transition-all duration-1000"></div>
         <div class="absolute bottom-0 left-0 -mb-20 -ml-20 w-80 h-80 bg-acetel-400/10 blur-[80px] rounded-full"></div>
         
-        <div class="relative z-10 flex flex-col md:flex-row md:items-start justify-between gap-10">
+        <div class="relative z-10 flex flex-col md:flex-row md:items-start justify-between gap-6 sm:gap-10">
             <div class="max-w-3xl">
-                <div class="inline-flex items-center gap-3 mb-6">
-                    <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-md">
+                <div class="inline-flex flex-wrap items-center gap-2.5 sm:gap-3 mb-4 sm:mb-6">
+                    <div class="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-md">
                         <span class="w-2.5 h-2.5 rounded-full bg-acetel-400 animate-pulse shadow-[0_0_8px_rgba(129,140,248,0.8)]"></span>
                         <span class="text-[10px] font-black text-white uppercase tracking-[0.2em]">{{ $thesis->student->program->code }} Thesis</span>
                     </div>
                     <x-badge type="info" :label="ucfirst($thesis->status)" />
                     
                     @if($thesis->cleared_for_internal_at)
-                    <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/20 border border-emerald-400/30 backdrop-blur-md">
+                    <div class="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-emerald-500/20 border border-emerald-400/30 backdrop-blur-md">
                         <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         <span class="text-[10px] font-black text-emerald-100 uppercase tracking-[0.2em]">Ready for Internal Defense</span>
                     </div>
                     @endif
                 </div>
                 
-                <h1 class="text-4xl md:text-5xl font-black text-white tracking-tighter mb-4 leading-tight">{{ $thesis->title }}</h1>
+                <h1 class="text-2xl sm:text-3xl md:text-5xl font-black text-white tracking-tight mb-4 leading-snug sm:leading-tight">{{ $thesis->title }}</h1>
                 <div class="flex items-center gap-4 text-white/80">
                     <div class="flex items-center gap-2">
                         <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/20 text-xs font-bold text-white">
@@ -47,7 +47,50 @@
 
         <div class="col-span-1 md:col-span-2">
             <x-card title="Milestone Progression">
-                <div class="-mx-6 -my-4 overflow-x-auto custom-scrollbar">
+                @php
+                    $statusColors = [
+                        'approved' => 'bg-emerald-50 text-emerald-600 border-emerald-200',
+                        'submitted' => 'bg-amber-50 text-amber-600 border-amber-200',
+                        'changes_required' => 'bg-rose-50 text-rose-600 border-rose-200',
+                        'pending' => 'bg-slate-50 text-slate-500 border-slate-200'
+                    ];
+                @endphp
+
+                <!-- Mobile Milestone Cards View -->
+                <div class="block md:hidden space-y-3 p-1">
+                    @foreach($thesis->milestones->sortBy('template.order') as $milestone)
+                        @if(Auth::user()->hasRole('Internal Examiner') && $milestone->template->order < 9)
+                            @continue
+                        @endif
+                        @php
+                            $statusClass = $statusColors[$milestone->status] ?? $statusColors['pending'];
+                        @endphp
+                        <div class="bg-white rounded-2xl border border-slate-200/80 p-4 space-y-3 shadow-xs">
+                            <div class="flex items-center justify-between gap-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center font-black text-xs text-slate-600 shrink-0">
+                                        0{{ $milestone->template->order }}
+                                    </div>
+                                    <h4 class="text-sm font-black text-slate-900 leading-snug">{{ $milestone->template->name }}</h4>
+                                </div>
+                                <span class="px-2.5 py-1 text-[9px] font-black uppercase tracking-widest rounded-md border shrink-0 {{ $statusClass }}">
+                                    {{ str_replace('_', ' ', $milestone->status) }}
+                                </span>
+                            </div>
+
+                            <div class="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+                                <span>Updated: {{ $milestone->updated_at ? $milestone->updated_at->format('M d, Y') : 'N/A' }}</span>
+                                <a href="{{ route('milestones.show', $milestone) }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary-50 text-primary-700 font-bold text-xs rounded-lg hover:bg-primary-100 transition-colors">
+                                    {{ $milestone->status === 'submitted' ? 'Audit Phase' : 'Access' }}
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+                                </a>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+
+                <!-- Desktop Milestone Table View -->
+                <div class="hidden md:block -mx-6 -my-4 overflow-x-auto custom-scrollbar">
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-slate-50/50 backdrop-blur-md border-b border-slate-100">
@@ -74,12 +117,6 @@
                                 </td>
                                 <td class="px-6 py-5">
                                     @php
-                                        $statusColors = [
-                                            'approved' => 'bg-emerald-50 text-emerald-600 border-emerald-200',
-                                            'submitted' => 'bg-amber-50 text-amber-600 border-amber-200',
-                                            'changes_required' => 'bg-rose-50 text-rose-600 border-rose-200',
-                                            'pending' => 'bg-slate-50 text-slate-500 border-slate-200'
-                                        ];
                                         $statusClass = $statusColors[$milestone->status] ?? $statusColors['pending'];
                                     @endphp
                                     <span class="px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-md border {{ $statusClass }}">
@@ -96,7 +133,7 @@
                                         @else
                                             Access
                                         @endif
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
                                     </a>
                                 </td>
                             </tr>

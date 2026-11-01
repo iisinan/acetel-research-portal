@@ -169,16 +169,29 @@ class StudentProfile extends Model
                str_contains($degreeType, 'seminar');
     }
 
+    public function isPhd(): bool
+    {
+        $pName = strtolower(($this->program?->name ?? '') . ' ' . ($this->program?->degree_type ?? ''));
+        $lName = strtolower($this->level?->name ?? '');
+
+        return str_contains($pName, 'phd') 
+            || str_contains($pName, 'ph.d') 
+            || str_contains($pName, 'doctor') 
+            || str_contains($lName, 'phd') 
+            || str_contains($lName, 'doctor');
+    }
+
+    public function requiredPublicationsCount(): int
+    {
+        return $this->isPhd() ? 2 : 1;
+    }
+
     public function isPhdAI(): bool
     {
         $pName = strtolower(($this->program?->name ?? '') . ' ' . ($this->program?->degree_type ?? ''));
         $lName = strtolower($this->level?->name ?? '');
 
-        $isPhd = str_contains($pName, 'phd') 
-            || str_contains($pName, 'ph.d') 
-            || str_contains($pName, 'doctor') 
-            || str_contains($lName, 'phd') 
-            || str_contains($lName, 'doctor');
+        $isPhd = $this->isPhd();
 
         $isAI = str_contains($pName, 'artificial intelligence') 
             || str_contains($pName, 'intelligence') 

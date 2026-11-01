@@ -57,6 +57,35 @@
                                 {{ $submission->type === 'publication' ? 'Publication' : 'Thesis Manuscript' }} v{{ $submission->version }}
                             </span>
                         </div>
+
+                        @if($submission->type === 'publication' && $submission->publication_title)
+                            <h4 class="text-sm font-bold text-slate-900 dark:text-white mb-2 leading-snug">{{ $submission->publication_title }}</h4>
+                        @endif
+
+                        @if($submission->type === 'publication' && ($submission->doi || $submission->is_scopus_indexed))
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                @if($submission->doi)
+                                    <a href="https://doi.org/{{ $submission->doi }}" target="_blank" class="inline-flex items-center gap-1 text-xs font-mono text-indigo-600 dark:text-indigo-400 hover:underline">
+                                        <span>DOI: {{ $submission->doi }}</span>
+                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                    </a>
+                                @endif
+                                @if($submission->is_scopus_indexed)
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                        <svg class="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                        Scopus Indexed
+                                    </span>
+                                @elseif($submission->doi)
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider bg-amber-50 text-amber-800 border border-amber-200">
+                                        <svg class="w-3 h-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        DOI Verified (Not Indexed in Scopus)
+                                    </span>
+                                @endif
+                                @if(!empty($submission->scopus_data['journal']))
+                                    <span class="text-xs text-slate-500 font-medium italic">({{ $submission->scopus_data['journal'] }})</span>
+                                @endif
+                            </div>
+                        @endif
                         
                         <div class="flex items-center space-x-3 mb-4">
                             <svg class="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"></path></svg>
@@ -87,15 +116,32 @@
                     <h3 class="text-lg font-medium text-black dark:text-white mb-3">All Submissions & Publications</h3>
                     <ul class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                         @foreach($milestone->submissions->where('id', '!=', $submission?->id)->sortByDesc('created_at') as $oldSub)
-                             <li class="px-4 py-3 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                <div class="text-sm flex items-center gap-2 min-w-0 flex-1 mr-3">
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase {{ $oldSub->type === 'publication' ? 'bg-purple-100 text-purple-800' : 'bg-slate-200 text-slate-800' }} shrink-0">
-                                        {{ $oldSub->type === 'publication' ? 'Publication' : 'Manuscript' }} v{{ $oldSub->version }}
-                                    </span>
-                                    <span class="text-xs text-slate-700 dark:text-slate-300 truncate">{{ $oldSub->file_meta['original_name'] ?? 'document.pdf' }}</span>
-                                    <span class="text-slate-400 text-xs ml-auto shrink-0">{{ $oldSub->created_at->format('M d') }}</span>
+                             <li class="px-4 py-3 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                <div class="text-sm flex flex-col gap-1 min-w-0 flex-1 mr-3">
+                                    <div class="flex items-center gap-2">
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase {{ $oldSub->type === 'publication' ? 'bg-purple-100 text-purple-800' : 'bg-slate-200 text-slate-800' }} shrink-0">
+                                            {{ $oldSub->type === 'publication' ? 'Publication' : 'Manuscript' }} v{{ $oldSub->version }}
+                                        </span>
+                                        @if($oldSub->is_scopus_indexed)
+                                            <span class="px-2 py-0.2 rounded-full text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 shrink-0">
+                                                Scopus Indexed
+                                            </span>
+                                        @endif
+                                        <span class="text-xs text-slate-700 dark:text-slate-300 truncate font-semibold">{{ $oldSub->publication_title ?? ($oldSub->file_meta['original_name'] ?? 'document.pdf') }}</span>
+                                    </div>
+                                    @if($oldSub->doi)
+                                        <div class="flex items-center gap-2 text-[11px] text-slate-500">
+                                            <a href="https://doi.org/{{ $oldSub->doi }}" target="_blank" class="font-mono text-indigo-600 hover:underline">DOI: {{ $oldSub->doi }}</a>
+                                            @if(!empty($oldSub->scopus_data['journal']))
+                                                <span>• {{ $oldSub->scopus_data['journal'] }}</span>
+                                            @endif
+                                        </div>
+                                    @endif
                                 </div>
-                                <a href="{{ Storage::url($oldSub->file_url) }}" target="_blank" class="text-acetel-600 dark:text-acetel-400 text-xs font-bold hover:underline shrink-0">View</a>
+                                <div class="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                                    <span class="text-slate-400 text-xs">{{ $oldSub->created_at->format('M d, H:i') }}</span>
+                                    <a href="{{ Storage::url($oldSub->file_url) }}" target="_blank" class="text-acetel-600 dark:text-acetel-400 text-xs font-bold hover:underline">View</a>
+                                </div>
                              </li>
                         @endforeach
                     </ul>

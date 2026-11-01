@@ -263,6 +263,46 @@
 
     /* Custom Alpine Modal overrides */
     [x-cloak] { display: none !important; }
+
+    /* Mobile Responsiveness */
+    @media (max-width: 768px) {
+        .scholar-header {
+            flex-wrap: wrap;
+            padding: 12px 16px;
+            gap: 12px;
+        }
+        .scholar-header form {
+            order: 3;
+            width: 100% !important;
+        }
+        .scholar-search-wrapper {
+            max-width: 100%;
+        }
+        .scholar-main-container {
+            flex-direction: column;
+            padding: 12px 16px;
+        }
+        .scholar-results {
+            padding-right: 0;
+            max-width: 100%;
+        }
+        .scholar-item {
+            flex-direction: column;
+            gap: 10px;
+        }
+        .pdf-indicator {
+            width: 100%;
+            text-align: left;
+        }
+        .pdf-link-wrapper {
+            justify-content: flex-start;
+        }
+        .scholar-stats-strip {
+            padding: 10px 16px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+    }
 </style>
 
 <!-- Top Search Header -->
@@ -381,6 +421,14 @@
     <!-- Results Area -->
     <div class="scholar-results">
         
+        <!-- Mobile Filter Chips -->
+        <div class="md:hidden flex items-center gap-2 overflow-x-auto no-scrollbar pb-3 mb-4 -mx-1 px-1">
+            <a href="{{ buildFilterUrl(null, null) }}" class="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap {{ !request('year') && !request('year_from') ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">Any time</a>
+            <a href="{{ buildFilterUrl('year_from', $currentYear) }}" class="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap {{ request('year_from') == $currentYear ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">Since {{ $currentYear }}</a>
+            <a href="{{ buildFilterUrl('year_from', $currentYear - 1) }}" class="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap {{ request('year_from') == ($currentYear - 1) ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">Since {{ $currentYear - 1 }}</a>
+            <a href="{{ buildFilterUrl('year_from', $currentYear - 3) }}" class="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap {{ request('year_from') == ($currentYear - 3) ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">Since {{ $currentYear - 3 }}</a>
+        </div>
+
         @forelse($theses as $thesis)
             <div class="scholar-item" x-data="{ expanded: false }">
                 <div class="item-content">

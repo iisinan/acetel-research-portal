@@ -494,9 +494,18 @@ class MilestoneTemplateController extends Controller
                     if ($studentUser) {
                         \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
                         try {
-                            $studentUser->notify(new \App\Notifications\EventScheduled($event));
+                            if ($oldDate && ($oldDate !== \Carbon\Carbon::parse($date)->toDateString() || $oldTime !== $newTime)) {
+                                $studentUser->notify(new \App\Notifications\EventRescheduled(
+                                    $event,
+                                    $oldDate,
+                                    $oldTime,
+                                    $template->name
+                                ));
+                            } else {
+                                $studentUser->notify(new \App\Notifications\EventScheduled($event));
+                            }
                         } catch (\Throwable $e) {
-                            \Illuminate\Support\Facades\Log::error('Failed to send EventScheduled notification: ' . $e->getMessage());
+                            \Illuminate\Support\Facades\Log::error('Failed to send schedule notification: ' . $e->getMessage());
                         }
                     }
                 }

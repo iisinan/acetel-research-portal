@@ -460,12 +460,103 @@
                                     </div>
                                 </div>
                             @endif
-                            <form x-data="{ uploading: false, fileError: '' }" @submit.prevent="
-                                const fileInput = $event.target.querySelector('input[type=file]');
-                                if (fileInput && fileInput.files[0] && fileInput.files[0].size > 30 * 1024 * 1024) {
-                                    fileError = 'The selected file exceeds the 30MB maximum size limit.';
-                                    (window.toast ? window.toast.error(fileError) : alert(fileError));
-                                    return;
+                            @php
+                                $subTypes = $milestone->template?->submission_type ?? ['file'];
+                                $bothAllowed = in_array('ppt', $subTypes) && in_array('file', $subTypes);
+                                $hasPptSub = $milestone->submissions->where('type', 'ppt')->count() > 0;
+                                $hasFileSub = $milestone->submissions->whereIn('type', ['file', 'manuscript'])->count() > 0;
+                                $hasPubRequirement = in_array('publication', $subTypes) || in_array('publications', $subTypes);
+                                $student = $milestone->thesis?->student;
+                                $isPhdCandidate = $student ? $student->isPhd() : false;
+                                $requiredPubs = $student ? $student->requiredPublicationsCount() : 1;
+                                $existingPubs = $milestone->submissions->where('type', 'publication');
+                                $existingPubsCount = $existingPubs->count();
+                                $initialSlotsNeeded = max(1, $requiredPubs - $existingPubsCount);
+                                if ($isPostDefenceStage) {
+                                    $initialSlotsNeeded = 0;
+                                }
+                            @endphp
+                            <form x-data="{
+                                uploading: false,
+                                fileError: '',
+                                hasPubRequirement: {{ $hasPubRequirement ? 'true' : 'false' }},
+                                isPostDefenceStage: {{ $isPostDefenceStage ? 'true' : 'false' }},
+                                requiredPubs: {{ $requiredPubs }},
+                                existingPubsCount: {{ $existingPubsCount }},
+                                isPhd: {{ $isPhdCandidate ? 'true' : 'false' }},
+                                pubSlots: [
+                                    @for($i = 0; $i < $initialSlotsNeeded; $i++)
+                                        { id: {{ $i }}, title: '', doi: '', fileName: '', checking: false, verified: false, scopusIndexed: false, statusText: '', journal: '', error: '' },
+                                    @endfor
+                                ],
+                                addSlot() {
+                                    if (this.pubSlots.length + this.existingPubsCount < 5) {
+                                        this.pubSlots.push({
+                                            id: Date.now(),
+                                            title: '',
+                                            doi: '',
+                                            fileName: '',
+                                            checking: false,
+                                            verified: false,
+                                            scopusIndexed: false,
+                                            statusText: '',
+                                            journal: '',
+                                            error: ''
+                                        });
+                                    }
+                                },
+                                removeSlot(index) {
+                                    if (this.pubSlots.length > 1 || (this.existingPubsCount >= this.requiredPubs)) {
+                                        this.pubSlots.splice(index, 1);
+                                    }
+                                },
+                                verifyDoi(slot) {
+                                    if (!slot.doi || !slot.doi.trim()) return;
+                                    slot.checking = true;
+                                    slot.error = '';
+                                    fetch('{{ route('publications.verify_doi') }}?doi=' + encodeURIComponent(slot.doi.trim()), {
+                                        headers: { 'Accept': 'application/json' }
+                                    })
+                                    .then(res => res.json())
+                                    .then(data => {
+                                        if (data.valid) {
+                                            slot.verified = true;
+                                            slot.scopusIndexed = !!data.is_scopus_indexed;
+                                            slot.statusText = data.status_label || (data.is_scopus_indexed ? 'Indexed in Scopus' : 'DOI Verified');
+                                            slot.journal = data.journal || data.publisher || '';
+                                            if (!slot.title && data.title) {
+                                                slot.title = data.title;
+                                            }
+                                        } else {
+                                            slot.verified = false;
+                                            slot.scopusIndexed = false;
+                                            slot.statusText = data.error || 'Invalid DOI';
+                                            slot.error = data.error || 'Invalid or unrecognized DOI';
+                                        }
+                                    })
+                                    .catch(err => {
+                                        slot.error = 'Verification service unreachable';
+                                    })
+                                    .finally(() => {
+                                        slot.checking = false;
+                                    });
+                                }
+                            }" @submit.prevent="
+                                const fileInputs = $event.target.querySelectorAll('input[type=file]');
+                                for (let fi of fileInputs) {
+                                    if (fi.files[0] && fi.files[0].size > 50 * 1024 * 1024) {
+                                        fileError = 'The selected file exceeds the 50MB maximum size limit.';
+                                        (window.toast ? window.toast.error(fileError) : alert(fileError));
+                                        return;
+                                    }
+                                }
+                                if (hasPubRequirement && !isPostDefenceStage) {
+                                    let validSlots = pubSlots.filter(s => s.fileName || s.title || s.doi);
+                                    if ((validSlots.length + existingPubsCount) < requiredPubs) {
+                                        fileError = 'As a ' + (isPhd ? 'PhD' : 'MSc') + ' candidate, you must submit at least ' + requiredPubs + ' publication' + (requiredPubs > 1 ? 's' : '') + ' (with Title, DOI, and PDF).';
+                                        (window.toast ? window.toast.error(fileError) : alert(fileError));
+                                        return;
+                                    }
                                 }
                                 uploading = true;
                                 fetch('{{ route('milestones.store', $milestone) }}', {
@@ -484,13 +575,6 @@
                                 })
                             " action="{{ route('milestones.store', $milestone) }}" method="POST" enctype="multipart/form-data" class="space-y-6">
                                 @csrf
-                                
-                                @php
-                                    $subTypes = $milestone->template?->submission_type ?? ['file'];
-                                    $bothAllowed = in_array('ppt', $subTypes) && in_array('file', $subTypes);
-                                    $hasPptSub = $milestone->submissions->where('type', 'ppt')->count() > 0;
-                                    $hasFileSub = $milestone->submissions->whereIn('type', ['file', 'manuscript'])->count() > 0;
-                                @endphp
 
                                 @if(in_array('ppt', $subTypes))
                                 <div>
@@ -517,7 +601,7 @@
                                 </div>
                                 @endif
 
-                                 @if(in_array('file', $subTypes))
+                                @if(in_array('file', $subTypes))
                                 <div>
                                     <label class="block text-sm font-semibold text-slate-700 mb-1 flex items-center justify-between">
                                         <span>
@@ -543,8 +627,8 @@
                                             @change="
                                                 const file = $event.target.files[0];
                                                 document.getElementById('file-name-{{ $milestone->id }}').textContent = file ? file.name : 'Click or drop to select file';
-                                                if (file && file.size > 30 * 1024 * 1024) {
-                                                    fileError = 'The selected file exceeds the 30MB maximum size limit.';
+                                                if (file && file.size > 50 * 1024 * 1024) {
+                                                    fileError = 'The selected file exceeds the 50MB maximum size limit.';
                                                     (window.toast ? window.toast.error(fileError) : alert(fileError));
                                                     $event.target.value = '';
                                                     document.getElementById('file-name-{{ $milestone->id }}').textContent = 'Click or drop to select file';
@@ -565,26 +649,162 @@
                                 @endif
 
                                 @if(in_array('publication', $subTypes) || in_array('publications', $subTypes))
-                                <div>
-                                    <label class="block text-sm font-semibold text-slate-700 mb-2">
-                                        Upload Publications (PDF Only, Select one or more)
-                                    </label>
-                                    @if($milestone->submissions->where('type', 'publication')->count() > 0)
-                                        <p class="text-xs text-emerald-600 font-medium mb-2">✓ {{ $milestone->submissions->where('type', 'publication')->count() }} publication(s) already submitted on file. Upload additional files only if required.</p>
-                                    @endif
-                                    <div class="relative w-full">
-                                        <input type="file" name="publications[]" accept=".pdf" multiple class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
-                                            @change="
-                                                const files = $event.target.files;
-                                                document.getElementById('pub-name-{{ $milestone->id }}').textContent = files.length > 0 ? files.length + ' files selected' : 'Click or drop to select publications';
-                                            "/>
-                                        <div class="w-full flex flex-col items-center justify-center gap-3 px-4 py-8 bg-slate-50 border-2 border-slate-200 border-dashed rounded-2xl hover:border-emerald-300 hover:bg-emerald-50/50 transition-colors">
-                                            <div class="w-10 h-10 rounded-full bg-white text-slate-400 flex items-center justify-center shadow-xl shadow-slate-200/40">
-                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                                <div class="p-6 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-5">
+                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
+                                        <div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="w-2.5 h-2.5 rounded-full bg-purple-600"></span>
+                                                <h4 class="text-sm font-black text-slate-900 uppercase tracking-wider">Required Publications</h4>
+                                                <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider {{ $isPhdCandidate ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200' }}">
+                                                    {{ $isPhdCandidate ? 'PhD: 2 Publications Required' : 'MSc: 1 Publication Required' }}
+                                                </span>
                                             </div>
-                                            <span id="pub-name-{{ $milestone->id }}" class="text-sm font-medium text-slate-600">Click or drop to select publications</span>
+                                            <p class="text-xs text-slate-500 mt-1">
+                                                {{ $isPhdCandidate ? 'Doctoral (PhD) candidates are required to submit at least 2 institutional publications.' : 'Master\'s (MSc) candidates are required to submit at least 1 institutional publication.' }}
+                                                Please provide the Title, DOI, and PDF file. The portal automatically checks Scopus indexing.
+                                            </p>
                                         </div>
+                                        @if($existingPubsCount > 0)
+                                            <div class="px-3 py-1.5 rounded-xl {{ $existingPubsCount >= $requiredPubs ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200' }} text-xs font-bold flex items-center gap-1.5 shrink-0">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                <span>{{ $existingPubsCount }}/{{ $requiredPubs }} Submitted</span>
+                                            </div>
+                                        @endif
                                     </div>
+
+                                    @if($isPostDefenceStage && $existingPubsCount >= $requiredPubs)
+                                        <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
+                                            <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                            <span>Publication requirement satisfied ({{ $existingPubsCount }} on file). You only need to submit your corrected thesis manuscript above.</span>
+                                        </div>
+                                    @endif
+
+                                    <!-- Dynamic Publication Cards -->
+                                    <template x-for="(slot, index) in pubSlots" :key="slot.id">
+                                        <div class="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-4 relative transition-all hover:border-purple-300">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="w-6 h-6 rounded-lg bg-purple-100 text-purple-700 font-black text-xs flex items-center justify-center" x-text="index + 1"></span>
+                                                    <span class="text-xs font-black uppercase tracking-wider text-slate-800" x-text="'Publication #' + (index + 1) + ((index + existingPubsCount < requiredPubs) ? ' (Required)' : ' (Additional)')"></span>
+                                                </div>
+                                                <button type="button" 
+                                                    x-show="pubSlots.length > 1 || (existingPubsCount >= requiredPubs)"
+                                                    @click="removeSlot(index)" 
+                                                    class="text-slate-400 hover:text-rose-600 transition-colors text-xs flex items-center gap-1 font-bold cursor-pointer">
+                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                    <span>Remove</span>
+                                                </button>
+                                            </div>
+
+                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <!-- Publication Title -->
+                                                <div class="md:col-span-2">
+                                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                                        Publication Title <span class="text-rose-500">*</span>
+                                                    </label>
+                                                    <input type="text" 
+                                                        :name="'publications[' + index + '][title]'" 
+                                                        x-model="slot.title" 
+                                                        placeholder="e.g. Deep Learning Architectures for Autonomous Decision Systems" 
+                                                        class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 bg-white">
+                                                </div>
+
+                                                <!-- DOI input with live verification -->
+                                                <div class="md:col-span-2">
+                                                    <div class="flex items-center justify-between mb-1.5">
+                                                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                                            Digital Object Identifier (DOI) <span class="text-rose-500">*</span>
+                                                        </label>
+                                                        <span class="text-[11px] text-slate-400 font-normal">e.g. 10.1016/j.future.2018.04.090 or https://doi.org/...</span>
+                                                    </div>
+                                                    <div class="flex gap-2">
+                                                        <div class="relative flex-1">
+                                                            <input type="text" 
+                                                                :name="'publications[' + index + '][doi]'" 
+                                                                x-model="slot.doi" 
+                                                                @blur="if (slot.doi && !slot.verified && !slot.checking) verifyDoi(slot)"
+                                                                @keydown.enter.prevent="verifyDoi(slot)"
+                                                                placeholder="10.xxxx/..." 
+                                                                class="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-mono focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 bg-white">
+                                                        </div>
+                                                        <button type="button" 
+                                                            @click="verifyDoi(slot)" 
+                                                            :disabled="slot.checking || !slot.doi"
+                                                            class="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-sm cursor-pointer">
+                                                            <svg x-show="!slot.checking" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                                            <svg x-show="slot.checking" class="animate-spin w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                            <span x-text="slot.checking ? 'Checking...' : 'Check Scopus'"></span>
+                                                        </button>
+                                                    </div>
+
+                                                    <!-- Live Verification Feedback Box -->
+                                                    <div x-show="slot.checking" class="mt-2 text-xs text-indigo-600 font-semibold flex items-center gap-1.5" style="display: none;">
+                                                        <svg class="animate-spin w-3.5 h-3.5 text-indigo-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                        <span>Querying Scopus & Crossref indexing databases...</span>
+                                                    </div>
+
+                                                    <div x-show="slot.verified && slot.scopusIndexed" class="mt-2.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-start gap-2.5 text-xs text-emerald-900" style="display: none;">
+                                                        <svg class="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                                        <div>
+                                                            <span class="font-black uppercase tracking-wider text-emerald-800">✓ Verified: Indexed in Scopus</span>
+                                                            <p class="text-[11px] text-emerald-700 mt-0.5 font-medium" x-show="slot.journal" x-text="'Journal / Source: ' + slot.journal"></p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div x-show="slot.verified && !slot.scopusIndexed" class="mt-2.5 p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2.5 text-xs text-amber-900" style="display: none;">
+                                                        <svg class="w-4 h-4 text-amber-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                        <div>
+                                                            <span class="font-bold text-amber-800">✓ Valid DOI (Not indexed in Scopus)</span>
+                                                            <p class="text-[11px] text-amber-700 mt-0.5 font-medium" x-show="slot.journal" x-text="'Source / Publisher: ' + slot.journal"></p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div x-show="slot.error" class="mt-2 text-xs text-rose-600 font-semibold flex items-center gap-1.5" style="display: none;">
+                                                        <svg class="w-3.5 h-3.5 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                        <span x-text="slot.error"></span>
+                                                    </div>
+                                                </div>
+
+                                                <!-- PDF File Upload Dropzone -->
+                                                <div class="md:col-span-2">
+                                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                                        Publication PDF Manuscript <span class="text-rose-500">*</span>
+                                                    </label>
+                                                    <div class="relative w-full">
+                                                        <input type="file" 
+                                                            :name="'publications[' + index + '][file]'" 
+                                                            accept=".pdf" 
+                                                            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                                            @change="
+                                                                const file = $event.target.files[0];
+                                                                if (file) {
+                                                                    slot.fileName = file.name;
+                                                                }
+                                                            "/>
+                                                        <div class="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 border-2 border-slate-200 border-dashed rounded-xl hover:border-purple-300 hover:bg-purple-50/30 transition-colors">
+                                                            <div class="w-8 h-8 rounded-lg bg-white text-purple-600 border border-slate-200 flex items-center justify-center shrink-0 shadow-sm">
+                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                                                            </div>
+                                                            <span class="text-xs font-medium text-slate-600 truncate" x-text="slot.fileName ? slot.fileName : 'Click or drop to select publication PDF (Max 50MB)'"></span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <!-- Add Slot Button -->
+                                    <div class="flex items-center justify-between pt-2">
+                                        <button type="button" 
+                                            x-show="pubSlots.length + existingPubsCount < 5"
+                                            @click="addSlot()" 
+                                            class="inline-flex items-center gap-2 px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm cursor-pointer">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                                            <span>Add Another Publication</span>
+                                        </button>
+                                        <span class="text-[11px] font-medium text-slate-400">Up to 5 publications allowed</span>
+                                    </div>
+
                                     @error('publications') <span class="text-xs font-bold text-red-500 mt-2 block">{{ $message }}</span> @enderror
                                 </div>
                                 @endif
@@ -665,38 +885,72 @@
                                 
                                 <div class="bg-slate-50 border border-slate-100 rounded-2xl p-5 hover:bg-white hover:border-slate-200 hover:shadow-xl shadow-slate-200/40 transition-all">
                                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                        <div class="flex items-center gap-4">
-                                            <div class="flex flex-wrap items-center gap-2">
-                                                <span class="px-2.5 py-1 {{ $submission->type === 'publication' ? 'bg-purple-100 text-purple-800' : ($submission->type === 'ppt' ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-800') }} rounded-md text-[11px] font-black uppercase tracking-wider">
-                                                    {{ $submission->type === 'publication' ? 'Publication' : ($submission->type === 'ppt' ? 'Slides' : ($isPostDefenceStage && $defenceDate && $submission->created_at->gte($defenceDate->copy()->startOfDay()) ? 'Corrected Thesis' : 'Thesis Manuscript')) }} v.0{{ $submission->version }}
-                                                </span>
-                                                @if($submission->type === 'publication' && !empty($submission->file_meta['original_name']))
-                                                    <span class="text-[11px] text-slate-500 font-medium truncate max-w-[180px]" title="{{ $submission->file_meta['original_name'] }}">
-                                                        {{ $submission->file_meta['original_name'] }}
+                                        <div class="flex flex-col gap-1.5 flex-1">
+                                            <div class="flex items-center gap-4">
+                                                <div class="flex flex-wrap items-center gap-2">
+                                                    <span class="px-2.5 py-1 {{ $submission->type === 'publication' ? 'bg-purple-100 text-purple-800' : ($submission->type === 'ppt' ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-800') }} rounded-md text-[11px] font-black uppercase tracking-wider">
+                                                        {{ $submission->type === 'publication' ? 'Publication' : ($submission->type === 'ppt' ? 'Slides' : ($isPostDefenceStage && $defenceDate && $submission->created_at->gte($defenceDate->copy()->startOfDay()) ? 'Corrected Thesis' : 'Thesis Manuscript')) }} v.0{{ $submission->version }}
                                                     </span>
-                                                @endif
-                                                <span class="text-xs font-semibold text-slate-400">• {{ $submission->created_at->format('M d, Y • H:i') }}</span>
-                                            </div>
-                                            
-                                            @if($submission->plagiarism_data)
-                                                @php 
-                                                    $score = $submission->plagiarism_data['similarity_score'] ?? 0;
-                                                    $reportUrl = $submission->plagiarism_data['report_url'] ?? null;
-                                                @endphp
-                                                <div class="flex items-center gap-1.5 px-2 py-1 rounded-lg {{ $score > 20 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100' }} border">
-                                                    <span class="text-[9px] font-black uppercase tracking-tighter">{{ $score }}% Index</span>
-                                                    @if($reportUrl)
-                                                        <span class="w-px h-2.5 bg-current opacity-20"></span>
-                                                        <button type="button" 
-                                                            @click.prevent="$dispatch('open-document-preview', { 
-                                                                url: '{{ Storage::url($reportUrl) }}', 
-                                                                title: 'Internal Plagiarism Report',
-                                                                type: 'pdf'
-                                                            })"
-                                                            class="text-[9px] font-bold uppercase tracking-widest hover:underline">
-                                                            View Report
-                                                        </button>
+                                                    @if($submission->type === 'publication' && !empty($submission->file_meta['original_name']))
+                                                        <span class="text-[11px] text-slate-500 font-medium truncate max-w-[180px]" title="{{ $submission->file_meta['original_name'] }}">
+                                                            {{ $submission->file_meta['original_name'] }}
+                                                        </span>
                                                     @endif
+                                                    <span class="text-xs font-semibold text-slate-400">• {{ $submission->created_at->format('M d, Y • H:i') }}</span>
+                                                </div>
+                                                
+                                                @if($submission->plagiarism_data)
+                                                    @php 
+                                                        $score = $submission->plagiarism_data['similarity_score'] ?? 0;
+                                                        $reportUrl = $submission->plagiarism_data['report_url'] ?? null;
+                                                    @endphp
+                                                    <div class="flex items-center gap-1.5 px-2 py-1 rounded-lg {{ $score > 20 ? 'bg-rose-50 text-rose-600 border-rose-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100' }} border">
+                                                        <span class="text-[9px] font-black uppercase tracking-tighter">{{ $score }}% Index</span>
+                                                        @if($reportUrl)
+                                                            <span class="w-px h-2.5 bg-current opacity-20"></span>
+                                                            <button type="button" 
+                                                                @click.prevent="$dispatch('open-document-preview', { 
+                                                                    url: '{{ Storage::url($reportUrl) }}', 
+                                                                    title: 'Internal Plagiarism Report',
+                                                                    type: 'pdf'
+                                                                })"
+                                                                class="text-[9px] font-bold uppercase tracking-widest hover:underline">
+                                                                View Report
+                                                            </button>
+                                                        @endif
+                                                    </div>
+                                                @endif
+                                            </div>
+
+                                            @if($submission->type === 'publication')
+                                                <div class="mt-1 space-y-1">
+                                                    @if($submission->publication_title)
+                                                        <h5 class="text-xs font-bold text-slate-900 leading-snug">{{ $submission->publication_title }}</h5>
+                                                    @endif
+                                                    <div class="flex flex-wrap items-center gap-2 pt-0.5">
+                                                        @if($submission->doi)
+                                                            <a href="https://doi.org/{{ $submission->doi }}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-mono text-indigo-600 hover:text-indigo-800 hover:underline">
+                                                                <span>DOI: {{ $submission->doi }}</span>
+                                                                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                                            </a>
+                                                        @endif
+
+                                                        @if($submission->is_scopus_indexed)
+                                                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                                                <svg class="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                                                Scopus Indexed
+                                                            </span>
+                                                        @elseif($submission->doi)
+                                                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider bg-amber-50 text-amber-800 border border-amber-200">
+                                                                <svg class="w-3 h-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                                DOI Verified (Not Indexed in Scopus)
+                                                            </span>
+                                                        @endif
+
+                                                        @if(!empty($submission->scopus_data['journal']))
+                                                            <span class="text-[10px] text-slate-500 font-medium italic">({{ $submission->scopus_data['journal'] }})</span>
+                                                        @endif
+                                                    </div>
                                                 </div>
                                             @endif
                                         </div>

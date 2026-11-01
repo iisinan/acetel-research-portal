@@ -494,17 +494,91 @@ class MilestoneController extends Controller
             }
         }
 
+        $student = $milestone->thesis?->student;
+        $isPhd = $student ? $student->isPhd() : false;
+        $requiredPubsCount = $student ? $student->requiredPublicationsCount() : 1;
+        $existingPubsCount = $milestone->submissions()->where('type', 'publication')->count();
+
+        // Parse structured publications input: publications[i][file], publications[i][title], publications[i][doi]
+        $parsedPubs = [];
         if (in_array('publication', $subTypes) || in_array('publications', $subTypes)) {
-            $existingCount = $milestone->submissions()->where('type', 'publication')->count();
-            $maxAllowed = max(1, 5 - $existingCount);
-            if ($existingCount > 0) {
-                if ($request->hasFile('publications')) {
-                    $rules['publications'] = ['nullable', 'array', "max:{$maxAllowed}"];
-                    $rules['publications.*'] = 'file|mimes:pdf|max:51200';
+            $rawPubs = $request->input('publications', []);
+            $rawPubFiles = $request->file('publications', []);
+
+            // Check if uploaded as flat files array: publications[]
+            if (is_array($rawPubFiles) && !empty($rawPubFiles) && is_a(reset($rawPubFiles), \Illuminate\Http\UploadedFile::class)) {
+                foreach ($rawPubFiles as $f) {
+                    $parsedPubs[] = [
+                        'file' => $f,
+                        'title' => $f->getClientOriginalName(),
+                        'doi' => null,
+                    ];
                 }
-            } else {
-                $rules['publications'] = ['required', 'array', 'min:1', "max:{$maxAllowed}"];
-                $rules['publications.*'] = 'file|mimes:pdf|max:51200';
+            } elseif (is_array($rawPubs) || is_array($rawPubFiles)) {
+                $indices = array_unique(array_merge(
+                    is_array($rawPubs) ? array_keys($rawPubs) : [],
+                    is_array($rawPubFiles) ? array_keys($rawPubFiles) : []
+                ));
+
+                foreach ($indices as $idx) {
+                    $file = $request->file("publications.{$idx}.file");
+                    $title = is_array($rawPubs[$idx] ?? null) ? trim($rawPubs[$idx]['title'] ?? '') : '';
+                    $doi = is_array($rawPubs[$idx] ?? null) ? trim($rawPubs[$idx]['doi'] ?? '') : '';
+
+                    if ($file || !empty($title) || !empty($doi)) {
+                        $parsedPubs[] = [
+                            'index' => $idx,
+                            'file' => $file,
+                            'title' => $title,
+                            'doi' => $doi,
+                        ];
+                    }
+                }
+            }
+
+            // Degree-based count enforcement:
+            // MSc: at least 1 publication
+            // PhD: at least 2 publications
+            // (Only enforced if not post-defence stage, where only corrected manuscript is required)
+            if (!$isPostDefenceStage) {
+                $totalPubs = $existingPubsCount + count($parsedPubs);
+                if ($totalPubs < $requiredPubsCount) {
+                    $levelLabel = $isPhd ? 'PhD' : 'MSc';
+                    $s = $requiredPubsCount > 1 ? 's' : '';
+                    return back()->withInput()->withErrors([
+                        'publications' => "As a {$levelLabel} candidate, you are required to submit at least {$requiredPubsCount} publication{$s} (including Title, DOI, and PDF) for this milestone."
+                    ]);
+                }
+            }
+
+            // For each submitted publication, validate file, title, and DOI
+            foreach ($parsedPubs as $pIdx => $pubItem) {
+                $slotNum = $pIdx + 1;
+                if (empty($pubItem['file'])) {
+                    return back()->withInput()->withErrors([
+                        'publications' => "Please upload the PDF manuscript for Publication #{$slotNum}."
+                    ]);
+                }
+                if (!$pubItem['file']->isValid() || strtolower($pubItem['file']->getClientOriginalExtension()) !== 'pdf') {
+                    return back()->withInput()->withErrors([
+                        'publications' => "Publication #{$slotNum} file must be a valid PDF document."
+                    ]);
+                }
+                if ($pubItem['file']->getSize() > 51200 * 1024) {
+                    return back()->withInput()->withErrors([
+                        'publications' => "Publication #{$slotNum} file exceeds the maximum size limit of 50MB."
+                    ]);
+                }
+                if (empty($pubItem['title'])) {
+                    return back()->withInput()->withErrors([
+                        'publications' => "Please enter the title for Publication #{$slotNum}."
+                    ]);
+                }
+                if (empty($pubItem['doi'])) {
+                    return back()->withInput()->withErrors([
+                        'publications' => "Please provide the DOI for Publication #{$slotNum} (e.g. 10.1016/j...)."
+                    ]);
+                }
             }
         }
 
@@ -517,7 +591,6 @@ class MilestoneController extends Controller
         $messages = [
             'ppt.mimes' => 'The presentation slide deck must be in PDF format. PowerPoint (PPT/PPTX) files are not accepted.',
             'file.mimes' => 'The document must be in PDF format. Word documents (DOC/DOCX) are not accepted.',
-            'publications.*.mimes' => 'Each publication file must be in PDF format.',
         ];
 
         \Illuminate\Support\Facades\Log::info("Request Data: ", $request->all());
@@ -585,14 +658,47 @@ class MilestoneController extends Controller
             }
         }
 
-        // Handle Publications
-        if ((in_array('publication', $subTypes) || in_array('publications', $subTypes)) && $request->hasFile('publications')) {
-            foreach ($request->file('publications') as $pubFile) {
+        // Handle Publications with Title, DOI, and automated Scopus indexing verification
+        if ((in_array('publication', $subTypes) || in_array('publications', $subTypes)) && !empty($parsedPubs)) {
+            $scopusVerifier = app(\App\Services\ScopusVerificationService::class);
+
+            foreach ($parsedPubs as $pubItem) {
+                /** @var \Illuminate\Http\UploadedFile $pubFile */
+                $pubFile = $pubItem['file'];
+                $titleInput = $pubItem['title'];
+                $doiInput = $pubItem['doi'];
+
+                $scopusInfo = null;
+                $isScopusIndexed = false;
+                $scopusData = null;
+                $finalDoi = $doiInput;
+                $finalTitle = $titleInput;
+
+                if (!empty($doiInput)) {
+                    try {
+                        $scopusInfo = $scopusVerifier->verify($doiInput);
+                        if (!empty($scopusInfo['valid'])) {
+                            $isScopusIndexed = !empty($scopusInfo['is_scopus_indexed']);
+                            $scopusData = $scopusInfo['scopus_data'] ?? null;
+                            $finalDoi = $scopusInfo['doi'] ?? $doiInput;
+                            if (empty($finalTitle) && !empty($scopusInfo['title'])) {
+                                $finalTitle = $scopusInfo['title'];
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::warning("Scopus verification failed during publication submission: " . $e->getMessage());
+                    }
+                }
+
                 $pubPath = $pubFile->store('submissions/' . $milestone->thesis_project_id . '/publications');
-                
+
                 $milestone->submissions()->create([
                     'submitted_by' => Auth::id(),
                     'type' => 'publication',
+                    'publication_title' => $finalTitle ?: 'Institutional Publication',
+                    'doi' => $finalDoi ?: null,
+                    'is_scopus_indexed' => $isScopusIndexed,
+                    'scopus_data' => $scopusData,
                     'file_url' => $pubPath,
                     'file_meta' => [
                         'original_name' => $pubFile->getClientOriginalName(),
@@ -600,7 +706,7 @@ class MilestoneController extends Controller
                         'size' => $pubFile->getSize(),
                     ],
                     'checksum' => md5_file($pubFile->getRealPath()),
-                    'description' => 'Institutional Publication',
+                    'description' => $isScopusIndexed ? 'Scopus-Indexed Publication' : 'Publication',
                     'version' => $milestone->submissions()->where('type', 'publication')->count() + 1,
                 ]);
             }

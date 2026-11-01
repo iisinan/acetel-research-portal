@@ -161,6 +161,7 @@ Route::get('/run-migrations', function () {
     Route::post('/milestones/{milestone}/accept-upload', [MilestoneController::class, 'acceptUpload'])->name('milestones.accept_upload');
     Route::post('/milestones/{milestone}/reject-upload', [MilestoneController::class, 'rejectUpload'])->name('milestones.reject_upload');
     Route::post('/milestones/{milestone}/end-presentation', [MilestoneController::class, 'endPresentation'])->name('milestones.end_presentation');
+    Route::get('/publications/verify-doi', [App\Http\Controllers\PublicationVerificationController::class, 'verifyDoi'])->name('publications.verify_doi');
 
 
     // Milestone Review (Supervisor, Coordinator, Admin, Director, Internal Examiner, External Examiner)

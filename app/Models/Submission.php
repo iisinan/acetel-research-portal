@@ -14,6 +14,10 @@ class Submission extends Model
     protected $fillable = [
         'student_milestone_id',
         'type',
+        'publication_title',
+        'doi',
+        'is_scopus_indexed',
+        'scopus_data',
         'version',
         'file_url',
         'file_meta',
@@ -26,6 +30,8 @@ class Submission extends Model
     protected $casts = [
         'file_meta' => 'array',
         'plagiarism_data' => 'array',
+        'scopus_data' => 'array',
+        'is_scopus_indexed' => 'boolean',
     ];
 
     public function milestone()

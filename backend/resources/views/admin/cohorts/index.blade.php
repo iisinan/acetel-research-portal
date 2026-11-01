@@ -6,7 +6,7 @@
         <h1 class="text-2xl font-extrabold text-black tracking-tight">Cohorts</h1>
         <p class="mt-2 text-sm text-black font-medium">Manage academic intakes, sessions, and manage student enrollments.</p>
     </div>
-    <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex space-x-3">
+    <div class="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex flex-col sm:flex-row gap-3">
         <a href="{{ route('admin.cohorts.export-all-emails') }}" class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-acetel-500 focus:ring-offset-2 transition-colors">
             <svg class="w-4 h-4 mr-2 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
             Export All Emails
