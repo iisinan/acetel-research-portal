@@ -281,6 +281,33 @@ class ThesisProject extends Model
             
         return (int) round(($approved / $total) * 100);
     }
+
+    /**
+     * Retrieve all assigned supervisor names for this thesis.
+     */
+    public function getSupervisorNames(): array
+    {
+        $names = [];
+
+        $this->loadMissing('assignments.supervisor.user');
+        foreach ($this->assignments as $assignment) {
+            if ($assignment->status !== 'inactive' && !empty($assignment->supervisor?->user?->name)) {
+                $names[] = $assignment->supervisor->user->name;
+            }
+        }
+
+        if (empty($names) && !empty($this->proposed_supervisors) && is_array($this->proposed_supervisors)) {
+            foreach ($this->proposed_supervisors as $sup) {
+                if (is_string($sup)) {
+                    $names[] = $sup;
+                } elseif (is_array($sup) && !empty($sup['name'])) {
+                    $names[] = $sup['name'];
+                }
+            }
+        }
+
+        return array_values(array_unique(array_filter($names)));
+    }
 }
 
 

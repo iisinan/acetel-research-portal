@@ -17,6 +17,9 @@ class Submission extends Model
         'publication_title',
         'doi',
         'is_scopus_indexed',
+        'has_supervisor_coauthor',
+        'matched_supervisor_name',
+        'publication_authors',
         'scopus_data',
         'version',
         'file_url',
@@ -31,7 +34,9 @@ class Submission extends Model
         'file_meta' => 'array',
         'plagiarism_data' => 'array',
         'scopus_data' => 'array',
+        'publication_authors' => 'array',
         'is_scopus_indexed' => 'boolean',
+        'has_supervisor_coauthor' => 'boolean',
     ];
 
     public function milestone()
