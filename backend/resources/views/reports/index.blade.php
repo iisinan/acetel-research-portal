@@ -6,23 +6,23 @@
 
 @section('content')
 <div class="space-y-8 animate-in-up">
-    <div class="flex justify-between items-center bg-white border border-gray-100 rounded-3xl p-8 shadow-sm">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white border border-gray-100 rounded-3xl p-5 sm:p-8 shadow-sm">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Institutional Reports Archives</h1>
-            <p class="text-sm font-medium text-gray-500 mt-2">Export real-time institutional data securely to CSV for your meetings and external record keeping.</p>
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">Institutional Reports Archives</h1>
+            <p class="text-xs sm:text-sm font-medium text-gray-500 mt-1.5 sm:mt-2">Export real-time institutional data securely to CSV for your meetings and external record keeping.</p>
         </div>
     </div>
 
-    <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-8">
-        <div class="flex items-center gap-4 mb-6">
+    <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-5 sm:p-8">
+        <div class="flex items-center gap-3 sm:gap-4 mb-5 sm:mb-6">
             <div class="w-1 h-8 bg-brand-500 rounded-full"></div>
             <div>
-                <h3 class="text-xl font-bold text-gray-900 tracking-tight">Thesis Status Report</h3>
-                <p class="text-sm font-medium text-gray-500 mt-1">Export a list of students, their current thesis status, assigned supervisors, and last activity date.</p>
+                <h3 class="text-lg sm:text-xl font-bold text-gray-900 tracking-tight">Thesis Status Report</h3>
+                <p class="text-xs sm:text-sm font-medium text-gray-500 mt-1">Export a list of students, their current thesis status, assigned supervisors, and last activity date.</p>
             </div>
         </div>
         
-        <form action="{{ route('reports.export') }}" method="GET" class="grid grid-cols-1 md:grid-cols-5 gap-6 items-end bg-gray-50/50 p-6 rounded-2xl border border-gray-100">
+        <form action="{{ route('reports.export') }}" method="GET" class="grid grid-cols-1 md:grid-cols-5 gap-4 sm:gap-6 items-end bg-gray-50/50 p-4 sm:p-6 rounded-2xl border border-gray-100">
             <input type="hidden" name="type" value="thesis_status">
             
             <!-- Program Filter -->

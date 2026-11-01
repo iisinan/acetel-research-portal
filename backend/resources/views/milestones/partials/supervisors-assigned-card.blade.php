@@ -836,18 +836,18 @@
                             </div>
 
                             {{-- Modal Footer --}}
-                            <div class="bg-slate-50 px-6 py-4 sm:px-8 border-t border-slate-100 flex items-center justify-between">
-                                <p class="text-xs text-slate-500">
+                            <div class="bg-slate-50 px-5 sm:px-8 py-4 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+                                <p class="text-xs text-slate-500 text-center sm:text-left">
                                     Assignments will notify the student and committee members immediately.
                                 </p>
-                                <div class="flex items-center gap-3">
+                                <div class="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
                                     <button type="button" 
                                             @click="showAssignModal = false" 
-                                            class="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-100 transition-colors shadow-sm">
+                                            class="w-full sm:w-auto px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-100 transition-colors shadow-sm text-center">
                                         Cancel
                                     </button>
                                     <button type="submit" 
-                                            class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-indigo-600/30 active:scale-95 cursor-pointer">
+                                            class="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-indigo-600/30 active:scale-95 cursor-pointer text-center">
                                         Authorize Assignment
                                     </button>
                                 </div>
@@ -888,7 +888,7 @@
                      x-transition:leave="ease-in duration-200" 
                      x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100" 
                      x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" 
-                     class="inline-block align-bottom bg-white rounded-[2.5rem] text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full border border-slate-100 relative z-10">
+                     class="inline-block align-bottom bg-white rounded-2xl sm:rounded-[2.5rem] text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full border border-slate-100 relative z-10">
                      
                     <form action="{{ route('messages.store') }}" method="POST">
                         @csrf
@@ -915,11 +915,11 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="bg-slate-50 px-6 py-4 sm:px-8 border-t border-slate-100 flex items-center justify-end gap-3">
-                            <button type="button" @click="showStudentMessageModal = false" class="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-100 transition-colors shadow-sm">
+                        <div class="bg-slate-50 px-5 sm:px-8 py-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3">
+                            <button type="button" @click="showStudentMessageModal = false" class="w-full sm:w-auto px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-100 transition-colors shadow-sm text-center">
                                 Cancel
                             </button>
-                            <button type="submit" class="px-6 py-2.5 bg-amber-600 rounded-xl text-xs font-black uppercase tracking-wider text-white hover:bg-amber-700 transition-all shadow-md flex items-center gap-2 cursor-pointer">
+                            <button type="submit" class="w-full sm:w-auto px-6 py-2.5 bg-amber-600 rounded-xl text-xs font-black uppercase tracking-wider text-white hover:bg-amber-700 transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer text-center">
                                 <span>Send Message</span>
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
                             </button>

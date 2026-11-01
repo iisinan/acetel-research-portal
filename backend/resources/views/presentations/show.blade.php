@@ -7,7 +7,7 @@
 <div class="space-y-8 animate-in-up" x-data="{ activeDate: 'all', search: '' }">
 
     {{-- Top Hero Banner --}}
-    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-900 text-white p-8 sm:p-10 shadow-xl border border-emerald-900/50">
+    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-900 text-white p-5 sm:p-8 lg:p-10 shadow-xl border border-emerald-900/50">
         {{-- Decorative glow shapes --}}
         <div class="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none"></div>
         <div class="absolute -bottom-24 -left-24 w-96 h-96 rounded-full bg-teal-500/10 blur-3xl pointer-events-none"></div>
@@ -396,7 +396,7 @@
             </div>
 
             {{-- Date Tabs --}}
-            <div class="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
+            <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2 custom-scrollbar">
                 <button type="button" @click="activeDate = 'all'"
                         :class="activeDate === 'all' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
                         class="px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0">
@@ -422,9 +422,113 @@
                 @endforeach
             </div>
 
-            {{-- Comprehensive Presenters Table --}}
+            {{-- Comprehensive Presenters Table / Mobile Cards --}}
             <div class="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
-                <div class="overflow-x-auto">
+                {{-- Mobile Presenters Card View (Visible on small screens) --}}
+                <div class="block md:hidden divide-y divide-slate-100">
+                    @foreach($allScheduled as $index => $sm)
+                        @php
+                            $student = $sm->thesis?->student;
+                            $user = $student?->user;
+                            $studentName = $user?->name ?? 'Candidate';
+                            $matricNo = $student?->student_id_number ?? 'N/A';
+                            $topic = $sm->thesis?->title ?? 'Topic Pending';
+                            $tableEventType = $template->defence_type ?? match($template->slug) {
+                                'seminar_as_a_course' => 'seminar',
+                                'proposal_defence' => 'proposal',
+                                'progress_report_1' => 'progress_report_1',
+                                'progress_report_2' => 'progress_report_2',
+                                default => 'first_seminar',
+                            };
+                            $tableDefEvent = $sm->thesis?->defenceEvents?->where('type', $tableEventType)->first();
+                            $dateStr = \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d');
+                            $isToday = ($dateStr === $todayDateStr);
+                            $tableCanEval = $tableDefEvent && $tableDefEvent->isAuthorizedEvaluator(auth()->id());
+                            $tableEval = $tableCanEval ? $tableDefEvent->evaluations->firstWhere('evaluator_id', auth()->id()) : null;
+                            $latestSub = $sm->submissions->first();
+                            $cardLink = $sm->meeting_link ?: $meetingLink;
+                        @endphp
+                        <div x-show="(activeDate === 'all' || activeDate === '{{ $dateStr }}') && 
+                                     ('{{ strtolower($studentName) }}'.includes(search.toLowerCase()) || 
+                                      '{{ strtolower($matricNo) }}'.includes(search.toLowerCase()) || 
+                                      '{{ strtolower(addslashes($topic)) }}'.includes(search.toLowerCase()))"
+                             class="p-5 space-y-3.5">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white font-black text-xs flex items-center justify-center shadow-sm shrink-0">
+                                        {{ strtoupper(substr($studentName, 0, 1)) }}
+                                    </div>
+                                    <div class="min-w-0">
+                                        <h4 class="text-sm font-black text-slate-900 leading-tight truncate">{{ $studentName }}</h4>
+                                        <p class="text-[11px] text-slate-500 font-mono mt-0.5">{{ $matricNo }} • {{ $student?->program?->code ?? 'Prog' }}</p>
+                                    </div>
+                                </div>
+                                <div class="text-right shrink-0">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                        {{ \Carbon\Carbon::parse($sm->defence_date)->format('M d') }} @if($sm->defence_time) • {{ \Carbon\Carbon::parse($sm->defence_time)->format('g:i A') }} @endif
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="text-[9px] font-black uppercase tracking-wider text-slate-400 mb-0.5">Research Topic</div>
+                                <p class="text-xs font-bold text-slate-800 leading-snug line-clamp-2">"{{ $topic }}"</p>
+                            </div>
+
+                            <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                                @if($latestSub && $latestSub->file_url)
+                                    <button type="button" 
+                                        @click.prevent="$dispatch('open-document-preview', { 
+                                            url: '{{ Storage::url($latestSub->file_url) }}', 
+                                            title: '{{ addslashes($studentName) }} - {{ addslashes($template->name) }}',
+                                            type: '{{ str_ends_with(strtolower($latestSub->file_url), '.pdf') ? 'pdf' : 'other' }}'
+                                        })"
+                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-900 text-slate-700 hover:text-white border border-slate-200 text-xs font-bold transition-all">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                        <span>Doc</span>
+                                    </button>
+                                @else
+                                    <span class="text-[10px] text-slate-400 font-bold uppercase">No Doc</span>
+                                @endif
+
+                                <div class="flex items-center gap-2">
+                                    @if($tableCanEval)
+                                        @if($tableEval && $tableEval->submitted_at)
+                                            <a href="{{ route('evaluations.show', $tableEval->id) }}" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider {{ strtolower($tableEval->verdict ?? '') === 'fail' ? 'bg-rose-100 text-rose-800' : 'bg-purple-100 text-purple-800' }}">
+                                                {{ $tableEval->verdict ? strtoupper($tableEval->verdict) : 'Graded' }}
+                                            </a>
+                                        @elseif($isToday)
+                                            <a href="{{ route('evaluations.create', $tableDefEvent->id) }}" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider bg-purple-600 text-white">
+                                                Score
+                                            </a>
+                                        @endif
+                                    @endif
+
+                                    @if($cardLink)
+                                        <a href="{{ $cardLink }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                            Zoom
+                                        </a>
+                                    @endif
+
+                                    @if(auth()->user()->hasRole('Admin') && $sm->status !== 'approved')
+                                        <form action="{{ route('milestones.end_presentation', $sm) }}" method="POST" class="inline">
+                                            @csrf
+                                            <button type="submit" 
+                                                data-confirm="End presentation for {{ addslashes($studentName) }}?"
+                                                data-confirm-title="End Presentation"
+                                                class="px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200">
+                                                End
+                                            </button>
+                                        </form>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+
+                {{-- Desktop Table View --}}
+                <div class="hidden md:block overflow-x-auto">
                     <table class="w-full text-left text-xs border-collapse">
                         <thead class="bg-slate-50/90 border-b border-slate-200/70 text-[10px] font-black uppercase tracking-wider text-slate-400">
                             <tr>

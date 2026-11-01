@@ -70,11 +70,11 @@ x-init="
 class="space-y-8 animate-in">
 
     {{-- Welcome Hero & Multi-Role Executive Banner --}}
-    <div class="relative overflow-hidden rounded-3xl bg-white border border-green-100 shadow-sm p-8 lg:p-10">
+    <div class="relative overflow-hidden rounded-3xl bg-white border border-green-100 shadow-sm p-5 sm:p-8 lg:p-10">
         <div class="absolute top-0 right-0 w-80 h-80 bg-green-50 rounded-full -mr-24 -mt-24 opacity-60 pointer-events-none"></div>
         <div class="absolute bottom-0 left-0 w-56 h-56 bg-emerald-50 rounded-full -ml-20 -mb-20 opacity-40 pointer-events-none"></div>
 
-        <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+        <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6 sm:gap-8">
             {{-- Left: Greeting & Role Badges --}}
             <div class="flex-1 space-y-4">
                 <div class="flex flex-wrap items-center gap-2">
@@ -94,10 +94,10 @@ class="space-y-8 animate-in">
                 </div>
 
                 <div>
-                    <h2 class="text-3xl lg:text-4xl font-black text-slate-800 tracking-tight leading-tight">
+                    <h2 class="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-800 tracking-tight leading-tight">
                         Welcome back, <span class="text-green-600">{{ auth()->user()->firstName() }}</span>
                     </h2>
-                    <p class="mt-2 text-slate-500 font-medium leading-relaxed max-w-2xl text-sm">
+                    <p class="mt-2 text-slate-500 font-medium leading-relaxed max-w-2xl text-xs sm:text-sm">
                         Comprehensive academic governance portal. Seamlessly manage research candidates, orchestrate program coordination, and conduct thesis examinations across your active portfolios.
                     </p>
                 </div>

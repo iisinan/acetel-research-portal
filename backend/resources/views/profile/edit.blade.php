@@ -7,17 +7,17 @@
 @section('content')
 <div class="space-y-8 animate-in-up">
     <!-- Profile & Security Header -->
-    <div class="relative overflow-hidden rounded-[2.5rem] p-6 md:p-10 bg-grad-premium border border-white/20 shadow-premium group">
+    <div class="relative overflow-hidden rounded-3xl sm:rounded-[2.5rem] p-5 sm:p-8 md:p-10 bg-grad-premium border border-white/20 shadow-premium group">
         <div class="absolute top-0 right-0 -mt-24 -mr-24 w-80 h-80 bg-white/10 blur-[100px] rounded-full group-hover:bg-white/15 transition-all duration-1000"></div>
-        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6 sm:gap-8">
             <div>
-                <h2 class="text-3xl font-black text-white tracking-tighter mb-2 leading-tight">Profile Management</h2>
-                <p class="text-black/80 font-medium text-sm max-w-lg">Manage your account profile and password settings.</p>
+                <h2 class="text-2xl sm:text-3xl font-black text-white tracking-tighter mb-2 leading-tight">Profile Management</h2>
+                <p class="text-black/80 font-medium text-xs sm:text-sm max-w-lg">Manage your account profile and password settings.</p>
             </div>
             <div class="flex gap-4">
-                <div class="px-6 py-4 glass text-center border-white/10 min-w-[140px]">
+                <div class="px-5 sm:px-6 py-3.5 sm:py-4 glass text-center border-white/10 min-w-[120px] sm:min-w-[140px] rounded-2xl sm:rounded-3xl">
                     <p class="text-[10px] font-black text-black uppercase tracking-widest mb-1">User Role</p>
-                    <p class="text-2xl font-black text-white leading-tight">{{ Auth::user()->getRoleNames()->first() }}</p>
+                    <p class="text-xl sm:text-2xl font-black text-white leading-tight">{{ Auth::user()->getRoleNames()->first() }}</p>
                 </div>
             </div>
         </div>

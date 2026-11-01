@@ -36,7 +36,7 @@
     attachedFileName: '',
     chatAttachedFileName: '',
     mobileShowChat: {{ $selectedPartner ? 'true' : 'false' }}
-}" class="h-[calc(100vh-8rem)] min-h-[600px] flex flex-col pb-4 animate-in-up">
+}" class="h-[calc(100dvh-5.5rem)] sm:h-[calc(100vh-8rem)] min-h-[500px] sm:min-h-[600px] flex flex-col pb-4 animate-in-up">
 
     {{-- Main Chat App Container --}}
     <div class="flex-1 bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex flex-col md:flex-row relative">
@@ -343,11 +343,11 @@
          class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity"
          @keydown.escape.window="newModalOpen = false">
         
-        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden animate-in-up"
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden animate-in-up"
              @click.outside="newModalOpen = false">
             
             {{-- Modal Header --}}
-            <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div class="px-5 sm:px-6 py-4 sm:py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
                 <div class="flex items-center gap-3">
                     <div class="p-2 rounded-xl bg-emerald-100 text-emerald-600">
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -368,14 +368,14 @@
             </div>
 
             {{-- Modal Form --}}
-            <form method="POST" action="{{ route('inbox.store') }}" enctype="multipart/form-data" class="p-6 space-y-4">
+            <form method="POST" action="{{ route('inbox.store') }}" enctype="multipart/form-data" class="p-5 sm:p-6 space-y-4 overflow-y-auto">
                 @csrf
                 
                 @if(auth()->user()->hasRole('Admin'))
                 {{-- Delivery Method --}}
                 <div class="space-y-1.5 pb-2 border-b border-slate-100">
                     <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Delivery Method</label>
-                    <div class="flex flex-wrap gap-4">
+                    <div class="flex flex-col sm:flex-row flex-wrap gap-2.5 sm:gap-4">
                         <label class="flex items-center gap-2 cursor-pointer group">
                             <input type="radio" name="delivery_method" value="both" checked class="w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500">
                             <span class="text-sm font-bold text-slate-700 group-hover:text-emerald-600 transition-colors">Both (In-App & Email)</span>
@@ -447,14 +447,14 @@
                 </div>
 
                 {{-- Modal Actions --}}
-                <div class="pt-4 flex items-center justify-end gap-3 mt-2">
+                <div class="pt-4 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 mt-2">
                     <button type="button" 
                             @click="newModalOpen = false" 
-                            class="px-5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer">
+                            class="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer text-center">
                         Cancel
                     </button>
                     <button type="submit" 
-                            class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition-colors shadow-sm cursor-pointer">
+                            class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold transition-colors shadow-sm cursor-pointer text-center">
                         Send Message
                     </button>
                 </div>

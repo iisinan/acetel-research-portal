@@ -7,11 +7,11 @@
 @section('content')
 <div class="space-y-8 animate-in">
     {{-- Welcome Hero --}}
-    <div class="relative overflow-hidden rounded-3xl bg-white border border-green-100 shadow-sm p-8 lg:p-10">
+    <div class="relative overflow-hidden rounded-3xl bg-white border border-green-100 shadow-sm p-5 sm:p-8 lg:p-10">
         <div class="absolute top-0 right-0 w-72 h-72 bg-green-50 rounded-full -mr-20 -mt-20 opacity-60"></div>
         <div class="absolute bottom-0 left-0 w-48 h-48 bg-green-50 rounded-full -ml-16 -mb-16 opacity-40"></div>
 
-        <div class="relative z-10 flex flex-col md:flex-row md:items-center gap-8">
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center gap-6 sm:gap-8">
             {{-- Left: Greeting --}}
             <div class="flex-1 space-y-4">
                 <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-full border border-green-200">
@@ -23,7 +23,7 @@
                 </div>
 
                 <div>
-                    <h2 class="text-3xl lg:text-4xl font-black text-slate-800 tracking-tight leading-tight">
+                    <h2 class="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-800 tracking-tight leading-tight">
                         Welcome back, <span class="text-green-600">{{ auth()->user()->firstName() }}</span>
                     </h2>
                     <p class="mt-2 text-slate-500 font-medium leading-relaxed max-w-xl">
@@ -170,23 +170,23 @@
 
                 <div class="divide-y divide-slate-50">
                     @forelse($theses as $thesis)
-                        <div class="p-8 hover:bg-slate-50/50 transition-colors group">
-                             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                                 <div class="flex items-center gap-5">
-                                     <div class="w-14 h-14 rounded-2xl bg-green-50 border border-green-100 flex items-center justify-center text-green-700 font-black text-xl shadow-sm group-hover:bg-green-600 group-hover:text-white transition-all duration-300">
+                        <div class="p-5 sm:p-8 hover:bg-slate-50/50 transition-colors group">
+                             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-5 sm:gap-6">
+                                 <div class="flex items-center gap-4 sm:gap-5">
+                                     <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-green-50 border border-green-100 flex items-center justify-center text-green-700 font-black text-lg sm:text-xl shadow-sm group-hover:bg-green-600 group-hover:text-white transition-all duration-300 shrink-0">
                                          {{ substr($thesis->student->user->name, 0, 1) }}
                                      </div>
                                      <div class="min-w-0">
-                                         <h4 class="text-lg font-black text-slate-800 group-hover:text-green-600 transition-colors tracking-tight leading-none mb-2">{{ $thesis->student->user->name }}</h4>
+                                         <h4 class="text-base sm:text-lg font-black text-slate-800 group-hover:text-green-600 transition-colors tracking-tight leading-none mb-1.5 sm:mb-2 truncate">{{ $thesis->student->user->name }}</h4>
                                          <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">{{ $thesis->student->program->code ?? 'N/A' }} • {{ $thesis->student->student_id_number }}</p>
                                          <p class="text-xs text-slate-500 truncate max-w-sm" title="{{ $thesis->title }}">"{{ $thesis->title }}"</p>
                                      </div>
                                  </div>
-                                 <div class="flex items-center gap-3">
-                                     <a href="{{ route('inbox.compose', ['reply_to' => $thesis->student->user_id]) }}" class="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-green-600 hover:border-green-200 transition-all shadow-sm" title="Send Message">
+                                 <div class="flex items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
+                                     <a href="{{ route('inbox.compose', ['reply_to' => $thesis->student->user_id]) }}" class="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-green-600 hover:border-green-200 transition-all shadow-sm shrink-0" title="Send Message">
                                          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
                                      </a>
-                                     <a href="{{ route('theses.show', $thesis) }}" class="flex items-center justify-center px-6 py-3 bg-white border border-slate-200 rounded-xl text-slate-700 text-xs font-black uppercase tracking-widest hover:bg-green-600 hover:border-green-600 hover:text-white transition-all shadow-sm">
+                                     <a href="{{ route('theses.show', $thesis) }}" class="flex-1 sm:flex-none flex items-center justify-center px-6 py-3 bg-white border border-slate-200 rounded-xl text-slate-700 text-xs font-black uppercase tracking-widest hover:bg-green-600 hover:border-green-600 hover:text-white transition-all shadow-sm text-center">
                                          Audit Thesis
                                      </a>
                                  </div>

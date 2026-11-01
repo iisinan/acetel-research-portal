@@ -8,12 +8,12 @@
 <div class="space-y-10 pb-10">
 
     {{-- Executive Hero Header --}}
-    <div class="relative overflow-hidden rounded-3xl bg-slate-900 p-10 shadow-2xl shadow-slate-900/30">
+    <div class="relative overflow-hidden rounded-3xl bg-slate-900 p-6 sm:p-10 shadow-2xl shadow-slate-900/30">
         <div class="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950"></div>
         <div class="absolute top-0 right-0 w-96 h-96 bg-brand-500/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl"></div>
         <div class="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/10 rounded-full translate-y-1/2 -translate-x-1/4 blur-3xl"></div>
 
-        <div class="relative z-10 flex flex-col lg:flex-row gap-10 items-start lg:items-center justify-between print:hidden">
+        <div class="relative z-10 flex flex-col lg:flex-row gap-6 lg:gap-10 items-start lg:items-center justify-between print:hidden">
             <div>
                 <div class="flex items-center gap-3 mb-4">
                     <div class="px-3 py-1.5 bg-white/5 border border-white/10 rounded-full flex items-center gap-2 backdrop-blur-sm">
@@ -24,7 +24,7 @@
                         <span class="text-[10px] font-black uppercase tracking-widest text-white/60">Live Institutional Data</span>
                     </div>
                 </div>
-                <h1 class="text-4xl font-black text-white tracking-tight leading-tight">
+                <h1 class="text-2xl sm:text-4xl font-black text-white tracking-tight leading-tight">
                     Director<br><span class="text-brand-400">Command Centre</span>
                 </h1>
                 <p class="mt-3 text-slate-400 font-medium text-sm max-w-lg">
@@ -34,8 +34,8 @@
 
             {{-- Global Strategic Filters --}}
             <form action="{{ route('dashboard') }}" method="GET" class="w-full lg:w-auto">
-                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    <div class="col-span-2 lg:col-span-4 relative">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div class="col-span-1 sm:col-span-2 lg:col-span-4 relative">
                         <input type="text" name="search_student" value="{{ request('search_student') }}"
                             placeholder="Search by name, email or matric no..."
                             class="w-full bg-white/5 border border-white/10 rounded-2xl text-sm font-medium text-white placeholder-slate-500 focus:ring-brand-500 focus:border-brand-400 pl-12 pr-4 py-3.5 transition-colors backdrop-blur-sm">
@@ -79,7 +79,7 @@
     </div>
 
     {{-- KPI Metrics Row --}}
-    <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         @php
             $kpis = [
                 ['label' => 'Total Candidates', 'value' => $stats['total_students'], 'icon' => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', 'color' => 'brand', 'sub' => 'Registered', 'link' => route('coordinator.students.index')],
@@ -100,21 +100,21 @@
             @php $c = $colorMap[$kpi['color']]; @endphp
             <div class="group">
                 @if($kpi['link'])
-                    <a href="{{ $kpi['link'] }}" class="block bg-white border border-slate-100 rounded-3xl p-6 shadow-sm hover:shadow-lg {{ $c['glow'] }} transition-all duration-300 hover:-translate-y-1">
+                    <a href="{{ $kpi['link'] }}" class="block bg-white border border-slate-100 rounded-3xl p-4 sm:p-6 shadow-sm hover:shadow-lg {{ $c['glow'] }} transition-all duration-300 hover:-translate-y-1">
                 @else
-                    <div class="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+                    <div class="bg-white border border-slate-100 rounded-3xl p-4 sm:p-6 shadow-sm">
                 @endif
-                        <div class="flex items-start justify-between mb-6">
-                            <div class="w-12 h-12 {{ $c['bg'] }} rounded-2xl flex items-center justify-center ring-4 {{ $c['ring'] }}">
+                        <div class="flex items-start justify-between mb-4 sm:mb-6">
+                            <div class="w-10 h-10 sm:w-12 sm:h-12 {{ $c['bg'] }} rounded-2xl flex items-center justify-center ring-4 {{ $c['ring'] }}">
                                 <svg class="w-5 h-5 {{ $c['icon'] }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $kpi['icon'] }}"/></svg>
                             </div>
                             @if($kpi['link'])
                                 <svg class="w-4 h-4 text-slate-300 group-hover:{{ $c['icon'] }} transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
                             @endif
                         </div>
-                        <p class="text-4xl font-black text-slate-900 tracking-tight">{{ $kpi['value'] }}</p>
-                        <p class="text-[10px] font-black uppercase tracking-widest {{ $c['text'] }} mt-3">{{ $kpi['label'] }}</p>
-                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">{{ $kpi['sub'] }}</p>
+                        <p class="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">{{ $kpi['value'] }}</p>
+                        <p class="text-[10px] font-black uppercase tracking-widest {{ $c['text'] }} mt-2 sm:mt-3">{{ $kpi['label'] }}</p>
+                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 sm:mt-1">{{ $kpi['sub'] }}</p>
                 @if($kpi['link'])
                     </a>
                 @else
@@ -127,26 +127,26 @@
     {{-- Stalled Students / Grace Period Alert Banner --}}
     @if(isset($stalled_students) && $stalled_students->count() > 0)
     <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-amber-600 to-amber-500 p-px shadow-2xl shadow-amber-600/30">
-        <div class="bg-gradient-to-r from-amber-700 to-amber-600 rounded-3xl p-8 flex flex-col md:flex-row items-start md:items-center gap-8 relative overflow-hidden">
+        <div class="bg-gradient-to-r from-amber-700 to-amber-600 rounded-3xl p-5 sm:p-8 flex flex-col md:flex-row items-start md:items-center gap-5 sm:gap-8 relative overflow-hidden">
             <div class="absolute inset-0 opacity-10" style="background-image: url(\"data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='white' fill-opacity='1' fill-rule='evenodd'%3E%3Ccircle cx='3' cy='3' r='1'/%3E%3C/g%3E%3C/svg%3E\");"></div>
-            <div class="flex items-center gap-5 flex-1 relative z-10">
-                <div class="w-16 h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0">
-                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <div class="flex items-center gap-4 sm:gap-5 flex-1 relative z-10">
+                <div class="w-14 h-12 sm:w-16 sm:h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0">
+                    <svg class="w-6 h-6 sm:w-7 sm:h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 </div>
                 <div>
                     <span class="text-[9px] font-black uppercase tracking-widest text-amber-200">Grace Period Breach</span>
-                    <h3 class="text-2xl font-black text-white mt-1 tracking-tight">{{ $stalled_students->count() }} Stalled Candidates</h3>
-                    <p class="text-amber-100 text-sm font-medium mt-1">These students have had zero milestone activity for over 14 days.</p>
+                    <h3 class="text-xl sm:text-2xl font-black text-white mt-0.5 sm:mt-1 tracking-tight">{{ $stalled_students->count() }} Stalled Candidates</h3>
+                    <p class="text-amber-100 text-xs sm:text-sm font-medium mt-0.5 sm:mt-1">These students have had zero milestone activity for over 14 days.</p>
                 </div>
             </div>
             
-            <div class="relative z-10 group/stalled" x-data="{ open: false }">
-                <button @click="open = !open" class="px-8 py-4 bg-white text-amber-700 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-3 shadow-lg">
+            <div class="relative z-10 group/stalled w-full md:w-auto" x-data="{ open: false }">
+                <button @click="open = !open" class="w-full md:w-auto justify-center px-6 sm:px-8 py-3.5 sm:py-4 bg-white text-amber-700 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-3 shadow-lg">
                     Intervene Now
                     <svg class="w-3 h-3" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </button>
 
-                <div x-show="open" @click.away="open = false" x-transition class="absolute right-0 top-full mt-3 w-96 bg-white rounded-3xl shadow-2xl border border-slate-100 z-50 overflow-hidden" style="display:none">
+                <div x-show="open" @click.away="open = false" x-transition class="absolute right-0 top-full mt-3 w-[calc(100vw-2.5rem)] sm:w-96 max-w-sm bg-white rounded-3xl shadow-2xl border border-slate-100 z-50 overflow-hidden" style="display:none">
                     <div class="max-h-80 overflow-y-auto divide-y divide-slate-50">
                         @foreach($stalled_students as $stalled)
                         <div class="px-6 py-4 hover:bg-amber-50 transition-colors">
