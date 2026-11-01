@@ -89,17 +89,25 @@ class MilestoneWorkflowService
             return "Structural Block: Defence date must be scheduled before approval.";
         }
 
-        // Internal Defence Scopus Publication Guard
+        // Internal Defence Scopus & Supervisor Co-authorship Guard
         if ($template->slug === 'internal_defence' || $template->order == 6) {
             $student = $milestone->thesis?->student;
             $requiredPubs = $student ? $student->requiredPublicationsCount() : 1;
-            $scopusPubCount = $milestone->submissions()
+            $assignedSupervisors = $milestone->thesis?->getSupervisorNames() ?? [];
+
+            $compliantPubCount = $milestone->submissions()
                 ->where('type', 'publication')
                 ->where('is_scopus_indexed', true)
+                ->where(function ($q) use ($assignedSupervisors) {
+                    if (!empty($assignedSupervisors)) {
+                        $q->where('has_supervisor_coauthor', true);
+                    }
+                })
                 ->count();
-            if ($scopusPubCount < $requiredPubs && !$user->hasRole('Admin')) {
+
+            if ($compliantPubCount < $requiredPubs && !$user->hasRole('Admin')) {
                 $level = $student?->isPhd() ? 'PhD' : 'MSc';
-                return "Scopus Requirement: {$level} candidates must have at least {$requiredPubs} verified Scopus-indexed publication(s) on file before Internal Defence clearance.";
+                return "Publication Requirement: {$level} candidates must have at least {$requiredPubs} verified Scopus-indexed publication(s) co-authored with their assigned supervisor(s) on file before Internal Defence clearance.";
             }
         }
 

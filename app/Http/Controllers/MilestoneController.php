@@ -498,10 +498,17 @@ class MilestoneController extends Controller
         $isPhd = $student ? $student->isPhd() : false;
         $requiredPubsCount = $student ? $student->requiredPublicationsCount() : 1;
         
-        // Only verified Scopus-indexed publications count towards institutional milestone requirement
-        $existingScopusPubsCount = $milestone->submissions()
+        $assignedSupervisors = $milestone->thesis?->getSupervisorNames() ?? [];
+
+        // Only verified Scopus-indexed publications co-authored with assigned supervisor count towards institutional milestone requirement
+        $existingCompliantPubsCount = $milestone->submissions()
             ->where('type', 'publication')
             ->where('is_scopus_indexed', true)
+            ->where(function ($q) use ($assignedSupervisors) {
+                if (!empty($assignedSupervisors)) {
+                    $q->where('has_supervisor_coauthor', true);
+                }
+            })
             ->count();
 
         // Parse structured publications input: publications[i][file], publications[i][title], publications[i][doi]
@@ -547,19 +554,19 @@ class MilestoneController extends Controller
             // PhD: at least 2 publications
             // (Only enforced if not post-defence stage, where only corrected manuscript is required)
             if (!$isPostDefenceStage) {
-                $totalPubs = $existingScopusPubsCount + count($parsedPubs);
+                $totalPubs = $existingCompliantPubsCount + count($parsedPubs);
                 if ($totalPubs < $requiredPubsCount) {
                     $levelLabel = $isPhd ? 'PhD' : 'MSc';
                     $s = $requiredPubsCount > 1 ? 's' : '';
                     return back()->withInput()->withErrors([
-                        'publications' => "As a {$levelLabel} candidate, you are required to submit at least {$requiredPubsCount} Scopus-indexed publication{$s} (including Title, DOI, and PDF) for this milestone."
+                        'publications' => "As a {$levelLabel} candidate, you are required to submit at least {$requiredPubsCount} Scopus-indexed publication{$s} co-authored with your assigned supervisor (including Title, DOI, and PDF) for this milestone."
                     ]);
                 }
             }
 
             $scopusVerifier = app(\App\Services\ScopusVerificationService::class);
 
-            // For each submitted publication, validate file, title, and DOI, AND strictly verify Scopus indexing
+            // For each submitted publication, validate file, title, DOI, Scopus indexing, and supervisor co-authorship
             foreach ($parsedPubs as $pIdx => $pubItem) {
                 $slotNum = $pIdx + 1;
                 if (empty($pubItem['file'])) {
@@ -588,9 +595,9 @@ class MilestoneController extends Controller
                     ]);
                 }
 
-                // Strict Scopus Indexing Verification
+                // Strict Scopus Indexing and Supervisor Co-authorship Verification
                 try {
-                    $scopusInfo = $scopusVerifier->verify($pubItem['doi']);
+                    $scopusInfo = $scopusVerifier->verify($pubItem['doi'], $assignedSupervisors);
                 } catch (\Throwable $e) {
                     return back()->withInput()->withErrors([
                         'publications' => "Error verifying Publication #{$slotNum} DOI against Scopus: " . $e->getMessage()
@@ -604,10 +611,19 @@ class MilestoneController extends Controller
                     ]);
                 }
 
-                // Institutional Gate: ONLY Scopus-indexed publications are allowed!
+                // Institutional Gate 1: ONLY Scopus-indexed publications are allowed!
                 if (empty($scopusInfo['is_scopus_indexed'])) {
                     return back()->withInput()->withErrors([
                         'publications' => "Institutional Requirement: Every publication for Internal Defence must be indexed in Scopus. Publication #{$slotNum} with DOI '{$pubItem['doi']}' is not indexed in Scopus. You cannot submit this milestone until all required publications are verified as Scopus-indexed."
+                    ]);
+                }
+
+                // Institutional Gate 2: Publication MUST include assigned supervisor as co-author!
+                if (!empty($assignedSupervisors) && empty($scopusInfo['has_supervisor_coauthor'])) {
+                    $supNamesStr = implode(', ', $assignedSupervisors);
+                    $authNamesStr = !empty($scopusInfo['authors']) ? implode(', ', $scopusInfo['authors']) : 'None found in DOI registry';
+                    return back()->withInput()->withErrors([
+                        'publications' => "Institutional Requirement: For a publication to be accepted, your assigned supervisor ({$supNamesStr}) must be an author. Publication #{$slotNum} authors ({$authNamesStr}) do not match any of your assigned supervisors. You cannot submit this milestone until your publication is co-authored with your supervisor."
                     ]);
                 }
 
@@ -616,6 +632,9 @@ class MilestoneController extends Controller
                     'title' => !empty($pubItem['title']) ? $pubItem['title'] : ($scopusInfo['title'] ?? 'Institutional Publication'),
                     'doi' => $scopusInfo['doi'] ?? $pubItem['doi'],
                     'is_scopus_indexed' => true,
+                    'has_supervisor_coauthor' => $scopusInfo['has_supervisor_coauthor'] ?? false,
+                    'matched_supervisor_name' => $scopusInfo['matched_supervisor_name'] ?? null,
+                    'publication_authors' => $scopusInfo['authors'] ?? [],
                     'scopus_data' => $scopusInfo['scopus_data'] ?? null,
                 ];
             }
@@ -697,7 +716,7 @@ class MilestoneController extends Controller
             }
         }
 
-        // Handle Publications (Only verified Scopus-indexed publications are stored)
+        // Handle Publications (Only verified Scopus-indexed & supervisor co-authored publications are stored)
         if ((in_array('publication', $subTypes) || in_array('publications', $subTypes)) && !empty($verifiedPubData)) {
             foreach ($verifiedPubData as $pubItem) {
                 /** @var \Illuminate\Http\UploadedFile $pubFile */
@@ -705,6 +724,9 @@ class MilestoneController extends Controller
                 $finalTitle = $pubItem['title'];
                 $finalDoi = $pubItem['doi'];
                 $isScopusIndexed = $pubItem['is_scopus_indexed'];
+                $hasSupervisorCoauthor = $pubItem['has_supervisor_coauthor'] ?? false;
+                $matchedSupervisorName = $pubItem['matched_supervisor_name'] ?? null;
+                $publicationAuthors = $pubItem['publication_authors'] ?? [];
                 $scopusData = $pubItem['scopus_data'];
 
                 $pubPath = $pubFile->store('submissions/' . $milestone->thesis_project_id . '/publications');
@@ -715,6 +737,9 @@ class MilestoneController extends Controller
                     'publication_title' => $finalTitle ?: 'Institutional Publication',
                     'doi' => $finalDoi ?: null,
                     'is_scopus_indexed' => $isScopusIndexed,
+                    'has_supervisor_coauthor' => $hasSupervisorCoauthor,
+                    'matched_supervisor_name' => $matchedSupervisorName,
+                    'publication_authors' => $publicationAuthors,
                     'scopus_data' => $scopusData,
                     'file_url' => $pubPath,
                     'file_meta' => [
@@ -723,7 +748,7 @@ class MilestoneController extends Controller
                         'size' => $pubFile->getSize(),
                     ],
                     'checksum' => md5_file($pubFile->getRealPath()),
-                    'description' => 'Scopus-Indexed Publication',
+                    'description' => 'Scopus-Indexed Publication' . ($matchedSupervisorName ? " (Co-authored with {$matchedSupervisorName})" : ''),
                     'version' => $milestone->submissions()->where('type', 'publication')->count() + 1,
                 ]);
             }

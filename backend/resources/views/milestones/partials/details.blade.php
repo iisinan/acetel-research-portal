@@ -469,7 +469,12 @@
                                 $student = $milestone->thesis?->student;
                                 $isPhdCandidate = $student ? $student->isPhd() : false;
                                 $requiredPubs = $student ? $student->requiredPublicationsCount() : 1;
-                                $existingPubs = $milestone->submissions->where('type', 'publication')->where('is_scopus_indexed', true);
+                                $assignedSupervisors = $milestone->thesis?->getSupervisorNames() ?? [];
+                                $existingPubs = $milestone->submissions->where('type', 'publication')
+                                    ->where('is_scopus_indexed', true)
+                                    ->filter(function ($sub) use ($assignedSupervisors) {
+                                        return empty($assignedSupervisors) || $sub->has_supervisor_coauthor;
+                                    });
                                 $existingPubsCount = $existingPubs->count();
                                 $initialSlotsNeeded = max(1, $requiredPubs - $existingPubsCount);
                                 if ($isPostDefenceStage) {
@@ -484,9 +489,10 @@
                                 requiredPubs: {{ $requiredPubs }},
                                 existingPubsCount: {{ $existingPubsCount }},
                                 isPhd: {{ $isPhdCandidate ? 'true' : 'false' }},
+                                assignedSupervisors: {{ Js::from($assignedSupervisors) }},
                                 pubSlots: [
                                     @for($i = 0; $i < $initialSlotsNeeded; $i++)
-                                        { id: {{ $i }}, title: '', doi: '', fileName: '', checking: false, verified: false, scopusIndexed: false, statusText: '', journal: '', error: '' },
+                                        { id: {{ $i }}, title: '', doi: '', fileName: '', checking: false, verified: false, scopusIndexed: false, hasSupervisor: false, matchedSupervisor: '', authors: [], statusText: '', journal: '', error: '' },
                                     @endfor
                                 ],
                                 addSlot() {
@@ -499,6 +505,9 @@
                                             checking: false,
                                             verified: false,
                                             scopusIndexed: false,
+                                            hasSupervisor: false,
+                                            matchedSupervisor: '',
+                                            authors: [],
                                             statusText: '',
                                             journal: '',
                                             error: ''
@@ -514,7 +523,7 @@
                                     if (!slot.doi || !slot.doi.trim()) return;
                                     slot.checking = true;
                                     slot.error = '';
-                                    fetch('{{ route('publications.verify_doi') }}?doi=' + encodeURIComponent(slot.doi.trim()), {
+                                    fetch('{{ route('publications.verify_doi') }}?doi=' + encodeURIComponent(slot.doi.trim()) + '&milestone_id={{ $milestone->id }}', {
                                         headers: { 'Accept': 'application/json' }
                                     })
                                     .then(res => res.json())
@@ -522,6 +531,9 @@
                                         if (data.valid) {
                                             slot.verified = true;
                                             slot.scopusIndexed = !!data.is_scopus_indexed;
+                                            slot.hasSupervisor = !!data.has_supervisor_coauthor;
+                                            slot.matchedSupervisor = data.matched_supervisor_name || '';
+                                            slot.authors = data.authors || [];
                                             slot.statusText = data.status_label || (data.is_scopus_indexed ? 'Indexed in Scopus' : 'DOI Verified');
                                             slot.journal = data.journal || data.publisher || '';
                                             if (!slot.title && data.title) {
@@ -530,6 +542,9 @@
                                         } else {
                                             slot.verified = false;
                                             slot.scopusIndexed = false;
+                                            slot.hasSupervisor = false;
+                                            slot.matchedSupervisor = '';
+                                            slot.authors = [];
                                             slot.statusText = data.error || 'Invalid DOI';
                                             slot.error = data.error || 'Invalid or unrecognized DOI';
                                         }
@@ -553,14 +568,19 @@
                                 if (hasPubRequirement && !isPostDefenceStage) {
                                     let validSlots = pubSlots.filter(s => s.fileName || s.title || s.doi);
                                     if ((validSlots.length + existingPubsCount) < requiredPubs) {
-                                        fileError = 'As a ' + (isPhd ? 'PhD' : 'MSc') + ' candidate, you must submit at least ' + requiredPubs + ' Scopus-indexed publication' + (requiredPubs > 1 ? 's' : '') + ' (with Title, DOI, and PDF).';
+                                        fileError = 'As a ' + (isPhd ? 'PhD' : 'MSc') + ' candidate, you must submit at least ' + requiredPubs + ' Scopus-indexed publication' + (requiredPubs > 1 ? 's' : '') + ' co-authored with your assigned supervisor (with Title, DOI, and PDF).';
                                         (window.toast ? window.toast.error(fileError) : alert(fileError));
                                         return;
                                     }
                                     for (let i = 0; i < validSlots.length; i++) {
                                         let slot = validSlots[i];
                                         if (!slot.verified || !slot.scopusIndexed) {
-                                            fileError = 'Publication #' + (i + 1) + ' is not verified as indexed in Scopus. Institutional regulations strictly require all publications for Internal Defence to be indexed in Scopus. You cannot submit until this is resolved.';
+                                            fileError = 'Publication #' + (i + 1) + ' is not verified as indexed in Scopus. Institutional regulations strictly require all publications for Internal Defence to be indexed in Scopus.';
+                                            (window.toast ? window.toast.error(fileError) : alert(fileError));
+                                            return;
+                                        }
+                                        if (assignedSupervisors.length > 0 && !slot.hasSupervisor) {
+                                            fileError = 'Publication #' + (i + 1) + ' does not list your assigned supervisor (' + assignedSupervisors.join(', ') + ') as an author. For a publication to be accepted, it must include your assigned supervisor.';
                                             (window.toast ? window.toast.error(fileError) : alert(fileError));
                                             return;
                                         }
