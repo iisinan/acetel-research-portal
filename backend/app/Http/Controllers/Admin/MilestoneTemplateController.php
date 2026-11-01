@@ -566,6 +566,7 @@ class MilestoneTemplateController extends Controller
             foreach ($milestones as $sm) {
                 $thesis = $sm->thesis;
                 $studentUser = $thesis?->student?->user;
+                $previousTime = $sm->defence_time;
 
                 $updateData = ['defence_date' => $toDateStr];
                 if ($request->filled('start_time')) {
@@ -602,9 +603,14 @@ class MilestoneTemplateController extends Controller
                     if ($studentUser) {
                         \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
                         try {
-                            $studentUser->notify(new \App\Notifications\EventScheduled($event));
+                            $studentUser->notify(new \App\Notifications\EventRescheduled(
+                                $event,
+                                $fromDateStr,
+                                $previousTime,
+                                $template->name
+                            ));
                         } catch (\Throwable $e) {
-                            \Illuminate\Support\Facades\Log::error('Notification failed: ' . $e->getMessage());
+                            \Illuminate\Support\Facades\Log::error('Reschedule notification failed: ' . $e->getMessage());
                         }
                     }
                 }
@@ -668,9 +674,12 @@ class MilestoneTemplateController extends Controller
             }
 
             // Schedule or change date
+            $previousDate = $milestone->defence_date ? \Carbon\Carbon::parse($milestone->defence_date)->format('Y-m-d') : null;
+            $previousTime = $milestone->defence_time;
             $newDate = \Carbon\Carbon::parse($request->defence_date)->format('Y-m-d');
             $newTime = $request->defence_time ?: null;
             $newLink = $request->meeting_link ?: null;
+            $isMoved = !empty($previousDate) && ($previousDate !== $newDate || $previousTime !== $newTime);
 
             $milestone->update([
                 'defence_date' => $newDate,
@@ -713,7 +722,16 @@ class MilestoneTemplateController extends Controller
                 if ($studentUser) {
                     \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
                     try {
-                        $studentUser->notify(new \App\Notifications\EventScheduled($event));
+                        if ($isMoved) {
+                            $studentUser->notify(new \App\Notifications\EventRescheduled(
+                                $event,
+                                $previousDate,
+                                $previousTime,
+                                $template->name
+                            ));
+                        } else {
+                            $studentUser->notify(new \App\Notifications\EventScheduled($event));
+                        }
                     } catch (\Throwable $e) {
                         \Illuminate\Support\Facades\Log::error('Event notification error: ' . $e->getMessage());
                     }
