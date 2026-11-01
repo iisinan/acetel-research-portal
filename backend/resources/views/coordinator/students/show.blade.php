@@ -158,10 +158,10 @@
                                         <div class="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100/50">
                                             <div class="flex items-center gap-4">
                                                 <div class="w-8 h-8 rounded-full flex items-center justify-center font-black text-xs {{ $m->status === 'approved' ? 'bg-emerald-100 text-emerald-600' : ($m->status === 'submitted' ? 'bg-amber-100 text-amber-600' : 'bg-slate-200 text-slate-500') }}">
-                                                    {{ $m->template->order }}
+                                                    {{ $m->template?->order ?? '•' }}
                                                 </div>
                                                 <div>
-                                                    <span class="text-xs font-bold text-slate-900">{{ $m->template->name }}</span>
+                                                    <span class="text-xs font-bold text-slate-900">{{ $m->template?->name ?? 'Milestone' }}</span>
                                                     <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Updated: {{ $m->updated_at->diffForHumans() }}</p>
                                                 </div>
                                             </div>
@@ -216,10 +216,10 @@
                     @forelse($assignments as $assignment)
                         <div class="flex items-center gap-4 p-5 bg-slate-50/50 rounded-2xl border border-slate-100 hover:border-acetel-200 transition-colors group/item">
                             <div class="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 font-black text-sm group-hover/item:text-acetel-500 group-hover/item:border-acetel-200 transition-all">
-                                {{ substr($assignment->supervisor?->user?->name, 0, 1) }}
+                                {{ substr($assignment->supervisor?->user?->name ?? 'S', 0, 1) }}
                             </div>
                             <div class="flex-1 min-w-0">
-                                <h4 class="text-xs font-black text-slate-900 truncate tracking-tight">{{ $assignment->supervisor?->user?->name }}</h4>
+                                <h4 class="text-xs font-black text-slate-900 truncate tracking-tight">{{ $assignment->supervisor?->user?->name ?? 'Supervisor' }}</h4>
                                 <div class="flex items-center gap-2 mt-1">
                                     <span class="text-[8px] font-black text-acetel-600 uppercase tracking-widest italic">{{ $assignment->role }}</span>
                                     <span class="w-0.5 h-0.5 rounded-full bg-slate-300"></span>
@@ -230,8 +230,9 @@
                                 <button type="button" @click="changeAssignmentId = '{{ $assignment->id }}'; changeSupervisorId = '{{ $assignment->supervisor_profile_id }}'; changeModalOpen = true" class="p-2 text-slate-300 hover:text-acetel-600 transition-colors" title="Change Supervisor">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                                 </button>
+                                @if($assignment->supervisor)
                                 <form action="{{ route('coordinator.supervisors.unassign-student', [$assignment->supervisor, $student->thesis]) }}" method="POST"
-                                    data-confirm="Are you sure you want to remove this supervisor from {{ $student->user->name }}'s committee?"
+                                    data-confirm="Are you sure you want to remove this supervisor from {{ $student->user?->name ?? 'the student' }}'s committee?"
                                     data-confirm-title="Remove Supervisor"
                                     data-confirm-type="danger"
                                     data-confirm-btn="Remove Supervisor">
@@ -244,6 +245,7 @@
                                 <a href="{{ route('coordinator.supervisors.show', $assignment->supervisor) }}" class="p-2 text-slate-300 hover:text-acetel-600 transition-colors">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                                 </a>
+                                @endif
                             </div>
                         </div>
                     @empty
@@ -278,7 +280,7 @@
                                                 <option value="" data-rank="">Choose Supervisor...</option>
                                                 @foreach($availableSupervisors as $sup)
                                                     <option value="{{ $sup->id }}" data-rank="{{ $sup->rank ?? '' }}">
-                                                        {{ $sup->user->name }} [{{ $sup->rank ?? 'Lecturer' }}] ({{ $sup->assignments->count() }}/{{ $sup->max_students }} Load)
+                                                        {{ $sup->user?->name ?? 'Supervisor' }} [{{ $sup->rank ?? 'Lecturer' }}] ({{ $sup->assignments->count() }}/{{ $sup->max_students }} Load)
                                                     </option>
                                                 @endforeach
                                             </select>
@@ -339,10 +341,10 @@
                             <div class="p-5 bg-white/5 rounded-2xl border border-white/5 flex items-center justify-between">
                                 <div class="flex items-center gap-4">
                                     <div class="w-10 h-10 rounded-xl bg-acetel-500/20 text-acetel-400 flex items-center justify-center font-black">
-                                        {{ substr($internalAssign->examiner->name ?? 'I', 0, 1) }}
+                                        {{ substr($internalAssign->examiner?->name ?? 'I', 0, 1) }}
                                     </div>
                                     <div>
-                                        <h4 class="text-xs font-black text-white truncate">{{ $internalAssign->examiner->name ?? 'Unknown' }}</h4>
+                                        <h4 class="text-xs font-black text-white truncate">{{ $internalAssign->examiner?->name ?? 'Unknown' }}</h4>
                                         <p class="text-[9px] font-black text-acetel-400 uppercase tracking-widest mt-0.5">Internal Examiner</p>
                                     </div>
                                 </div>
@@ -373,7 +375,7 @@
                                     <select name="examiner_id" required class="w-full bg-slate-900 border-slate-700 text-white rounded-xl text-xs py-3 focus:ring-acetel-500/30 focus:border-acetel-500">
                                         <option value="">Choose...</option>
                                         @foreach($availableInternalExaminers as $iex)
-                                            <option value="{{ $iex->user->id }}">{{ $iex->user->name }}</option>
+                                            <option value="{{ $iex->user?->id }}">{{ $iex->user?->name ?? 'Examiner' }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -386,10 +388,10 @@
                             <div class="p-5 bg-white/5 rounded-2xl border border-white/5 flex items-center justify-between">
                                 <div class="flex items-center gap-4">
                                     <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center font-black">
-                                        {{ substr($externalAssign->examiner->name ?? 'E', 0, 1) }}
+                                        {{ substr($externalAssign->examiner?->name ?? 'E', 0, 1) }}
                                     </div>
                                     <div>
-                                        <h4 class="text-xs font-black text-white truncate">{{ $externalAssign->examiner->name ?? 'Unknown' }}</h4>
+                                        <h4 class="text-xs font-black text-white truncate">{{ $externalAssign->examiner?->name ?? 'Unknown' }}</h4>
                                         <p class="text-[9px] font-black text-purple-400 uppercase tracking-widest mt-0.5">External Examiner</p>
                                     </div>
                                 </div>
@@ -420,7 +422,7 @@
                                     <select name="examiner_id" required class="w-full bg-slate-900 border-slate-700 text-white rounded-xl text-xs py-3 focus:ring-purple-500/30 focus:border-purple-500">
                                         <option value="">Choose...</option>
                                         @foreach($availableExternalExaminers as $eex)
-                                            <option value="{{ $eex->user->id }}">{{ $eex->user->name }} ({{ $eex->institution }})</option>
+                                            <option value="{{ $eex->user?->id }}">{{ $eex->user?->name ?? 'External Examiner' }} ({{ $eex->institution ?? 'External' }})</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -457,7 +459,7 @@
                         <div class="relative">
                             <select name="supervisor_id" class="w-full bg-slate-50 border-slate-100 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-acetel-500/10 focus:border-acetel-500 py-4 pl-5 pr-12 appearance-none shadow-sm" x-model="changeSupervisorId">
                                 @foreach($availableSupervisors as $sup)
-                                    <option value="{{ $sup->id }}">{{ $sup->user->name }} ({{ $sup->assignments->where('status', 'active')->count() }}/{{ $sup->max_students }} Load)</option>
+                                    <option value="{{ $sup->id }}">{{ $sup->user?->name ?? 'Supervisor' }} ({{ $sup->assignments->where('status', 'active')->count() }}/{{ $sup->max_students }} Load)</option>
                                 @endforeach
                             </select>
                             <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-slate-400">

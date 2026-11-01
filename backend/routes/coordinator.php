@@ -59,7 +59,8 @@ Route::post('students/{thesis}/assign-supervisors', [App\Http\Controllers\Coordi
 
 // Examiner Assignments (M7/M10)
 Route::post('students/{thesis}/assign-internal', [App\Http\Controllers\Coordinator\ExaminerController::class, 'assignInternal'])->name('students.assign-internal');
-Route::post('students/{thesis}/assign-external', [App\Http\Controllers\Coordinator\ExaminerController::class, 'assignExternal'])->name('students.assign-program');
+Route::post('students/{thesis}/assign-external', [App\Http\Controllers\Coordinator\ExaminerController::class, 'assignExternal'])->name('students.assign-external');
+Route::post('students/{thesis}/assign-program', [App\Http\Controllers\Coordinator\ExaminerController::class, 'assignExternal'])->name('students.assign-program');
 
 // Milestone Templates (Shared with Admin)
 Route::get('milestone-templates', [\App\Http\Controllers\Admin\MilestoneTemplateController::class, 'index'])->name('milestone-templates.index');
