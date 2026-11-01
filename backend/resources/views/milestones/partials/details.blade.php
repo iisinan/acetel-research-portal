@@ -469,7 +469,7 @@
                                 $student = $milestone->thesis?->student;
                                 $isPhdCandidate = $student ? $student->isPhd() : false;
                                 $requiredPubs = $student ? $student->requiredPublicationsCount() : 1;
-                                $existingPubs = $milestone->submissions->where('type', 'publication');
+                                $existingPubs = $milestone->submissions->where('type', 'publication')->where('is_scopus_indexed', true);
                                 $existingPubsCount = $existingPubs->count();
                                 $initialSlotsNeeded = max(1, $requiredPubs - $existingPubsCount);
                                 if ($isPostDefenceStage) {
@@ -553,9 +553,17 @@
                                 if (hasPubRequirement && !isPostDefenceStage) {
                                     let validSlots = pubSlots.filter(s => s.fileName || s.title || s.doi);
                                     if ((validSlots.length + existingPubsCount) < requiredPubs) {
-                                        fileError = 'As a ' + (isPhd ? 'PhD' : 'MSc') + ' candidate, you must submit at least ' + requiredPubs + ' publication' + (requiredPubs > 1 ? 's' : '') + ' (with Title, DOI, and PDF).';
+                                        fileError = 'As a ' + (isPhd ? 'PhD' : 'MSc') + ' candidate, you must submit at least ' + requiredPubs + ' Scopus-indexed publication' + (requiredPubs > 1 ? 's' : '') + ' (with Title, DOI, and PDF).';
                                         (window.toast ? window.toast.error(fileError) : alert(fileError));
                                         return;
+                                    }
+                                    for (let i = 0; i < validSlots.length; i++) {
+                                        let slot = validSlots[i];
+                                        if (!slot.verified || !slot.scopusIndexed) {
+                                            fileError = 'Publication #' + (i + 1) + ' is not verified as indexed in Scopus. Institutional regulations strictly require all publications for Internal Defence to be indexed in Scopus. You cannot submit until this is resolved.';
+                                            (window.toast ? window.toast.error(fileError) : alert(fileError));
+                                            return;
+                                        }
                                     }
                                 }
                                 uploading = true;

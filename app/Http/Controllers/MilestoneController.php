@@ -497,10 +497,16 @@ class MilestoneController extends Controller
         $student = $milestone->thesis?->student;
         $isPhd = $student ? $student->isPhd() : false;
         $requiredPubsCount = $student ? $student->requiredPublicationsCount() : 1;
-        $existingPubsCount = $milestone->submissions()->where('type', 'publication')->count();
+        
+        // Only verified Scopus-indexed publications count towards institutional milestone requirement
+        $existingScopusPubsCount = $milestone->submissions()
+            ->where('type', 'publication')
+            ->where('is_scopus_indexed', true)
+            ->count();
 
         // Parse structured publications input: publications[i][file], publications[i][title], publications[i][doi]
         $parsedPubs = [];
+        $verifiedPubData = [];
         if (in_array('publication', $subTypes) || in_array('publications', $subTypes)) {
             $rawPubs = $request->input('publications', []);
             $rawPubFiles = $request->file('publications', []);
@@ -541,17 +547,19 @@ class MilestoneController extends Controller
             // PhD: at least 2 publications
             // (Only enforced if not post-defence stage, where only corrected manuscript is required)
             if (!$isPostDefenceStage) {
-                $totalPubs = $existingPubsCount + count($parsedPubs);
+                $totalPubs = $existingScopusPubsCount + count($parsedPubs);
                 if ($totalPubs < $requiredPubsCount) {
                     $levelLabel = $isPhd ? 'PhD' : 'MSc';
                     $s = $requiredPubsCount > 1 ? 's' : '';
                     return back()->withInput()->withErrors([
-                        'publications' => "As a {$levelLabel} candidate, you are required to submit at least {$requiredPubsCount} publication{$s} (including Title, DOI, and PDF) for this milestone."
+                        'publications' => "As a {$levelLabel} candidate, you are required to submit at least {$requiredPubsCount} Scopus-indexed publication{$s} (including Title, DOI, and PDF) for this milestone."
                     ]);
                 }
             }
 
-            // For each submitted publication, validate file, title, and DOI
+            $scopusVerifier = app(\App\Services\ScopusVerificationService::class);
+
+            // For each submitted publication, validate file, title, and DOI, AND strictly verify Scopus indexing
             foreach ($parsedPubs as $pIdx => $pubItem) {
                 $slotNum = $pIdx + 1;
                 if (empty($pubItem['file'])) {
@@ -579,6 +587,37 @@ class MilestoneController extends Controller
                         'publications' => "Please provide the DOI for Publication #{$slotNum} (e.g. 10.1016/j...)."
                     ]);
                 }
+
+                // Strict Scopus Indexing Verification
+                try {
+                    $scopusInfo = $scopusVerifier->verify($pubItem['doi']);
+                } catch (\Throwable $e) {
+                    return back()->withInput()->withErrors([
+                        'publications' => "Error verifying Publication #{$slotNum} DOI against Scopus: " . $e->getMessage()
+                    ]);
+                }
+
+                if (empty($scopusInfo['valid'])) {
+                    $doiErr = $scopusInfo['error'] ?? 'Invalid or unrecognized DOI.';
+                    return back()->withInput()->withErrors([
+                        'publications' => "Publication #{$slotNum} DOI verification failed: {$doiErr}"
+                    ]);
+                }
+
+                // Institutional Gate: ONLY Scopus-indexed publications are allowed!
+                if (empty($scopusInfo['is_scopus_indexed'])) {
+                    return back()->withInput()->withErrors([
+                        'publications' => "Institutional Requirement: Every publication for Internal Defence must be indexed in Scopus. Publication #{$slotNum} with DOI '{$pubItem['doi']}' is not indexed in Scopus. You cannot submit this milestone until all required publications are verified as Scopus-indexed."
+                    ]);
+                }
+
+                $verifiedPubData[] = [
+                    'file' => $pubItem['file'],
+                    'title' => !empty($pubItem['title']) ? $pubItem['title'] : ($scopusInfo['title'] ?? 'Institutional Publication'),
+                    'doi' => $scopusInfo['doi'] ?? $pubItem['doi'],
+                    'is_scopus_indexed' => true,
+                    'scopus_data' => $scopusInfo['scopus_data'] ?? null,
+                ];
             }
         }
 
@@ -658,37 +697,15 @@ class MilestoneController extends Controller
             }
         }
 
-        // Handle Publications with Title, DOI, and automated Scopus indexing verification
-        if ((in_array('publication', $subTypes) || in_array('publications', $subTypes)) && !empty($parsedPubs)) {
-            $scopusVerifier = app(\App\Services\ScopusVerificationService::class);
-
-            foreach ($parsedPubs as $pubItem) {
+        // Handle Publications (Only verified Scopus-indexed publications are stored)
+        if ((in_array('publication', $subTypes) || in_array('publications', $subTypes)) && !empty($verifiedPubData)) {
+            foreach ($verifiedPubData as $pubItem) {
                 /** @var \Illuminate\Http\UploadedFile $pubFile */
                 $pubFile = $pubItem['file'];
-                $titleInput = $pubItem['title'];
-                $doiInput = $pubItem['doi'];
-
-                $scopusInfo = null;
-                $isScopusIndexed = false;
-                $scopusData = null;
-                $finalDoi = $doiInput;
-                $finalTitle = $titleInput;
-
-                if (!empty($doiInput)) {
-                    try {
-                        $scopusInfo = $scopusVerifier->verify($doiInput);
-                        if (!empty($scopusInfo['valid'])) {
-                            $isScopusIndexed = !empty($scopusInfo['is_scopus_indexed']);
-                            $scopusData = $scopusInfo['scopus_data'] ?? null;
-                            $finalDoi = $scopusInfo['doi'] ?? $doiInput;
-                            if (empty($finalTitle) && !empty($scopusInfo['title'])) {
-                                $finalTitle = $scopusInfo['title'];
-                            }
-                        }
-                    } catch (\Throwable $e) {
-                        \Illuminate\Support\Facades\Log::warning("Scopus verification failed during publication submission: " . $e->getMessage());
-                    }
-                }
+                $finalTitle = $pubItem['title'];
+                $finalDoi = $pubItem['doi'];
+                $isScopusIndexed = $pubItem['is_scopus_indexed'];
+                $scopusData = $pubItem['scopus_data'];
 
                 $pubPath = $pubFile->store('submissions/' . $milestone->thesis_project_id . '/publications');
 
@@ -706,7 +723,7 @@ class MilestoneController extends Controller
                         'size' => $pubFile->getSize(),
                     ],
                     'checksum' => md5_file($pubFile->getRealPath()),
-                    'description' => $isScopusIndexed ? 'Scopus-Indexed Publication' : 'Publication',
+                    'description' => 'Scopus-Indexed Publication',
                     'version' => $milestone->submissions()->where('type', 'publication')->count() + 1,
                 ]);
             }

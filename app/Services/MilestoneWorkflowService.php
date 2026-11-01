@@ -89,6 +89,20 @@ class MilestoneWorkflowService
             return "Structural Block: Defence date must be scheduled before approval.";
         }
 
+        // Internal Defence Scopus Publication Guard
+        if ($template->slug === 'internal_defence' || $template->order == 6) {
+            $student = $milestone->thesis?->student;
+            $requiredPubs = $student ? $student->requiredPublicationsCount() : 1;
+            $scopusPubCount = $milestone->submissions()
+                ->where('type', 'publication')
+                ->where('is_scopus_indexed', true)
+                ->count();
+            if ($scopusPubCount < $requiredPubs && !$user->hasRole('Admin')) {
+                $level = $student?->isPhd() ? 'PhD' : 'MSc';
+                return "Scopus Requirement: {$level} candidates must have at least {$requiredPubs} verified Scopus-indexed publication(s) on file before Internal Defence clearance.";
+            }
+        }
+
         // 3. Presentation Gated Milestones (Requirement 5): Average grading must be pass
         if (in_array($template->slug, self::PRESENTATION_GATED_SLUGS)) {
             $gradingOutcome = $this->getAverageGradingOutcome($milestone);
