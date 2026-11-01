@@ -97,9 +97,13 @@ class MilestoneWorkflowService
             }
         }
 
-        // 4. Strict Admin Authorization Check
-        if ($role && $role !== 'Admin') {
-            return "Institutional Authority Required: Only an Administrator can approve milestones.";
+        // 4. Authorization Check: Admin can approve all; Internal Examiner can approve internal_defence
+        $isInternalExaminerForThis = ($template->slug === 'internal_defence' || $template->order == 6) && 
+            ($role === 'Internal Examiner' || $user->hasRole('Internal Examiner')) &&
+            $user->internalExaminerProfiles()->where('id', $milestone->thesis->internal_examiner_profile_id)->exists();
+
+        if ($role && $role !== 'Admin' && !$isInternalExaminerForThis) {
+            return "Institutional Authority Required: Only an Administrator or assigned Internal Examiner can approve this milestone.";
         }
 
         return null;

@@ -86,16 +86,16 @@ class MilestoneTemplateSeeder extends Seeder
                 'slug' => 'internal_defence',
                 'order' => 6,
                 'requires_submission' => true,
-                'submission_type' => ['file'], // Document in PDF format
+                'submission_type' => ['file', 'publications'], // Thesis document and publications
                 'submission_requires_approval' => false,
                 'submission_approver_roles' => null,
                 'requires_approval' => true,
-                'required_approvers' => ['Supervisor', 'Internal Examiner', 'Program Coordinator'],
+                'required_approvers' => ['Supervisor', 'Internal Examiner'],
                 'allow_defence_date' => true,
                 'defence_type' => 'internal',
                 'defence_date_role' => 'Program Coordinator',
                 'show_internal_examiner_assignment' => true,
-                'description' => 'Student submits thesis document. Supervisor approves, then Internal defence scheduling and outcome recording.'
+                'description' => 'Student uploads thesis manuscript and publications. Admin or Program Coordinator assigns Internal Examiner and sets defence date. Post-defence, student uploads corrected thesis, which must be approved by the Internal Examiner to advance.'
             ],
             [
                 'name' => 'Viva',

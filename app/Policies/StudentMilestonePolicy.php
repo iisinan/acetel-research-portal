@@ -91,7 +91,8 @@ class StudentMilestonePolicy
         }
 
         if ($milestone->template->allow_defence_date) {
-            if ($milestone->defence_date && \Carbon\Carbon::parse($milestone->defence_date)->endOfDay()->isPast() && $milestone->status !== 'approved') {
+            $isInternalDefence = ($milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6);
+            if (!$isInternalDefence && $milestone->defence_date && \Carbon\Carbon::parse($milestone->defence_date)->endOfDay()->isPast() && $milestone->status !== 'approved') {
                 \Illuminate\Support\Facades\Log::warning("Policy Failed: Defence date past.");
                 return false;
             }
@@ -177,7 +178,19 @@ class StudentMilestonePolicy
 
     public function review(User $user, StudentMilestone $milestone): bool
     {
-        // Institutional Rule: ONLY Admin can approve milestones and advance students
-        return $user->hasRole('Admin');
+        if ($user->hasRole('Admin')) {
+            return true;
+        }
+
+        // Assigned Internal Examiner can review and approve internal_defence milestone
+        if ($milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6) {
+            if ($user->hasRole('Internal Examiner')) {
+                return $user->internalExaminerProfiles()
+                    ->where('id', $milestone->thesis->internal_examiner_profile_id)
+                    ->exists();
+            }
+        }
+
+        return false;
     }
 }

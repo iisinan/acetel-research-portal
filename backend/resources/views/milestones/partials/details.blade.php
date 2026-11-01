@@ -74,21 +74,68 @@
                 $isApproved = !is_null($milestone->date_approved_at);
                 $isDateExpired = $defenceDate && $defenceDate->endOfDay()->isPast() && $milestone->status !== 'approved';
                 
+                $isInternalDefence = ($milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6);
+                $hasDefenceOccurred = $defenceDate && ($defenceDate->isPast() || $defenceDate->isToday());
+                $isPostDefenceStage = $isInternalDefence && $hasDefenceOccurred && $milestone->status !== 'approved';
+
+                $latestSubForBanner = $milestone->submissions->sortByDesc('created_at')->first();
+                $latestManuscript = $milestone->submissions->whereIn('type', ['manuscript', 'file'])->sortByDesc('created_at')->first();
+                $hasPostDefenceManuscript = $isPostDefenceStage && $latestManuscript && $latestManuscript->created_at->gte($defenceDate->copy()->startOfDay());
+                $postDefenceDecision = $hasPostDefenceManuscript && $latestManuscript->feedback ? $latestManuscript->feedback->decision : null;
+
                 // Institutional Mandate: Supervisors cannot schedule presentations, only Admin can
                 $canSetDate = auth()->user()->hasRole('Admin') && !request()->is('supervisor*');
                 if (auth()->user()->hasRole('Supervisor') && !auth()->user()->hasRole('Admin')) {
                     $canSetDate = false;
                 }
-            @endphp
-
-            @php
-                $latestSubForBanner = $milestone->submissions->sortByDesc('created_at')->first();
                 $isUploadAccepted = $latestSubForBanner && $latestSubForBanner->feedback && $latestSubForBanner->feedback->decision === 'approved';
                 $isScheduled = $defenceDate && !$isDateExpired;
             @endphp
 
+            {{-- Post-Defence Corrections Banner for Internal Defence --}}
+            @if($isPostDefenceStage)
+                <div class="overflow-hidden rounded-[2rem] {{ $postDefenceDecision === 'revision_required' ? 'bg-amber-50 border-amber-200' : ($hasPostDefenceManuscript ? 'bg-indigo-50 border-indigo-200' : 'bg-purple-50 border-purple-200') }} border shadow-xl shadow-slate-200/40 relative mb-6">
+                    <div class="absolute left-0 top-0 bottom-0 w-1.5 {{ $postDefenceDecision === 'revision_required' ? 'bg-amber-500' : ($hasPostDefenceManuscript ? 'bg-indigo-500' : 'bg-purple-600') }}"></div>
+                    <div class="p-6 sm:p-7">
+                        <div class="flex items-start gap-4">
+                            <div class="w-12 h-12 rounded-2xl {{ $postDefenceDecision === 'revision_required' ? 'bg-amber-100 text-amber-600' : ($hasPostDefenceManuscript ? 'bg-indigo-100 text-indigo-600' : 'bg-purple-100 text-purple-600') }} flex items-center justify-center flex-shrink-0 shadow-sm">
+                                @if($hasPostDefenceManuscript && $postDefenceDecision !== 'revision_required')
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                @else
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                @endif
+                            </div>
+                            <div class="flex-1">
+                                <div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full {{ $postDefenceDecision === 'revision_required' ? 'bg-amber-200/80 text-amber-900' : ($hasPostDefenceManuscript ? 'bg-indigo-200/80 text-indigo-900' : 'bg-purple-200/80 text-purple-900') }} text-[10px] font-black uppercase tracking-wider mb-1.5">
+                                    <span class="w-1.5 h-1.5 rounded-full {{ $postDefenceDecision === 'revision_required' ? 'bg-amber-600' : ($hasPostDefenceManuscript ? 'bg-indigo-600' : 'bg-purple-600') }}"></span>
+                                    {{ $postDefenceDecision === 'revision_required' ? 'Further Corrections Required' : ($hasPostDefenceManuscript ? 'Corrections Under Review' : 'Post-Defence Corrections Required') }}
+                                </div>
+                                <h3 class="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-snug">
+                                    @if($hasPostDefenceManuscript && $postDefenceDecision !== 'revision_required')
+                                        Post-Defence Corrected Thesis Submitted
+                                    @elseif($postDefenceDecision === 'revision_required')
+                                        Internal Examiner Requested Additional Corrections
+                                    @else
+                                        Internal Defence Concluded — Submit Corrected Thesis
+                                    @endif
+                                </h3>
+                                <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                                    @if($hasPostDefenceManuscript && $postDefenceDecision !== 'revision_required')
+                                        Your revised thesis incorporating defence comments was uploaded on {{ $latestManuscript->created_at->format('d M Y, H:i') }}. Awaiting clearance by Assigned Internal Examiner ({{ $milestone->thesis->internalExaminer?->user?->name ?? 'Examiner' }}). Once approved, you will advance to Milestone 7 (Viva Voce).
+                                    @elseif($postDefenceDecision === 'revision_required')
+                                        The Internal Examiner has reviewed your submission and requested adjustments. Please see the comments below and upload an updated thesis file.
+                                    @else
+                                        Your defence took place on {{ $defenceDate->format('d M Y') }}. Please incorporate all corrections and observations received from the defence session and upload your corrected thesis manuscript below for final Internal Examiner approval.
+                                    @endif
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             {{-- 1. If upload is accepted and NOT yet scheduled, tell student to await schedule --}}
-            @if($isUploadAccepted && !$isScheduled && auth()->user()->hasRole('Student'))
+            @if($isUploadAccepted && !$isScheduled && !$isPostDefenceStage && auth()->user()->hasRole('Student'))
                 <div class="overflow-hidden rounded-[2rem] bg-emerald-50 border border-emerald-200 shadow-xl shadow-slate-200/40 relative mb-6">
                     <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-emerald-500"></div>
                     <div class="p-6 sm:p-7">
@@ -122,7 +169,7 @@
             @endif
 
             @if($hasDefenceDateAllowed)
-                @if(!$defenceDate || $isDateExpired)
+                @if(!$defenceDate || ($isDateExpired && !$isInternalDefence))
                     @if($canSetDate)
                         <div class="bg-white rounded-[2.5rem] border border-indigo-100 shadow-xl shadow-slate-200/40 p-6 sm:p-8 mb-6 relative overflow-hidden">
                             <div class="absolute inset-0 bg-gradient-to-br from-indigo-50/50 to-white pointer-events-none"></div>
@@ -333,7 +380,7 @@
             <!-- Submission Form -->
             @if(in_array($milestone->status, ['not_started', 'in_progress', 'revision_required', 'submitted', 'in_review']))
                 @if($milestone->template->requires_submission)
-                    @if($hasDefenceDateAllowed && $isDateExpired)
+                    @if($hasDefenceDateAllowed && $isDateExpired && !$isInternalDefence)
                         <div class="overflow-hidden rounded-[2.5rem] bg-white border border-slate-100 shadow-xl shadow-slate-200/40 p-10 flex flex-col items-center justify-center text-center">
                             <div class="w-16 h-16 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center mb-6">
                                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
@@ -470,19 +517,29 @@
                                 </div>
                                 @endif
 
-                                @if(in_array('file', $subTypes))
+                                 @if(in_array('file', $subTypes))
                                 <div>
                                     <label class="block text-sm font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                                        <span>{{ $milestone->template->slug === 'supervisors_assigned' ? 'Upload Tentative Proposal (PDF Only)' : 'Upload ' . $milestone->template->name . ' Document (PDF Only)' }}</span>
+                                        <span>
+                                            @if($isPostDefenceStage)
+                                                Upload Corrected Thesis Manuscript (PDF Only)
+                                            @elseif($milestone->template->slug === 'supervisors_assigned')
+                                                Upload Tentative Proposal (PDF Only)
+                                            @else
+                                                Upload {{ $milestone->template->name }} Document (PDF Only)
+                                            @endif
+                                        </span>
                                         @if($bothAllowed && !$hasFileSub && $hasPptSub)
                                             <span class="text-xs font-normal text-slate-400">(Optional if presentation already uploaded)</span>
                                         @endif
                                     </label>
-                                    @if($milestone->template->slug === 'supervisors_assigned')
+                                    @if($isPostDefenceStage)
+                                        <p class="text-xs text-indigo-700 font-semibold mb-2">Please upload your revised thesis document incorporating all feedback and corrections received during your internal defence session for Internal Examiner review.</p>
+                                    @elseif($milestone->template->slug === 'supervisors_assigned')
                                         <p class="text-xs text-slate-500 mb-2">Please upload your tentative proposal document for supervisor allocation review.</p>
                                     @endif
                                     <div class="relative w-full">
-                                        <input type="file" name="file" accept=".pdf" {{ (!$bothAllowed && !$hasFileSub) ? 'required' : '' }} class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                        <input type="file" name="file" accept=".pdf" {{ (!$bothAllowed && !$hasFileSub && !$isPostDefenceStage) ? 'required' : '' }} class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
                                             @change="
                                                 const file = $event.target.files[0];
                                                 document.getElementById('file-name-{{ $milestone->id }}').textContent = file ? file.name : 'Click or drop to select file';
@@ -512,6 +569,9 @@
                                     <label class="block text-sm font-semibold text-slate-700 mb-2">
                                         Upload Publications (PDF Only, Select one or more)
                                     </label>
+                                    @if($milestone->submissions->where('type', 'publication')->count() > 0)
+                                        <p class="text-xs text-emerald-600 font-medium mb-2">✓ {{ $milestone->submissions->where('type', 'publication')->count() }} publication(s) already submitted on file. Upload additional files only if required.</p>
+                                    @endif
                                     <div class="relative w-full">
                                         <input type="file" name="publications[]" accept=".pdf" multiple class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
                                             @change="
@@ -533,7 +593,7 @@
                                     <button type="submit" 
                                         :disabled="uploading"
                                         class="inline-flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-emerald-600 transition-colors shadow-xl shadow-slate-200/40 disabled:opacity-50 disabled:cursor-not-allowed">
-                                        <span x-text="uploading ? 'Transmitting...' : '{{ in_array('publication', $subTypes) && count($subTypes) > 1 ? 'Submit Documentation & Publication' : (in_array('publication', $subTypes) ? 'Submit Publication' : 'Upload Document') }}'"></span>
+                                        <span x-text="uploading ? 'Transmitting...' : '{{ $isPostDefenceStage ? 'Submit Corrected Thesis' : (in_array('publication', $subTypes) && count($subTypes) > 1 ? 'Submit Documentation & Publication' : (in_array('publication', $subTypes) ? 'Submit Publication' : 'Upload Document')) }}'"></span>
                                         <svg x-show="!uploading" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
                                         <svg x-show="uploading" class="animate-spin -ml-1 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" style="display: none;">
                                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -661,28 +721,35 @@
 
                                             @if($submission->feedback && in_array($submission->feedback->decision, ['approved', 'revision_required']) && !empty($submission->feedback->remarks))
                                                 <div class="w-full max-w-sm text-xs rounded-xl p-3 border {{ $submission->feedback->decision === 'approved' ? 'bg-emerald-50/60 border-emerald-100 text-emerald-900' : 'bg-rose-50/60 border-rose-100 text-rose-900' }}">
-                                                    <p class="text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">Supervisor Comment</p>
+                                                    <p class="text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">
+                                                        {{ $submission->feedback->user && $submission->feedback->user->hasRole('Internal Examiner') ? 'Internal Examiner Verdict' : 'Supervisor / Examiner Comment' }}
+                                                    </p>
                                                     <p class="whitespace-pre-line">{{ $submission->feedback->remarks }}</p>
                                                 </div>
                                             @endif
 
                                             @php
+                                                $isAssignedInternalExaminer = auth()->user()->hasRole('Internal Examiner') && 
+                                                    ($milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6) &&
+                                                    $milestone->thesis->internal_examiner_profile_id &&
+                                                    auth()->user()->internalExaminerProfiles()->where('id', $milestone->thesis->internal_examiner_profile_id)->exists();
+
                                                 $canReviewUpload = auth()->user()->hasRole('Admin') || (
                                                     auth()->user()->hasRole('Supervisor') && 
                                                     auth()->user()->supervisorProfile && 
                                                     $milestone->thesis->assignments->where('supervisor_profile_id', auth()->user()->supervisorProfile->id)->where('status', 'active')->isNotEmpty()
-                                                );
+                                                ) || $isAssignedInternalExaminer;
                                             @endphp
                                             @if($canReviewUpload && (!$submission->feedback || !in_array($submission->feedback->decision, ['approved', 'revision_required'])))
                                                 <form method="POST" x-data="{ remarks: '' }" @submit="if(!remarks.trim()) { alert('A comment is required to accept or reject the upload.'); $event.preventDefault(); }" class="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 shadow-sm w-full max-w-sm mt-1">
                                                     @csrf
-                                                    <textarea name="remarks" x-model="remarks" rows="2" class="w-full text-xs rounded-xl border-slate-300 focus:ring-indigo-500 focus:border-indigo-500 mb-2 p-2.5 shadow-sm resize-none bg-white placeholder:text-slate-400" placeholder="Required: Explain your decision..." required></textarea>
+                                                    <textarea name="remarks" x-model="remarks" rows="2" class="w-full text-xs rounded-xl border-slate-300 focus:ring-indigo-500 focus:border-indigo-500 mb-2 p-2.5 shadow-sm resize-none bg-white placeholder:text-slate-400" placeholder="{{ $isAssignedInternalExaminer ? 'Enter approval feedback or required corrections...' : 'Required: Explain your decision...' }}" required></textarea>
                                                     <div class="flex gap-2">
                                                         <button type="submit" formaction="{{ route('milestones.accept_upload', $milestone) }}" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-2 rounded-xl text-xs font-bold transition-colors">
-                                                            Accept Upload
+                                                            {{ $isAssignedInternalExaminer ? 'Approve Corrected Thesis' : 'Accept Upload' }}
                                                         </button>
                                                         <button type="submit" formaction="{{ route('milestones.reject_upload', $milestone) }}" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white py-2 rounded-xl text-xs font-bold transition-colors">
-                                                            Reject Upload
+                                                            {{ $isAssignedInternalExaminer ? 'Request Further Corrections' : 'Reject Upload' }}
                                                         </button>
                                                     </div>
                                                 </form>
@@ -842,24 +909,87 @@
                     </div>
                 @endif
                 
-                @if($milestone->thesis->internalExaminer)
-                    <div class="mb-6">
-                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Assigned Internal Examiner</p>
-                        <div class="p-4 bg-slate-50 rounded-2xl border border-brand-100 group hover:border-brand-200 hover:bg-white transition-colors cursor-pointer"
-                            @click.prevent.stop="setTimeout(() => { showStudentMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($milestone->thesis->internalExaminer->user?->name ?? 'User') }}; }, 50)">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-xl bg-white border border-brand-100 flex items-center justify-center text-brand-600 text-sm font-bold shadow-xl shadow-slate-200/40">
+                @php
+                    $showExaminerSection = $milestone->template?->show_internal_examiner_assignment || $milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6;
+                    $canAssignExaminer = auth()->user()->hasAnyRole(['Admin', 'Program Coordinator']);
+                    $examinersList = $allInternalExaminers ?? collect();
+                    if ($examinersList->isEmpty() && $canAssignExaminer && $milestone->thesis->student) {
+                        $examinersList = \App\Models\InternalExaminerProfile::with('user')
+                            ->where('program_id', $milestone->thesis->student->program_id)
+                            ->where('active', true)
+                            ->get();
+                    }
+                @endphp
+                @if($showExaminerSection)
+                    <div class="mb-6 p-4 rounded-2xl border {{ $milestone->thesis->internalExaminer ? 'bg-indigo-50/40 border-indigo-100' : 'bg-amber-50/50 border-amber-200' }}">
+                        <div class="flex items-center justify-between mb-2">
+                            <p class="text-[10px] font-black {{ $milestone->thesis->internalExaminer ? 'text-indigo-600' : 'text-amber-700' }} uppercase tracking-widest">
+                                Assigned Internal Examiner
+                            </p>
+                            @if($milestone->thesis->internalExaminer)
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                                    Designated
+                                </span>
+                            @else
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
+                                    Pending
+                                </span>
+                            @endif
+                        </div>
+
+                        @if($milestone->thesis->internalExaminer)
+                            <div class="p-3 bg-white rounded-xl border border-indigo-100 flex items-center gap-3 shadow-sm group hover:border-indigo-200 transition-colors cursor-pointer"
+                                @click.prevent.stop="setTimeout(() => { showStudentMessageModal = true; messageRecipient = {{ \Illuminate\Support\Js::from($milestone->thesis->internalExaminer->user?->name ?? 'User') }}; }, 50)">
+                                <div class="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 text-sm font-bold shadow-sm">
                                     {{ substr($milestone->thesis->internalExaminer->user?->name ?? 'User', 0, 1) }}
                                 </div>
-                                <div class="flex-1">
-                                    <p class="text-sm font-bold text-slate-900 leading-tight">{{ $milestone->thesis->internalExaminer->user?->name ?? 'User' }}</p>
-                                    <p class="text-[11px] font-medium text-slate-500 mt-0.5">{{ $milestone->thesis->internalExaminer->department ?? 'Institutional Department' }}</p>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-bold text-slate-900 truncate">{{ $milestone->thesis->internalExaminer->user?->name ?? 'Internal Examiner' }}</p>
+                                    <p class="text-[11px] font-medium text-slate-500 truncate">{{ $milestone->thesis->internalExaminer->department ?? 'Institutional Department' }}</p>
                                 </div>
-                                <div class="p-2 bg-white border border-slate-100 rounded-lg text-slate-400 group-hover:text-brand-600 transition-colors shadow-xl shadow-slate-200/40">
+                                <div class="p-2 bg-slate-50 border border-slate-100 rounded-lg text-slate-400 group-hover:text-indigo-600 transition-colors">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
                                 </div>
                             </div>
-                        </div>
+                        @else
+                            <p class="text-xs text-amber-800 mb-2 font-medium">An Internal Examiner has not yet been designated for this candidate.</p>
+                        @endif
+
+                        @if($canAssignExaminer)
+                            <div class="mt-3 pt-3 border-t border-slate-200/60" x-data="{ showAssignForm: {{ $milestone->thesis->internalExaminer ? 'false' : 'true' }} }">
+                                <div class="flex items-center justify-between" x-show="!showAssignForm">
+                                    <span class="text-[11px] text-slate-500 font-medium">Need to designate or change examiner?</span>
+                                    <button type="button" @click="showAssignForm = true" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 underline">
+                                        {{ $milestone->thesis->internalExaminer ? 'Reassign Examiner' : 'Assign Examiner' }}
+                                    </button>
+                                </div>
+                                <form x-show="showAssignForm" action="{{ route('theses.assign_internal_examiner', $milestone->thesis) }}" method="POST" class="space-y-2 mt-2">
+                                    @csrf
+                                    <label class="block text-[10px] font-bold text-slate-700 uppercase tracking-wider">
+                                        {{ $milestone->thesis->internalExaminer ? 'Reassign' : 'Designate' }} Internal Examiner
+                                    </label>
+                                    <div class="flex gap-2">
+                                        <select name="internal_examiner_profile_id" required class="flex-1 text-xs rounded-xl border-slate-300 focus:ring-indigo-500 focus:border-indigo-500 py-2 bg-white">
+                                            <option value="">-- Select Faculty / Examiner --</option>
+                                            @foreach($examinersList as $examiner)
+                                                <option value="{{ $examiner->id }}" {{ $milestone->thesis->internal_examiner_profile_id == $examiner->id ? 'selected' : '' }}>
+                                                    {{ $examiner->user?->name ?? 'Faculty' }} ({{ $examiner->department ?? 'Examiner' }})
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        <button type="submit" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm transition-colors shrink-0">
+                                            Save
+                                        </button>
+                                        @if($milestone->thesis->internalExaminer)
+                                            <button type="button" @click="showAssignForm = false" class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-colors">
+                                                ✕
+                                            </button>
+                                        @endif
+                                    </div>
+                                </form>
+                            </div>
+                        @endif
                     </div>
                 @endif
                 <div class="space-y-4">

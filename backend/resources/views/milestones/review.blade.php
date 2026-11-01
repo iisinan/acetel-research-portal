@@ -167,17 +167,27 @@
                         @csrf
                         @method('PATCH')
 
+                        @php
+                            $isIE = Auth::user()->hasRole('Internal Examiner') && 
+                                ($milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6);
+                        @endphp
                         <div>
-                            <label class="block text-sm font-medium text-black dark:text-gray-300 mb-1">Decision</label>
+                            <label class="block text-sm font-medium text-black dark:text-gray-300 mb-1">
+                                {{ $isIE ? 'Internal Examiner Verdict' : 'Decision' }}
+                            </label>
                             <div class="flex space-x-4">
                                 <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-green-50 dark:hover:bg-green-900/10 has-[:checked]:border-green-500 has-[:checked]:bg-green-50 dark:has-[:checked]:bg-green-900/20 w-full transition">
                                     <input type="radio" name="decision" value="approved" class="h-4 w-4 text-green-600 focus:ring-green-500" required {{ ($myReview['status'] ?? '') === 'approved' ? 'checked' : '' }}>
-                                    <span class="ml-3 font-medium text-black dark:text-white">Approve</span>
+                                    <span class="ml-3 font-medium text-black dark:text-white">
+                                        {{ $isIE ? 'Approve Corrected Thesis (Clear for Viva Voce)' : 'Approve' }}
+                                    </span>
                                 </label>
                                 
                                 <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/10 has-[:checked]:border-red-500 has-[:checked]:bg-red-50 dark:has-[:checked]:bg-red-900/20 w-full transition">
                                     <input type="radio" name="decision" value="rejected" class="h-4 w-4 text-red-600 focus:ring-red-500" {{ in_array($myReview['status'] ?? '', ['rejected', 'pending_re_review']) ? 'checked' : '' }}>
-                                    <span class="ml-3 font-medium text-black dark:text-white">Request Revisions</span>
+                                    <span class="ml-3 font-medium text-black dark:text-white">
+                                        {{ $isIE ? 'Request Further Corrections' : 'Request Revisions' }}
+                                    </span>
                                 </label>
                             </div>
                         </div>
@@ -232,13 +242,13 @@
                         </div>
                         @endif
 
-                        @if(Auth::user()->hasRole('Program Coordinator') && $milestone->template->show_internal_examiner_assignment)
+                        @if(Auth::user()->hasAnyRole(['Program Coordinator', 'Admin']) && $milestone->template->show_internal_examiner_assignment)
                         <div class="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-lg border border-amber-100 dark:border-amber-900/30 mt-4">
                             <label for="internal_examiner_profile_id" class="block text-xs font-bold text-black dark:text-gray-300 uppercase tracking-wider mb-2 flex items-center">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                                 Designate Internal Examiner
                             </label>
-                            <select name="internal_examiner_profile_id" id="internal_examiner_profile_id" class="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-acetel-500 focus:ring-acetel-500 sm:text-sm" required>
+                            <select name="internal_examiner_profile_id" id="internal_examiner_profile_id" class="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-acetel-500 focus:ring-acetel-500 sm:text-sm">
                                 <option value="">Select Internal Examiner...</option>
                                 @foreach($internalExaminers as $examiner)
                                     <option value="{{ $examiner->id }}" {{ $milestone->thesis->internal_examiner_profile_id == $examiner->id ? 'selected' : '' }}>
@@ -250,7 +260,7 @@
                         </div>
                         @endif
 
-                        @if(Auth::user()->hasRole('Program Coordinator') && $milestone->template->show_external_examiner_assignment)
+                        @if(Auth::user()->hasAnyRole(['Program Coordinator', 'Admin']) && $milestone->template->show_external_examiner_assignment)
                         <div class="p-4 bg-rose-50 dark:bg-rose-900/10 rounded-lg border border-rose-100 dark:border-rose-900/30 mt-4">
                             <label for="external_examiner_profile_id" class="block text-xs font-bold text-black dark:text-gray-300 uppercase tracking-wider mb-2 flex items-center">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>

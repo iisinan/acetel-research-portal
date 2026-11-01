@@ -89,13 +89,19 @@ class MilestoneController extends Controller
                 // Internal Examiner
                 $internalExaminer = $thesis->internalExaminer;
 
-                // All supervisors for assignment (Coordinators/Admins only) - Restricted by Program Scope
+                // All supervisors and internal examiners for assignment (Coordinators/Admins only) - Restricted by Program Scope
                 $allSupervisors = collect();
+                $allInternalExaminers = collect();
                 if ($user->hasAnyRole(['Program Coordinator', 'Admin']) && $thesis->student) {
                     $allSupervisors = \App\Models\SupervisorProfile::with('user')
                         ->whereHas('programs', function($q) use ($thesis) {
                             $q->where('programs.id', $thesis->student->program_id);
                         })
+                        ->get();
+
+                    $allInternalExaminers = \App\Models\InternalExaminerProfile::with('user')
+                        ->where('program_id', $thesis->student->program_id)
+                        ->where('active', true)
                         ->get();
                 }
 
@@ -108,7 +114,7 @@ class MilestoneController extends Controller
                     }
                 }
 
-                return view('milestones.index', compact('milestones', 'supervisors', 'coordinators', 'thesis', 'internalExaminer', 'allSupervisors', 'ongoingMilestoneId'));
+                return view('milestones.index', compact('milestones', 'supervisors', 'coordinators', 'thesis', 'internalExaminer', 'allSupervisors', 'allInternalExaminers', 'ongoingMilestoneId'));
             } catch (\Throwable $e) {
                 \Log::error('Milestones index failed: ' . $e->getMessage(), ['file' => $e->getFile(), 'line' => $e->getLine(), 'trace' => $e->getTraceAsString()]);
                 if ($user->hasRole('Admin')) {
@@ -131,14 +137,16 @@ class MilestoneController extends Controller
             abort(403, 'Unauthorized.');
         }
 
-        if (!$user->hasRole('Admin')) {
-            $isAssignedSupervisor = $user->hasRole('Supervisor') && 
-                $user->supervisorProfile && 
-                $milestone->thesis->assignments()->where('supervisor_profile_id', $user->supervisorProfile->id)->where('status', 'active')->exists();
+        $isAssignedSupervisor = $user->hasRole('Supervisor') && 
+            $user->supervisorProfile && 
+            $milestone->thesis->assignments()->where('supervisor_profile_id', $user->supervisorProfile->id)->where('status', 'active')->exists();
 
-            if (!$isAssignedSupervisor) {
-                abort(403, 'Unauthorized. Supervisors can only review uploads for their assigned supervisees, and program coordinators do not review student documents.');
-            }
+        $isAssignedInternalExaminer = $user->hasRole('Internal Examiner') && 
+            ($milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6) &&
+            $user->internalExaminerProfiles()->where('id', $milestone->thesis->internal_examiner_profile_id)->exists();
+
+        if (!$user->hasRole('Admin') && !$isAssignedSupervisor && !$isAssignedInternalExaminer) {
+            abort(403, 'Unauthorized. Supervisors can only review uploads for their assigned supervisees, and internal examiners review post-defence corrected manuscripts.');
         }
 
         $request->validate([
@@ -148,6 +156,44 @@ class MilestoneController extends Controller
         ]);
 
         $workflowService = app(\App\Services\MilestoneWorkflowService::class);
+
+        // When Internal Examiner (or Admin) accepts the corrected thesis for internal defence, approve the milestone and advance to Viva Voce!
+        if ($isAssignedInternalExaminer || ($user->hasRole('Admin') && ($milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6))) {
+            $latestSub = $milestone->submissions()->latest()->first();
+            if ($latestSub) {
+                \App\Models\Feedback::updateOrCreate(
+                    ['submission_id' => $latestSub->id],
+                    [
+                        'user_id' => $user->id,
+                        'decision' => 'approved',
+                        'remarks' => $request->input('remarks'),
+                    ]
+                );
+            }
+
+            $approverRole = $isAssignedInternalExaminer ? 'Internal Examiner' : 'Admin';
+            $approvals = $milestone->approvals ?? [];
+            $approvalKey = $approverRole . ':' . $user->id;
+            $approvals[$approvalKey] = [
+                'user_id' => $user->id,
+                'role' => $approverRole,
+                'approved_at' => now()->toDateTimeString(),
+                'remarks' => $request->input('remarks'),
+            ];
+            $milestone->approvals = $approvals;
+            $milestone->status = 'approved';
+            $milestone->approved_at = now();
+            $milestone->date_approved_at = now();
+            $milestone->save();
+
+            // Advance candidate to next milestone (Milestone 7: Viva)
+            $workflowService->afterApproval($milestone);
+
+            $workflowService->notifyUpdate($milestone, "{$approverRole} {$user->name} officially approved the corrected thesis for: {$milestone->template->name}. Candidate advanced to Viva Voce.");
+
+            return back()->with('success', 'Corrected thesis approved successfully. Candidate has been officially cleared and advanced to Milestone 7 (Viva Voce).');
+        }
+
         $summary = $workflowService->recordSupervisorReview(
             $milestone,
             $user,
@@ -171,14 +217,16 @@ class MilestoneController extends Controller
             abort(403, 'Unauthorized.');
         }
 
-        if (!$user->hasRole('Admin')) {
-            $isAssignedSupervisor = $user->hasRole('Supervisor') && 
-                $user->supervisorProfile && 
-                $milestone->thesis->assignments()->where('supervisor_profile_id', $user->supervisorProfile->id)->where('status', 'active')->exists();
+        $isAssignedSupervisor = $user->hasRole('Supervisor') && 
+            $user->supervisorProfile && 
+            $milestone->thesis->assignments()->where('supervisor_profile_id', $user->supervisorProfile->id)->where('status', 'active')->exists();
 
-            if (!$isAssignedSupervisor) {
-                abort(403, 'Unauthorized. Supervisors can only review uploads for their assigned supervisees, and program coordinators do not review student documents.');
-            }
+        $isAssignedInternalExaminer = $user->hasRole('Internal Examiner') && 
+            ($milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6) &&
+            $user->internalExaminerProfiles()->where('id', $milestone->thesis->internal_examiner_profile_id)->exists();
+
+        if (!$user->hasRole('Admin') && !$isAssignedSupervisor && !$isAssignedInternalExaminer) {
+            abort(403, 'Unauthorized.');
         }
 
         $request->validate([
@@ -188,6 +236,25 @@ class MilestoneController extends Controller
         ]);
 
         $workflowService = app(\App\Services\MilestoneWorkflowService::class);
+
+        if ($isAssignedInternalExaminer) {
+            $latestSub = $milestone->submissions()->latest()->first();
+            if ($latestSub) {
+                \App\Models\Feedback::updateOrCreate(
+                    ['submission_id' => $latestSub->id],
+                    [
+                        'user_id' => $user->id,
+                        'decision' => 'revision_required',
+                        'remarks' => $request->input('remarks'),
+                    ]
+                );
+            }
+            $milestone->update(['status' => 'revision_required']);
+            $workflowService->notifyUpdate($milestone, "Internal Examiner {$user->name} requested corrections for: {$milestone->template->name}");
+
+            return back()->with('success', 'Corrections requested. The student has been notified to revise the thesis manuscript.');
+        }
+
         $workflowService->recordSupervisorReview(
             $milestone,
             $user,
@@ -546,7 +613,14 @@ class MilestoneController extends Controller
         }
         // Program Coordinators
         $coords = \App\Models\CoordinatorProfile::where('program_id', $milestone->thesis->student->program_id)->where('active', true)->pluck('user_id');
-        $recipients = $recipients->merge($coords)->unique();
+        $recipients = $recipients->merge($coords);
+
+        // Internal Examiner (for internal defence / milestones with assigned examiner)
+        if ($milestone->thesis->internalExaminer && $milestone->thesis->internalExaminer->user_id) {
+            $recipients->push($milestone->thesis->internalExaminer->user_id);
+        }
+
+        $recipients = $recipients->unique();
 
         foreach ($recipients as $userId) {
             \App\Events\MilestoneSubmitted::dispatch($milestone, $userId);

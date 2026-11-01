@@ -41,7 +41,7 @@ class MilestoneReviewController extends Controller
         $externalExaminers = [];
         $availableSupervisors = [];
         
-        if (Auth::user()->hasRole('Program Coordinator')) {
+        if (Auth::user()->hasAnyRole(['Program Coordinator', 'Admin'])) {
             $programId = $milestone->thesis->student->program_id;
             
             if ($milestone->template->order == 4 || $milestone->template->order == 6 || $milestone->template->show_internal_examiner_assignment) {
@@ -87,21 +87,21 @@ class MilestoneReviewController extends Controller
         // Conditional validation based on milestone order and coordinator role
         // Conditional validation based on template properties
         if ($milestone->template->allow_defence_date) {
-            if (Auth::user()->hasRole('Program Coordinator')) {
+            if (Auth::user()->hasAnyRole(['Program Coordinator', 'Admin'])) {
                 $rules['defence_date'] = 'nullable|date';
                 $rules['defence_location'] = 'nullable|string|max:255';
             }
         }
 
         if ($milestone->template->show_internal_examiner_assignment) {
-            if (Auth::user()->hasRole('Program Coordinator')) {
-                $rules['internal_examiner_profile_id'] = 'required|exists:internal_examiner_profiles,id';
+            if (Auth::user()->hasAnyRole(['Program Coordinator', 'Admin'])) {
+                $rules['internal_examiner_profile_id'] = 'nullable|exists:internal_examiner_profiles,id';
             }
         }
 
         if ($milestone->template->show_external_examiner_assignment) {
-            if (Auth::user()->hasRole('Program Coordinator')) {
-                $rules['external_examiner_profile_id'] = 'required|exists:external_examiner_profiles,id';
+            if (Auth::user()->hasAnyRole(['Program Coordinator', 'Admin'])) {
+                $rules['external_examiner_profile_id'] = 'nullable|exists:external_examiner_profiles,id';
             }
         }
 
@@ -134,12 +134,70 @@ class MilestoneReviewController extends Controller
             }
         }
 
-        if (!$user->hasAnyRole(['Admin', 'Supervisor'])) {
+        $isInternalExaminerForThis = ($milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6) && 
+            $user->hasRole('Internal Examiner') && 
+            $user->internalExaminerProfiles()->where('id', $milestone->thesis->internal_examiner_profile_id)->exists();
+
+        if (!$user->hasAnyRole(['Admin', 'Supervisor']) && !$isInternalExaminerForThis) {
             abort(403, 'Institutional Protocol: Unauthorized to review milestones.');
         }
 
         $decision = $request->decision;
         $template = $milestone->template;
+
+        // If an Internal Examiner is reviewing post-defence corrections on internal_defence:
+        if ($isInternalExaminerForThis) {
+            $submission = $milestone->submissions()->latest()->first();
+
+            if ($decision === 'approved') {
+                if ($submission) {
+                    \App\Models\Feedback::updateOrCreate(
+                        ['submission_id' => $submission->id],
+                        [
+                            'user_id' => $user->id,
+                            'decision' => 'approved',
+                            'remarks' => $request->remarks,
+                        ]
+                    );
+                }
+
+                $approvals = $milestone->approvals ?? [];
+                $approvalKey = 'Internal Examiner:' . $user->id;
+                $approvals[$approvalKey] = [
+                    'user_id' => $user->id,
+                    'role' => 'Internal Examiner',
+                    'approved_at' => now()->toDateTimeString(),
+                    'remarks' => $request->remarks,
+                ];
+                $milestone->approvals = $approvals;
+                $milestone->status = 'approved';
+                $milestone->approved_at = now();
+                $milestone->date_approved_at = now();
+                $milestone->save();
+
+                // Advance candidate to next milestone (Milestone 7: Viva)
+                $this->workflowService->afterApproval($milestone);
+
+                $this->workflowService->notifyUpdate($milestone, "Internal Examiner {$user->name} officially approved the corrected thesis for: {$template->name}. Student advanced to Viva Voce.");
+
+                return redirect()->back()->with('success', 'Corrected thesis approved successfully. The student has been officially advanced to Milestone 7 (Viva Voce).');
+            } else {
+                if ($submission) {
+                    \App\Models\Feedback::updateOrCreate(
+                        ['submission_id' => $submission->id],
+                        [
+                            'user_id' => $user->id,
+                            'decision' => 'revision_required',
+                            'remarks' => $request->remarks,
+                        ]
+                    );
+                }
+                $milestone->update(['status' => 'revision_required']);
+                $this->workflowService->notifyUpdate($milestone, "Internal Examiner {$user->name} requested corrections for: {$template->name}");
+
+                return redirect()->back()->with('success', 'Corrections requested. The candidate has been notified to revise the thesis manuscript.');
+            }
+        }
 
         // If a Supervisor is reviewing, handle document acceptance / revision request
         if ($isSupervisor) {
