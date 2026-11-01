@@ -700,14 +700,22 @@
                                         @endif
                                     </div>
 
-                                    <!-- Mandatory Scopus Policy Notice -->
+                                    <!-- Mandatory Scopus & Supervisor Co-Authorship Policy Notice -->
                                     <div class="p-3.5 bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border border-purple-200/80 rounded-xl flex items-start gap-3 text-xs">
                                         <div class="w-5 h-5 rounded-md bg-purple-600 text-white flex items-center justify-center shrink-0 text-[10px] font-black shadow-sm">
                                             i
                                         </div>
                                         <div class="text-slate-700 leading-relaxed">
                                             <span class="font-black text-purple-900 uppercase tracking-wider">Mandatory Requirement:</span>
-                                            All publications submitted for Internal Defence <strong>must be indexed in Elsevier Scopus</strong>. If a publication is not indexed in Scopus, submission will be strictly blocked. Enter your DOI and click <strong>Check Scopus</strong> to verify before submitting.
+                                            All publications submitted for Internal Defence <strong>must be indexed in Elsevier Scopus AND list your assigned supervisor(s) as co-authors</strong>. If a publication is not indexed in Scopus or does not list your supervisor, submission will be strictly blocked. Enter your DOI and click <strong>Check Scopus</strong> to verify before submitting.
+                                            @if(!empty($assignedSupervisors))
+                                                <div class="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+                                                    <span class="font-bold text-slate-800">Your Assigned Supervisor(s):</span>
+                                                    @foreach($assignedSupervisors as $sName)
+                                                        <span class="px-2 py-0.5 bg-white border border-purple-200 rounded-md font-semibold text-purple-950">{{ $sName }}</span>
+                                                    @endforeach
+                                                </div>
+                                            @endif
                                         </div>
                                     </div>
 
@@ -721,18 +729,26 @@
                                     <!-- Dynamic Publication Cards -->
                                     <template x-for="(slot, index) in pubSlots" :key="slot.id">
                                         <div class="p-5 rounded-2xl border shadow-sm space-y-4 relative transition-all"
-                                            :class="slot.verified ? (slot.scopusIndexed ? 'border-emerald-400 ring-2 ring-emerald-400/20 bg-emerald-50/10' : 'border-rose-400 ring-2 ring-rose-400/20 bg-rose-50/20') : 'border-slate-200 bg-white hover:border-purple-300'">
+                                            :class="slot.verified ? (slot.scopusIndexed && (assignedSupervisors.length === 0 || slot.hasSupervisor) ? 'border-emerald-400 ring-2 ring-emerald-400/20 bg-emerald-50/10' : 'border-rose-400 ring-2 ring-rose-400/20 bg-rose-50/20') : 'border-slate-200 bg-white hover:border-purple-300'">
                                             <div class="flex items-center justify-between">
-                                                <div class="flex items-center gap-2">
+                                                <div class="flex flex-wrap items-center gap-2">
                                                     <span class="w-6 h-6 rounded-lg font-black text-xs flex items-center justify-center"
-                                                        :class="slot.verified ? (slot.scopusIndexed ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800') : 'bg-purple-100 text-purple-700'"
+                                                        :class="slot.verified ? (slot.scopusIndexed && (assignedSupervisors.length === 0 || slot.hasSupervisor) ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800') : 'bg-purple-100 text-purple-700'"
                                                         x-text="index + 1"></span>
                                                     <span class="text-xs font-black uppercase tracking-wider text-slate-800" x-text="'Publication #' + (index + 1) + ((index + existingPubsCount < requiredPubs) ? ' (Required)' : ' (Additional)')"></span>
                                                     <template x-if="slot.verified">
-                                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider"
-                                                            :class="slot.scopusIndexed ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-rose-100 text-rose-800 border border-rose-200'"
-                                                            x-text="slot.scopusIndexed ? '✓ Scopus Indexed' : '✕ Not in Scopus (Blocked)'">
-                                                        </span>
+                                                        <div class="flex flex-wrap items-center gap-1.5">
+                                                            <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider"
+                                                                :class="slot.scopusIndexed ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-rose-100 text-rose-800 border border-rose-200'"
+                                                                x-text="slot.scopusIndexed ? '✓ Scopus Indexed' : '✕ Not in Scopus'">
+                                                            </span>
+                                                            <template x-if="assignedSupervisors.length > 0">
+                                                                <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider"
+                                                                    :class="slot.hasSupervisor ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-rose-100 text-rose-800 border border-rose-200'"
+                                                                    x-text="slot.hasSupervisor ? '✓ Supervisor Co-author' : '✕ Supervisor Missing'">
+                                                                </span>
+                                                            </template>
+                                                        </div>
                                                     </template>
                                                 </div>
                                                 <button type="button" 
@@ -788,14 +804,17 @@
                                                     <!-- Live Verification Feedback Box -->
                                                     <div x-show="slot.checking" class="mt-2 text-xs text-indigo-600 font-semibold flex items-center gap-1.5" style="display: none;">
                                                         <svg class="animate-spin w-3.5 h-3.5 text-indigo-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                                        <span>Querying Scopus & Crossref indexing databases...</span>
+                                                        <span>Querying Scopus & Crossref and cross-referencing supervisor...</span>
                                                     </div>
 
-                                                    <div x-show="slot.verified && slot.scopusIndexed" class="mt-2.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-start gap-2.5 text-xs text-emerald-900" style="display: none;">
+                                                    <!-- Success Box: Scopus Verified AND Supervisor Co-authored -->
+                                                    <div x-show="slot.verified && slot.scopusIndexed && (assignedSupervisors.length === 0 || slot.hasSupervisor)" class="mt-2.5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-start gap-2.5 text-xs text-emerald-900" style="display: none;">
                                                         <svg class="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                                                        <div>
-                                                            <span class="font-black uppercase tracking-wider text-emerald-800">✓ Verified: Indexed in Scopus</span>
-                                                            <p class="text-[11px] text-emerald-700 mt-0.5 font-medium" x-show="slot.journal" x-text="'Journal / Source: ' + slot.journal"></p>
+                                                        <div class="space-y-1">
+                                                            <span class="font-black uppercase tracking-wider text-emerald-800">✓ Fully Verified: Indexed in Scopus</span>
+                                                            <p class="text-[11px] text-emerald-800 font-bold" x-show="slot.matchedSupervisor" x-text="'✓ Supervisor Co-author Confirmed: ' + slot.matchedSupervisor"></p>
+                                                            <p class="text-[11px] text-slate-600 font-medium" x-show="slot.authors && slot.authors.length > 0" x-text="'Authors: ' + slot.authors.slice(0, 4).join(', ') + (slot.authors.length > 4 ? ' et al.' : '')"></p>
+                                                            <p class="text-[11px] text-emerald-700 font-medium" x-show="slot.journal" x-text="'Journal / Source: ' + slot.journal"></p>
                                                         </div>
                                                     </div>
 
@@ -806,6 +825,20 @@
                                                             <span class="font-black uppercase tracking-wider text-rose-800">✕ Not Indexed in Scopus — Cannot Submit for Internal Defence</span>
                                                             <p class="text-[11px] text-rose-700 mt-0.5 font-medium">This publication was located in Crossref/DataCite, but it is <strong>not indexed in Elsevier Scopus</strong>. Institutional regulations strictly require Scopus-indexed publications for Internal Defence eligibility.</p>
                                                             <p class="text-[11px] text-slate-500 mt-1 font-mono" x-show="slot.journal" x-text="'Source / Publisher: ' + slot.journal"></p>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Red Warning Box for Missing Supervisor Co-authorship -->
+                                                    <div x-show="slot.verified && slot.scopusIndexed && assignedSupervisors.length > 0 && !slot.hasSupervisor" class="mt-2.5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-900" style="display: none;">
+                                                        <svg class="w-4 h-4 text-rose-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                                        <div>
+                                                            <span class="font-black uppercase tracking-wider text-rose-800">✕ Supervisor Co-authorship Missing — Cannot Submit</span>
+                                                            <p class="text-[11px] text-rose-700 mt-0.5 font-medium">
+                                                                This publication is indexed in Scopus, but <strong>does not list your assigned supervisor (<span x-text="assignedSupervisors.join(', ')"></span>) as an author</strong>. Institutional regulations require all accepted publications to be co-authored with your assigned supervisor.
+                                                            </p>
+                                                            <p class="text-[11px] text-slate-600 mt-1" x-show="slot.authors && slot.authors.length > 0">
+                                                                <span class="font-bold">Authors on record:</span> <span x-text="slot.authors.join(', ')"></span>
+                                                            </p>
                                                         </div>
                                                     </div>
 
@@ -859,17 +892,17 @@
                                 </div>
                                 @endif
 
-                                <!-- Non-Scopus Block Notice Banner above Submit Button -->
-                                <div x-show="hasPubRequirement && !isPostDefenceStage && pubSlots.some(s => s.verified && !s.scopusIndexed)" class="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2.5" style="display: none;">
+                                <!-- Non-Compliant Block Notice Banner above Submit Button -->
+                                <div x-show="hasPubRequirement && !isPostDefenceStage && pubSlots.some(s => s.verified && (!s.scopusIndexed || (assignedSupervisors.length > 0 && !s.hasSupervisor)))" class="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2.5" style="display: none;">
                                     <svg class="w-4 h-4 text-rose-600 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
                                     <div>
-                                        <span class="font-bold">Submission Blocked:</span> One or more attached publications are not indexed in Elsevier Scopus. Institutional regulations require all publications for Internal Defence to be verified in Scopus. You cannot submit until all publications are Scopus-indexed.
+                                        <span class="font-bold">Submission Blocked:</span> One or more attached publications fail institutional compliance. Every publication must be <strong>indexed in Scopus AND co-authored with your assigned supervisor</strong>. You cannot submit until all publications satisfy both requirements.
                                     </div>
                                 </div>
 
                                 <div class="flex justify-end pt-2">
                                     <button type="submit" 
-                                        :disabled="uploading || (hasPubRequirement && !isPostDefenceStage && pubSlots.some(s => s.verified && !s.scopusIndexed))"
+                                        :disabled="uploading || (hasPubRequirement && !isPostDefenceStage && pubSlots.some(s => s.verified && (!s.scopusIndexed || (assignedSupervisors.length > 0 && !s.hasSupervisor))))"
                                         class="inline-flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-emerald-600 transition-colors shadow-xl shadow-slate-200/40 disabled:opacity-50 disabled:cursor-not-allowed">
                                         <span x-text="uploading ? 'Transmitting...' : '{{ $isPostDefenceStage ? 'Submit Corrected Thesis' : (in_array('publication', $subTypes) && count($subTypes) > 1 ? 'Submit Documentation & Publication' : (in_array('publication', $subTypes) ? 'Submit Publication' : 'Upload Document')) }}'"></span>
                                         <svg x-show="!uploading" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
@@ -993,10 +1026,14 @@
                                                             </a>
                                                         @endif
 
-                                                        @if($submission->is_scopus_indexed)
+                                                        @if($submission->is_scopus_indexed && $submission->has_supervisor_coauthor)
                                                             <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">
                                                                 <svg class="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                                                                Scopus Indexed
+                                                                Scopus Indexed & Supervisor Verified
+                                                            </span>
+                                                        @elseif($submission->is_scopus_indexed)
+                                                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
+                                                                Scopus Indexed (Supervisor Missing)
                                                             </span>
                                                         @elseif($submission->doi)
                                                             <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200">
@@ -1005,8 +1042,18 @@
                                                             </span>
                                                         @endif
 
+                                                        @if($submission->matched_supervisor_name)
+                                                            <span class="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                                                Co-author: {{ $submission->matched_supervisor_name }}
+                                                            </span>
+                                                        @endif
+
                                                         @if(!empty($submission->scopus_data['journal']))
                                                             <span class="text-[10px] text-slate-500 font-medium italic">({{ $submission->scopus_data['journal'] }})</span>
+                                                        @endif
+
+                                                        @if(!empty($submission->publication_authors))
+                                                            <p class="text-[10px] text-slate-500 font-medium w-full mt-0.5">Authors: {{ implode(', ', array_slice($submission->publication_authors, 0, 5)) }}{{ count($submission->publication_authors) > 5 ? ' et al.' : '' }}</p>
                                                         @endif
                                                     </div>
                                                 </div>

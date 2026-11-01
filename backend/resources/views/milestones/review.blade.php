@@ -70,10 +70,14 @@
                                         <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                                     </a>
                                 @endif
-                                @if($submission->is_scopus_indexed)
+                                @if($submission->is_scopus_indexed && $submission->has_supervisor_coauthor)
                                     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">
                                         <svg class="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                                        Scopus Indexed
+                                        Scopus Indexed & Supervisor Verified
+                                    </span>
+                                @elseif($submission->is_scopus_indexed)
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
+                                        Scopus Indexed (Supervisor Missing)
                                     </span>
                                 @elseif($submission->doi)
                                     <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200">
@@ -81,8 +85,16 @@
                                         Not Indexed in Scopus
                                     </span>
                                 @endif
+                                @if($submission->matched_supervisor_name)
+                                    <span class="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                        Co-author: {{ $submission->matched_supervisor_name }}
+                                    </span>
+                                @endif
                                 @if(!empty($submission->scopus_data['journal']))
                                     <span class="text-xs text-slate-500 font-medium italic">({{ $submission->scopus_data['journal'] }})</span>
+                                @endif
+                                @if(!empty($submission->publication_authors))
+                                    <p class="text-xs text-slate-500 font-medium w-full mt-1">Authors: {{ implode(', ', array_slice($submission->publication_authors, 0, 5)) }}{{ count($submission->publication_authors) > 5 ? ' et al.' : '' }}</p>
                                 @endif
                             </div>
                         @endif
@@ -122,13 +134,22 @@
                                         <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase {{ $oldSub->type === 'publication' ? 'bg-purple-100 text-purple-800' : 'bg-slate-200 text-slate-800' }} shrink-0">
                                             {{ $oldSub->type === 'publication' ? 'Publication' : 'Manuscript' }} v{{ $oldSub->version }}
                                         </span>
-                                        @if($oldSub->is_scopus_indexed)
+                                        @if($oldSub->is_scopus_indexed && $oldSub->has_supervisor_coauthor)
                                             <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 shrink-0">
-                                                Scopus Indexed
+                                                Scopus & Supervisor Verified
+                                            </span>
+                                        @elseif($oldSub->is_scopus_indexed)
+                                            <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-100 text-amber-800 shrink-0">
+                                                Scopus (No Supervisor)
                                             </span>
                                         @elseif($oldSub->type === 'publication' && $oldSub->doi)
                                             <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-rose-100 text-rose-800 shrink-0">
                                                 Not in Scopus
+                                            </span>
+                                        @endif
+                                        @if($oldSub->matched_supervisor_name)
+                                            <span class="text-[9px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200 shrink-0">
+                                                Co-author: {{ $oldSub->matched_supervisor_name }}
                                             </span>
                                         @endif
                                         <span class="text-xs text-slate-700 dark:text-slate-300 truncate font-semibold">{{ $oldSub->publication_title ?? ($oldSub->file_meta['original_name'] ?? 'document.pdf') }}</span>
