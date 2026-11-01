@@ -517,6 +517,208 @@ class MilestoneTemplateController extends Controller
         return back()->with('success', $msg . '.');
     }
 
+    public function rescheduleDay(Request $request, MilestoneTemplate $template)
+    {
+        if (!auth()->user()->hasRole('Admin')) {
+            abort(403, 'Institutional authority required. Only an Administrator can reschedule presentation days.');
+        }
+
+        $request->validate([
+            'from_date' => 'required|date',
+            'to_date' => 'required|date',
+            'start_time' => 'nullable|string|max:20',
+            'meeting_link' => 'nullable|url|max:500',
+        ]);
+
+        $fromDateStr = \Carbon\Carbon::parse($request->from_date)->format('Y-m-d');
+        $toDate = \Carbon\Carbon::parse($request->to_date);
+        $toDateStr = $toDate->format('Y-m-d');
+
+        $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+            ->whereDate('defence_date', $fromDateStr)
+            ->with(['thesis.student.user'])
+            ->get();
+
+        if ($milestones->isEmpty()) {
+            return back()->with('error', 'No presentations found scheduled on ' . \Carbon\Carbon::parse($request->from_date)->format('M d, Y') . '.');
+        }
+
+        $type = $template->defence_type ?? match($template->slug) {
+            'seminar_as_a_course' => 'seminar',
+            'proposal_defence' => 'proposal',
+            'progress_report_1' => 'progress_report_1',
+            'progress_report_2' => 'progress_report_2',
+            default => 'first_seminar',
+        };
+
+        $count = 0;
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            foreach ($milestones as $sm) {
+                $thesis = $sm->thesis;
+                $studentUser = $thesis?->student?->user;
+
+                $updateData = ['defence_date' => $toDateStr];
+                if ($request->filled('start_time')) {
+                    $updateData['defence_time'] = $request->start_time;
+                }
+                if ($request->filled('meeting_link')) {
+                    $updateData['meeting_link'] = $request->meeting_link;
+                }
+                $sm->update($updateData);
+
+                if ($thesis) {
+                    $time = $sm->defence_time;
+                    $start = $toDate->copy();
+                    if ($time) {
+                        $timeParts = explode(':', $time);
+                        $start->setTime((int)$timeParts[0], (int)($timeParts[1] ?? 0));
+                    } else {
+                        $start->setTime(10, 0);
+                    }
+
+                    $eventData = [
+                        'schedule_start' => $start,
+                        'schedule_end' => $start->copy()->addHour(),
+                    ];
+                    if ($sm->meeting_link) {
+                        $eventData['location'] = $sm->meeting_link;
+                    }
+
+                    $event = \App\Models\DefenceEvent::updateOrCreate(
+                        ['thesis_project_id' => $thesis->id, 'type' => $type],
+                        $eventData
+                    );
+
+                    if ($studentUser) {
+                        \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
+                        try {
+                            $studentUser->notify(new \App\Notifications\EventScheduled($event));
+                        } catch (\Throwable $e) {
+                            \Illuminate\Support\Facades\Log::error('Notification failed: ' . $e->getMessage());
+                        }
+                    }
+                }
+                $count++;
+            }
+            \Illuminate\Support\Facades\DB::commit();
+            return back()->with('success', "Rescheduled {$count} presenter(s) from " . \Carbon\Carbon::parse($request->from_date)->format('M d, Y') . " to " . $toDate->format('M d, Y') . " successfully.");
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            return back()->with('error', 'Error rescheduling day: ' . $e->getMessage());
+        }
+    }
+
+    public function updateStudentSlot(Request $request, MilestoneTemplate $template, \App\Models\StudentMilestone $milestone)
+    {
+        if (!auth()->user()->hasRole('Admin')) {
+            abort(403, 'Institutional authority required. Only an Administrator can edit student schedule slots.');
+        }
+
+        if ($milestone->milestone_template_id !== $template->id) {
+            abort(404, 'Milestone does not belong to this template.');
+        }
+
+        $request->validate([
+            'action' => 'required|in:schedule,remove',
+            'defence_date' => 'required_if:action,schedule|nullable|date',
+            'defence_time' => 'nullable|string|max:20',
+            'meeting_link' => 'nullable|url|max:500',
+        ]);
+
+        $thesis = $milestone->thesis;
+        $studentUser = $thesis?->student?->user;
+        $studentName = $studentUser?->name ?? 'Candidate';
+
+        $type = $template->defence_type ?? match($template->slug) {
+            'seminar_as_a_course' => 'seminar',
+            'proposal_defence' => 'proposal',
+            'progress_report_1' => 'progress_report_1',
+            'progress_report_2' => 'progress_report_2',
+            default => 'first_seminar',
+        };
+
+        \Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            if ($request->input('action') === 'remove') {
+                $milestone->update([
+                    'defence_date' => null,
+                    'defence_time' => null,
+                    'meeting_link' => null,
+                ]);
+
+                if ($thesis) {
+                    \App\Models\DefenceEvent::where('thesis_project_id', $thesis->id)->where('type', $type)->delete();
+                }
+                if ($studentUser) {
+                    \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
+                }
+
+                \Illuminate\Support\Facades\DB::commit();
+                return back()->with('success', "Removed {$studentName} completely from the presentation schedule.");
+            }
+
+            // Schedule or change date
+            $newDate = \Carbon\Carbon::parse($request->defence_date)->format('Y-m-d');
+            $newTime = $request->defence_time ?: null;
+            $newLink = $request->meeting_link ?: null;
+
+            $milestone->update([
+                'defence_date' => $newDate,
+                'defence_time' => $newTime,
+                'meeting_link' => $newLink,
+            ]);
+
+            if ($thesis) {
+                $start = \Carbon\Carbon::parse($newDate);
+                if ($newTime) {
+                    $parts = explode(':', $newTime);
+                    $start->setTime((int)$parts[0], (int)($parts[1] ?? 0));
+                } else {
+                    $start->setTime(10, 0);
+                }
+
+                $event = \App\Models\DefenceEvent::updateOrCreate(
+                    ['thesis_project_id' => $thesis->id, 'type' => $type],
+                    [
+                        'schedule_start' => $start,
+                        'schedule_end' => $start->copy()->addHour(),
+                        'location' => $newLink,
+                        'outcome' => 'pending',
+                    ]
+                );
+
+                // Auto-attach template examiners if needed
+                if ($event->panelMembers()->where('role', 'examiner')->count() === 0 && !empty($template->metadata['examiner_user_ids'])) {
+                    foreach ($template->metadata['examiner_user_ids'] as $uId) {
+                        \App\Models\PanelMember::firstOrCreate([
+                            'defence_event_id' => $event->id,
+                            'user_id' => $uId,
+                            'role' => 'examiner',
+                        ], [
+                            'invitation_status' => 'accepted'
+                        ]);
+                    }
+                }
+
+                if ($studentUser) {
+                    \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
+                    try {
+                        $studentUser->notify(new \App\Notifications\EventScheduled($event));
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::error('Event notification error: ' . $e->getMessage());
+                    }
+                }
+            }
+
+            \Illuminate\Support\Facades\DB::commit();
+            return back()->with('success', "Updated presentation schedule for {$studentName} to " . \Carbon\Carbon::parse($newDate)->format('M d, Y') . ($newTime ? " at " . \Carbon\Carbon::parse($newTime)->format('g:i A') : "") . ".");
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            return back()->with('error', 'Error updating student slot: ' . $e->getMessage());
+        }
+    }
+
     public function endSchedule(MilestoneTemplate $template)
     {
         if (!auth()->user()->hasRole('Admin')) {

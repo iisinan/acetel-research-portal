@@ -31,7 +31,7 @@
                 </thead>
                 
                     @forelse($templates as $template)
-                    <tbody x-data="{ expanded: false, showStudents: false, selectAll: false, selected: [], search: '', cohortFilter: '' }" class="divide-y divide-slate-50 border-t border-slate-50">
+                    <tbody x-data="{ expanded: false, showStudents: false, selectAll: false, selected: [], search: '', cohortFilter: '', rescheduleDayOpen: false, slotModalOpen: false, slotStudentId: null, slotStudentName: '', slotAction: 'schedule', slotDate: '', slotTime: '', slotLink: '', slotFormUrl: '' }" class="divide-y divide-slate-50 border-t border-slate-50">
                     <tr class="hover:bg-slate-50/30 transition-colors group cursor-pointer" data-id="{{ $template->id }}" @click="if(!$event.target.closest('button') && !$event.target.closest('a') && !$event.target.closest('input') && !$event.target.closest('form')) expanded = !expanded">
                         <td class="px-10 py-7 text-center">
                             <div class="flex flex-col items-center gap-2">
@@ -92,7 +92,7 @@
                                     @endif
 
                                     <!-- Dropdown Date Picker -->
-                                    <div x-show="showDatePicker" @click.outside="showDatePicker = false" @click.stop class="absolute right-0 mt-2 p-4 bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-200/50 z-50 w-64" style="display: none;">
+                                    <div x-show="showDatePicker" @click.outside="showDatePicker = false" @click.stop class="absolute right-0 mt-2 p-4 bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-200/50 z-50 w-64 max-w-[85vw]" style="display: none;">
                                         <form action="{{ route('admin.milestone-templates.set-date', $template->id) }}" method="POST" class="flex flex-col gap-3">
                                             @csrf
                                             <input type="date" name="global_defence_date" x-model="localDate" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500" required>
@@ -110,7 +110,7 @@
                             <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 cursor-default" @click.stop>
                                 
                                 {{-- Summary Cards --}}
-                                <div class="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-6">
+                                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4 mb-6">
                                     <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
                                         <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Students</p>
                                         <p class="text-2xl font-black text-slate-900">{{ $template->studentMilestones->count() }}</p>
@@ -287,6 +287,190 @@
                                                 </template>
                                             </div>
 
+                                            {{-- Reschedule Day Button & Modal --}}
+                                            <div class="inline">
+                                                <button type="button" @click="rescheduleDayOpen = true"
+                                                    class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm">
+                                                    <svg class="w-3.5 h-3.5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                    </svg>
+                                                    <span>Reschedule Day</span>
+                                                </button>
+
+                                                <template x-teleport="body">
+                                                    <div x-show="rescheduleDayOpen" x-cloak x-transition.opacity class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" @keydown.escape.window="rescheduleDayOpen = false">
+                                                        <div @click.outside="rescheduleDayOpen = false" class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100">
+                                                            <form action="{{ route('admin.milestone-templates.reschedule-day', $template->id) }}" method="POST">
+                                                                @csrf
+                                                                {{-- Header --}}
+                                                                <div class="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4 bg-slate-50/50">
+                                                                    <div class="flex items-center gap-3">
+                                                                        <div class="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                                                                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                                            </svg>
+                                                                        </div>
+                                                                        <div>
+                                                                            <h3 class="text-base font-black text-slate-900">Reschedule Presentation Day</h3>
+                                                                            <p class="text-xs text-slate-500 mt-0.5">Shift all presenters scheduled on a specific date to a new date.</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <button type="button" @click="rescheduleDayOpen = false" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                                                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                                    </button>
+                                                                </div>
+
+                                                                {{-- Form Body --}}
+                                                                <div class="p-6 space-y-4 text-xs text-left">
+                                                                    @php
+                                                                        $dayGroups = $scheduledMilestones->groupBy(fn($m) => \Carbon\Carbon::parse($m->defence_date)->format('Y-m-d'));
+                                                                    @endphp
+
+                                                                    <div>
+                                                                        <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                                                                            Current Scheduled Day to Shift <span class="text-rose-500">*</span>
+                                                                        </label>
+                                                                        <select name="from_date" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                                                                            <option value="">-- Select scheduled date to move --</option>
+                                                                            @foreach($dayGroups as $dateKey => $group)
+                                                                                <option value="{{ $dateKey }}">
+                                                                                    {{ \Carbon\Carbon::parse($dateKey)->format('l, F j, Y') }} ({{ $group->count() }} presenter{{ $group->count() > 1 ? 's' : '' }})
+                                                                                </option>
+                                                                            @endforeach
+                                                                        </select>
+                                                                        <p class="text-[10px] text-slate-400 mt-1">All presenters on this date will be moved to the new date together.</p>
+                                                                    </div>
+
+                                                                    <div>
+                                                                        <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                                                                            New Target Date <span class="text-rose-500">*</span>
+                                                                        </label>
+                                                                        <input type="date" name="to_date" required min="{{ date('Y-m-d') }}" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                                                                        <p class="text-[10px] text-slate-400 mt-1">Pick the new date when these presentations should take place.</p>
+                                                                    </div>
+
+                                                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                                                                        <div>
+                                                                            <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">
+                                                                                New Start Time (Optional)
+                                                                            </label>
+                                                                            <input type="time" name="start_time" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                                                                            <p class="text-[9px] text-slate-400 mt-0.5">Leave blank to retain current individual times.</p>
+                                                                        </div>
+                                                                        <div>
+                                                                            <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">
+                                                                                Meeting Link (Optional)
+                                                                            </label>
+                                                                            <input type="url" name="meeting_link" placeholder="https://zoom.us/j/..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                                                                            <p class="text-[9px] text-slate-400 mt-0.5">Leave blank to retain current links.</p>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-800 text-[11px] leading-relaxed flex items-start gap-2">
+                                                                        <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                        </svg>
+                                                                        <span>
+                                                                            Presenters on this day will have their defence schedules updated and receive a notification with the new date details.
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+
+                                                                {{-- Footer --}}
+                                                                <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 bg-slate-50/50">
+                                                                    <button type="button" @click="rescheduleDayOpen = false" class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 transition-colors">Cancel</button>
+                                                                    <button type="submit" class="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2">
+                                                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                                                        </svg>
+                                                                        <span>Shift Presentations</span>
+                                                                    </button>
+                                                                </div>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+
+                                            {{-- Individual Student Slot Modal (Teleported to body) --}}
+                                            <template x-teleport="body">
+                                                <div x-show="slotModalOpen" x-cloak x-transition.opacity class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" @keydown.escape.window="slotModalOpen = false">
+                                                    <div @click.outside="slotModalOpen = false" class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100">
+                                                        <form :action="slotFormUrl" method="POST" x-ref="slotForm">
+                                                            @csrf
+                                                            <input type="hidden" name="action" :value="slotAction">
+
+                                                            {{-- Header --}}
+                                                            <div class="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4 bg-slate-50/50">
+                                                                <div class="flex items-center gap-3">
+                                                                    <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                                                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                                                        </svg>
+                                                                    </div>
+                                                                    <div>
+                                                                        <h3 class="text-base font-black text-slate-900" x-text="slotDate ? 'Manage Student Slot' : 'Schedule Student Presentation'"></h3>
+                                                                        <p class="text-xs text-slate-500 mt-0.5 truncate max-w-[240px]" x-text="slotStudentName"></p>
+                                                                    </div>
+                                                                </div>
+                                                                <button type="button" @click="slotModalOpen = false" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                                                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                                </button>
+                                                            </div>
+
+                                                            {{-- Form fields --}}
+                                                            <div class="p-6 space-y-4 text-xs text-left">
+                                                                <div>
+                                                                    <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                                                                        Presentation Date <span class="text-rose-500">*</span>
+                                                                    </label>
+                                                                    <input type="date" name="defence_date" x-model="slotDate" :required="slotAction === 'schedule'" min="{{ date('Y-m-d') }}" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                                                                    <p class="text-[10px] text-slate-400 mt-1">Assign or move this candidate to any presentation date.</p>
+                                                                </div>
+
+                                                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                                    <div>
+                                                                        <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">
+                                                                            Time (Optional)
+                                                                        </label>
+                                                                        <input type="time" name="defence_time" x-model="slotTime" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                                                                    </div>
+                                                                    <div>
+                                                                        <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">
+                                                                            Meeting Link (Optional)
+                                                                        </label>
+                                                                        <input type="url" name="meeting_link" x-model="slotLink" placeholder="https://zoom.us/j/..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                                                                    </div>
+                                                                </div>
+
+                                                                {{-- Notice --}}
+                                                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 text-[11px] leading-relaxed">
+                                                                    <span x-show="slotDate">Moving this student will update their defence event, clear their dashboard cache, and send them a slot notification.</span>
+                                                                    <span x-show="!slotDate">Scheduling this student creates a new defence event and notifies the candidate.</span>
+                                                                </div>
+                                                            </div>
+
+                                                            {{-- Footer --}}
+                                                            <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3 bg-slate-50/50">
+                                                                <div>
+                                                                    <template x-if="slotDate">
+                                                                        <button type="button" @click="if(confirm('Are you sure you want to remove ' + slotStudentName + ' from the presentation schedule completely?')) { slotAction = 'remove'; $nextTick(() => $refs.slotForm.submit()); }"
+                                                                            class="px-3 py-2 rounded-xl text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors">
+                                                                            Remove from Schedule
+                                                                        </button>
+                                                                    </template>
+                                                                </div>
+                                                                <div class="flex items-center gap-2">
+                                                                    <button type="button" @click="slotModalOpen = false" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 transition-colors">Cancel</button>
+                                                                    <button type="submit" @click="slotAction = 'schedule'" class="px-5 py-2 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 shadow-md shadow-amber-600/20 transition-all font-semibold">
+                                                                        <span x-text="slotDate ? 'Update Slot' : 'Schedule Student'"></span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </template>
                                             <form action="{{ route('admin.milestone-templates.end-schedule', $template->id) }}" method="POST" class="inline">
                                                 @csrf
                                                 <button type="submit" data-confirm="Are you sure you want to end the presentation session for {{ addslashes($template->name) }}? Eligible scheduled students who have completed all requirements (presentation, presentation PDF upload, and supervisor approval) will be approved and advanced to the next milestone."
@@ -946,11 +1130,23 @@
                                                                         </span>
                                                                     @endif
                                                                 @elseif($sm->defence_date)
-                                                                    <div class="font-bold text-slate-800 flex items-center gap-1.5">
-                                                                        <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                                                                        </svg>
-                                                                        <span>{{ \Carbon\Carbon::parse($sm->defence_date)->format('M d, Y') }}</span>
+                                                                    <div class="flex items-center justify-between gap-1">
+                                                                        <div class="font-bold text-slate-800 flex items-center gap-1.5">
+                                                                            <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                                                            </svg>
+                                                                            <span>{{ \Carbon\Carbon::parse($sm->defence_date)->format('M d, Y') }}</span>
+                                                                        </div>
+                                                                        @if(!isset($isCoordinator) || !$isCoordinator)
+                                                                            <button type="button" 
+                                                                                @click="slotModalOpen = true; slotStudentId = {{ $sm->id }}; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $sm->defence_time ? \Carbon\Carbon::parse($sm->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($sm->meeting_link ?? '') }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
+                                                                                title="Reschedule / Edit slot or remove student"
+                                                                                class="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors">
+                                                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                                                </svg>
+                                                                            </button>
+                                                                        @endif
                                                                     </div>
                                                                     @if($sm->defence_time)
                                                                         <div class="text-[11px] text-emerald-700 font-semibold mt-0.5 flex items-center gap-1 pl-5">
@@ -971,9 +1167,19 @@
                                                                         </div>
                                                                     @endif
                                                                 @else
-                                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-400">
-                                                                        Not scheduled
-                                                                    </span>
+                                                                    <div class="flex items-center gap-2">
+                                                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-400">
+                                                                            Not scheduled
+                                                                        </span>
+                                                                        @if(!isset($isCoordinator) || !$isCoordinator)
+                                                                            <button type="button" 
+                                                                                @click="slotModalOpen = true; slotStudentId = {{ $sm->id }}; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ $lastScheduledDate ?? date('Y-m-d') }}'; slotTime = '{{ $existingTime ?? '10:00' }}'; slotLink = '{{ addslashes($existingLink ?? '') }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
+                                                                                class="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded text-[10px] font-black uppercase tracking-wider transition-colors shadow-2xs">
+                                                                                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                                                                                <span>Add to Day</span>
+                                                                            </button>
+                                                                        @endif
+                                                                    </div>
                                                                 @endif
                                                             </td>
                                                             @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
@@ -1041,6 +1247,40 @@
                                                                     <div x-show="menuOpen" @click.outside="menuOpen = false" x-cloak class="absolute right-8 top-0 w-56 bg-white rounded-xl shadow-xl border border-slate-100 z-[60] overflow-hidden text-left" style="display: none;">
                                                                         @if((!isset($isCoordinator) || !$isCoordinator) && $sm->status !== 'approved')
                                                                             <div class="p-1.5 border-b border-slate-100 space-y-1">
+                                                                                @if(!empty($sm->defence_date))
+                                                                                <button type="button" 
+                                                                                    @click="menuOpen = false; slotModalOpen = true; slotStudentId = {{ $sm->id }}; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $sm->defence_time ? \Carbon\Carbon::parse($sm->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($sm->meeting_link ?? '') }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
+                                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors flex items-center gap-2">
+                                                                                    <svg class="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                                                    </svg>
+                                                                                    <span>Reschedule Slot</span>
+                                                                                </button>
+                                                                                <form action="{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}" method="POST">
+                                                                                    @csrf
+                                                                                    <input type="hidden" name="action" value="remove">
+                                                                                    <button type="submit" 
+                                                                                        data-confirm="Are you sure you want to remove {{ addslashes($studentName) }} from the presentation schedule? This will clear their presentation date, time, and link."
+                                                                                        data-confirm-title="Remove from Schedule"
+                                                                                        data-confirm-type="danger"
+                                                                                        data-confirm-btn="Remove Student"
+                                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors flex items-center gap-2">
+                                                                                        <svg class="w-3.5 h-3.5 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                                        </svg>
+                                                                                        <span>Remove from Schedule</span>
+                                                                                    </button>
+                                                                                </form>
+                                                                                @else
+                                                                                <button type="button" 
+                                                                                    @click="menuOpen = false; slotModalOpen = true; slotStudentId = {{ $sm->id }}; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ $lastScheduledDate ?? date('Y-m-d') }}'; slotTime = '{{ $existingTime ?? '10:00' }}'; slotLink = '{{ addslashes($existingLink ?? '') }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
+                                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors flex items-center gap-2">
+                                                                                    <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                                                                                    </svg>
+                                                                                    <span>Schedule Slot</span>
+                                                                                </button>
+                                                                                @endif
                                                                                 @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
                                                                                 <button type="button" @click="showAssignModal = true; menuOpen = false" class="w-full text-left px-3 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-2">
                                                                                     <svg class="w-3.5 h-3.5 text-indigo-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

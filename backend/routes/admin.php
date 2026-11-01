@@ -87,6 +87,8 @@ Route::post('milestone-templates/{template}/date', [MilestoneTemplateController:
     Route::get('past-presentations/export-attendance', [\App\Http\Controllers\Admin\PastPresentationController::class, 'exportAttendance'])->name('past-presentations.export-attendance');
     Route::post('milestone-templates/{template}/cancel-schedule', [MilestoneTemplateController::class, 'cancelSchedule'])->name('milestone-templates.cancel-schedule');
     Route::post('milestone-templates/{template}/update-schedule', [MilestoneTemplateController::class, 'updateSchedule'])->name('milestone-templates.update-schedule');
+    Route::post('milestone-templates/{template}/reschedule-day', [MilestoneTemplateController::class, 'rescheduleDay'])->name('milestone-templates.reschedule-day');
+    Route::post('milestone-templates/{template}/students/{milestone}/schedule-slot', [MilestoneTemplateController::class, 'updateStudentSlot'])->name('milestone-templates.update-student-slot');
     Route::post('milestone-templates/{milestone}/assign-examiner', [MilestoneTemplateController::class, 'assignExaminer'])->name('milestone-templates.assign-examiner');
     Route::post('milestone-templates/{template}/assign-examiner-global', [MilestoneTemplateController::class, 'assignExaminerGlobal'])->name('milestone-templates.assign-examiner-global');
     Route::get('milestone-templates/{template}/export-students', [MilestoneTemplateController::class, 'exportStudents'])->name('milestone-templates.export-students');
