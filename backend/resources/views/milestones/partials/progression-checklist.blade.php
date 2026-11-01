@@ -271,7 +271,14 @@
                         </p>
                     </div>
 
-                    @if(!$isSupervisorApproved && (auth()->user()->hasRole('Supervisor') || auth()->user()->hasRole('Admin')) && $milestone->submissions()->exists())
+                    @php
+                        $canReviewUpload = auth()->user()->hasRole('Admin') || (
+                            auth()->user()->hasRole('Supervisor') && 
+                            auth()->user()->supervisorProfile && 
+                            $milestone->thesis->assignments->where('supervisor_profile_id', auth()->user()->supervisorProfile->id)->where('status', 'active')->isNotEmpty()
+                        );
+                    @endphp
+                    @if(!$isSupervisorApproved && $canReviewUpload && $milestone->submissions()->exists())
                         <form method="POST" x-data="{ remarks: '' }" @submit="if(!remarks.trim()) { alert('A comment is required to accept or reject the upload.'); event.preventDefault(); }" class="mt-4 pt-4 border-t border-slate-100">
                             @csrf
                             <label class="block text-xs font-bold text-slate-700 mb-1.5">Review Decision <span class="text-rose-500">*</span></label>

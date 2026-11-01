@@ -106,8 +106,8 @@
                                         </span>
                                     </td>
                                     <td class="px-10 py-6 text-right">
-                                        <a href="{{ route('milestones.review', $milestone) }}" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-acetel-600 text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-slate-900/10 hover:shadow-acetel-500/20 translate-y-0 hover:-translate-y-1">
-                                            Review Protocol
+                                        <a href="{{ route('theses.show', ['thesis' => $milestone->thesis_project_id, 'expanded' => $milestone->id]) }}" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-acetel-600 text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-slate-900/10 hover:shadow-acetel-500/20 translate-y-0 hover:-translate-y-1">
+                                            View Thesis
                                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                                         </a>
                                     </td>

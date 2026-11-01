@@ -666,7 +666,14 @@
                                                 </div>
                                             @endif
 
-                                            @if(auth()->user()->hasRole(['Supervisor', 'Admin']) && (!$submission->feedback || !in_array($submission->feedback->decision, ['approved', 'revision_required'])))
+                                            @php
+                                                $canReviewUpload = auth()->user()->hasRole('Admin') || (
+                                                    auth()->user()->hasRole('Supervisor') && 
+                                                    auth()->user()->supervisorProfile && 
+                                                    $milestone->thesis->assignments->where('supervisor_profile_id', auth()->user()->supervisorProfile->id)->where('status', 'active')->isNotEmpty()
+                                                );
+                                            @endphp
+                                            @if($canReviewUpload && (!$submission->feedback || !in_array($submission->feedback->decision, ['approved', 'revision_required'])))
                                                 <form method="POST" x-data="{ remarks: '' }" @submit="if(!remarks.trim()) { alert('A comment is required to accept or reject the upload.'); $event.preventDefault(); }" class="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 shadow-sm w-full max-w-sm mt-1">
                                                     @csrf
                                                     <textarea name="remarks" x-model="remarks" rows="2" class="w-full text-xs rounded-xl border-slate-300 focus:ring-indigo-500 focus:border-indigo-500 mb-2 p-2.5 shadow-sm resize-none bg-white placeholder:text-slate-400" placeholder="Required: Explain your decision..." required></textarea>

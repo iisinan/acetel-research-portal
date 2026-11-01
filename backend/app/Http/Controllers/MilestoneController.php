@@ -127,8 +127,18 @@ class MilestoneController extends Controller
     public function acceptUpload(Request $request, StudentMilestone $milestone)
     {
         $user = Auth::user();
-        if (!$user || (!$user->hasRole('Supervisor') && !$user->hasRole('Admin'))) {
-            abort(403, 'Unauthorized. Only the assigned supervisor or an administrator can review uploaded documents.');
+        if (!$user) {
+            abort(403, 'Unauthorized.');
+        }
+
+        if (!$user->hasRole('Admin')) {
+            $isAssignedSupervisor = $user->hasRole('Supervisor') && 
+                $user->supervisorProfile && 
+                $milestone->thesis->assignments()->where('supervisor_profile_id', $user->supervisorProfile->id)->where('status', 'active')->exists();
+
+            if (!$isAssignedSupervisor) {
+                abort(403, 'Unauthorized. Supervisors can only review uploads for their assigned supervisees, and program coordinators do not review student documents.');
+            }
         }
 
         $request->validate([
@@ -157,8 +167,18 @@ class MilestoneController extends Controller
     public function rejectUpload(Request $request, StudentMilestone $milestone)
     {
         $user = Auth::user();
-        if (!$user || (!$user->hasRole('Supervisor') && !$user->hasRole('Admin'))) {
-            abort(403, 'Unauthorized. Only the assigned supervisor or an administrator can review uploaded documents.');
+        if (!$user) {
+            abort(403, 'Unauthorized.');
+        }
+
+        if (!$user->hasRole('Admin')) {
+            $isAssignedSupervisor = $user->hasRole('Supervisor') && 
+                $user->supervisorProfile && 
+                $milestone->thesis->assignments()->where('supervisor_profile_id', $user->supervisorProfile->id)->where('status', 'active')->exists();
+
+            if (!$isAssignedSupervisor) {
+                abort(403, 'Unauthorized. Supervisors can only review uploads for their assigned supervisees, and program coordinators do not review student documents.');
+            }
         }
 
         $request->validate([

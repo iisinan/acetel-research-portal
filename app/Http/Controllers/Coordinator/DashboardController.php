@@ -93,23 +93,8 @@ class DashboardController extends Controller
 
         $students = $studentQuery->with(['user', 'program', 'level', 'thesis.milestones.template', 'thesis.assignments.supervisor.user'])->get();
 
-        $pending_reviews = StudentMilestone::whereHas('thesis.student', function($q) use ($user, $programId, $levelId) {
-                $q->forCoordinator($user);
-                if ($programId) $q->where('program_id', $programId);
-                if ($levelId) $q->where('level_id', $levelId);
-            })
-            ->where(function($q) {
-                $q->whereIn('status', ['submitted', 'partially_approved', 'revision_required'])
-                  ->orWhere(function($sub) {
-                      $sub->where('status', 'pending')
-                          ->whereHas('template', function($t) {
-                              $t->where('requires_submission', false);
-                          });
-                  });
-            })
-            ->with(['template', 'thesis.student.user'])
-            ->latest('updated_at')
-            ->get();
+        // Institutional Rule: Program Coordinators do not review student documents (reviews are strictly supervisory)
+        $pending_reviews = collect();
 
         $upcoming_events = DefenceEvent::whereHas('thesis.student', function($q) use ($user, $programId, $levelId) {
                 $q->forCoordinator($user);
@@ -121,11 +106,8 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        // System Alerts: Filter to items specifically requiring Coordinator attention
-        $milestoneAlerts = $pending_reviews->filter(function($m) use ($user) {
-            $requiredRoles = $m->template->required_approvers ?? [];
-            return in_array('Program Coordinator', $requiredRoles);
-        });
+        // System Alerts: Program Coordinators do not have document review queues
+        $milestoneAlerts = collect();
 
         $inactiveSupervisorsQuery = SupervisorProfile::whereHas('programs', function($q) use ($allProgramIds, $programId) {
             if ($programId) {

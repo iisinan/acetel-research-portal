@@ -112,9 +112,29 @@ class MilestoneReviewController extends Controller
         $request->validate($rules);
 
         $user = Auth::user();
+        if (!$user) {
+            abort(403, 'Unauthorized.');
+        }
+
+        // Institutional Rule: Program Coordinators do not review student documents
+        if ($user->hasRole('Program Coordinator') && !$user->hasRole('Admin') && !$user->hasRole('Supervisor')) {
+            abort(403, 'Institutional Protocol: Program Coordinators do not review student documents. Document reviews are conducted by the assigned supervisor.');
+        }
+
         $isSupervisor = $user->hasRole('Supervisor') && !$user->hasRole('Admin');
 
-        if (!$user->hasAnyRole(['Admin', 'Supervisor', 'Program Coordinator'])) {
+        // Institutional Rule: Supervisors only review their supervisee students upload
+        if ($isSupervisor) {
+            $isAssigned = $user->supervisorProfile && $milestone->thesis->assignments()
+                ->where('supervisor_profile_id', $user->supervisorProfile->id)
+                ->where('status', 'active')
+                ->exists();
+            if (!$isAssigned) {
+                abort(403, 'Unauthorized. Supervisors can only review uploads for their assigned supervisees.');
+            }
+        }
+
+        if (!$user->hasAnyRole(['Admin', 'Supervisor'])) {
             abort(403, 'Institutional Protocol: Unauthorized to review milestones.');
         }
 

@@ -232,19 +232,31 @@ class DashboardController extends Controller
                 ];
             }
 
-            // Pending seminar and defence examinations where supervisor is a panel member
-            $pendingSeminars = \App\Models\DefenceEvent::whereIn('type', ['seminar', 'proposal', 'progress_report_1', 'progress_report_2'])
+            // Pending seminar examinations where supervisor is a panel member (Milestone 1)
+            $pendingSeminars = \App\Models\DefenceEvent::where('type', 'seminar')
                 ->whereHas('panelMembers', function($q) use ($user) {
                     $q->where('user_id', $user->id);
                 })
                 ->whereDoesntHave('evaluations', function($q) use ($user) {
                     $q->where('evaluator_id', $user->id);
                 })
-                ->whereHas('thesis.milestones', function($q) {
-                    $q->whereNotNull('student_milestones.defence_date');
+                ->with(['thesis.student.user', 'thesis.milestones.template'])
+                ->get()
+                ->filter(function($event) {
+                    // Match milestone 1 seminar defence
+                    $matchingMilestone = $event->thesis?->milestones?->first(function($m) {
+                        return $m->template?->slug === 'seminar_as_a_course' || $m->template?->defence_type === 'seminar';
+                    });
+
+                    if (!$matchingMilestone) {
+                        return false;
+                    }
+
+                    // Only show if milestone 1 is active and specifically has its own defence date scheduled
+                    return !in_array($matchingMilestone->status, ['approved', 'completed', 'withdrawn'])
+                        && !empty($matchingMilestone->defence_date);
                 })
-                ->with(['thesis.student.user'])
-                ->get();
+                ->values();
         }
 
         $data['supervisor'] = $supervisor;
@@ -283,27 +295,8 @@ class DashboardController extends Controller
                 $q->whereIn('programs.id', $allProgramIds);
             })->count();
 
-            // Coordinator pending milestone clearances
-            $coordinatorPendingReviews = \App\Models\StudentMilestone::whereHas('thesis.student', function($q) use ($user) {
-                    $q->forCoordinator($user);
-                })
-                ->where('status', '!=', 'approved')
-                ->whereHas('template', function($q) {
-                    $q->whereJsonContains('required_approvers', 'Program Coordinator');
-                })
-                ->where(function($q) {
-                    $q->whereNotNull('submitted_at')
-                      ->orWhereHas('template', function($sq) {
-                          $sq->where('requires_submission', false);
-                      });
-                })
-                ->with(['thesis.student.user', 'template'])
-                ->latest()
-                ->get()
-                ->filter(function($milestone) use ($user) {
-                    return $this->isMilestonePendingReviewForUser($milestone, $user->id, 'Program Coordinator');
-                })
-                ->values();
+            // Institutional Rule: Programme Coordinators do not review student documents (reviews are strictly supervisory)
+            $coordinatorPendingReviews = collect();
 
             $coordinatorUpcomingEvents = \App\Models\DefenceEvent::whereHas('thesis.student', function($q) use ($user) {
                     $q->forCoordinator($user);
@@ -408,7 +401,8 @@ class DashboardController extends Controller
         $data['externalPendingReviews'] = $externalPendingReviews;
 
         // 5. VIVA / ORAL DEFENCE EVALUATIONS (Applicable to Examiners & Panelists)
-        $data['pending_evaluations'] = \App\Models\DefenceEvent::whereHas('panelMembers', function($q) use ($user) {
+        $data['pending_evaluations'] = \App\Models\DefenceEvent::whereNotIn('type', ['seminar', 'proposal', 'progress_report_1', 'progress_report_2'])
+            ->whereHas('panelMembers', function($q) use ($user) {
                 $q->where('user_id', $user->id);
             })->whereDoesntHave('evaluations', function($q) use ($user) {
                 $q->where('evaluator_id', $user->id);
@@ -738,6 +732,11 @@ class DashboardController extends Controller
         }
 
         if ($milestone->status === 'revision_required') {
+            return false;
+        }
+
+        // Institutional Rule: Program Coordinators do not review student documents
+        if ($role === 'Program Coordinator') {
             return false;
         }
 

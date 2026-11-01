@@ -998,23 +998,17 @@ class="space-y-8 animate-in">
             <div class="flex items-center justify-between border-b border-slate-50 pb-4">
                 <div class="flex items-center gap-3">
                     <div class="w-2 h-6 bg-blue-500 rounded-full"></div>
-                    <h3 class="text-base font-black text-slate-800 tracking-tight">PENDING DEFENCE EVALUATIONS</h3>
+                    <h3 class="text-base font-black text-slate-800 tracking-tight">PENDING SEMINAR EVALUATIONS (MILESTONE 1)</h3>
                 </div>
                 <span class="px-2.5 py-1 bg-blue-50 text-blue-700 text-[10px] font-black rounded-lg uppercase">
-                    {{ $pending_seminars->count() }} Pending Evaluation{{ $pending_seminars->count() === 1 ? '' : 's' }}
+                    {{ $pending_seminars->count() }} Pending Seminar Evaluation{{ $pending_seminars->count() === 1 ? '' : 's' }}
                 </span>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 @foreach($pending_seminars as $event)
                 @php
-                    $eventBadge = match($event->type) {
-                        'proposal' => 'Proposal Defence',
-                        'progress_report_1' => 'Progress Report 1',
-                        'progress_report_2' => 'Progress Report 2',
-                        'seminar' => 'Seminar Defence',
-                        default => ucfirst(str_replace('_', ' ', $event->type)),
-                    };
+                    $eventBadge = 'Seminar Defence (Milestone 1)';
                 @endphp
                 <div class="p-5 bg-blue-50/40 border border-blue-100 rounded-2xl space-y-3">
                     <div>
