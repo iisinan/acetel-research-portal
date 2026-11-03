@@ -277,6 +277,21 @@
                                         $existingTimeRaw = $scheduledMilestones->first(fn($m) => !empty($m->defence_time))?->defence_time;
                                         $existingTime = $existingTimeRaw ? \Carbon\Carbon::parse($existingTimeRaw)->format('H:i') : null;
                                         $lastScheduledDate = $scheduledCount > 0 ? \Carbon\Carbon::parse($scheduledMilestones->last()->defence_date)->format('Y-m-d') : null;
+
+                                        $schedCyberCount = $scheduledMilestones->where('discipline_group', 'cybersecurity')->count();
+                                        $schedAiCount = $scheduledMilestones->where('discipline_group', 'artificial_intelligence')->count();
+                                        $schedMisCount = $scheduledMilestones->where('discipline_group', 'management_information_systems')->count();
+                                        $trackZoomLinks = $template->metadata['track_zoom_links'] ?? [];
+
+                                        if (empty($trackZoomLinks['cybersecurity'])) {
+                                            $trackZoomLinks['cybersecurity'] = $scheduledMilestones->first(fn($m) => $m->discipline_group === 'cybersecurity' && !empty($m->meeting_link))?->meeting_link;
+                                        }
+                                        if (empty($trackZoomLinks['artificial_intelligence'])) {
+                                            $trackZoomLinks['artificial_intelligence'] = $scheduledMilestones->first(fn($m) => $m->discipline_group === 'artificial_intelligence' && !empty($m->meeting_link))?->meeting_link;
+                                        }
+                                        if (empty($trackZoomLinks['management_information_systems'])) {
+                                            $trackZoomLinks['management_information_systems'] = $scheduledMilestones->first(fn($m) => $m->discipline_group === 'management_information_systems' && !empty($m->meeting_link))?->meeting_link;
+                                        }
                                     @endphp
 
                                     @if($scheduledCount > 0)
@@ -287,7 +302,170 @@
                                                 <span>Add Students</span>
                                             </button>
 
-                                            <div x-data="{ editOpen: false }" class="inline">
+                                            <div x-data="{ 
+                                                editOpen: false,
+                                                editTrackFilter: 'all',
+                                                editSearch: '',
+                                                batchLink: '',
+                                                batchOnlyEmpty: false,
+                                                batchDate: '',
+                                                batchTime: '',
+                                                toastMessage: '',
+                                                showToast: false,
+                                                swapSourceId: null,
+                                                swapSourceName: '',
+                                                swapSourceDate: '',
+                                                swapSourceTime: '',
+                                                swapSourceTrack: '',
+
+                                                notify(msg) {
+                                                    this.toastMessage = msg;
+                                                    this.showToast = true;
+                                                    setTimeout(() => { this.showToast = false; }, 4000);
+                                                },
+
+                                                startSwap(id, name, date, time, track) {
+                                                    this.swapSourceId = id;
+                                                    this.swapSourceName = name;
+                                                    this.swapSourceDate = date;
+                                                    this.swapSourceTime = time;
+                                                    this.swapSourceTrack = track;
+                                                    this.notify('Selected ' + name + ' (' + date + ' ' + time + ') — Click [⇄ Swap Here] on any candidate below.');
+                                                },
+
+                                                cancelSwap() {
+                                                    this.swapSourceId = null;
+                                                    this.swapSourceName = '';
+                                                    this.swapSourceDate = '';
+                                                    this.swapSourceTime = '';
+                                                    this.swapSourceTrack = '';
+                                                },
+
+                                                executeSwap(targetId, targetName) {
+                                                    if (!this.swapSourceId || this.swapSourceId == targetId) return;
+
+                                                    const sourceRow = document.getElementById('sched-row-' + this.swapSourceId);
+                                                    const targetRow = document.getElementById('sched-row-' + targetId);
+
+                                                    if (!sourceRow || !targetRow) return;
+
+                                                    const sourceDateInput = sourceRow.querySelector('input[data-field=date]');
+                                                    const sourceTimeInput = sourceRow.querySelector('input[data-field=time]');
+                                                    const targetDateInput = targetRow.querySelector('input[data-field=date]');
+                                                    const targetTimeInput = targetRow.querySelector('input[data-field=time]');
+
+                                                    if (sourceDateInput && targetDateInput && sourceTimeInput && targetTimeInput) {
+                                                        const tempDate = sourceDateInput.value;
+                                                        const tempTime = sourceTimeInput.value;
+
+                                                        sourceDateInput.value = targetDateInput.value;
+                                                        sourceTimeInput.value = targetTimeInput.value;
+
+                                                        targetDateInput.value = tempDate;
+                                                        targetTimeInput.value = tempTime;
+
+                                                        sourceRow.classList.add('bg-emerald-50', 'ring-2', 'ring-emerald-400');
+                                                        targetRow.classList.add('bg-emerald-50', 'ring-2', 'ring-emerald-400');
+                                                        setTimeout(() => {
+                                                            sourceRow.classList.remove('bg-emerald-50', 'ring-2', 'ring-emerald-400');
+                                                            targetRow.classList.remove('bg-emerald-50', 'ring-2', 'ring-emerald-400');
+                                                        }, 2500);
+
+                                                        this.notify('Swapped slots between ' + this.swapSourceName + ' and ' + targetName + '!');
+                                                    }
+
+                                                    this.cancelSwap();
+                                                },
+
+                                                applyBatchMeetingLink() {
+                                                    if (!this.batchLink) {
+                                                        alert('Please enter or select a Zoom meeting link to apply.');
+                                                        return;
+                                                    }
+                                                    let count = 0;
+                                                    const rows = document.querySelectorAll('tr[data-sched-id]');
+                                                    rows.forEach(row => {
+                                                        const track = row.getAttribute('data-sched-track');
+                                                        const name = row.getAttribute('data-sched-name') || '';
+                                                        const matric = row.getAttribute('data-sched-matric') || '';
+                                                        const matchesTrack = (this.editTrackFilter === 'all' || this.editTrackFilter === track);
+                                                        const matchesSearch = (!this.editSearch || name.toLowerCase().includes(this.editSearch.toLowerCase()) || matric.toLowerCase().includes(this.editSearch.toLowerCase()));
+
+                                                        if (matchesTrack && matchesSearch) {
+                                                            const linkInput = row.querySelector('input[data-field=link]');
+                                                            if (linkInput) {
+                                                                if (!this.batchOnlyEmpty || !linkInput.value.trim()) {
+                                                                    linkInput.value = this.batchLink;
+                                                                    count++;
+                                                                }
+                                                            }
+                                                        }
+                                                    });
+                                                    const groupLabel = this.editTrackFilter === 'cybersecurity' ? 'Cybersecurity' : (this.editTrackFilter === 'artificial_intelligence' ? 'AI' : (this.editTrackFilter === 'management_information_systems' ? 'MIS' : 'all groups'));
+                                                    this.notify('Updated Zoom link for ' + count + ' student(s) in ' + groupLabel + '.');
+                                                },
+
+                                                applyBatchDate() {
+                                                    if (!this.batchDate) {
+                                                        alert('Please select a date to apply.');
+                                                        return;
+                                                    }
+                                                    let count = 0;
+                                                    const rows = document.querySelectorAll('tr[data-sched-id]');
+                                                    rows.forEach(row => {
+                                                        const track = row.getAttribute('data-sched-track');
+                                                        const name = row.getAttribute('data-sched-name') || '';
+                                                        const matric = row.getAttribute('data-sched-matric') || '';
+                                                        const matchesTrack = (this.editTrackFilter === 'all' || this.editTrackFilter === track);
+                                                        const matchesSearch = (!this.editSearch || name.toLowerCase().includes(this.editSearch.toLowerCase()) || matric.toLowerCase().includes(this.editSearch.toLowerCase()));
+
+                                                        if (matchesTrack && matchesSearch) {
+                                                            const dateInput = row.querySelector('input[data-field=date]');
+                                                            if (dateInput) {
+                                                                dateInput.value = this.batchDate;
+                                                                count++;
+                                                            }
+                                                        }
+                                                    });
+                                                    this.notify('Applied date (' + this.batchDate + ') to ' + count + ' student(s).');
+                                                },
+
+                                                applyBatchTime(staggerMinutes = 0) {
+                                                    if (!this.batchTime) {
+                                                        alert('Please select a start time.');
+                                                        return;
+                                                    }
+                                                    let count = 0;
+                                                    const rows = document.querySelectorAll('tr[data-sched-id]');
+                                                    let [startH, startM] = this.batchTime.split(':').map(Number);
+
+                                                    rows.forEach(row => {
+                                                        const track = row.getAttribute('data-sched-track');
+                                                        const name = row.getAttribute('data-sched-name') || '';
+                                                        const matric = row.getAttribute('data-sched-matric') || '';
+                                                        const matchesTrack = (this.editTrackFilter === 'all' || this.editTrackFilter === track);
+                                                        const matchesSearch = (!this.editSearch || name.toLowerCase().includes(this.editSearch.toLowerCase()) || matric.toLowerCase().includes(this.editSearch.toLowerCase()));
+
+                                                        if (matchesTrack && matchesSearch) {
+                                                            const timeInput = row.querySelector('input[data-field=time]');
+                                                            if (timeInput) {
+                                                                if (staggerMinutes > 0) {
+                                                                    let totalM = (startH * 60 + startM) + (count * staggerMinutes);
+                                                                    let h = Math.floor(totalM / 60) % 24;
+                                                                    let m = totalM % 60;
+                                                                    timeInput.value = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+                                                                } else {
+                                                                    timeInput.value = this.batchTime;
+                                                                }
+                                                                count++;
+                                                            }
+                                                        }
+                                                    });
+                                                    this.notify(staggerMinutes > 0 
+                                                        ? 'Staggered times (+30m) starting from ' + this.batchTime + ' across ' + count + ' student(s).' 
+                                                        : 'Applied time (' + this.batchTime + ') to ' + count + ' student(s).');
+                                                }
+                                            }" class="inline">
                                                 <button type="button" @click="editOpen = true"
                                                     class="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm">
                                                     <svg class="w-3.5 h-3.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -295,70 +473,246 @@
                                                 </button>
 
                                                 <template x-teleport="body">
-                                                    <div x-show="editOpen" x-cloak x-transition.opacity class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" @keydown.escape.window="editOpen = false">
-                                                        <div @click.outside="editOpen = false" class="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
-                                                            <form action="{{ route('admin.milestone-templates.update-schedule', $template->id) }}" method="POST" class="flex flex-col min-h-0">
+                                                    <div x-show="editOpen" x-cloak x-transition.opacity class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-slate-900/60 backdrop-blur-sm" @keydown.escape.window="if(!swapSourceId) editOpen = false">
+                                                        <div @click.outside="if(!swapSourceId) editOpen = false" class="bg-white rounded-3xl shadow-2xl w-full max-w-7xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-100">
+                                                            <form action="{{ route('admin.milestone-templates.update-schedule', $template->id) }}" method="POST" class="flex flex-col min-h-0 flex-1">
                                                                 @csrf
-                                                                {{-- Header --}}
-                                                                <div class="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4">
+
+                                                                {{-- Modal Header --}}
+                                                                <div class="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4 bg-white shrink-0">
                                                                     <div>
+                                                                        <div class="flex items-center gap-2 mb-1">
+                                                                            <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200">
+                                                                                Schedule Manager
+                                                                            </span>
+                                                                            <span class="text-xs font-bold text-slate-400">• {{ $scheduledCount }} Scheduled Candidates</span>
+                                                                        </div>
                                                                         <h3 class="text-lg font-black text-slate-900">Edit {{ $template->presentation_title }} Schedule</h3>
-                                                                        <p class="text-xs text-slate-500 mt-0.5">Change dates, times or meeting links, or remove students. Only students whose slot changes will be notified.</p>
+                                                                        <p class="text-xs text-slate-500 mt-0.5">Filter by discipline group, assign Zoom links to all in a group, shift dates, or swap slots between candidates.</p>
                                                                     </div>
-                                                                    <button type="button" @click="editOpen = false" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                                                                    <button type="button" @click="editOpen = false; cancelSwap();" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors">
                                                                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                                                                     </button>
                                                                 </div>
 
-                                                                {{-- Apply to all --}}
-                                                                <div class="px-6 py-4 bg-slate-50 border-b border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                                    <div>
-                                                                        <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Apply time to all (optional)</label>
-                                                                        <input type="time" name="apply_time_all" class="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                                                                {{-- Toast notification banner --}}
+                                                                <div x-show="showToast" x-cloak x-transition.opacity class="px-6 py-2.5 bg-emerald-600 text-white text-xs font-bold flex items-center justify-between shrink-0 shadow-inner">
+                                                                    <div class="flex items-center gap-2">
+                                                                        <svg class="w-4 h-4 text-white shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                                                        <span x-text="toastMessage"></span>
                                                                     </div>
-                                                                    <div>
-                                                                        <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Apply meeting link to all (optional)</label>
-                                                                        <input type="url" name="apply_link_all" placeholder="https://zoom.us/j/..." class="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                                                                    <button type="button" @click="showToast = false" class="text-white/80 hover:text-white font-black text-sm">✕</button>
+                                                                </div>
+
+                                                                {{-- Active Swap Indicator Banner --}}
+                                                                <div x-show="swapSourceId" x-cloak class="px-6 py-3 bg-amber-500 text-white flex items-center justify-between gap-4 shadow-md sticky top-0 z-20 shrink-0">
+                                                                    <div class="flex items-center gap-2 text-xs font-bold">
+                                                                        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                                                                        <span>
+                                                                            Swapping slot: <strong x-text="swapSourceName" class="underline"></strong> (<span x-text="swapSourceDate"></span> at <span x-text="swapSourceTime"></span>) — Click <strong class="bg-white/20 px-1.5 py-0.5 rounded">⇄ Swap Here</strong> on any candidate below to exchange their timetable slots.
+                                                                        </span>
+                                                                    </div>
+                                                                    <button type="button" @click="cancelSwap()" class="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors shrink-0">
+                                                                        Cancel Swap
+                                                                    </button>
+                                                                </div>
+
+                                                                {{-- Navigation Tabs & Filter Bar --}}
+                                                                <div class="px-6 py-3 bg-slate-50 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3 shrink-0">
+                                                                    {{-- Track Filter Tabs --}}
+                                                                    <div class="flex flex-wrap items-center gap-1.5">
+                                                                        <button type="button" @click="editTrackFilter = 'all'"
+                                                                            :class="editTrackFilter === 'all' ? 'bg-slate-900 text-white shadow-xs' : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200/80'"
+                                                                            class="px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5">
+                                                                            <span>All Groups</span>
+                                                                            <span class="px-1.5 py-0.5 rounded-full text-[10px]" :class="editTrackFilter === 'all' ? 'bg-white/20' : 'bg-slate-100 text-slate-600'">{{ $scheduledCount }}</span>
+                                                                        </button>
+
+                                                                        @if($template->slug === 'seminar_as_a_course')
+                                                                            <button type="button" @click="editTrackFilter = 'cybersecurity'"
+                                                                                :class="editTrackFilter === 'cybersecurity' ? 'bg-cyan-700 text-white shadow-xs' : 'bg-white hover:bg-cyan-50/50 text-slate-700 border border-slate-200/80'"
+                                                                                class="px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5">
+                                                                                <span>🛡️ Cybersecurity</span>
+                                                                                <span class="px-1.5 py-0.5 rounded-full text-[10px]" :class="editTrackFilter === 'cybersecurity' ? 'bg-white/20' : 'bg-cyan-50 text-cyan-800'">{{ $schedCyberCount }}</span>
+                                                                            </button>
+
+                                                                            <button type="button" @click="editTrackFilter = 'artificial_intelligence'"
+                                                                                :class="editTrackFilter === 'artificial_intelligence' ? 'bg-violet-700 text-white shadow-xs' : 'bg-white hover:bg-violet-50/50 text-slate-700 border border-slate-200/80'"
+                                                                                class="px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5">
+                                                                                <span>🤖 Artificial Intelligence</span>
+                                                                                <span class="px-1.5 py-0.5 rounded-full text-[10px]" :class="editTrackFilter === 'artificial_intelligence' ? 'bg-white/20' : 'bg-violet-50 text-violet-800'">{{ $schedAiCount }}</span>
+                                                                            </button>
+
+                                                                            <button type="button" @click="editTrackFilter = 'management_information_systems'"
+                                                                                :class="editTrackFilter === 'management_information_systems' ? 'bg-amber-700 text-white shadow-xs' : 'bg-white hover:bg-amber-50/50 text-slate-700 border border-slate-200/80'"
+                                                                                class="px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5">
+                                                                                <span>📊 MIS</span>
+                                                                                <span class="px-1.5 py-0.5 rounded-full text-[10px]" :class="editTrackFilter === 'management_information_systems' ? 'bg-white/20' : 'bg-amber-50 text-amber-800'">{{ $schedMisCount }}</span>
+                                                                            </button>
+                                                                        @endif
+                                                                    </div>
+
+                                                                    {{-- Search Input --}}
+                                                                    <div class="relative min-w-[240px]">
+                                                                        <input type="text" x-model="editSearch" placeholder="Filter by name or matric..." class="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                                                                        <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                                                                     </div>
                                                                 </div>
 
-                                                                {{-- Per-student rows --}}
+                                                                {{-- Batch Actions Bar (Applied to visible / filtered students) --}}
+                                                                <div class="px-6 py-3.5 bg-white border-b border-slate-200/70 space-y-3 shrink-0">
+                                                                    <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 text-xs">
+                                                                        {{-- Zoom Link Batch Apply --}}
+                                                                        <div class="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                                                            <div class="relative flex-1">
+                                                                                <input type="url" x-model="batchLink" placeholder="Paste Zoom link to apply to group..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                                                                            </div>
+
+                                                                            {{-- Quick Prefill Chips --}}
+                                                                            @if($template->slug === 'seminar_as_a_course' && !empty($trackZoomLinks))
+                                                                                <div class="flex items-center gap-1 shrink-0">
+                                                                                    @if(!empty($trackZoomLinks['cybersecurity']))
+                                                                                        <button type="button" @click="batchLink = '{{ $trackZoomLinks['cybersecurity'] }}'; editTrackFilter = 'cybersecurity'" class="px-2 py-1 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 text-[10px] font-black uppercase tracking-wider">
+                                                                                            🛡️ Cyber
+                                                                                        </button>
+                                                                                    @endif
+                                                                                    @if(!empty($trackZoomLinks['artificial_intelligence']))
+                                                                                        <button type="button" @click="batchLink = '{{ $trackZoomLinks['artificial_intelligence'] }}'; editTrackFilter = 'artificial_intelligence'" class="px-2 py-1 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-800 border border-violet-200 text-[10px] font-black uppercase tracking-wider">
+                                                                                            🤖 AI
+                                                                                        </button>
+                                                                                    @endif
+                                                                                    @if(!empty($trackZoomLinks['management_information_systems']))
+                                                                                        <button type="button" @click="batchLink = '{{ $trackZoomLinks['management_information_systems'] }}'; editTrackFilter = 'management_information_systems'" class="px-2 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-black uppercase tracking-wider">
+                                                                                            📊 MIS
+                                                                                        </button>
+                                                                                    @endif
+                                                                                </div>
+                                                                            @endif
+
+                                                                            <label class="flex items-center gap-1.5 text-[10px] text-slate-600 font-bold cursor-pointer select-none shrink-0 px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 transition">
+                                                                                <input type="checkbox" x-model="batchOnlyEmpty" class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5">
+                                                                                <span>Empty only</span>
+                                                                            </label>
+
+                                                                            <button type="button" @click="applyBatchMeetingLink()" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm transition-all shrink-0 flex items-center justify-center gap-1.5">
+                                                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                                                                <span x-text="editTrackFilter === 'all' ? 'Apply Zoom to All ({{ $scheduledCount }})' : ('Apply Zoom to ' + (editTrackFilter === 'cybersecurity' ? 'Cyber ({{ $schedCyberCount }})' : (editTrackFilter === 'artificial_intelligence' ? 'AI ({{ $schedAiCount }})' : 'MIS ({{ $schedMisCount }})')))"></span>
+                                                                            </button>
+                                                                        </div>
+
+                                                                        {{-- Date & Time Batch Apply --}}
+                                                                        <div class="flex items-center gap-2 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
+                                                                            <input type="date" x-model="batchDate" class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:bg-white">
+                                                                            <button type="button" @click="applyBatchDate()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm">
+                                                                                Set Date
+                                                                            </button>
+
+                                                                            <input type="time" x-model="batchTime" class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:bg-white ml-2">
+                                                                            <button type="button" @click="applyBatchTime(0)" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm" title="Set this exact time for all">
+                                                                                Set Time
+                                                                            </button>
+                                                                            <button type="button" @click="applyBatchTime(30)" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm" title="Stagger starting times in 30-minute intervals">
+                                                                                ⚡ Stagger (+30m)
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                {{-- Per-student rows Table --}}
                                                                 <div class="overflow-y-auto flex-1 min-h-0">
                                                                     <table class="w-full text-left text-xs">
-                                                                        <thead class="bg-white sticky top-0 z-10 border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                                        <thead class="bg-slate-50 sticky top-0 z-10 border-b border-slate-200/80 text-[10px] font-black uppercase tracking-wider text-slate-500">
                                                                             <tr>
-                                                                                <th class="px-6 py-3">Student</th>
-                                                                                <th class="px-3 py-3">Date</th>
-                                                                                <th class="px-3 py-3">Time</th>
-                                                                                <th class="px-3 py-3">Meeting Link</th>
-                                                                                <th class="px-6 py-3 text-center">Remove</th>
+                                                                                <th class="px-6 py-3.5">Candidate & Track</th>
+                                                                                <th class="px-4 py-3.5">Presentation Date</th>
+                                                                                <th class="px-4 py-3.5">Slot Time</th>
+                                                                                <th class="px-4 py-3.5">Meeting Link (Zoom)</th>
+                                                                                <th class="px-6 py-3.5 text-center">Actions / Swap</th>
                                                                             </tr>
                                                                         </thead>
                                                                         <tbody class="divide-y divide-slate-100">
                                                                             @foreach($scheduledMilestones as $esm)
-                                                                                <tr x-data="{ rm: false }" :class="rm ? 'bg-rose-50/60 opacity-60' : ''">
+                                                                                @php
+                                                                                    $candidateName = $esm->thesis?->student?->user?->name ?? 'Candidate';
+                                                                                    $candidateMatric = $esm->thesis?->student?->student_id_number ?? ($esm->thesis?->student?->matric_number ?? 'N/A');
+                                                                                    $track = $esm->discipline_group ?? 'cybersecurity';
+                                                                                    $dateVal = $esm->defence_date ? \Carbon\Carbon::parse($esm->defence_date)->format('Y-m-d') : '';
+                                                                                    $timeVal = $esm->defence_time ? \Carbon\Carbon::parse($esm->defence_time)->format('H:i') : '';
+                                                                                @endphp
+                                                                                <tr id="sched-row-{{ $esm->id }}"
+                                                                                    data-sched-id="{{ $esm->id }}"
+                                                                                    data-sched-track="{{ $track }}"
+                                                                                    data-sched-name="{{ strtolower($candidateName) }}"
+                                                                                    data-sched-matric="{{ strtolower($candidateMatric) }}"
+                                                                                    x-show="(editTrackFilter === 'all' || editTrackFilter === '{{ $track }}') && (!editSearch || '{{ strtolower(addslashes($candidateName)) }}'.includes(editSearch.toLowerCase()) || '{{ strtolower(addslashes($candidateMatric)) }}'.includes(editSearch.toLowerCase()))"
+                                                                                    x-data="{ rm: false }"
+                                                                                    :class="{ 'bg-rose-50/70 opacity-60': rm, 'ring-2 ring-amber-400 bg-amber-50/50': swapSourceId == '{{ $esm->id }}' }"
+                                                                                    class="transition-colors hover:bg-slate-50/60">
                                                                                     <td class="px-6 py-3">
-                                                                                        <div class="font-bold text-slate-900">{{ $esm->thesis?->student?->user?->name ?? 'Candidate' }}</div>
-                                                                                        <div class="text-[11px] text-slate-500">{{ $esm->thesis?->student?->student_id_number ?? 'N/A' }}</div>
+                                                                                        <div class="flex items-center gap-2">
+                                                                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider shrink-0
+                                                                                                {{ $track === 'cybersecurity' ? 'bg-cyan-50 text-cyan-800 border border-cyan-200' : ($track === 'artificial_intelligence' ? 'bg-violet-50 text-violet-800 border border-violet-200' : 'bg-amber-50 text-amber-800 border border-amber-200') }}">
+                                                                                                @if($track === 'cybersecurity') 🛡️ Cyber
+                                                                                                @elseif($track === 'artificial_intelligence') 🤖 AI
+                                                                                                @else 📊 MIS
+                                                                                                @endif
+                                                                                            </span>
+                                                                                            <div>
+                                                                                                <div class="font-bold text-slate-900 leading-tight">{{ $candidateName }}</div>
+                                                                                                <div class="text-[10px] text-slate-500 font-semibold">{{ $candidateMatric }}</div>
+                                                                                            </div>
+                                                                                        </div>
                                                                                     </td>
-                                                                                    <td class="px-3 py-3">
-                                                                                        <input type="date" name="entries[{{ $esm->id }}][defence_date]" value="{{ \Carbon\Carbon::parse($esm->defence_date)->format('Y-m-d') }}" :disabled="rm" required
-                                                                                            class="w-36 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                                                                                    <td class="px-4 py-3">
+                                                                                        <input type="date" data-field="date" name="entries[{{ $esm->id }}][defence_date]" value="{{ $dateVal }}" :disabled="rm"
+                                                                                            class="w-36 px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
                                                                                     </td>
-                                                                                    <td class="px-3 py-3">
-                                                                                        <input type="time" name="entries[{{ $esm->id }}][defence_time]" value="{{ $esm->defence_time ? \Carbon\Carbon::parse($esm->defence_time)->format('H:i') : '' }}" :disabled="rm"
-                                                                                            class="w-28 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                                                                                    <td class="px-4 py-3">
+                                                                                        <input type="time" data-field="time" name="entries[{{ $esm->id }}][defence_time]" value="{{ $timeVal }}" :disabled="rm"
+                                                                                            class="w-28 px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
                                                                                     </td>
-                                                                                    <td class="px-3 py-3">
-                                                                                        <input type="url" name="entries[{{ $esm->id }}][meeting_link]" value="{{ $esm->meeting_link }}" placeholder="https://..." :disabled="rm"
-                                                                                            class="w-full min-w-[200px] px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                                                                                    <td class="px-4 py-3">
+                                                                                        <div class="flex items-center gap-1.5">
+                                                                                            <input type="url" data-field="link" name="entries[{{ $esm->id }}][meeting_link]" value="{{ $esm->meeting_link }}" placeholder="https://zoom.us/j/..." :disabled="rm"
+                                                                                                class="w-full min-w-[220px] px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-medium focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                                                                                            @if(!empty($trackZoomLinks[$track]))
+                                                                                                <button type="button" @click="$el.previousElementSibling.value = '{{ $trackZoomLinks[$track] }}'" class="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition" title="Fill with track default Zoom link">
+                                                                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                                                                                                </button>
+                                                                                            @endif
+                                                                                        </div>
                                                                                     </td>
                                                                                     <td class="px-6 py-3 text-center">
-                                                                                        <input type="hidden" name="entries[{{ $esm->id }}][remove]" :value="rm ? 1 : 0">
-                                                                                        <button type="button" @click="rm = !rm"
-                                                                                            :class="rm ? 'bg-rose-600 text-white border-rose-600' : 'bg-white text-rose-600 border-rose-200 hover:bg-rose-50'"
-                                                                                            class="px-2.5 py-1 rounded-lg border text-[10px] font-black uppercase tracking-wider transition"
-                                                                                            x-text="rm ? 'Undo' : 'Remove'"></button>
+                                                                                        <div class="flex items-center justify-center gap-1.5">
+                                                                                            {{-- Swap Actions --}}
+                                                                                            <template x-if="swapSourceId == '{{ $esm->id }}'">
+                                                                                                <span class="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-lg font-black text-[10px] uppercase border border-amber-300">
+                                                                                                    Selected
+                                                                                                </span>
+                                                                                            </template>
+                                                                                            <template x-if="swapSourceId && swapSourceId != '{{ $esm->id }}'">
+                                                                                                <button type="button" 
+                                                                                                    @click="executeSwap('{{ $esm->id }}', '{{ addslashes($candidateName) }}')"
+                                                                                                    class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-black text-[10px] uppercase tracking-wider transition shadow-sm animate-pulse-subtle">
+                                                                                                    ⇄ Swap Here
+                                                                                                </button>
+                                                                                            </template>
+                                                                                            <template x-if="!swapSourceId">
+                                                                                                <button type="button" 
+                                                                                                    @click="startSwap('{{ $esm->id }}', '{{ addslashes($candidateName) }}', $el.closest('tr').querySelector('input[data-field=date]').value, $el.closest('tr').querySelector('input[data-field=time]').value, '{{ $track }}')"
+                                                                                                    class="px-2.5 py-1 bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-800 rounded-lg border border-slate-200 hover:border-amber-300 text-[10px] font-black uppercase tracking-wider transition"
+                                                                                                    title="Swap slot with another student">
+                                                                                                    ⇄ Swap
+                                                                                                </button>
+                                                                                            </template>
+
+                                                                                            {{-- Remove Action --}}
+                                                                                            <input type="hidden" name="entries[{{ $esm->id }}][remove]" :value="rm ? 1 : 0">
+                                                                                            <button type="button" @click="rm = !rm"
+                                                                                                :class="rm ? 'bg-rose-600 text-white border-rose-600' : 'bg-white text-rose-600 border-rose-200 hover:bg-rose-50'"
+                                                                                                class="px-2.5 py-1 rounded-lg border text-[10px] font-black uppercase tracking-wider transition"
+                                                                                                x-text="rm ? 'Undo' : 'Remove'"></button>
+                                                                                        </div>
                                                                                     </td>
                                                                                 </tr>
                                                                             @endforeach
@@ -367,11 +721,15 @@
                                                                 </div>
 
                                                                 {{-- Footer --}}
-                                                                <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3 bg-white">
-                                                                    <p class="text-[11px] text-slate-400">{{ $scheduledCount }} scheduled student(s). To add more, close this and use <strong>Add Students</strong>.</p>
-                                                                    <div class="flex gap-2">
-                                                                        <button type="button" @click="editOpen = false" class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200">Close</button>
-                                                                        <button type="submit" class="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 shadow-md shadow-amber-600/20">Save Changes</button>
+                                                                <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3 bg-white shrink-0">
+                                                                    <div class="text-[11px] text-slate-500 flex items-center gap-3">
+                                                                        <span>Total Scheduled: <strong>{{ $scheduledCount }}</strong> candidates</span>
+                                                                        <span class="text-slate-300">•</span>
+                                                                        <span class="text-slate-400">Slots update automatically when saved; candidates receive an instant timetable notification.</span>
+                                                                    </div>
+                                                                    <div class="flex gap-2 shrink-0">
+                                                                        <button type="button" @click="editOpen = false; cancelSwap();" class="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">Close</button>
+                                                                        <button type="submit" class="px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-amber-600 hover:bg-amber-700 shadow-md shadow-amber-600/25 transition-all">Save Changes</button>
                                                                     </div>
                                                                 </div>
                                                             </form>

@@ -27,6 +27,7 @@ class MilestoneTemplateController extends Controller
                       'thesis.student.user', 
                       'thesis.student.cohort', 
                       'thesis.student.level',
+                      'thesis.student.program',
                       'thesis.defenceEvents.panelMembers.user', 
                       'thesis.defenceEvents.evaluations', 
                       'thesis.milestones',
@@ -525,6 +526,23 @@ class MilestoneTemplateController extends Controller
                 $updated++;
             }
 
+            if ($template->slug === 'seminar_as_a_course') {
+                $meta = $template->metadata ?? [];
+                $trackLinks = $meta['track_zoom_links'] ?? [];
+                $activeSms = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+                    ->whereNotNull('defence_date')
+                    ->with('thesis.student.program')
+                    ->get();
+                foreach (['cybersecurity', 'artificial_intelligence', 'management_information_systems'] as $grp) {
+                    $foundLink = $activeSms->first(fn($m) => $m->discipline_group === $grp && !empty($m->meeting_link))?->meeting_link;
+                    if ($foundLink) {
+                        $trackLinks[$grp] = $foundLink;
+                    }
+                }
+                $meta['track_zoom_links'] = $trackLinks;
+                $template->update(['metadata' => $meta]);
+            }
+
             \Illuminate\Support\Facades\DB::commit();
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\DB::rollBack();
@@ -560,11 +578,11 @@ class MilestoneTemplateController extends Controller
             ->whereDate('defence_date', $fromDateStr)
             ->with(['thesis.student.user', 'thesis.student.program']);
 
-        if ($request->filled('discipline_group')) {
-            $query->where('discipline_group', $request->discipline_group);
-        }
-
         $milestones = $query->get();
+
+        if ($request->filled('discipline_group')) {
+            $milestones = $milestones->filter(fn($m) => $m->discipline_group === $request->discipline_group);
+        }
 
         if ($milestones->isEmpty()) {
             return back()->with('error', 'No presentations found scheduled on ' . \Carbon\Carbon::parse($request->from_date)->format('M d, Y') . '.');
@@ -789,11 +807,11 @@ class MilestoneTemplateController extends Controller
                 ->where('status', '!=', 'approved')
                 ->with(['template', 'thesis.student.user', 'thesis.student.program']);
 
-            if ($discGroup && in_array($discGroup, ['cybersecurity', 'artificial_intelligence', 'management_information_systems'])) {
-                $query->where('discipline_group', $discGroup);
-            }
-
             $milestones = $query->get();
+
+            if ($discGroup && in_array($discGroup, ['cybersecurity', 'artificial_intelligence', 'management_information_systems'])) {
+                $milestones = $milestones->filter(fn($m) => $m->discipline_group === $discGroup);
+            }
 
             $workflow = new \App\Services\MilestoneWorkflowService();
             $advanced = 0;
