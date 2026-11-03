@@ -169,8 +169,8 @@ class SeminarController extends Controller
 
         $event = DefenceEvent::findOrFail($eventId);
         
-        if (now()->format("Y-m-d") !== $event->schedule_start->format("Y-m-d")) {
-            return back()->with("error", "You can only grade the student on the exact day of their presentation.");
+        if ($event->schedule_start && now()->lt($event->schedule_start->copy()->startOfDay()->subHours(12))) {
+            return back()->with("error", "Grading opens on the day of the student's presentation (" . $event->schedule_start->format("M d, Y") . ").");
         }
 
         \App\Models\Evaluation::updateOrCreate(

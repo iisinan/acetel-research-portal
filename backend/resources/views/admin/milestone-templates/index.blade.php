@@ -415,6 +415,21 @@
 
                                                                 {{-- Form Body --}}
                                                                 <div class="p-6 space-y-4 text-xs text-left">
+                                                                    @if($template->slug === 'seminar_as_a_course')
+                                                                        <div>
+                                                                            <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                                                                                Discipline Track to Reschedule
+                                                                            </label>
+                                                                            <select name="discipline_group" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                                                                                <option value="">All Tracks (Global shift)</option>
+                                                                                <option value="cybersecurity" :selected="trackFilter === 'cybersecurity'">🛡️ Cybersecurity Track Only</option>
+                                                                                <option value="artificial_intelligence" :selected="trackFilter === 'artificial_intelligence'">🤖 AI Track Only</option>
+                                                                                <option value="management_information_systems" :selected="trackFilter === 'management_information_systems'">📊 MIS Track Only</option>
+                                                                            </select>
+                                                                            <p class="text-[10px] text-slate-400 mt-1">Select a specific track to shift only that group and protect other tracks' schedules and Zoom links.</p>
+                                                                        </div>
+                                                                    @endif
+
                                                                     @php
                                                                         $dayGroups = $scheduledMilestones->groupBy(fn($m) => \Carbon\Carbon::parse($m->defence_date)->format('Y-m-d'));
                                                                     @endphp
@@ -566,7 +581,10 @@
                                             </template>
                                             <form action="{{ route('admin.milestone-templates.end-schedule', $template->id) }}" method="POST" class="inline">
                                                 @csrf
-                                                <button type="submit" data-confirm="Are you sure you want to end the presentation session for {{ addslashes($template->name) }}? Eligible scheduled students who have completed all requirements (presentation, presentation PDF upload, and supervisor approval) will be approved and advanced to the next milestone."
+                                                @if($template->slug === 'seminar_as_a_course')
+                                                    <input type="hidden" name="discipline_group" :value="trackFilter !== 'all' ? trackFilter : ''">
+                                                @endif
+                                                <button type="submit" data-confirm="Are you sure you want to end the presentation session? Eligible candidates who have uploaded their presentation slides and received a passing evaluation from the panel will be approved and advanced to the next milestone."
                                                     data-confirm-title="End Presentation Session"
                                                     data-confirm-type="success"
                                                     data-confirm-btn="End Session"
@@ -574,7 +592,7 @@
                                                     <svg class="w-3.5 h-3.5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                     </svg>
-                                                    <span>End Presentation Session</span>
+                                                    <span x-text="trackFilter === 'cybersecurity' ? 'End Cyber Session' : (trackFilter === 'artificial_intelligence' ? 'End AI Session' : (trackFilter === 'management_information_systems' ? 'End MIS Session' : 'End Presentation Session'))">End Presentation Session</span>
                                                 </button>
                                             </form>
 <form action="{{ route('admin.milestone-templates.cancel-schedule', $template->id) }}" method="POST" class="inline">

@@ -81,6 +81,11 @@ class StudentProfile extends Model
         return $this->belongsTo(Level::class);
     }
 
+    public function getMatricNumberAttribute(): ?string
+    {
+        return $this->student_id_number;
+    }
+
     public function getLevelAttribute()
     {
         if ($this->relationLoaded('level') && $this->getRelation('level') !== null) {

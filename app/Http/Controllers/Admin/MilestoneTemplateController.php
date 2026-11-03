@@ -320,20 +320,24 @@ class MilestoneTemplateController extends Controller
                     continue; // Skip if supervisor hasn't approved
                 }
                 
+                $slotIndexOnDay = $count % $request->students_per_day;
+                $slotDuration = 30; // 30 minutes interval per presenter
+                $slotStartTime = $currentDate->copy()->setHour($hour)->setMinute($minute)->addMinutes($slotIndexOnDay * $slotDuration);
+                $slotEndTime = $slotStartTime->copy()->addMinutes($slotDuration);
+                $slotTimeStr = $slotStartTime->format('H:i');
+
                 $updateData = [
-                    'defence_date' => $currentDate->format('Y-m-d')
+                    'defence_date' => $currentDate->format('Y-m-d'),
+                    'defence_time' => $slotTimeStr,
                 ];
-                if ($request->filled('start_time')) {
-                    $updateData['defence_time'] = $request->start_time;
-                }
                 if ($request->filled('meeting_link')) {
                     $updateData['meeting_link'] = $request->meeting_link;
                 }
                 $milestone->update($updateData);
 
                 $eventData = [
-                    'schedule_start' => $currentDate->copy()->setHour($hour)->setMinute($minute),
-                    'schedule_end' => $currentDate->copy()->setHour($hour + 1)->setMinute($minute),
+                    'schedule_start' => $slotStartTime,
+                    'schedule_end' => $slotEndTime,
                     'outcome' => 'pending',
                 ];
                 if ($request->filled('meeting_link')) {
@@ -545,16 +549,22 @@ class MilestoneTemplateController extends Controller
             'to_date' => 'required|date',
             'start_time' => 'nullable|string|max:20',
             'meeting_link' => 'nullable|url|max:500',
+            'discipline_group' => 'nullable|string|in:cybersecurity,artificial_intelligence,management_information_systems',
         ]);
 
         $fromDateStr = \Carbon\Carbon::parse($request->from_date)->format('Y-m-d');
         $toDate = \Carbon\Carbon::parse($request->to_date);
         $toDateStr = $toDate->format('Y-m-d');
 
-        $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+        $query = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
             ->whereDate('defence_date', $fromDateStr)
-            ->with(['thesis.student.user'])
-            ->get();
+            ->with(['thesis.student.user', 'thesis.student.program']);
+
+        if ($request->filled('discipline_group')) {
+            $query->where('discipline_group', $request->discipline_group);
+        }
+
+        $milestones = $query->get();
 
         if ($milestones->isEmpty()) {
             return back()->with('error', 'No presentations found scheduled on ' . \Carbon\Carbon::parse($request->from_date)->format('M d, Y') . '.');
@@ -627,7 +637,13 @@ class MilestoneTemplateController extends Controller
                 $count++;
             }
             \Illuminate\Support\Facades\DB::commit();
-            return back()->with('success', "Rescheduled {$count} presenter(s) from " . \Carbon\Carbon::parse($request->from_date)->format('M d, Y') . " to " . $toDate->format('M d, Y') . " successfully.");
+            $trackLabel = $request->filled('discipline_group') ? match($request->discipline_group) {
+                'cybersecurity' => ' (Cybersecurity Track)',
+                'artificial_intelligence' => ' (AI Track)',
+                'management_information_systems' => ' (MIS Track)',
+                default => '',
+            } : '';
+            return back()->with('success', "Rescheduled {$count} presenter(s){$trackLabel} from " . \Carbon\Carbon::parse($request->from_date)->format('M d, Y') . " to " . $toDate->format('M d, Y') . " successfully.");
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\DB::rollBack();
             return back()->with('error', 'Error rescheduling day: ' . $e->getMessage());
@@ -758,19 +774,26 @@ class MilestoneTemplateController extends Controller
         }
     }
 
-    public function endSchedule(MilestoneTemplate $template)
+    public function endSchedule(Request $request, MilestoneTemplate $template)
     {
         if (!auth()->user()->hasRole('Admin')) {
             abort(403, 'Institutional authority required. Only an Administrator can end presentation sessions.');
         }
 
+        $discGroup = $request->input('discipline_group');
+
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
-            $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+            $query = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
                 ->whereNotNull('defence_date')
                 ->where('status', '!=', 'approved')
-                ->with(['template', 'thesis.student.user'])
-                ->get();
+                ->with(['template', 'thesis.student.user', 'thesis.student.program']);
+
+            if ($discGroup && in_array($discGroup, ['cybersecurity', 'artificial_intelligence', 'management_information_systems'])) {
+                $query->where('discipline_group', $discGroup);
+            }
+
+            $milestones = $query->get();
 
             $workflow = new \App\Services\MilestoneWorkflowService();
             $advanced = 0;
@@ -797,15 +820,29 @@ class MilestoneTemplateController extends Controller
             \Illuminate\Support\Facades\DB::commit();
             \App\Models\MilestoneTemplate::clearPresentationCache();
 
+            $trackLabel = match($discGroup) {
+                'cybersecurity' => ' (Cybersecurity Track)',
+                'artificial_intelligence' => ' (AI Track)',
+                'management_information_systems' => ' (MIS Track)',
+                default => '',
+            };
+            $sessionTitle = "{$template->name}{$trackLabel}";
+
             if ($advanced === 0) {
                 return redirect()->back()
-                    ->with('error', "No student was advanced from {$template->name}. None of the scheduled students met the requirements.")
+                    ->with('error', "No student was advanced from {$sessionTitle}. None of the scheduled students met the requirements.")
                     ->with('skipped_students', $skipped);
             }
 
-            $msg = "Presentation session for {$template->name} ended: {$advanced} student(s) advanced to the next milestone.";
+            $msg = "Presentation session for {$sessionTitle} ended: {$advanced} student(s) advanced to the next milestone.";
             if (count($skipped) > 0) {
                 $msg .= ' ' . count($skipped) . ' student(s) remain scheduled or were marked to repeat because of requirements or grading.';
+            }
+
+            if ($discGroup) {
+                return redirect()->back()
+                    ->with('success', $msg)
+                    ->with('skipped_students', $skipped);
             }
 
             if ($template->slug === 'seminar_as_a_course') {

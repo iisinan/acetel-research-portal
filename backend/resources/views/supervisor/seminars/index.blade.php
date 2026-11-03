@@ -12,8 +12,36 @@
                 <span class="text-[10px] font-black uppercase tracking-[0.3em]">Evaluation Panel</span>
             </div>
             <h1 class="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tight">Seminar Examinations</h1>
-            <p class="mt-2 text-xs sm:text-sm font-medium text-slate-500">View your assigned seminar examinations, review student presentations, and award scores.</p>
+            <p class="mt-2 text-xs sm:text-sm font-medium text-slate-500">View your assigned seminar examinations, join live presentation rooms, and record official marks.</p>
         </div>
+
+        @php
+            $activeZoomLinks = $events->map(function($ev) {
+                $milestone = $ev->thesis?->milestones?->first();
+                $link = $ev->location ?: ($milestone->meeting_link ?? null);
+                $track = $ev->thesis?->student?->discipline_group ?? 'cybersecurity';
+                $label = match($track) {
+                    'cybersecurity' => '🛡️ Cyber Room',
+                    'artificial_intelligence' => '🤖 AI Room',
+                    'management_information_systems' => '📊 MIS Room',
+                    default => '🎥 Zoom Room',
+                };
+                return $link ? ['url' => $link, 'label' => $label, 'track' => $track] : null;
+            })->filter()->unique('url');
+        @endphp
+
+        @if($activeZoomLinks->isNotEmpty())
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="text-[10px] font-black uppercase tracking-wider text-slate-400">Join Virtual Rooms:</span>
+                @foreach($activeZoomLinks as $zLink)
+                    <a href="{{ $zLink['url'] }}" target="_blank" rel="noopener noreferrer"
+                       class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition-all duration-200 active:scale-95 text-white {{ $zLink['track'] === 'cybersecurity' ? 'bg-cyan-700 hover:bg-cyan-800' : ($zLink['track'] === 'artificial_intelligence' ? 'bg-violet-700 hover:bg-violet-800' : 'bg-amber-600 hover:bg-amber-700') }}">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                        {{ $zLink['label'] }}
+                    </a>
+                @endforeach
+            </div>
+        @endif
     </div>
 
     <div class="bg-white rounded-3xl sm:rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden">
@@ -32,8 +60,11 @@
             <div class="block md:hidden divide-y divide-slate-100 p-4 space-y-4">
                 @foreach($events as $event)
                     @php
-                        $milestone = $event->thesis->milestones->first();
-                        $evaluation = $event->evaluations->first();
+                        $milestone = $event->thesis?->milestones?->first();
+                        $evaluation = $event->evaluations?->first();
+                        $student = $event->thesis?->student;
+                        $track = $student?->discipline_group ?? 'cybersecurity';
+                        $meetingUrl = $event->location ?: ($milestone->meeting_link ?? null);
                     @endphp
                     <div class="bg-white rounded-2xl border border-slate-200/80 p-4 space-y-4 shadow-xs">
                         {{-- Top Meta --}}
@@ -47,51 +78,75 @@
                                     <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{{ $event->schedule_start->format('H:i') }}</p>
                                 </div>
                             </div>
-                            @if($evaluation)
-                                <span class="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                    Scored: {{ $evaluation->score['total'] ?? '' }}/100
+                            <div class="flex items-center gap-1.5">
+                                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider
+                                    {{ $track === 'cybersecurity' ? 'bg-cyan-50 text-cyan-800 border border-cyan-200' : ($track === 'artificial_intelligence' ? 'bg-violet-50 text-violet-800 border border-violet-200' : 'bg-amber-50 text-amber-800 border border-amber-200') }}">
+                                    @if($track === 'cybersecurity') 🛡️ Cyber
+                                    @elseif($track === 'artificial_intelligence') 🤖 AI
+                                    @else 📊 MIS
+                                    @endif
                                 </span>
-                            @else
-                                <span class="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
-                                    Pending Evaluation
-                                </span>
-                            @endif
+                                @if($evaluation)
+                                    <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        {{ $evaluation->score['total'] ?? '' }}/100
+                                    </span>
+                                @else
+                                    <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+                                        Pending
+                                    </span>
+                                @endif
+                            </div>
                         </div>
 
                         {{-- Candidate Info --}}
                         <div>
-                            <h3 class="text-sm font-black text-slate-900">{{ $event->thesis->student->user->name }}</h3>
-                            <p class="text-[11px] font-medium text-slate-500 mt-0.5">{{ $event->thesis->student->matric_number }}</p>
-                            <p class="text-xs text-slate-600 italic mt-1 line-clamp-2">"{{ $event->thesis->title }}"</p>
+                            <h3 class="text-sm font-black text-slate-900">{{ $student?->user?->name ?? 'Candidate' }}</h3>
+                            <p class="text-[11px] font-semibold text-slate-500 mt-0.5">{{ $student?->student_id_number ?? $student?->matric_number ?? 'N/A' }}</p>
+                            <p class="text-xs text-slate-600 italic mt-1 line-clamp-2">"{{ $event->thesis?->title ?? 'Untitled Seminar' }}"</p>
                         </div>
 
-                        {{-- Presentation Download --}}
-                        <div>
+                        {{-- Presentation & Meeting Actions --}}
+                        <div class="flex flex-wrap items-center gap-2 pt-1">
                             @if($milestone && $milestone->submissions->where('type', 'ppt')->count() > 0)
                                 @foreach($milestone->submissions->where('type', 'ppt') as $submission)
-                                    <a href="{{ Storage::url($submission->file_url) }}" target="_blank" class="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-slate-800 transition-colors">
+                                    <a href="{{ Storage::url($submission->file_url) }}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-slate-800 transition-colors">
                                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                        View Presentation (PDF)
+                                        View Slides (PDF)
                                     </a>
                                 @endforeach
                             @else
-                                <span class="inline-flex items-center px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 border border-slate-200">
-                                    Presentation not uploaded
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-xl text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-500 border border-slate-200">
+                                    Slides Not Uploaded
                                 </span>
+                            @endif
+
+                            @if(!empty($meetingUrl))
+                                <a href="{{ $meetingUrl }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors shadow-sm">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                    Join Zoom
+                                </a>
                             @endif
                         </div>
 
                         {{-- Scoring Form --}}
                         <form action="{{ route('supervisor.seminars.score', $event->id) }}" method="POST" class="pt-3 border-t border-slate-100 space-y-3">
                             @csrf
-                            <div class="flex items-center gap-3">
-                                <label class="text-xs font-bold text-slate-700 whitespace-nowrap">Score:</label>
-                                <div class="flex items-center gap-2">
-                                    <input type="number" name="score" value="{{ $evaluation ? $evaluation->score['total'] ?? '' : '' }}" min="0" max="100" required class="w-20 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:border-brand-500 text-center" placeholder="0">
-                                    <span class="text-xs font-bold text-slate-400">/ 100</span>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Score (/100):</label>
+                                    <input type="number" name="score" value="{{ $evaluation ? $evaluation->score['total'] ?? '' : '' }}" min="0" max="100" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:border-brand-500 text-center" placeholder="0">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Recommendation:</label>
+                                    <select name="recommendation" class="w-full px-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-brand-500">
+                                        <option value="pass" {{ ($evaluation?->recommendation === 'pass' || (!$evaluation && old('score', 60) >= 50)) ? 'selected' : '' }}>Pass</option>
+                                        <option value="minor_revisions" {{ $evaluation?->recommendation === 'minor_revisions' ? 'selected' : '' }}>Minor Revisions</option>
+                                        <option value="major_revisions" {{ $evaluation?->recommendation === 'major_revisions' ? 'selected' : '' }}>Major Revisions</option>
+                                        <option value="fail" {{ $evaluation?->recommendation === 'fail' ? 'selected' : '' }}>Fail</option>
+                                    </select>
                                 </div>
                             </div>
-                            <input type="text" name="comments" value="{{ $evaluation ? $evaluation->comments : '' }}" placeholder="Remarks (optional)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:border-brand-500">
+                            <input type="text" name="comments" value="{{ $evaluation ? $evaluation->comments : '' }}" placeholder="Examiner remarks & feedback (sent to student inbox)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:border-brand-500">
                             <button type="submit" class="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 {{ $evaluation ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-emerald-600 hover:bg-emerald-700 text-white' }} rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm">
                                 {{ $evaluation ? 'Update Score' : 'Save Marks' }}
                             </button>
@@ -105,18 +160,22 @@
                 <table class="w-full text-left border-collapse">
                     <thead class="bg-slate-50/50">
                         <tr>
-                            <th class="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Date Scheduled</th>
+                            <th class="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Date & Slot</th>
                             <th class="px-6 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Student</th>
-                            <th class="px-6 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Presentation</th>
-                            <th class="px-6 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Marks / Score</th>
+                            <th class="px-6 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Discipline Track</th>
+                            <th class="px-6 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Presentation & Room</th>
+                            <th class="px-6 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Evaluation / Marks</th>
                             <th class="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 text-right">Action</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-50 border-t border-slate-50">
                         @foreach($events as $event)
                             @php
-                                $milestone = $event->thesis->milestones->first();
-                                $evaluation = $event->evaluations->first();
+                                $milestone = $event->thesis?->milestones?->first();
+                                $evaluation = $event->evaluations?->first();
+                                $student = $event->thesis?->student;
+                                $track = $student?->discipline_group ?? 'cybersecurity';
+                                $meetingUrl = $event->location ?: ($milestone->meeting_link ?? null);
                             @endphp
                             <tr class="hover:bg-slate-50/30 transition-colors">
                                 <td class="px-8 py-7">
@@ -132,35 +191,59 @@
                                 </td>
                                 <td class="px-6 py-7">
                                     <div class="max-w-xs">
-                                        <p class="text-base font-black text-slate-900 leading-tight">{{ $event->thesis->student->user->name }}</p>
-                                        <p class="text-[10px] font-medium text-slate-500 mt-1 line-clamp-1">{{ $event->thesis->student->matric_number }}</p>
+                                        <p class="text-base font-black text-slate-900 leading-tight">{{ $student?->user?->name ?? 'Candidate' }}</p>
+                                        <p class="text-[11px] font-semibold text-slate-500 mt-1">{{ $student?->student_id_number ?? $student?->matric_number ?? 'N/A' }}</p>
+                                        <p class="text-xs text-slate-600 italic mt-0.5 line-clamp-1">"{{ $event->thesis?->title ?? 'Untitled Seminar' }}"</p>
                                     </div>
                                 </td>
                                 <td class="px-6 py-7">
-                                    @if($milestone && $milestone->submissions->where('type', 'ppt')->count() > 0)
-                                        <div class="flex flex-col gap-2">
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider
+                                        {{ $track === 'cybersecurity' ? 'bg-cyan-50 text-cyan-800 border border-cyan-200' : ($track === 'artificial_intelligence' ? 'bg-violet-50 text-violet-800 border border-violet-200' : 'bg-amber-50 text-amber-800 border border-amber-200') }}">
+                                        @if($track === 'cybersecurity') 🛡️ Cyber
+                                        @elseif($track === 'artificial_intelligence') 🤖 AI
+                                        @else 📊 MIS
+                                        @endif
+                                    </span>
+                                </td>
+                                <td class="px-6 py-7">
+                                    <div class="flex flex-col gap-2">
+                                        @if($milestone && $milestone->submissions->where('type', 'ppt')->count() > 0)
                                             @foreach($milestone->submissions->where('type', 'ppt') as $submission)
-                                                <a href="{{ Storage::url($submission->file_url) }}" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all w-max shadow-sm">
+                                                <a href="{{ Storage::url($submission->file_url) }}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all w-max shadow-sm">
                                                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                                    View Presentation (PDF)
+                                                    View Slides (PDF)
                                                 </a>
                                             @endforeach
-                                        </div>
-                                    @else
-                                        <span class="inline-flex items-center px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 border border-slate-200">
-                                            Not uploaded
-                                        </span>
-                                    @endif
+                                        @else
+                                            <span class="inline-flex items-center px-2.5 py-1 rounded-xl text-[9px] font-bold uppercase tracking-widest bg-slate-100 text-slate-500 border border-slate-200 w-max">
+                                                Slides Not Uploaded
+                                            </span>
+                                        @endif
+
+                                        @if(!empty($meetingUrl))
+                                            <a href="{{ $meetingUrl }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-sm w-max">
+                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                                Join Zoom Room
+                                            </a>
+                                        @endif
+                                    </div>
                                 </td>
                                 <td class="px-6 py-7">
                                     <form id="score-form-{{ $event->id }}" action="{{ route('supervisor.seminars.score', $event->id) }}" method="POST">
                                         @csrf
-                                        <div class="flex flex-col gap-3 max-w-xs">
+                                        <div class="flex flex-col gap-2.5 max-w-xs">
                                             <div class="flex items-center gap-2">
                                                 <input type="number" name="score" value="{{ $evaluation ? $evaluation->score['total'] ?? '' : '' }}" min="0" max="100" required class="w-20 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 text-center" placeholder="0">
-                                                <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">/ 100</span>
+                                                <span class="text-xs font-bold text-slate-400">/ 100</span>
+
+                                                <select name="recommendation" class="px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-brand-500">
+                                                    <option value="pass" {{ ($evaluation?->recommendation === 'pass' || (!$evaluation && old('score', 60) >= 50)) ? 'selected' : '' }}>Pass</option>
+                                                    <option value="minor_revisions" {{ $evaluation?->recommendation === 'minor_revisions' ? 'selected' : '' }}>Minor Revisions</option>
+                                                    <option value="major_revisions" {{ $evaluation?->recommendation === 'major_revisions' ? 'selected' : '' }}>Major Revisions</option>
+                                                    <option value="fail" {{ $evaluation?->recommendation === 'fail' ? 'selected' : '' }}>Fail</option>
+                                                </select>
                                             </div>
-                                            <input type="text" name="comments" value="{{ $evaluation ? $evaluation->comments : '' }}" placeholder="Remarks (optional)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
+                                            <input type="text" name="comments" value="{{ $evaluation ? $evaluation->comments : '' }}" placeholder="Remarks & feedback (sent to student)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
                                         </div>
                                     </form>
                                 </td>
@@ -169,6 +252,11 @@
                                         <button form="score-form-{{ $event->id }}" type="submit" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 {{ $evaluation ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-emerald-600 hover:bg-emerald-700 text-white' }} rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm w-max">
                                             {{ $evaluation ? 'Update Score' : 'Save Marks' }}
                                         </button>
+                                        @if($evaluation)
+                                            <span class="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">
+                                                Graded: {{ $evaluation->score['total'] ?? '' }}/100 ({{ strtoupper($evaluation->recommendation ?? 'PASS') }})
+                                            </span>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>

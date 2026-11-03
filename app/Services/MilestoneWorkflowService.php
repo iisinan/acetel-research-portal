@@ -560,6 +560,9 @@ class MilestoneWorkflowService
         }
 
         if ($slug === 'seminar_as_a_course') {
+            if (!$this->hasUploadedPresentation($milestone)) {
+                return 'presentation slides (PPT/PDF) not uploaded';
+            }
             if (!$this->hasBeenGraded($milestone)) {
                 return 'not yet graded by any examiner';
             }
@@ -624,7 +627,7 @@ class MilestoneWorkflowService
         foreach ($events as $event) {
             foreach ($event->evaluations as $eval) {
                 $verdict = strtolower($eval->score['verdict'] ?? $eval->recommendation ?? '');
-                if ($verdict === 'pass') {
+                if (in_array($verdict, ['pass', 'minor_revisions', 'major_revisions'])) {
                     $passCount++;
                 } elseif ($verdict === 'fail') {
                     $failCount++;
@@ -634,8 +637,6 @@ class MilestoneWorkflowService
                     } else {
                         $failCount++;
                     }
-                } elseif (in_array($verdict, ['minor_revisions', 'major_revisions'])) {
-                    $passCount++;
                 }
             }
         }
