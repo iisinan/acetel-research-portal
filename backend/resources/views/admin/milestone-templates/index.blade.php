@@ -53,7 +53,7 @@
                         singleStudentId: null,
                         singleStudentName: '',
                         singleStudentMatric: '',
-                        messageSubject: 'Notice regarding {{ addslashes($template->name) }} Milestone',
+                        messageSubject: {{ json_encode('Notice regarding ' . $template->name . ' Milestone') }},
                         messageBody: '',
                         messageChannels: ['inbox', 'email'],
                         messagePriority: 'normal',
@@ -965,291 +965,6 @@
                                                 </template>
                                             </div>
 
-                                            {{-- Individual Student Slot Modal (Teleported to body) --}}
-                                            <template x-teleport="body">
-                                                <div x-show="slotModalOpen" x-cloak x-transition.opacity class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" @keydown.escape.window="slotModalOpen = false">
-                                                    <div @click.outside="slotModalOpen = false" class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100">
-                                                        <form :action="slotFormUrl" method="POST" x-ref="slotForm">
-                                                            @csrf
-                                                            <input type="hidden" name="action" :value="slotAction">
-
-                                                            {{-- Header --}}
-                                                            <div class="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4 bg-slate-50/50">
-                                                                <div class="flex items-center gap-3">
-                                                                    <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-                                                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                                                                        </svg>
-                                                                    </div>
-                                                                    <div>
-                                                                        <h3 class="text-base font-black text-slate-900" x-text="slotDate ? 'Manage Student Slot' : 'Schedule Student Presentation'"></h3>
-                                                                        <p class="text-xs text-slate-500 mt-0.5 truncate max-w-[240px]" x-text="slotStudentName"></p>
-                                                                    </div>
-                                                                </div>
-                                                                <button type="button" @click="slotModalOpen = false" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-                                                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                                                                </button>
-                                                            </div>
-
-                                                            {{-- Form fields --}}
-                                                            <div class="p-6 space-y-4 text-xs text-left">
-                                                                <div>
-                                                                    <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
-                                                                        Presentation Date <span class="text-rose-500">*</span>
-                                                                    </label>
-                                                                    <input type="date" name="defence_date" x-model="slotDate" :required="slotAction === 'schedule'" min="{{ date('Y-m-d') }}" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
-                                                                    <p class="text-[10px] text-slate-400 mt-1">Assign or move this candidate to any presentation date.</p>
-                                                                </div>
-
-                                                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                                    <div>
-                                                                        <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">
-                                                                            Time (Optional)
-                                                                        </label>
-                                                                        <input type="time" name="defence_time" x-model="slotTime" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
-                                                                    </div>
-                                                                    <div>
-                                                                        <div class="flex items-center justify-between mb-1.5">
-                                                                            <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">
-                                                                                Meeting Link (Optional)
-                                                                            </label>
-                                                                            @if($template->slug === 'seminar_as_a_course' && !empty($template->metadata['track_zoom_links']))
-                                                                                <div class="flex items-center gap-1.5">
-                                                                                    <span class="text-[9px] text-slate-400 font-semibold">Prefill:</span>
-                                                                                    @foreach($template->metadata['track_zoom_links'] as $tKey => $zUrl)
-                                                                                        @if(!empty($zUrl))
-                                                                                            <button type="button" @click="slotLink = '{{ $zUrl }}'" class="text-[9px] font-bold text-indigo-600 hover:underline">
-                                                                                                @if($tKey === 'cybersecurity') 🛡️ Cyber
-                                                                                                @elseif($tKey === 'artificial_intelligence') 🤖 AI
-                                                                                                @else 📊 MIS
-                                                                                                @endif
-                                                                                            </button>
-                                                                                        @endif
-                                                                                    @endforeach
-                                                                                </div>
-                                                                            @endif
-                                                                        </div>
-                                                                        <input type="url" name="meeting_link" x-model="slotLink" placeholder="https://zoom.us/j/..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
-                                                                    </div>
-                                                                </div>
-
-                                                                {{-- Notice --}}
-                                                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 text-[11px] leading-relaxed">
-                                                                    <span x-show="slotDate">Moving this student will update their defence event, clear their dashboard cache, and send them a slot notification.</span>
-                                                                    <span x-show="!slotDate">Scheduling this student creates a new defence event and notifies the candidate.</span>
-                                                                </div>
-                                                            </div>
-
-                                                            {{-- Footer --}}
-                                                            <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3 bg-slate-50/50">
-                                                                <div>
-                                                                    <template x-if="slotDate">
-                                                                        <button type="button" @click="if(confirm('Are you sure you want to remove ' + slotStudentName + ' from the presentation schedule completely?')) { slotAction = 'remove'; $nextTick(() => $refs.slotForm.submit()); }"
-                                                                            class="px-3 py-2 rounded-xl text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors">
-                                                                            Remove from Schedule
-                                                                        </button>
-                                                                    </template>
-                                                                </div>
-                                                                <div class="flex items-center gap-2">
-                                                                    <button type="button" @click="slotModalOpen = false" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 transition-colors">Cancel</button>
-                                                                    <button type="submit" @click="slotAction = 'schedule'" class="px-5 py-2 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 shadow-md shadow-amber-600/20 transition-all font-semibold">
-                                                                        <span x-text="slotDate ? 'Update Slot' : 'Schedule Student'"></span>
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        </form>
-                                                    </div>
-                                                </div>
-                                            </template>
-
-                                            {{-- Send Inbox / Email Modal (Teleported to body) --}}
-                                            <template x-teleport="body">
-                                                <div x-show="messageModalOpen" x-cloak x-transition.opacity 
-                                                    class="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" 
-                                                    @keydown.escape.window="messageModalOpen = false">
-                                                    <div @click.outside="messageModalOpen = false" 
-                                                        class="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
-                                                        
-                                                        <form action="{{ (isset($isCoordinator) && $isCoordinator) ? route('coordinator.milestone-templates.broadcast-message', $template->id) : route('admin.milestone-templates.broadcast-message', $template->id) }}" 
-                                                            method="POST" 
-                                                            @submit="isSubmittingMessage = true">
-                                                            @csrf
-                                                            <input type="hidden" name="target" :value="messageTarget">
-                                                            <input type="hidden" name="student_milestone_id" :value="singleStudentId">
-                                                            <template x-if="messageTarget === 'selected'">
-                                                                <div>
-                                                                    <template x-for="id in selected" :key="id">
-                                                                        <input type="hidden" name="milestone_ids[]" :value="id">
-                                                                    </template>
-                                                                </div>
-                                                            </template>
-
-                                                            {{-- Header --}}
-                                                            <div class="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4 bg-gradient-to-r from-brand-50/50 via-slate-50 to-white">
-                                                                <div class="flex items-center gap-3">
-                                                                    <div class="w-10 h-10 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-md shadow-brand-600/20 shrink-0">
-                                                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                                                                        </svg>
-                                                                    </div>
-                                                                    <div>
-                                                                        <h3 class="text-base font-black text-slate-900">
-                                                                            <span x-show="messageTarget === 'single'">Message Candidate</span>
-                                                                            <span x-show="messageTarget === 'selected'">Message Selected Candidates</span>
-                                                                            <span x-show="messageTarget === 'all'">Broadcast to All Milestone Candidates</span>
-                                                                        </h3>
-                                                                        <p class="text-xs text-slate-500 mt-0.5">
-                                                                            <span x-show="messageTarget === 'single'" x-text="singleStudentName + (singleStudentMatric ? ' (' + singleStudentMatric + ')' : '') + ' • {{ addslashes($template->name) }}'"></span>
-                                                                            <span x-show="messageTarget === 'selected'" x-text="selected.length + ' student(s) selected in {{ addslashes($template->name) }}'"></span>
-                                                                            <span x-show="messageTarget === 'all'">All {{ $template->studentMilestones->count() }} candidate(s) in {{ addslashes($template->name) }}</span>
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                                <button type="button" @click="messageModalOpen = false" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer">
-                                                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                                                                </button>
-                                                            </div>
-
-                                                            {{-- Modal Body --}}
-                                                            <div class="p-6 space-y-5 overflow-y-auto max-h-[calc(90vh-160px)] text-left">
-                                                                
-                                                                {{-- Target Mode Switcher (if not single student) --}}
-                                                                <template x-if="messageTarget !== 'single'">
-                                                                    <div>
-                                                                        <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-2">Recipient Scope</label>
-                                                                        <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
-                                                                            <button type="button" 
-                                                                                @click="messageTarget = 'selected'"
-                                                                                :disabled="selected.length === 0"
-                                                                                class="py-2 px-3 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
-                                                                                :class="messageTarget === 'selected' ? 'bg-white text-slate-900 shadow-xs' : (selected.length === 0 ? 'text-slate-400 cursor-not-allowed opacity-60' : 'text-slate-600 hover:text-slate-900')">
-                                                                                <span>Selected</span>
-                                                                                <span class="px-1.5 py-0.2 rounded-full text-[10px]" :class="messageTarget === 'selected' ? 'bg-brand-100 text-brand-700' : 'bg-slate-200 text-slate-600'" x-text="selected.length"></span>
-                                                                            </button>
-                                                                            <button type="button" 
-                                                                                @click="messageTarget = 'all'"
-                                                                                class="py-2 px-3 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
-                                                                                :class="messageTarget === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'">
-                                                                                <span>All Milestone Students</span>
-                                                                                <span class="px-1.5 py-0.2 rounded-full text-[10px]" :class="messageTarget === 'all' ? 'bg-brand-100 text-brand-700' : 'bg-slate-200 text-slate-600'">{{ $template->studentMilestones->count() }}</span>
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
-                                                                </template>
-
-                                                                {{-- Delivery Channels --}}
-                                                                <div>
-                                                                    <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-2">Delivery Channels</label>
-                                                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                                        <label class="relative flex items-start gap-3 p-3.5 rounded-2xl border transition-all cursor-pointer select-none"
-                                                                            :class="messageChannels.includes('inbox') ? 'border-brand-500 bg-brand-50/30 ring-1 ring-brand-500/20' : 'border-slate-200 bg-white hover:bg-slate-50'">
-                                                                            <input type="checkbox" name="channels[]" value="inbox" x-model="messageChannels" class="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
-                                                                            <div class="text-xs">
-                                                                                <div class="font-bold text-slate-900 flex items-center gap-1.5">
-                                                                                    <span>📥 System Inbox</span>
-                                                                                </div>
-                                                                                <div class="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                                                                                    Delivers to candidate's portal inbox with real-time notification.
-                                                                                </div>
-                                                                            </div>
-                                                                        </label>
-
-                                                                        <label class="relative flex items-start gap-3 p-3.5 rounded-2xl border transition-all cursor-pointer select-none"
-                                                                            :class="messageChannels.includes('email') ? 'border-brand-500 bg-brand-50/30 ring-1 ring-brand-500/20' : 'border-slate-200 bg-white hover:bg-slate-50'">
-                                                                            <input type="checkbox" name="channels[]" value="email" x-model="messageChannels" class="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
-                                                                            <div class="text-xs">
-                                                                                <div class="font-bold text-slate-900 flex items-center gap-1.5">
-                                                                                    <span>✉️ Direct Email</span>
-                                                                                </div>
-                                                                                <div class="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                                                                                    Sends official institutional email to registered email address.
-                                                                                </div>
-                                                                            </div>
-                                                                        </label>
-                                                                    </div>
-                                                                    <template x-if="messageChannels.length === 0">
-                                                                        <p class="text-[11px] font-semibold text-rose-600 mt-1.5">⚠️ Please select at least one delivery channel (Inbox or Email).</p>
-                                                                    </template>
-                                                                </div>
-
-                                                                {{-- Priority / Type --}}
-                                                                <div>
-                                                                    <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-2">Priority Level</label>
-                                                                    <div class="flex items-center gap-2">
-                                                                        <label class="flex-1 text-center py-2 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all"
-                                                                            :class="messagePriority === 'normal' ? 'bg-slate-900 text-white border-slate-900 shadow-xs' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'">
-                                                                            <input type="radio" name="priority" value="normal" x-model="messagePriority" class="sr-only">
-                                                                            <span>Normal Notice</span>
-                                                                        </label>
-                                                                        <label class="flex-1 text-center py-2 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all"
-                                                                            :class="messagePriority === 'important' ? 'bg-amber-600 text-white border-amber-600 shadow-xs' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'">
-                                                                            <input type="radio" name="priority" value="important" x-model="messagePriority" class="sr-only">
-                                                                            <span>⚡ Important</span>
-                                                                        </label>
-                                                                        <label class="flex-1 text-center py-2 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all"
-                                                                            :class="messagePriority === 'urgent' ? 'bg-rose-600 text-white border-rose-600 shadow-xs' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'">
-                                                                            <input type="radio" name="priority" value="urgent" x-model="messagePriority" class="sr-only">
-                                                                            <span>🚨 Urgent</span>
-                                                                        </label>
-                                                                    </div>
-                                                                </div>
-
-                                                                {{-- Subject --}}
-                                                                <div>
-                                                                    <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
-                                                                        Subject <span class="text-rose-500">*</span>
-                                                                    </label>
-                                                                    <input type="text" name="subject" x-model="messageSubject" required 
-                                                                        placeholder="e.g. Schedule Update for {{ addslashes($template->name) }}"
-                                                                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
-                                                                </div>
-
-                                                                {{-- Message Body --}}
-                                                                <div>
-                                                                    <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
-                                                                        Message Content <span class="text-rose-500">*</span>
-                                                                    </label>
-                                                                    <textarea name="body" x-model="messageBody" rows="5" required 
-                                                                        placeholder="Type the message instructions, presentation details, deadline reminders, or requirements to be communicated to the student(s)..."
-                                                                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"></textarea>
-                                                                </div>
-                                                            </div>
-
-                                                            {{-- Footer --}}
-                                                            <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3 bg-slate-50/50">
-                                                                <div class="text-[11px] text-slate-500 font-semibold flex items-center gap-1.5">
-                                                                    <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
-                                                                    <span x-show="messageTarget === 'single'">Dispatching to 1 candidate</span>
-                                                                    <span x-show="messageTarget === 'selected'" x-text="'Dispatching to ' + selected.length + ' selected candidate(s)'"></span>
-                                                                    <span x-show="messageTarget === 'all'">Dispatching to {{ $template->studentMilestones->count() }} candidate(s)</span>
-                                                                </div>
-
-                                                                <div class="flex items-center gap-2">
-                                                                    <button type="button" @click="messageModalOpen = false" class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer">
-                                                                        Cancel
-                                                                    </button>
-                                                                    <button type="submit" 
-                                                                        :disabled="messageChannels.length === 0 || !messageSubject.trim() || !messageBody.trim() || isSubmittingMessage || (messageTarget === 'selected' && selected.length === 0)"
-                                                                        class="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-600/20 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none transition-all cursor-pointer">
-                                                                        <template x-if="!isSubmittingMessage">
-                                                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
-                                                                            </svg>
-                                                                        </template>
-                                                                        <template x-if="isSubmittingMessage">
-                                                                            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                                            </svg>
-                                                                        </template>
-                                                                        <span x-text="isSubmittingMessage ? 'Sending...' : 'Send Message'">Send Message</span>
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        </form>
-                                                    </div>
-                                                </div>
-                                            </template>
                                             <form action="{{ route('admin.milestone-templates.end-schedule', $template->id) }}" method="POST" class="inline">
                                                 @csrf
                                                 @if($template->slug === 'seminar_as_a_course')
@@ -2466,6 +2181,292 @@
                                 </div>
                                 @endif
                             </div>
+
+                            {{-- Individual Student Slot Modal (Teleported to body) --}}
+                            <template x-teleport="body">
+                                <div x-show="slotModalOpen" x-cloak x-transition.opacity class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" @keydown.escape.window="slotModalOpen = false">
+                                    <div @click.outside="slotModalOpen = false" class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100">
+                                        <form :action="slotFormUrl" method="POST" x-ref="slotForm">
+                                            @csrf
+                                            <input type="hidden" name="action" :value="slotAction">
+
+                                            {{-- Header --}}
+                                            <div class="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4 bg-slate-50/50">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                                        </svg>
+                                                    </div>
+                                                    <div>
+                                                        <h3 class="text-base font-black text-slate-900" x-text="slotDate ? 'Manage Student Slot' : 'Schedule Student Presentation'"></h3>
+                                                        <p class="text-xs text-slate-500 mt-0.5 truncate max-w-[240px]" x-text="slotStudentName"></p>
+                                                    </div>
+                                                </div>
+                                                <button type="button" @click="slotModalOpen = false" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer">
+                                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                </button>
+                                            </div>
+
+                                            {{-- Form fields --}}
+                                            <div class="p-6 space-y-4 text-xs text-left">
+                                                <div>
+                                                    <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                                                        Presentation Date <span class="text-rose-500">*</span>
+                                                    </label>
+                                                    <input type="date" name="defence_date" x-model="slotDate" :required="slotAction === 'schedule'" min="{{ date('Y-m-d') }}" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                                                    <p class="text-[10px] text-slate-400 mt-1">Assign or move this candidate to any presentation date.</p>
+                                                </div>
+
+                                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">
+                                                            Time (Optional)
+                                                        </label>
+                                                        <input type="time" name="defence_time" x-model="slotTime" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                                                    </div>
+                                                    <div>
+                                                        <div class="flex items-center justify-between mb-1.5">
+                                                            <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                                                                Meeting Link (Optional)
+                                                            </label>
+                                                            @if($template->slug === 'seminar_as_a_course' && !empty($template->metadata['track_zoom_links']))
+                                                                <div class="flex items-center gap-1.5">
+                                                                    <span class="text-[9px] text-slate-400 font-semibold">Prefill:</span>
+                                                                    @foreach($template->metadata['track_zoom_links'] as $tKey => $zUrl)
+                                                                        @if(!empty($zUrl))
+                                                                            <button type="button" @click="slotLink = '{{ $zUrl }}'" class="text-[9px] font-bold text-indigo-600 hover:underline">
+                                                                                @if($tKey === 'cybersecurity') 🛡️ Cyber
+                                                                                @elseif($tKey === 'artificial_intelligence') 🤖 AI
+                                                                                @else 📊 MIS
+                                                                                @endif
+                                                                            </button>
+                                                                        @endif
+                                                                    @endforeach
+                                                                </div>
+                                                            @endif
+                                                        </div>
+                                                        <input type="url" name="meeting_link" x-model="slotLink" placeholder="https://zoom.us/j/..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                                                    </div>
+                                                </div>
+
+                                                {{-- Notice --}}
+                                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 text-[11px] leading-relaxed">
+                                                    <span x-show="slotDate">Moving this student will update their defence event, clear their dashboard cache, and send them a slot notification.</span>
+                                                    <span x-show="!slotDate">Scheduling this student creates a new defence event and notifies the candidate.</span>
+                                                </div>
+                                            </div>
+
+                                            {{-- Footer --}}
+                                            <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3 bg-slate-50/50">
+                                                <div>
+                                                    <template x-if="slotDate">
+                                                        <button type="button" @click="if(confirm('Are you sure you want to remove ' + slotStudentName + ' from the presentation schedule completely?')) { slotAction = 'remove'; $nextTick(() => $refs.slotForm.submit()); }"
+                                                            class="px-3 py-2 rounded-xl text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer">
+                                                            Remove from Schedule
+                                                        </button>
+                                                    </template>
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    <button type="button" @click="slotModalOpen = false" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer">Cancel</button>
+                                                    <button type="submit" @click="slotAction = 'schedule'" class="px-5 py-2 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 shadow-md shadow-amber-600/20 transition-all font-semibold cursor-pointer">
+                                                        <span x-text="slotDate ? 'Update Slot' : 'Schedule Student'"></span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </template>
+
+                            {{-- Send Inbox / Email Modal (Teleported to body) --}}
+                            <template x-teleport="body">
+                                <div x-show="messageModalOpen" x-cloak x-transition.opacity 
+                                    class="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" 
+                                    @keydown.escape.window="messageModalOpen = false">
+                                    <div @click.outside="messageModalOpen = false" 
+                                        class="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
+                                        
+                                        <form action="{{ (isset($isCoordinator) && $isCoordinator) ? route('coordinator.milestone-templates.broadcast-message', $template->id) : route('admin.milestone-templates.broadcast-message', $template->id) }}" 
+                                            method="POST" 
+                                            @submit="isSubmittingMessage = true">
+                                            @csrf
+                                            <input type="hidden" name="target" :value="messageTarget">
+                                            <input type="hidden" name="student_milestone_id" :value="singleStudentId">
+                                            <template x-if="messageTarget === 'selected'">
+                                                <div>
+                                                    <template x-for="id in selected" :key="id">
+                                                        <input type="hidden" name="milestone_ids[]" :value="id">
+                                                    </template>
+                                                </div>
+                                            </template>
+
+                                            {{-- Header --}}
+                                            <div class="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4 bg-gradient-to-r from-brand-50/50 via-slate-50 to-white">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="w-10 h-10 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-md shadow-brand-600/20 shrink-0">
+                                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                                        </svg>
+                                                    </div>
+                                                    <div>
+                                                        <h3 class="text-base font-black text-slate-900">
+                                                            <span x-show="messageTarget === 'single'">Message Candidate</span>
+                                                            <span x-show="messageTarget === 'selected'">Message Selected Candidates</span>
+                                                            <span x-show="messageTarget === 'all'">Broadcast to All Milestone Candidates</span>
+                                                        </h3>
+                                                        <p class="text-xs text-slate-500 mt-0.5">
+                                                            <span x-show="messageTarget === 'single'" x-text="singleStudentName + (singleStudentMatric ? ' (' + singleStudentMatric + ')' : '') + ' • {{ addslashes($template->name) }}'"></span>
+                                                            <span x-show="messageTarget === 'selected'" x-text="selected.length + ' student(s) selected in {{ addslashes($template->name) }}'"></span>
+                                                            <span x-show="messageTarget === 'all'">All {{ $template->studentMilestones->count() }} candidate(s) in {{ addslashes($template->name) }}</span>
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <button type="button" @click="messageModalOpen = false" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer">
+                                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                </button>
+                                            </div>
+
+                                            {{-- Modal Body --}}
+                                            <div class="p-6 space-y-5 overflow-y-auto max-h-[calc(90vh-160px)] text-left">
+                                                
+                                                {{-- Target Mode Switcher (if not single student) --}}
+                                                <template x-if="messageTarget !== 'single'">
+                                                    <div>
+                                                        <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-2">Recipient Scope</label>
+                                                        <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
+                                                            <button type="button" 
+                                                                @click="messageTarget = 'selected'"
+                                                                :disabled="selected.length === 0"
+                                                                class="py-2 px-3 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
+                                                                :class="messageTarget === 'selected' ? 'bg-white text-slate-900 shadow-xs' : (selected.length === 0 ? 'text-slate-400 cursor-not-allowed opacity-60' : 'text-slate-600 hover:text-slate-900')">
+                                                                <span>Selected</span>
+                                                                <span class="px-1.5 py-0.2 rounded-full text-[10px]" :class="messageTarget === 'selected' ? 'bg-brand-100 text-brand-700' : 'bg-slate-200 text-slate-600'" x-text="selected.length"></span>
+                                                            </button>
+                                                            <button type="button" 
+                                                                @click="messageTarget = 'all'"
+                                                                class="py-2 px-3 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
+                                                                :class="messageTarget === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'">
+                                                                <span>All Milestone Students</span>
+                                                                <span class="px-1.5 py-0.2 rounded-full text-[10px]" :class="messageTarget === 'all' ? 'bg-brand-100 text-brand-700' : 'bg-slate-200 text-slate-600'">{{ $template->studentMilestones->count() }}</span>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </template>
+
+                                                {{-- Delivery Channels --}}
+                                                <div>
+                                                    <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-2">Delivery Channels</label>
+                                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                        <label class="relative flex items-start gap-3 p-3.5 rounded-2xl border transition-all cursor-pointer select-none"
+                                                            :class="messageChannels.includes('inbox') ? 'border-brand-500 bg-brand-50/30 ring-1 ring-brand-500/20' : 'border-slate-200 bg-white hover:bg-slate-50'">
+                                                            <input type="checkbox" name="channels[]" value="inbox" x-model="messageChannels" class="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                                                            <div class="text-xs">
+                                                                <div class="font-bold text-slate-900 flex items-center gap-1.5">
+                                                                    <span>📥 System Inbox</span>
+                                                                </div>
+                                                                <div class="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                                                                    Delivers to candidate's portal inbox with real-time notification.
+                                                                </div>
+                                                            </div>
+                                                        </label>
+
+                                                        <label class="relative flex items-start gap-3 p-3.5 rounded-2xl border transition-all cursor-pointer select-none"
+                                                            :class="messageChannels.includes('email') ? 'border-brand-500 bg-brand-50/30 ring-1 ring-brand-500/20' : 'border-slate-200 bg-white hover:bg-slate-50'">
+                                                            <input type="checkbox" name="channels[]" value="email" x-model="messageChannels" class="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                                                            <div class="text-xs">
+                                                                <div class="font-bold text-slate-900 flex items-center gap-1.5">
+                                                                    <span>✉️ Direct Email</span>
+                                                                </div>
+                                                                <div class="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                                                                    Sends official institutional email to registered email address.
+                                                                </div>
+                                                            </div>
+                                                        </label>
+                                                    </div>
+                                                    <template x-if="messageChannels.length === 0">
+                                                        <p class="text-[11px] font-semibold text-rose-600 mt-1.5">⚠️ Please select at least one delivery channel (Inbox or Email).</p>
+                                                    </template>
+                                                </div>
+
+                                                {{-- Priority / Type --}}
+                                                <div>
+                                                    <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-2">Priority Level</label>
+                                                    <div class="flex items-center gap-2">
+                                                        <label class="flex-1 text-center py-2 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all"
+                                                            :class="messagePriority === 'normal' ? 'bg-slate-900 text-white border-slate-900 shadow-xs' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'">
+                                                            <input type="radio" name="priority" value="normal" x-model="messagePriority" class="sr-only">
+                                                            <span>Normal Notice</span>
+                                                        </label>
+                                                        <label class="flex-1 text-center py-2 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all"
+                                                            :class="messagePriority === 'important' ? 'bg-amber-600 text-white border-amber-600 shadow-xs' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'">
+                                                            <input type="radio" name="priority" value="important" x-model="messagePriority" class="sr-only">
+                                                            <span>⚡ Important</span>
+                                                        </label>
+                                                        <label class="flex-1 text-center py-2 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all"
+                                                            :class="messagePriority === 'urgent' ? 'bg-rose-600 text-white border-rose-600 shadow-xs' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'">
+                                                            <input type="radio" name="priority" value="urgent" x-model="messagePriority" class="sr-only">
+                                                            <span>🚨 Urgent</span>
+                                                        </label>
+                                                    </div>
+                                                </div>
+
+                                                {{-- Subject --}}
+                                                <div>
+                                                    <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                                                        Subject <span class="text-rose-500">*</span>
+                                                    </label>
+                                                    <input type="text" name="subject" x-model="messageSubject" required 
+                                                        placeholder="e.g. Schedule Update for {{ addslashes($template->name) }}"
+                                                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
+                                                </div>
+
+                                                {{-- Message Body --}}
+                                                <div>
+                                                    <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                                                        Message Content <span class="text-rose-500">*</span>
+                                                    </label>
+                                                    <textarea name="body" x-model="messageBody" rows="5" required 
+                                                        placeholder="Type the message instructions, presentation details, deadline reminders, or requirements to be communicated to the student(s)..."
+                                                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"></textarea>
+                                                </div>
+                                            </div>
+
+                                            {{-- Footer --}}
+                                            <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3 bg-slate-50/50">
+                                                <div class="text-[11px] text-slate-500 font-semibold flex items-center gap-1.5">
+                                                    <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+                                                    <span x-show="messageTarget === 'single'">Dispatching to 1 candidate</span>
+                                                    <span x-show="messageTarget === 'selected'" x-text="'Dispatching to ' + selected.length + ' selected candidate(s)'"></span>
+                                                    <span x-show="messageTarget === 'all'">Dispatching to {{ $template->studentMilestones->count() }} candidate(s)</span>
+                                                </div>
+
+                                                <div class="flex items-center gap-2">
+                                                    <button type="button" @click="messageModalOpen = false" class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer">
+                                                        Cancel
+                                                    </button>
+                                                    <button type="submit" 
+                                                        :disabled="messageChannels.length === 0 || !messageSubject.trim() || !messageBody.trim() || isSubmittingMessage || (messageTarget === 'selected' && selected.length === 0)"
+                                                        class="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-600/20 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none transition-all cursor-pointer">
+                                                        <template x-if="!isSubmittingMessage">
+                                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                                                            </svg>
+                                                        </template>
+                                                        <template x-if="isSubmittingMessage">
+                                                            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                            </svg>
+                                                        </template>
+                                                        <span x-text="isSubmittingMessage ? 'Sending...' : 'Send Message'">Send Message</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </template>
                         </td>
                     </tr>
                     </tbody>
