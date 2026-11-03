@@ -250,12 +250,52 @@
                                     @endif
 
                                     @if($template->slug !== 'supervisors_assigned')
-                                    <a href="{{ isset($isCoordinator) && $isCoordinator ? route('coordinator.milestone-templates.export-scheduled-pdf', $template->id) : route('admin.milestone-templates.export-scheduled-pdf', $template->id) }}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm">
-                                        <svg class="w-3.5 h-3.5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                        </svg>
-                                        SCHEDULED PDF
-                                    </a>
+                                        @php
+                                            $basePdfRoute = isset($isCoordinator) && $isCoordinator 
+                                                ? route('coordinator.milestone-templates.export-scheduled-pdf', $template->id) 
+                                                : route('admin.milestone-templates.export-scheduled-pdf', $template->id);
+                                        @endphp
+                                        @if($template->slug === 'seminar_as_a_course')
+                                            <div x-data="{ pdfMenu: false }" class="relative inline-block" @click.outside="pdfMenu = false">
+                                                <div class="inline-flex rounded-xl shadow-xs">
+                                                    <a href="{{ $basePdfRoute }}" class="inline-flex items-center gap-2 px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-l-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                                                        <svg class="w-3.5 h-3.5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                        </svg>
+                                                        <span>SCHEDULED PDF</span>
+                                                    </a>
+                                                    <button type="button" @click="pdfMenu = !pdfMenu" class="px-2 py-2.5 bg-rose-100 hover:bg-rose-200 text-rose-800 border-y border-r border-rose-200 rounded-r-xl transition-all" title="Export by Group">
+                                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                                                    </button>
+                                                </div>
+                                                <div x-show="pdfMenu" x-cloak class="absolute left-0 mt-1 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl py-1.5 z-50 text-xs">
+                                                    <div class="px-3 py-1.5 text-[9px] font-black uppercase tracking-wider text-slate-400">Download Schedule PDF</div>
+                                                    <a href="{{ $basePdfRoute }}" class="flex items-center justify-between px-3 py-2 hover:bg-rose-50 text-slate-700 hover:text-rose-700 font-bold">
+                                                        <span>📄 Master PDF (All Groups)</span>
+                                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono">{{ $scheduledCount }}</span>
+                                                    </a>
+                                                    <a href="{{ $basePdfRoute }}?discipline_group=cybersecurity" class="flex items-center justify-between px-3 py-2 hover:bg-cyan-50 text-slate-700 hover:text-cyan-800 font-bold">
+                                                        <span>🛡️ Cybersecurity PDF</span>
+                                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-800 font-mono">{{ $schedCyberCount }}</span>
+                                                    </a>
+                                                    <a href="{{ $basePdfRoute }}?discipline_group=artificial_intelligence" class="flex items-center justify-between px-3 py-2 hover:bg-violet-50 text-slate-700 hover:text-violet-800 font-bold">
+                                                        <span>🤖 AI PDF</span>
+                                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-violet-50 text-violet-800 font-mono">{{ $schedAiCount }}</span>
+                                                    </a>
+                                                    <a href="{{ $basePdfRoute }}?discipline_group=management_information_systems" class="flex items-center justify-between px-3 py-2 hover:bg-amber-50 text-slate-700 hover:text-amber-800 font-bold">
+                                                        <span>📊 MIS PDF</span>
+                                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 font-mono">{{ $schedMisCount }}</span>
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        @else
+                                            <a href="{{ $basePdfRoute }}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm">
+                                                <svg class="w-3.5 h-3.5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                </svg>
+                                                SCHEDULED PDF
+                                            </a>
+                                        @endif
                                     @endif
 
                                     @if($template->studentMilestones->count() > 0)
@@ -490,9 +530,19 @@
                                                                         <h3 class="text-lg font-black text-slate-900">Edit {{ $template->presentation_title }} Schedule</h3>
                                                                         <p class="text-xs text-slate-500 mt-0.5">Filter by discipline group, assign Zoom links to all in a group, shift dates, or swap slots between candidates.</p>
                                                                     </div>
-                                                                    <button type="button" @click="editOpen = false; cancelSwap();" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors">
-                                                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                                                                    </button>
+                                                                    <div class="flex items-center gap-2">
+                                                                        @if($template->slug === 'seminar_as_a_course')
+                                                                            <a :href="'{{ $basePdfRoute }}' + (editTrackFilter !== 'all' ? '?discipline_group=' + editTrackFilter : '')" target="_blank"
+                                                                               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition shadow-xs"
+                                                                               title="Download printable PDF timetable">
+                                                                               <svg class="w-3.5 h-3.5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                                                                               <span x-text="editTrackFilter === 'all' ? 'PDF (All Groups)' : ('PDF (' + (editTrackFilter === 'cybersecurity' ? 'Cyber' : (editTrackFilter === 'artificial_intelligence' ? 'AI' : 'MIS')) + ')')"></span>
+                                                                            </a>
+                                                                        @endif
+                                                                        <button type="button" @click="editOpen = false; cancelSwap();" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors">
+                                                                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                                        </button>
+                                                                    </div>
                                                                 </div>
 
                                                                 {{-- Toast notification banner --}}

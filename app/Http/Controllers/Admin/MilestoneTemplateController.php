@@ -1507,6 +1507,11 @@ class MilestoneTemplateController extends Controller
 
         $milestones = $query->get();
 
+        $selectedGroup = request()->query('discipline_group');
+        if ($selectedGroup && in_array($selectedGroup, ['cybersecurity', 'artificial_intelligence', 'management_information_systems'])) {
+            $milestones = $milestones->filter(fn($m) => $m->discipline_group === $selectedGroup)->values();
+        }
+
         // Arranged according to their presentation date (ascending)
         $scheduledMilestones = $milestones->sortBy(function($m) {
             $date = $m->defence_date ? \Carbon\Carbon::parse($m->defence_date)->format('Y-m-d') : '9999-12-31';
@@ -1514,12 +1519,120 @@ class MilestoneTemplateController extends Controller
             return $date . ' ' . $time;
         })->values();
 
-        // Title: "Seminar presentation scheduled"
-        $title = ($template->slug === 'seminar_as_a_course') 
-            ? 'Seminar presentation scheduled' 
-            : ($template->name . ' Presentation Scheduled');
+        $metadata = $template->metadata ?? [];
+        $trackZoomLinks = $metadata['track_zoom_links'] ?? [];
 
-        // Starting Date & Ending Date
+        $trackDefs = [
+            'cybersecurity' => [
+                'name' => 'Cybersecurity',
+                'badge' => 'Cybersecurity',
+                'icon' => '🛡️',
+                'color' => '#0e7490',
+                'border_color' => '#0891b2',
+                'bg_color' => '#f0fdfa',
+                'header_bg' => '#0e7490',
+            ],
+            'artificial_intelligence' => [
+                'name' => 'Artificial Intelligence',
+                'badge' => 'Artificial Intelligence',
+                'icon' => '🤖',
+                'color' => '#6d28d9',
+                'border_color' => '#7c3aed',
+                'bg_color' => '#f5f3ff',
+                'header_bg' => '#6d28d9',
+            ],
+            'management_information_systems' => [
+                'name' => 'Management Information Systems',
+                'badge' => 'Management Information Systems',
+                'icon' => '📊',
+                'color' => '#b45309',
+                'border_color' => '#d97706',
+                'bg_color' => '#fffbeb',
+                'header_bg' => '#b45309',
+            ],
+            'other' => [
+                'name' => 'General / Other Disciplines',
+                'badge' => 'General',
+                'icon' => '🎓',
+                'color' => '#1e293b',
+                'border_color' => '#334155',
+                'bg_color' => '#f8fafc',
+                'header_bg' => '#1e293b',
+            ],
+        ];
+
+        // Organize into groups
+        $groups = [];
+        if ($template->slug === 'seminar_as_a_course') {
+            $tracksToIterate = $selectedGroup ? [$selectedGroup] : ['cybersecurity', 'artificial_intelligence', 'management_information_systems'];
+            
+            $otherCount = $scheduledMilestones->where('discipline_group', 'other')->count();
+            if ($otherCount > 0 && !$selectedGroup) {
+                $tracksToIterate[] = 'other';
+            }
+
+            foreach ($tracksToIterate as $tKey) {
+                $groupItems = $scheduledMilestones->filter(fn($m) => $m->discipline_group === $tKey)->values();
+                if ($groupItems->isEmpty() && !$selectedGroup) {
+                    continue;
+                }
+                $def = $trackDefs[$tKey] ?? $trackDefs['other'];
+                $grpZoom = $trackZoomLinks[$tKey] ?? $groupItems->first(fn($m) => !empty($m->meeting_link))?->meeting_link;
+
+                // Group examiners
+                $examinerUserIds = $metadata['group_examiners'][$tKey]['user_ids'] ?? ($metadata['examiner_user_ids'] ?? []);
+                $examinerNames = !empty($examinerUserIds) 
+                    ? \App\Models\User::whereIn('id', $examinerUserIds)->pluck('name')->all() 
+                    : [];
+
+                $groups[] = [
+                    'key' => $tKey,
+                    'name' => $def['name'],
+                    'badge' => $def['badge'],
+                    'icon' => $def['icon'],
+                    'color' => $def['color'],
+                    'border_color' => $def['border_color'],
+                    'bg_color' => $def['bg_color'],
+                    'header_bg' => $def['header_bg'],
+                    'zoom_link' => $grpZoom,
+                    'examiners' => $examinerNames,
+                    'items' => $groupItems,
+                    'count' => $groupItems->count(),
+                    'start_date' => $groupItems->first()?->defence_date ? \Carbon\Carbon::parse($groupItems->first()->defence_date)->format('D, M d, Y') : 'N/A',
+                    'end_date' => $groupItems->last()?->defence_date ? \Carbon\Carbon::parse($groupItems->last()->defence_date)->format('D, M d, Y') : 'N/A',
+                ];
+            }
+        } else {
+            $groups[] = [
+                'key' => 'all',
+                'name' => $template->name,
+                'badge' => $template->name,
+                'icon' => '🎓',
+                'color' => '#065f46',
+                'border_color' => '#047857',
+                'bg_color' => '#f0fdf4',
+                'header_bg' => '#065f46',
+                'zoom_link' => $scheduledMilestones->first(fn($m) => !empty($m->meeting_link))?->meeting_link,
+                'examiners' => !empty($metadata['examiner_user_ids']) 
+                    ? \App\Models\User::whereIn('id', $metadata['examiner_user_ids'])->pluck('name')->all() 
+                    : [],
+                'items' => $scheduledMilestones,
+                'count' => $scheduledMilestones->count(),
+                'start_date' => $scheduledMilestones->first()?->defence_date ? \Carbon\Carbon::parse($scheduledMilestones->first()->defence_date)->format('D, M d, Y') : 'N/A',
+                'end_date' => $scheduledMilestones->last()?->defence_date ? \Carbon\Carbon::parse($scheduledMilestones->last()->defence_date)->format('D, M d, Y') : 'N/A',
+            ];
+        }
+
+        // Title
+        if ($selectedGroup && isset($trackDefs[$selectedGroup])) {
+            $title = 'Seminar presentation scheduled — ' . $trackDefs[$selectedGroup]['name'] . ' Group';
+        } else {
+            $title = ($template->slug === 'seminar_as_a_course') 
+                ? 'Seminar presentation scheduled' 
+                : ($template->name . ' Presentation Scheduled');
+        }
+
+        // Overall Starting Date & Ending Date
         $startingDate = $scheduledMilestones->first()?->defence_date 
             ? \Carbon\Carbon::parse($scheduledMilestones->first()->defence_date)->format('D, M d, Y') 
             : 'N/A';
@@ -1534,19 +1647,29 @@ class MilestoneTemplateController extends Controller
 
         $cohortsDisplay = !empty($cohorts) ? implode(', ', $cohorts) : 'All Cohorts';
 
+        $groupBreakdownParts = [];
+        foreach ($groups as $g) {
+            $groupBreakdownParts[] = $g['count'] . ' ' . $g['name'];
+        }
+        $groupBreakdown = implode(' • ', $groupBreakdownParts);
+
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.scheduled-presentation', [
             'template' => $template,
             'title' => $title,
+            'groups' => $groups,
             'scheduledMilestones' => $scheduledMilestones,
             'startingDate' => $startingDate,
             'endingDate' => $endingDate,
             'cohortsDisplay' => $cohortsDisplay,
+            'groupBreakdown' => $groupBreakdown,
+            'selectedGroup' => $selectedGroup,
             'generatedAt' => now()->format('M d, Y h:i A'),
         ]);
 
         $pdf->setPaper('a4', 'landscape');
 
-        $fileName = str_replace(' ', '_', strtolower($title)) . '_' . now()->format('Ymd_His') . '.pdf';
+        $fileName = str_replace([' ', '—', '-'], '_', strtolower($title)) . '_' . now()->format('Ymd_His') . '.pdf';
+        $fileName = preg_replace('/_+/', '_', $fileName);
 
         return $pdf->download($fileName);
     }
