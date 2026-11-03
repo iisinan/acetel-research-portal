@@ -146,6 +146,18 @@ class MilestoneTemplate extends Model
     }
 
     /**
+     * Clear any cached presentation schedules across current and neighboring dates.
+     */
+    public static function clearPresentationCache(): void
+    {
+        try {
+            for ($i = -3; $i <= 3; $i++) {
+                \Illuminate\Support\Facades\Cache::forget('sidebar_active_pres_' . now()->addDays($i)->toDateString());
+            }
+        } catch (\Throwable $e) {}
+    }
+
+    /**
      * Get active presentation schedules across templates that have active scheduled candidates.
      */
     public static function getActivePresentations()
@@ -172,7 +184,14 @@ class MilestoneTemplate extends Model
                   ->where('status', '!=', 'approved');
             }])
             ->orderBy('order')
-            ->get();
+            ->get()
+            ->filter(function ($t) {
+                return $t->studentMilestones
+                    ->whereNotNull('defence_date')
+                    ->where('status', '!=', 'approved')
+                    ->isNotEmpty();
+            })
+            ->values();
     }
 
     /**

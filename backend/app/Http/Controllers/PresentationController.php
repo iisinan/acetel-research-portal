@@ -42,10 +42,28 @@ class PresentationController extends Controller
 
         $presentationTitle = $template->presentation_title;
 
-        // Retrieve all active presentation templates so each presentation has its own specific tab
-        $allPresentationTabs = MilestoneTemplate::getActivePresentations();
+        // Retrieve all active presentation templates with scheduled candidates
+        $allPresentationTabs = MilestoneTemplate::getActivePresentations()
+            ->filter(fn($pt) => $pt->studentMilestones->where('status', '!=', 'approved')->whereNotNull('defence_date')->isNotEmpty())
+            ->values();
 
-        // Ensure the current presentation template is always present in tabs
+        // If there are NO active scheduled candidates for this template, redirect gracefully
+        if ($allScheduled->isEmpty()) {
+            if ($allPresentationTabs->isNotEmpty()) {
+                return redirect()->route('presentations.show', $allPresentationTabs->first()->id)
+                    ->with('info', "Presentation schedule for {$template->name} is not active. Switched to active session.");
+            }
+
+            if (auth()->user()?->hasRole('Admin')) {
+                return redirect()->route('admin.milestone-templates.index')
+                    ->with('info', "Presentation schedule for {$template->name} has been cancelled or has concluded.");
+            }
+
+            return redirect()->route('dashboard')
+                ->with('info', "There is currently no active presentation session for {$template->name}.");
+        }
+
+        // Ensure current active presentation template is present in tabs
         if (!$allPresentationTabs->contains('id', $template->id)) {
             $allPresentationTabs->push($template);
             $allPresentationTabs = $allPresentationTabs->sortBy('order')->values();

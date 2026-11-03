@@ -124,7 +124,7 @@
                     </a>
                 @endif
 
-                @if(auth()->user()->hasRole('Admin'))
+                @if(auth()->user()->hasRole('Admin') && $allScheduled->isNotEmpty())
                     <form action="{{ route('admin.milestone-templates.end-schedule', $template->id) }}" method="POST" class="w-full">
                         @csrf
                         <button type="submit"

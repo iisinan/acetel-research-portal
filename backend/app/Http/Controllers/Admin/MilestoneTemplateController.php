@@ -791,6 +791,7 @@ class MilestoneTemplateController extends Controller
             }
 
             \Illuminate\Support\Facades\DB::commit();
+            \App\Models\MilestoneTemplate::clearPresentationCache();
 
             if ($advanced === 0) {
                 return redirect()->back()
@@ -881,6 +882,7 @@ class MilestoneTemplateController extends Controller
             }
 
             \Illuminate\Support\Facades\DB::commit();
+            \App\Models\MilestoneTemplate::clearPresentationCache();
 
             return redirect()->route('admin.milestone-templates.index')->with('success', "Presentation schedule for {$template->name} has been cancelled successfully. All assigned dates, times, and Zoom links have been cleared.");
         } catch (\Exception $e) {
