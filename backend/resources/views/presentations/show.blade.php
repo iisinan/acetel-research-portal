@@ -6,6 +6,63 @@
 @section('content')
 <div class="space-y-8 animate-in-up" x-data="{ activeDate: 'all', search: '' }">
 
+    {{-- Presentation Milestone Specific Tabs --}}
+    @if(isset($allPresentationTabs) && $allPresentationTabs->count() > 0)
+        <div class="bg-white rounded-3xl p-3 sm:p-4 border border-slate-200/80 shadow-sm">
+            <div class="flex items-center justify-between px-2 sm:px-3 pt-1 pb-2.5 border-b border-slate-100 mb-2">
+                <span class="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                    <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    Milestone Presentation Sessions
+                </span>
+                <span class="text-[10px] font-bold text-slate-400 hidden sm:inline">
+                    Each milestone has its own independent presentation environment
+                </span>
+            </div>
+            <div class="flex items-center gap-2 sm:gap-2.5 overflow-x-auto custom-scrollbar pb-1">
+                @foreach($allPresentationTabs as $tabItem)
+                    @php
+                        $isTabActive = $tabItem->id === $template->id;
+                        $tabSchedCount = $tabItem->studentMilestones
+                            ->whereNotNull('defence_date')
+                            ->where('status', '!=', 'approved')
+                            ->count();
+                        $tabHasToday = $tabItem->studentMilestones
+                            ->whereNotNull('defence_date')
+                            ->where('status', '!=', 'approved')
+                            ->contains(fn($sm) => \Carbon\Carbon::parse($sm->defence_date)->toDateString() === $todayDateStr);
+                    @endphp
+                    <a href="{{ route('presentations.show', $tabItem->id) }}"
+                       class="inline-flex items-center gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-2xl text-xs font-black transition-all shrink-0 cursor-pointer
+                           {{ $isTabActive 
+                               ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/20 ring-2 ring-emerald-500/50' 
+                               : 'bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-900 border border-slate-200/70 hover:border-emerald-300' }}">
+                        
+                        <div class="w-6 h-6 sm:w-7 sm:h-7 rounded-xl flex items-center justify-center shrink-0 {{ $isTabActive ? 'bg-emerald-500 text-slate-950 font-black' : 'bg-white text-slate-500 border border-slate-200' }}">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                            </svg>
+                        </div>
+
+                        <span class="tracking-tight">{{ $tabItem->presentation_title }}</span>
+
+                        @if($tabHasToday)
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-red-500 text-white shadow-xs">
+                                <span class="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+                                Live
+                            </span>
+                        @endif
+
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-black {{ $isTabActive ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-600' }}">
+                            {{ $tabSchedCount }}
+                        </span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
     {{-- Top Hero Banner --}}
     <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-900 text-white p-5 sm:p-8 lg:p-10 shadow-xl border border-emerald-900/50">
         {{-- Decorative glow shapes --}}
@@ -175,12 +232,21 @@
                                 'proposal_defence' => 'proposal',
                                 'progress_report_1' => 'progress_report_1',
                                 'progress_report_2' => 'progress_report_2',
+                                'internal_defence' => 'internal',
+                                'viva' => 'external',
                                 default => 'first_seminar',
                             };
                             $todayDefEvent = $pres->thesis?->defenceEvents?->where('type', $todayEventType)->first();
                             $todayExaminers = $todayDefEvent ? $todayDefEvent->panelMembers->map(fn($pm) => $pm->user?->name)->filter()->implode(', ') : '';
                             $todaySupervisors = $pres->thesis?->assignments?->map(fn($a) => $a->supervisor?->user?->name)->filter()->implode(', ');
                             $todayDisplayPanel = $todayExaminers ?: $todaySupervisors;
+                            if (empty($todayDisplayPanel)) {
+                                if ($template->slug === 'internal_defence' && $pres->thesis?->internalExaminer?->user) {
+                                    $todayDisplayPanel = 'Internal Examiner: ' . $pres->thesis->internalExaminer->user->name;
+                                } elseif ($template->slug === 'viva' && $pres->thesis?->externalExaminer?->user) {
+                                    $todayDisplayPanel = 'External Examiner: ' . $pres->thesis->externalExaminer->user->name;
+                                }
+                            }
                             $todayCanEval = $todayDefEvent && $todayDefEvent->isAuthorizedEvaluator(auth()->id());
                             $todayEval = $todayCanEval ? $todayDefEvent->evaluations->firstWhere('evaluator_id', auth()->id()) : null;
                             $todayCardLink = $pres->meeting_link ?: $meetingLink;
@@ -438,6 +504,8 @@
                                 'proposal_defence' => 'proposal',
                                 'progress_report_1' => 'progress_report_1',
                                 'progress_report_2' => 'progress_report_2',
+                                'internal_defence' => 'internal',
+                                'viva' => 'external',
                                 default => 'first_seminar',
                             };
                             $tableDefEvent = $sm->thesis?->defenceEvents?->where('type', $tableEventType)->first();
@@ -554,12 +622,21 @@
                                         'proposal_defence' => 'proposal',
                                         'progress_report_1' => 'progress_report_1',
                                         'progress_report_2' => 'progress_report_2',
+                                        'internal_defence' => 'internal',
+                                        'viva' => 'external',
                                         default => 'first_seminar',
                                     };
                                     $tableDefEvent = $sm->thesis?->defenceEvents?->where('type', $tableEventType)->first();
                                     $examiners = $tableDefEvent ? $tableDefEvent->panelMembers->map(fn($pm) => $pm->user?->name)->filter()->implode(', ') : '';
                                     $supervisors = $sm->thesis?->assignments?->map(fn($a) => $a->supervisor?->user?->name)->filter()->implode(', ');
                                     $displayPanel = $examiners ?: $supervisors;
+                                    if (empty($displayPanel)) {
+                                        if ($template->slug === 'internal_defence' && $sm->thesis?->internalExaminer?->user) {
+                                            $displayPanel = 'Internal Examiner: ' . $sm->thesis->internalExaminer->user->name;
+                                        } elseif ($template->slug === 'viva' && $sm->thesis?->externalExaminer?->user) {
+                                            $displayPanel = 'External Examiner: ' . $sm->thesis->externalExaminer->user->name;
+                                        }
+                                    }
                                     $dateStr = \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d');
                                     $isToday = ($dateStr === $todayDateStr);
                                     $latestSub = $sm->submissions->first();

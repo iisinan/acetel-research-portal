@@ -549,20 +549,8 @@ class MilestoneController extends Controller
                 }
             }
 
-            // Degree-based count enforcement:
-            // MSc: at least 1 publication
-            // PhD: at least 2 publications
-            // (Only enforced if not post-defence stage, where only corrected manuscript is required)
-            if (!$isPostDefenceStage) {
-                $totalPubs = $existingCompliantPubsCount + count($parsedPubs);
-                if ($totalPubs < $requiredPubsCount) {
-                    $levelLabel = $isPhd ? 'PhD' : 'MSc';
-                    $s = $requiredPubsCount > 1 ? 's' : '';
-                    return back()->withInput()->withErrors([
-                        'publications' => "As a {$levelLabel} candidate, you are required to submit at least {$requiredPubsCount} Scopus-indexed publication{$s} co-authored with your assigned supervisor (including Title, DOI, and PDF) for this milestone."
-                    ]);
-                }
-            }
+            // Publication upload is optional for internal defence.
+            // If the candidate chooses to attach publications, we validate Scopus indexing and supervisor co-authorship.
 
             $scopusVerifier = app(\App\Services\ScopusVerificationService::class);
 

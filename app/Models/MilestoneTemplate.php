@@ -146,22 +146,29 @@ class MilestoneTemplate extends Model
     }
 
     /**
-     * Get active presentation schedules across templates that have not yet passed.
+     * Get active presentation schedules across templates that have active scheduled candidates.
      */
     public static function getActivePresentations()
     {
-        $today = now()->toDateString();
-
         return static::where('slug', '!=', 'supervisors_assigned')
             ->where('order', '!=', 2)
-            ->whereHas('studentMilestones', function ($q) use ($today) {
+            ->where(function ($q) {
+                $q->where('allow_defence_date', true)
+                  ->orWhereIn('slug', [
+                      'seminar_as_a_course',
+                      'proposal_defence',
+                      'progress_report_1',
+                      'progress_report_2',
+                      'internal_defence',
+                      'viva'
+                  ]);
+            })
+            ->whereHas('studentMilestones', function ($q) {
                 $q->whereNotNull('defence_date')
-                  ->whereDate('defence_date', '>=', $today)
                   ->where('status', '!=', 'approved');
             })
-            ->with(['studentMilestones' => function ($q) use ($today) {
+            ->with(['studentMilestones' => function ($q) {
                 $q->whereNotNull('defence_date')
-                  ->whereDate('defence_date', '>=', $today)
                   ->where('status', '!=', 'approved');
             }])
             ->orderBy('order')

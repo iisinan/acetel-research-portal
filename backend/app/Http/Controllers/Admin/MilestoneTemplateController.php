@@ -348,6 +348,8 @@ class MilestoneTemplateController extends Controller
                             'proposal_defence' => 'proposal',
                             'progress_report_1' => 'progress_report_1',
                             'progress_report_2' => 'progress_report_2',
+                            'internal_defence' => 'internal',
+                            'viva' => 'external',
                             default => 'first_seminar',
                         },
                     ],
@@ -418,6 +420,8 @@ class MilestoneTemplateController extends Controller
             'proposal_defence' => 'proposal',
             'progress_report_1' => 'progress_report_1',
             'progress_report_2' => 'progress_report_2',
+            'internal_defence' => 'internal',
+            'viva' => 'external',
             default => 'first_seminar',
         };
         $updated = 0;
@@ -557,6 +561,8 @@ class MilestoneTemplateController extends Controller
             'proposal_defence' => 'proposal',
             'progress_report_1' => 'progress_report_1',
             'progress_report_2' => 'progress_report_2',
+            'internal_defence' => 'internal',
+            'viva' => 'external',
             default => 'first_seminar',
         };
 
@@ -650,6 +656,8 @@ class MilestoneTemplateController extends Controller
             'proposal_defence' => 'proposal',
             'progress_report_1' => 'progress_report_1',
             'progress_report_2' => 'progress_report_2',
+            'internal_defence' => 'internal',
+            'viva' => 'external',
             default => 'first_seminar',
         };
 
@@ -855,6 +863,8 @@ class MilestoneTemplateController extends Controller
                 'proposal_defence' => 'proposal',
                 'progress_report_1' => 'progress_report_1',
                 'progress_report_2' => 'progress_report_2',
+                'internal_defence' => 'internal',
+                'viva' => 'external',
                 default => 'first_seminar',
             };
             
@@ -901,6 +911,8 @@ class MilestoneTemplateController extends Controller
             'proposal_defence' => 'proposal',
             'progress_report_1' => 'progress_report_1',
             'progress_report_2' => 'progress_report_2',
+            'internal_defence' => 'internal',
+            'viva' => 'external',
             default => 'first_seminar',
         };
 
@@ -979,6 +991,8 @@ class MilestoneTemplateController extends Controller
             'proposal_defence' => 'proposal',
             'progress_report_1' => 'progress_report_1',
             'progress_report_2' => 'progress_report_2',
+            'internal_defence' => 'internal',
+            'viva' => 'external',
             default => 'first_seminar',
         };
 
@@ -1115,6 +1129,8 @@ class MilestoneTemplateController extends Controller
                         'proposal_defence' => 'proposal',
                         'progress_report_1' => 'progress_report_1',
                         'progress_report_2' => 'progress_report_2',
+                        'internal_defence' => 'internal',
+                        'viva' => 'external',
                         default => null,
                     };
                     $event = $eventType ? current($milestone->thesis->defenceEvents->where('type', $eventType)->all()) : null;
@@ -1195,6 +1211,8 @@ class MilestoneTemplateController extends Controller
                 'proposal_defence' => 'proposal',
                 'progress_report_1' => 'progress_report_1',
                 'progress_report_2' => 'progress_report_2',
+                'internal_defence' => 'internal',
+                'viva' => 'external',
                 default => 'first_seminar',
             };
 

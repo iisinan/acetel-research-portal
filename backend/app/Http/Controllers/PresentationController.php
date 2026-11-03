@@ -42,6 +42,15 @@ class PresentationController extends Controller
 
         $presentationTitle = $template->presentation_title;
 
+        // Retrieve all active presentation templates so each presentation has its own specific tab
+        $allPresentationTabs = MilestoneTemplate::getActivePresentations();
+
+        // Ensure the current presentation template is always present in tabs
+        if (!$allPresentationTabs->contains('id', $template->id)) {
+            $allPresentationTabs->push($template);
+            $allPresentationTabs = $allPresentationTabs->sortBy('order')->values();
+        }
+
         // Determine date range for display
         $startDate = $allScheduled->first() ? Carbon::parse($allScheduled->first()->defence_date)->format('M d, Y') : null;
         $endDate = $allScheduled->last() ? Carbon::parse($allScheduled->last()->defence_date)->format('M d, Y') : null;
@@ -55,7 +64,8 @@ class PresentationController extends Controller
             'meetingLink',
             'presentationTitle',
             'startDate',
-            'endDate'
+            'endDate',
+            'allPresentationTabs'
         ));
     }
 }

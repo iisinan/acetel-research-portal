@@ -89,27 +89,6 @@ class MilestoneWorkflowService
             return "Structural Block: Defence date must be scheduled before approval.";
         }
 
-        // Internal Defence Scopus & Supervisor Co-authorship Guard
-        if ($template->slug === 'internal_defence' || $template->order == 6) {
-            $student = $milestone->thesis?->student;
-            $requiredPubs = $student ? $student->requiredPublicationsCount() : 1;
-            $assignedSupervisors = $milestone->thesis?->getSupervisorNames() ?? [];
-
-            $compliantPubCount = $milestone->submissions()
-                ->where('type', 'publication')
-                ->where('is_scopus_indexed', true)
-                ->where(function ($q) use ($assignedSupervisors) {
-                    if (!empty($assignedSupervisors)) {
-                        $q->where('has_supervisor_coauthor', true);
-                    }
-                })
-                ->count();
-
-            if ($compliantPubCount < $requiredPubs && !$user->hasRole('Admin')) {
-                $level = $student?->isPhd() ? 'PhD' : 'MSc';
-                return "Publication Requirement: {$level} candidates must have at least {$requiredPubs} verified Scopus-indexed publication(s) co-authored with their assigned supervisor(s) on file before Internal Defence clearance.";
-            }
-        }
 
         // 3. Presentation Gated Milestones (Requirement 5): Average grading must be pass
         if (in_array($template->slug, self::PRESENTATION_GATED_SLUGS)) {
@@ -233,6 +212,8 @@ class MilestoneWorkflowService
             'proposal_defence' => 'proposal',
             'progress_report_1' => 'progress_report_1',
             'progress_report_2' => 'progress_report_2',
+            'internal_defence' => 'internal',
+            'viva' => 'external',
             default => null,
         };
         $events = $milestone->thesis?->defenceEvents()
@@ -626,6 +607,8 @@ class MilestoneWorkflowService
             'proposal_defence' => 'proposal',
             'progress_report_1' => 'progress_report_1',
             'progress_report_2' => 'progress_report_2',
+            'internal_defence' => 'internal',
+            'viva' => 'external',
             default => null,
         };
 
@@ -698,6 +681,8 @@ class MilestoneWorkflowService
             'proposal_defence' => 'proposal',
             'progress_report_1' => 'progress_report_1',
             'progress_report_2' => 'progress_report_2',
+            'internal_defence' => 'internal',
+            'viva' => 'external',
             default => null,
         };
 
@@ -773,6 +758,8 @@ class MilestoneWorkflowService
             'proposal_defence' => 'proposal',
             'progress_report_1' => 'progress_report_1',
             'progress_report_2' => 'progress_report_2',
+            'internal_defence' => 'internal',
+            'viva' => 'external',
             default => null,
         };
 

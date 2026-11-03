@@ -476,10 +476,7 @@
                                         return empty($assignedSupervisors) || $sub->has_supervisor_coauthor;
                                     });
                                 $existingPubsCount = $existingPubs->count();
-                                $initialSlotsNeeded = max(1, $requiredPubs - $existingPubsCount);
-                                if ($isPostDefenceStage) {
-                                    $initialSlotsNeeded = 0;
-                                }
+                                $initialSlotsNeeded = 0;
                             @endphp
                             <form x-data="{
                                 uploading: false,
@@ -498,7 +495,7 @@
                                 addSlot() {
                                     if (this.pubSlots.length + this.existingPubsCount < 5) {
                                         this.pubSlots.push({
-                                            id: Date.now(),
+                                            id: Date.now() + Math.random(),
                                             title: '',
                                             doi: '',
                                             fileName: '',
@@ -515,9 +512,7 @@
                                     }
                                 },
                                 removeSlot(index) {
-                                    if (this.pubSlots.length > 1 || (this.existingPubsCount >= this.requiredPubs)) {
-                                        this.pubSlots.splice(index, 1);
-                                    }
+                                    this.pubSlots.splice(index, 1);
                                 },
                                 verifyDoi(slot) {
                                     if (!slot.doi || !slot.doi.trim()) return;
@@ -566,21 +561,31 @@
                                     }
                                 }
                                 if (hasPubRequirement && !isPostDefenceStage) {
-                                    let validSlots = pubSlots.filter(s => s.fileName || s.title || s.doi);
-                                    if ((validSlots.length + existingPubsCount) < requiredPubs) {
-                                        fileError = 'As a ' + (isPhd ? 'PhD' : 'MSc') + ' candidate, you must submit at least ' + requiredPubs + ' Scopus-indexed publication' + (requiredPubs > 1 ? 's' : '') + ' co-authored with your assigned supervisor (with Title, DOI, and PDF).';
-                                        (window.toast ? window.toast.error(fileError) : alert(fileError));
-                                        return;
-                                    }
-                                    for (let i = 0; i < validSlots.length; i++) {
-                                        let slot = validSlots[i];
+                                    let activeSlots = pubSlots.filter(s => s.fileName || s.title || s.doi);
+                                    for (let i = 0; i < activeSlots.length; i++) {
+                                        let slot = activeSlots[i];
+                                        if (!slot.fileName) {
+                                            fileError = 'Please upload the PDF manuscript for Publication #' + (i + 1) + ' or remove the publication card.';
+                                            (window.toast ? window.toast.error(fileError) : alert(fileError));
+                                            return;
+                                        }
+                                        if (!slot.title) {
+                                            fileError = 'Please enter a title for Publication #' + (i + 1) + '.';
+                                            (window.toast ? window.toast.error(fileError) : alert(fileError));
+                                            return;
+                                        }
+                                        if (!slot.doi) {
+                                            fileError = 'Please provide the DOI for Publication #' + (i + 1) + '.';
+                                            (window.toast ? window.toast.error(fileError) : alert(fileError));
+                                            return;
+                                        }
                                         if (!slot.verified || !slot.scopusIndexed) {
-                                            fileError = 'Publication #' + (i + 1) + ' is not verified as indexed in Scopus. Institutional regulations strictly require all publications for Internal Defence to be indexed in Scopus.';
+                                            fileError = 'Publication #' + (i + 1) + ' is not verified as indexed in Scopus. Any attached publication for Internal Defence must be indexed in Scopus.';
                                             (window.toast ? window.toast.error(fileError) : alert(fileError));
                                             return;
                                         }
                                         if (assignedSupervisors.length > 0 && !slot.hasSupervisor) {
-                                            fileError = 'Publication #' + (i + 1) + ' does not list your assigned supervisor (' + assignedSupervisors.join(', ') + ') as an author. For a publication to be accepted, it must include your assigned supervisor.';
+                                            fileError = 'Publication #' + (i + 1) + ' does not list your assigned supervisor (' + assignedSupervisors.join(', ') + ') as an author. Attached publications must include your assigned supervisor.';
                                             (window.toast ? window.toast.error(fileError) : alert(fileError));
                                             return;
                                         }
@@ -682,32 +687,32 @@
                                         <div>
                                             <div class="flex items-center gap-2">
                                                 <span class="w-2.5 h-2.5 rounded-full bg-purple-600"></span>
-                                                <h4 class="text-sm font-black text-slate-900 uppercase tracking-wider">Required Publications</h4>
-                                                <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider {{ $isPhdCandidate ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200' }}">
-                                                    {{ $isPhdCandidate ? 'PhD: 2 Publications Required' : 'MSc: 1 Publication Required' }}
+                                                <h4 class="text-sm font-black text-slate-900 uppercase tracking-wider">Research Publications</h4>
+                                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-200">
+                                                    Optional
                                                 </span>
                                             </div>
                                             <p class="text-xs text-slate-500 mt-1">
-                                                {{ $isPhdCandidate ? 'Doctoral (PhD) candidates are required to submit at least 2 institutional publications.' : 'Master\'s (MSc) candidates are required to submit at least 1 institutional publication.' }}
-                                                Please provide the Title, DOI, and PDF file. The portal automatically checks Scopus indexing.
+                                                You may optionally attach published or accepted peer-reviewed articles relevant to your research. 
+                                                If attached, publications must be indexed in Elsevier Scopus and list your assigned supervisor(s) as co-authors.
                                             </p>
                                         </div>
                                         @if($existingPubsCount > 0)
-                                            <div class="px-3 py-1.5 rounded-xl {{ $existingPubsCount >= $requiredPubs ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200' }} text-xs font-bold flex items-center gap-1.5 shrink-0">
+                                            <div class="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold flex items-center gap-1.5 shrink-0">
                                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                                <span>{{ $existingPubsCount }}/{{ $requiredPubs }} Submitted</span>
+                                                <span>{{ $existingPubsCount }} Publication{{ $existingPubsCount > 1 ? 's' : '' }} on Record</span>
                                             </div>
                                         @endif
                                     </div>
 
-                                    <!-- Mandatory Scopus & Supervisor Co-Authorship Policy Notice -->
+                                    <!-- Scopus & Supervisor Co-Authorship Policy Notice -->
                                     <div class="p-3.5 bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border border-purple-200/80 rounded-xl flex items-start gap-3 text-xs">
                                         <div class="w-5 h-5 rounded-md bg-purple-600 text-white flex items-center justify-center shrink-0 text-[10px] font-black shadow-sm">
                                             i
                                         </div>
                                         <div class="text-slate-700 leading-relaxed">
-                                            <span class="font-black text-purple-900 uppercase tracking-wider">Mandatory Requirement:</span>
-                                            All publications submitted for Internal Defence <strong>must be indexed in Elsevier Scopus AND list your assigned supervisor(s) as co-authors</strong>. If a publication is not indexed in Scopus or does not list your supervisor, submission will be strictly blocked. Enter your DOI and click <strong>Check Scopus</strong> to verify before submitting.
+                                            <span class="font-black text-purple-900 uppercase tracking-wider">Optional Attachment Policy:</span>
+                                            Publication upload is optional for Internal Defence. If you choose to attach any publications, <strong>they must be indexed in Elsevier Scopus AND list your assigned supervisor(s) as co-authors</strong>. You can submit your thesis documentation without publications if you do not have any yet.
                                             @if(!empty($assignedSupervisors))
                                                 <div class="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
                                                     <span class="font-bold text-slate-800">Your Assigned Supervisor(s):</span>
@@ -719,12 +724,21 @@
                                         </div>
                                     </div>
 
-                                    @if($isPostDefenceStage && $existingPubsCount >= $requiredPubs)
+                                    @if($isPostDefenceStage && $existingPubsCount > 0)
                                         <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
                                             <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                                            <span>Publication requirement satisfied ({{ $existingPubsCount }} on file). You only need to submit your corrected thesis manuscript above.</span>
+                                            <span>{{ $existingPubsCount }} publication(s) already on file. You only need to submit your corrected thesis manuscript above.</span>
                                         </div>
                                     @endif
+
+                                    <!-- Empty state when 0 slots -->
+                                    <div x-show="pubSlots.length === 0" class="p-5 bg-white border border-dashed border-slate-300 rounded-2xl text-center">
+                                        <div class="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 mx-auto flex items-center justify-center mb-1.5">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                                        </div>
+                                        <h5 class="text-xs font-bold text-slate-800">No Publications Attached</h5>
+                                        <p class="text-[11px] text-slate-500 mt-0.5 max-w-sm mx-auto">Publication upload is optional. If you have publications to include, click the button below.</p>
+                                    </div>
 
                                     <!-- Dynamic Publication Cards -->
                                     <template x-for="(slot, index) in pubSlots" :key="slot.id">
@@ -735,7 +749,7 @@
                                                     <span class="w-6 h-6 rounded-lg font-black text-xs flex items-center justify-center"
                                                         :class="slot.verified ? (slot.scopusIndexed && (assignedSupervisors.length === 0 || slot.hasSupervisor) ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800') : 'bg-purple-100 text-purple-700'"
                                                         x-text="index + 1"></span>
-                                                    <span class="text-xs font-black uppercase tracking-wider text-slate-800" x-text="'Publication #' + (index + 1) + ((index + existingPubsCount < requiredPubs) ? ' (Required)' : ' (Additional)')"></span>
+                                                    <span class="text-xs font-black uppercase tracking-wider text-slate-800" x-text="'Publication #' + (index + 1) + ' (Optional)'"></span>
                                                     <template x-if="slot.verified">
                                                         <div class="flex flex-wrap items-center gap-1.5">
                                                             <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider"
@@ -752,7 +766,6 @@
                                                     </template>
                                                 </div>
                                                 <button type="button" 
-                                                    x-show="pubSlots.length > 1 || (existingPubsCount >= requiredPubs)"
                                                     @click="removeSlot(index)" 
                                                     class="text-slate-400 hover:text-rose-600 transition-colors text-xs flex items-center gap-1 font-bold cursor-pointer">
                                                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
@@ -883,7 +896,7 @@
                                             @click="addSlot()" 
                                             class="inline-flex items-center gap-2 px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm cursor-pointer">
                                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                                            <span>Add Another Publication</span>
+                                            <span x-text="pubSlots.length === 0 ? 'Attach a Publication (Optional)' : 'Add Another Publication'"></span>
                                         </button>
                                         <span class="text-[11px] font-medium text-slate-400">Up to 5 publications allowed</span>
                                     </div>
@@ -893,18 +906,18 @@
                                 @endif
 
                                 <!-- Non-Compliant Block Notice Banner above Submit Button -->
-                                <div x-show="hasPubRequirement && !isPostDefenceStage && pubSlots.some(s => s.verified && (!s.scopusIndexed || (assignedSupervisors.length > 0 && !s.hasSupervisor)))" class="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2.5" style="display: none;">
+                                <div x-show="hasPubRequirement && !isPostDefenceStage && pubSlots.some(s => (s.fileName || s.title || s.doi) && s.verified && (!s.scopusIndexed || (assignedSupervisors.length > 0 && !s.hasSupervisor)))" class="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2.5" style="display: none;">
                                     <svg class="w-4 h-4 text-rose-600 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
                                     <div>
-                                        <span class="font-bold">Submission Blocked:</span> One or more attached publications fail institutional compliance. Every publication must be <strong>indexed in Scopus AND co-authored with your assigned supervisor</strong>. You cannot submit until all publications satisfy both requirements.
+                                        <span class="font-bold">Attached Publication Non-Compliant:</span> One or more attached publications fail compliance. Any publication you choose to attach must be <strong>indexed in Scopus AND co-authored with your assigned supervisor</strong>. Please fix or remove the non-compliant publication card to proceed.
                                     </div>
                                 </div>
 
                                 <div class="flex justify-end pt-2">
                                     <button type="submit" 
-                                        :disabled="uploading || (hasPubRequirement && !isPostDefenceStage && pubSlots.some(s => s.verified && (!s.scopusIndexed || (assignedSupervisors.length > 0 && !s.hasSupervisor))))"
+                                        :disabled="uploading || (hasPubRequirement && !isPostDefenceStage && pubSlots.some(s => (s.fileName || s.title || s.doi) && s.verified && (!s.scopusIndexed || (assignedSupervisors.length > 0 && !s.hasSupervisor))))"
                                         class="inline-flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-emerald-600 transition-colors shadow-xl shadow-slate-200/40 disabled:opacity-50 disabled:cursor-not-allowed">
-                                        <span x-text="uploading ? 'Transmitting...' : '{{ $isPostDefenceStage ? 'Submit Corrected Thesis' : (in_array('publication', $subTypes) && count($subTypes) > 1 ? 'Submit Documentation & Publication' : (in_array('publication', $subTypes) ? 'Submit Publication' : 'Upload Document')) }}'"></span>
+                                        <span x-text="uploading ? 'Transmitting...' : '{{ $isPostDefenceStage ? 'Submit Corrected Thesis' : (in_array('publication', $subTypes) && count($subTypes) > 1 ? 'Submit Thesis Documentation' : (in_array('publication', $subTypes) ? 'Submit Documentation' : 'Upload Document')) }}'"></span>
                                         <svg x-show="!uploading" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
                                         <svg x-show="uploading" class="animate-spin -ml-1 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" style="display: none;">
                                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -1216,7 +1229,7 @@
                             $subTypes = $milestone->template?->submission_type ?? [];
                         @endphp
                         @if(in_array('file', $subTypes) && in_array('publication', $subTypes))
-                            <p class="mb-2">Please upload a comprehensive package containing both your working thesis chapter and your verified publication record. PDF format is mandatory.</p>
+                            <p class="mb-2">Please upload your working thesis manuscript in PDF format. You may also optionally attach any published or accepted research papers.</p>
                         @elseif(in_array('publication', $subTypes))
                             <p class="mb-2">Please upload a verified copy of your peer-reviewed publication record. PDF format is required for archiving purposes.</p>
                         @else
