@@ -55,36 +55,41 @@ class UserManagementController extends Controller
      */
     public function index(Request $request)
     {
-        $query = User::with('roles')
-            ->whereDoesntHave('roles', function($q) {
-                $q->where('name', 'Student');
-            });
+        $query = User::with([
+            'roles',
+            'studentProfile.program',
+            'studentProfile.cohort',
+            'supervisorProfile.assignments.thesis.student.user'
+        ]);
 
         if ($request->filled('search')) {
-            $search = $request->search;
+            $search = trim($request->search);
             $query->where(function($q) use ($search) {
                 $q->where('name', 'ilike', "%{$search}%")
-                  ->orWhere('email', 'ilike', "%{$search}%");
+                  ->orWhere('email', 'ilike', "%{$search}%")
+                  ->orWhereHas('studentProfile', function($sq) use ($search) {
+                      $sq->where('student_id_number', 'ilike', "%{$search}%");
+                  });
             });
         }
 
-        if ($request->has('role') && $request->role != '') {
+        if ($request->filled('role')) {
             $role = $request->role; // Assuming role name passed
             $query->role($role);
         }
 
-        if ($request->has('status') && $request->status != '') { // active/inactive
+        if ($request->filled('status')) { // active/inactive
             $isActive = $request->status === 'active';
             $query->where('is_active', $isActive);
         }
 
-        if ($request->has('cohort') && $request->cohort != '') {
+        if ($request->filled('cohort')) {
             $query->whereHas('studentProfile', function ($q) use ($request) {
                 $q->where('cohort_id', $request->cohort);
             });
         }
 
-        $users = $query->latest()->paginate(10);
+        $users = $query->latest()->paginate(10)->withQueryString();
         $roles = Role::pluck('name'); // For filter dropdown
         $cohorts = Cohort::latest()->get(); // For filter dropdown
 

@@ -98,7 +98,7 @@
                         <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-green-600 transition-colors">
                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                         </div>
-                        <input type="text" name="search" value="{{ request('search') }}" placeholder="Name or email address..." class="block w-full pl-11 pr-4 py-4 bg-white border-slate-200 rounded-2xl text-sm font-bold text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all shadow-sm">
+                        <input type="text" name="search" value="{{ request('search') }}" placeholder="Name, email or matric number..." class="block w-full pl-11 pr-4 py-4 bg-white border-slate-200 rounded-2xl text-sm font-bold text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all shadow-sm">
                     </div>
                 </div>
 
@@ -158,8 +158,14 @@
                                 </div>
                                 <div class="min-w-0">
                                     <p class="text-base font-black text-slate-900 tracking-tight leading-none mb-2 group-hover:text-green-700 transition-colors">{{ $user->name }}</p>
-                                    <div class="flex items-center gap-2">
+                                    <div class="flex items-center gap-2 flex-wrap">
                                         <p class="text-[11px] font-bold text-slate-400 truncate">{{ $user->email }}</p>
+                                        @if($user->studentProfile?->student_id_number)
+                                            <span class="w-1 h-1 rounded-full bg-slate-300"></span>
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black tracking-wider uppercase" title="Matric Number">
+                                                {{ $user->studentProfile->student_id_number }}
+                                            </span>
+                                        @endif
                                         @if($user->creator_id)
                                             <span class="w-1 h-1 rounded-full bg-slate-300"></span>
                                             <span class="text-[9px] font-black text-slate-300 uppercase tracking-widest whitespace-nowrap">Manual</span>
@@ -179,11 +185,15 @@
                                             'External Examiner' => 'bg-amber-50 text-amber-800 border-amber-200',
                                             'Admin' => 'bg-slate-900 text-white border-slate-900',
                                             'Director' => 'bg-indigo-900 text-white border-indigo-900',
+                                            'Student' => 'bg-emerald-50 text-emerald-800 border-emerald-200',
                                             default => 'bg-slate-100 text-slate-700 border-slate-200',
                                         };
                                     @endphp
                                     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border shadow-xs transition-all {{ $badgeStyle }}">
                                         {{ $role->name }}
+                                        @if($role->name === 'Student' && $user->studentProfile?->program)
+                                            <span class="text-[9px] font-bold opacity-75">({{ $user->studentProfile->program->code ?? $user->studentProfile->program->name }})</span>
+                                        @endif
                                         @if($role->name === 'Supervisor' && $user->supervisorProfile)
                                             <div x-data="{ open: false }" class="inline-block ml-1">
                                                 <button type="button" @click="open = true" class="inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-md bg-green-200 text-green-800 hover:bg-green-300 text-[10px] transition-colors focus:outline-none shadow-sm cursor-pointer" title="View Students">

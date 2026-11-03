@@ -279,7 +279,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
         return response()->json(Cache::remember($key, 120, function () use ($search, $role) {
             $q = User::with('roles')->latest();
-            if ($search) $q->where(fn ($q2) => $q2->where('name','ilike',"%$search%")->orWhere('email','ilike',"%$search%"));
+            if ($search) $q->where(fn ($q2) => $q2->where('name','ilike',"%$search%")->orWhere('email','ilike',"%$search%")->orWhereHas('studentProfile', fn($sq) => $sq->where('student_id_number', 'ilike', "%$search%")));
             if ($role)   $q->role($role);
             return $q->paginate(20);
         }));
