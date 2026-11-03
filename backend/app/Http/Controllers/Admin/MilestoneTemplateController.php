@@ -1323,12 +1323,15 @@ class MilestoneTemplateController extends Controller
             "Expires" => "0"
         ];
 
+        $isSeminar = $template->slug === 'seminar_as_a_course';
         $isPassFail = in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2']);
-        $columns = $isPassFail
-            ? ['Student Name', 'Matric Number', 'Presentation Date', 'Grade / Result']
-            : ['Student Name', 'Matric Number', 'Presentation Date', 'Average Score'];
+        $columns = $isSeminar
+            ? ['Student Name', 'Matric Number', 'Discipline Track', 'Presentation Date', 'Slot Time', 'Meeting Link', 'Average Score']
+            : ($isPassFail
+                ? ['Student Name', 'Matric Number', 'Presentation Date', 'Grade / Result']
+                : ['Student Name', 'Matric Number', 'Presentation Date', 'Average Score']);
 
-        $callback = function() use($milestones, $columns, $template, $isPassFail) {
+        $callback = function() use($milestones, $columns, $template, $isPassFail, $isSeminar) {
             $file = fopen('php://output', 'w');
             fputcsv($file, $columns);
 
@@ -1373,12 +1376,21 @@ class MilestoneTemplateController extends Controller
                     }
                 }
 
-                fputcsv($file, [
+                $row = [
                     $milestone->thesis->student->user->name ?? '',
                     $milestone->thesis->student->student_id_number ?? '',
-                    $milestone->defence_date ?? 'Not Scheduled',
-                    $avgScore
-                ]);
+                ];
+                if ($isSeminar) {
+                    $row[] = $milestone->discipline_group_label ?? 'General';
+                }
+                $row[] = $milestone->defence_date ?? 'Not Scheduled';
+                if ($isSeminar) {
+                    $row[] = $milestone->defence_time ?? 'N/A';
+                    $row[] = $milestone->meeting_link ?? 'N/A';
+                }
+                $row[] = $avgScore;
+
+                fputcsv($file, $row);
             }
             fclose($file);
         };

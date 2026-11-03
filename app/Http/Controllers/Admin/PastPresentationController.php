@@ -43,7 +43,7 @@ class PastPresentationController extends Controller
             "Expires" => "0"
         ];
 
-        $columns = ['Student Name', 'Matric Number', 'Seminar', 'Presentation Date', 'Average Score'];
+        $columns = ['Student Name', 'Matric Number', 'Discipline Track', 'Seminar', 'Presentation Date', 'Average Score'];
 
         $callback = function() use($milestones, $columns) {
             $file = fopen('php://output', 'w');
@@ -51,7 +51,8 @@ class PastPresentationController extends Controller
 
             foreach ($milestones as $sm) {
                 $avgScore = 'N/A';
-                $event = $sm->thesis->defenceEvents->where('type', $sm->template->defence_type ?? 'first_seminar')->first();
+                $eventType = $sm->template->defence_type ?? ($sm->template->slug === 'seminar_as_a_course' ? 'seminar' : 'first_seminar');
+                $event = $sm->thesis->defenceEvents->where('type', $eventType)->first() ?? $sm->thesis->defenceEvents->first();
                 if ($event && $event->evaluations->count() > 0) {
                     $total = 0;
                     $count = 0;
@@ -69,6 +70,7 @@ class PastPresentationController extends Controller
                 fputcsv($file, [
                     $sm->thesis->student->user->name ?? 'Unknown',
                     $sm->thesis->student->student_id_number ?? 'N/A',
+                    $sm->thesis->student->discipline_group_label ?? 'General',
                     $sm->template->name ?? 'N/A',
                     $sm->defence_date ? \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d') : 'N/A',
                     $avgScore

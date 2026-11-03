@@ -189,13 +189,14 @@
         <thead>
             <tr>
                 <th style="width: 4%;" class="text-center">#</th>
-                <th style="width: 14%;">Matric Number</th>
-                <th style="width: 22%;">Student Name</th>
-                <th style="width: 17%;">Program</th>
-                <th style="width: 11%;">Cohort</th>
-                <th style="width: 14%;">Presentation Date</th>
-                <th style="width: 8%;">Time</th>
-                <th style="width: 10%;">Meeting / Venue</th>
+                <th style="width: 13%;">Matric Number</th>
+                <th style="width: 19%;">Student Name</th>
+                <th style="width: 14%;">Track</th>
+                <th style="width: 14%;">Program</th>
+                <th style="width: 9%;">Cohort</th>
+                <th style="width: 12%;">Date</th>
+                <th style="width: 7%;">Time</th>
+                <th style="width: 8%;">Meeting Room</th>
             </tr>
         </thead>
         <tbody>
@@ -205,6 +206,7 @@
                     $user = $student?->user;
                     $program = $student?->program;
                     $cohort = $student?->cohort;
+                    $trackLabel = $sm->discipline_group_label ?? ($student?->discipline_group_label ?? 'General');
                     $dateFormatted = $sm->defence_date ? \Carbon\Carbon::parse($sm->defence_date)->format('D, M d, Y') : 'N/A';
                     $timeFormatted = $sm->defence_time ? \Carbon\Carbon::parse($sm->defence_time)->format('h:i A') : 'TBD';
                 @endphp
@@ -212,13 +214,14 @@
                     <td class="text-center">{{ $index + 1 }}</td>
                     <td class="matric-no">{{ $student->student_id_number ?? 'N/A' }}</td>
                     <td class="student-name">{{ $user->name ?? 'Candidate' }}</td>
+                    <td><strong>{{ $trackLabel }}</strong></td>
                     <td>{{ $program->name ?? ($program->code ?? 'N/A') }}</td>
                     <td>{{ $cohort->name ?? ($cohort->code ?? 'N/A') }}</td>
                     <td class="date-badge">{{ $dateFormatted }}</td>
                     <td class="time-badge">{{ $timeFormatted }}</td>
                     <td>
                         @if(!empty($sm->meeting_link))
-                            <a href="{{ $sm->meeting_link }}" target="_blank" class="link-text">Join Link</a>
+                            <a href="{{ $sm->meeting_link }}" target="_blank" class="link-text">Zoom Link</a>
                         @elseif(!empty($sm->defence_location))
                             {{ $sm->defence_location }}
                         @else
@@ -228,7 +231,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="8" class="text-center" style="padding: 24px; color: #64748b; font-weight: 600;">
+                    <td colspan="9" class="text-center" style="padding: 24px; color: #64748b; font-weight: 600;">
                         No students are currently scheduled for this presentation milestone.
                     </td>
                 </tr>

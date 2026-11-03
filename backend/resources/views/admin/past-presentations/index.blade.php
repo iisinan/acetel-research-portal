@@ -31,6 +31,7 @@
                 <tr>
                     <th class="px-6 py-4">Student</th>
                     <th class="px-6 py-4">Matric Number</th>
+                    <th class="px-6 py-4">Track</th>
                     <th class="px-6 py-4">Seminar</th>
                     <th class="px-6 py-4">Defence Date</th>
                     <th class="px-6 py-4">Avg Score</th>
@@ -38,12 +39,24 @@
             </thead>
             <tbody class="divide-y divide-slate-100">
                 @forelse($milestones as $sm)
+                    @php
+                        $trk = $sm->thesis?->student?->discipline_group ?? 'cybersecurity';
+                    @endphp
                     <tr class="hover:bg-slate-50/50 transition-colors">
                         <td class="px-6 py-4 font-semibold text-slate-900">
                             {{ $sm->thesis->student->user->name ?? 'Unknown' }}
                         </td>
                         <td class="px-6 py-4 text-slate-600">
                             {{ $sm->thesis->student->student_id_number ?? 'N/A' }}
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider
+                                {{ $trk === 'cybersecurity' ? 'bg-cyan-50 text-cyan-800 border border-cyan-200' : ($trk === 'artificial_intelligence' ? 'bg-violet-50 text-violet-800 border border-violet-200' : 'bg-amber-50 text-amber-800 border border-amber-200') }}">
+                                @if($trk === 'cybersecurity') 🛡️ Cyber
+                                @elseif($trk === 'artificial_intelligence') 🤖 AI
+                                @else 📊 MIS
+                                @endif
+                            </span>
                         </td>
                         <td class="px-6 py-4 text-slate-600">
                             {{ $sm->template->name ?? 'N/A' }}

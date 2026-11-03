@@ -544,9 +544,26 @@
                                                                         <input type="time" name="defence_time" x-model="slotTime" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
                                                                     </div>
                                                                     <div>
-                                                                        <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">
-                                                                            Meeting Link (Optional)
-                                                                        </label>
+                                                                        <div class="flex items-center justify-between mb-1.5">
+                                                                            <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                                                                                Meeting Link (Optional)
+                                                                            </label>
+                                                                            @if($template->slug === 'seminar_as_a_course' && !empty($template->metadata['track_zoom_links']))
+                                                                                <div class="flex items-center gap-1.5">
+                                                                                    <span class="text-[9px] text-slate-400 font-semibold">Prefill:</span>
+                                                                                    @foreach($template->metadata['track_zoom_links'] as $tKey => $zUrl)
+                                                                                        @if(!empty($zUrl))
+                                                                                            <button type="button" @click="slotLink = '{{ $zUrl }}'" class="text-[9px] font-bold text-indigo-600 hover:underline">
+                                                                                                @if($tKey === 'cybersecurity') 🛡️ Cyber
+                                                                                                @elseif($tKey === 'artificial_intelligence') 🤖 AI
+                                                                                                @else 📊 MIS
+                                                                                                @endif
+                                                                                            </button>
+                                                                                        @endif
+                                                                                    @endforeach
+                                                                                </div>
+                                                                            @endif
+                                                                        </div>
                                                                         <input type="url" name="meeting_link" x-model="slotLink" placeholder="https://zoom.us/j/..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
                                                                     </div>
                                                                 </div>
