@@ -31,7 +31,7 @@
                 </thead>
                 
                     @forelse($templates as $template)
-                    <tbody x-data="{ expanded: false, showStudents: false, selectAll: false, selected: [], search: '', cohortFilter: '', rescheduleDayOpen: false, slotModalOpen: false, slotStudentId: null, slotStudentName: '', slotAction: 'schedule', slotDate: '', slotTime: '', slotLink: '', slotFormUrl: '' }" class="divide-y divide-slate-50 border-t border-slate-50">
+                    <tbody x-data="{ expanded: false, showStudents: false, selectAll: false, selected: [], search: '', cohortFilter: '', trackFilter: 'all', rescheduleDayOpen: false, slotModalOpen: false, slotStudentId: null, slotStudentName: '', slotAction: 'schedule', slotDate: '', slotTime: '', slotLink: '', slotFormUrl: '' }" class="divide-y divide-slate-50 border-t border-slate-50">
                     <tr class="hover:bg-slate-50/30 transition-colors group cursor-pointer" data-id="{{ $template->id }}" @click="if(!$event.target.closest('button') && !$event.target.closest('a') && !$event.target.closest('input') && !$event.target.closest('form')) expanded = !expanded">
                         <td class="px-10 py-7 text-center">
                             <div class="flex flex-col items-center gap-2">
@@ -108,6 +108,99 @@
                     <tr x-cloak x-show="expanded" x-transition class="bg-slate-50/30">
                         <td colspan="5" class="p-6">
                             <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 cursor-default" @click.stop>
+                                
+                                @php
+                                    $isSeminar = $template->slug === 'seminar_as_a_course';
+                                    if ($isSeminar) {
+                                        $cyberMilestones = $template->studentMilestones->filter(fn($m) => $m->discipline_group === 'cybersecurity');
+                                        $aiMilestones = $template->studentMilestones->filter(fn($m) => $m->discipline_group === 'artificial_intelligence');
+                                        $misMilestones = $template->studentMilestones->filter(fn($m) => $m->discipline_group === 'management_information_systems');
+
+                                        $cyberScheduled = $cyberMilestones->filter(fn($m) => !empty($m->defence_date))->count();
+                                        $aiScheduled = $aiMilestones->filter(fn($m) => !empty($m->defence_date))->count();
+                                        $misScheduled = $misMilestones->filter(fn($m) => !empty($m->defence_date))->count();
+
+                                        $groupMeta = $template->metadata['group_examiners'] ?? [];
+                                        $cyberUserIds = $groupMeta['cybersecurity']['user_ids'] ?? [];
+                                        $aiUserIds = $groupMeta['artificial_intelligence']['user_ids'] ?? [];
+                                        $misUserIds = $groupMeta['management_information_systems']['user_ids'] ?? [];
+
+                                        $cyberExaminers = !empty($cyberUserIds) ? \App\Models\User::whereIn('id', $cyberUserIds)->get() : collect();
+                                        $aiExaminers = !empty($aiUserIds) ? \App\Models\User::whereIn('id', $aiUserIds)->get() : collect();
+                                        $misExaminers = !empty($misUserIds) ? \App\Models\User::whereIn('id', $misUserIds)->get() : collect();
+
+                                        $cyberLink = $cyberMilestones->first(fn($m) => !empty($m->meeting_link))?->meeting_link ?? '';
+                                        $aiLink = $aiMilestones->first(fn($m) => !empty($m->meeting_link))?->meeting_link ?? '';
+                                        $misLink = $misMilestones->first(fn($m) => !empty($m->meeting_link))?->meeting_link ?? '';
+
+                                        $cyberProfileIds = $groupMeta['cybersecurity']['profile_ids'] ?? [];
+                                        $aiProfileIds = $groupMeta['artificial_intelligence']['profile_ids'] ?? [];
+                                        $misProfileIds = $groupMeta['management_information_systems']['profile_ids'] ?? [];
+                                    }
+                                @endphp
+
+                                @if($isSeminar)
+                                    <div class="mb-6 bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/80">
+                                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-2.5 mb-2.5 border-b border-slate-200/60">
+                                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
+                                                <svg class="w-3.5 h-3.5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                                </svg>
+                                                Seminar Discipline Tracks (Parallel Presentation & Dedicated Examiners)
+                                            </span>
+                                            <span class="text-[10px] font-bold text-slate-400">Click a track to filter students, assign dedicated examiners, or schedule</span>
+                                        </div>
+                                        <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+                                            <button type="button" @click="trackFilter = 'all'; selected = []"
+                                                :class="trackFilter === 'all' ? 'bg-slate-900 text-white shadow-md font-black ring-2 ring-slate-900/20' : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200/80 font-bold'"
+                                                class="flex flex-col p-3 rounded-xl text-left transition-all cursor-pointer">
+                                                <div class="flex items-center justify-between mb-0.5">
+                                                    <span class="text-xs">All Tracks</span>
+                                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black" :class="trackFilter === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'">
+                                                        {{ $template->studentMilestones->count() }}
+                                                    </span>
+                                                </div>
+                                                <span class="text-[10px] opacity-75 font-normal">All candidates combined</span>
+                                            </button>
+
+                                            <button type="button" @click="trackFilter = 'cybersecurity'; selected = []"
+                                                :class="trackFilter === 'cybersecurity' ? 'bg-cyan-700 text-white shadow-md font-black ring-2 ring-cyan-500/30' : 'bg-white hover:bg-cyan-50/50 text-slate-700 border border-slate-200/80 font-bold'"
+                                                class="flex flex-col p-3 rounded-xl text-left transition-all cursor-pointer">
+                                                <div class="flex items-center justify-between mb-0.5">
+                                                    <span class="text-xs flex items-center gap-1">🛡️ Cybersecurity</span>
+                                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black" :class="trackFilter === 'cybersecurity' ? 'bg-white/20 text-white' : 'bg-cyan-50 text-cyan-800'">
+                                                        {{ $cyberMilestones->count() }}
+                                                    </span>
+                                                </div>
+                                                <span class="text-[10px] opacity-75 font-normal">{{ $cyberScheduled }} scheduled</span>
+                                            </button>
+
+                                            <button type="button" @click="trackFilter = 'artificial_intelligence'; selected = []"
+                                                :class="trackFilter === 'artificial_intelligence' ? 'bg-violet-700 text-white shadow-md font-black ring-2 ring-violet-500/30' : 'bg-white hover:bg-violet-50/50 text-slate-700 border border-slate-200/80 font-bold'"
+                                                class="flex flex-col p-3 rounded-xl text-left transition-all cursor-pointer">
+                                                <div class="flex items-center justify-between mb-0.5">
+                                                    <span class="text-xs flex items-center gap-1">🤖 AI</span>
+                                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black" :class="trackFilter === 'artificial_intelligence' ? 'bg-white/20 text-white' : 'bg-violet-50 text-violet-800'">
+                                                        {{ $aiMilestones->count() }}
+                                                    </span>
+                                                </div>
+                                                <span class="text-[10px] opacity-75 font-normal">{{ $aiScheduled }} scheduled</span>
+                                            </button>
+
+                                            <button type="button" @click="trackFilter = 'management_information_systems'; selected = []"
+                                                :class="trackFilter === 'management_information_systems' ? 'bg-amber-700 text-white shadow-md font-black ring-2 ring-amber-500/30' : 'bg-white hover:bg-amber-50/50 text-slate-700 border border-slate-200/80 font-bold'"
+                                                class="flex flex-col p-3 rounded-xl text-left transition-all cursor-pointer">
+                                                <div class="flex items-center justify-between mb-0.5">
+                                                    <span class="text-xs flex items-center gap-1">📊 MIS</span>
+                                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black" :class="trackFilter === 'management_information_systems' ? 'bg-white/20 text-white' : 'bg-amber-50 text-amber-800'">
+                                                        {{ $misMilestones->count() }}
+                                                    </span>
+                                                </div>
+                                                <span class="text-[10px] opacity-75 font-normal">{{ $misScheduled }} scheduled</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                @endif
                                 
                                 {{-- Summary Cards --}}
                                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4 mb-6">
@@ -519,148 +612,314 @@
                                     @endif
                                 </div>
 
-                                {{-- Global Examiner Assignment (Admin & Coordinator) --}}
+                                {{-- Global / Track Examiner Assignment (Admin & Coordinator) --}}
                                 @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
-                                    @php
-                                        $globalEventType = $template->defence_type ?? match($template->slug) {
-                                            'seminar_as_a_course' => 'seminar',
-                                            'proposal_defence' => 'proposal',
-                                            'progress_report_1' => 'progress_report_1',
-                                            'progress_report_2' => 'progress_report_2',
-                                            default => 'first_seminar',
-                                        };
-
-                                        // Resolve current examiners: metadata first, then search events
-                                        $metaUserIds = $template->metadata['examiner_user_ids'] ?? [];
-                                        if (!empty($metaUserIds)) {
-                                            $currentExaminers = \App\Models\User::whereIn('id', $metaUserIds)->get();
-                                        } else {
-                                            $firstEventWithEx = null;
-                                            foreach ($template->studentMilestones as $mItem) {
-                                                $ev = $mItem->thesis?->defenceEvents?->firstWhere('type', $globalEventType);
-                                                if ($ev && $ev->panelMembers->where('role', 'examiner')->count() > 0) {
-                                                    $firstEventWithEx = $ev;
-                                                    break;
-                                                }
-                                            }
-                                            $currentExaminers = $firstEventWithEx 
-                                                ? $firstEventWithEx->panelMembers->where('role', 'examiner')->map(fn($pm) => $pm->user)->filter() 
-                                                : collect();
-                                        }
-
-                                        $examinerBoxTitle = match($template->slug) {
-                                            'proposal_defence' => 'Proposal Defence Examiner(s)',
-                                            'progress_report_1' => 'Progress Report 1 Examiner(s)',
-                                            'progress_report_2' => 'Progress Report 2 Examiner(s)',
-                                            default => 'Seminar Examiner(s)',
-                                        };
-
-                                        $selectedProfileIds = $template->metadata['examiner_profile_ids'] ?? [];
-                                        if (empty($selectedProfileIds) && $currentExaminers->count() > 0) {
-                                            $currentExaminerUserIds = $currentExaminers->pluck('id')->all();
-                                            $selectedProfileIds = $supervisors->whereIn('user_id', $currentExaminerUserIds)->pluck('id')->values()->all();
-                                        }
-                                        $selectedJsArray = collect($selectedProfileIds)->map(fn($id) => "'{$id}'")->implode(', ');
-                                    @endphp
-                                    <div class="mb-6 bg-indigo-50/50 border border-indigo-100 rounded-xl p-4">
-                                        <div class="flex flex-col sm:flex-row sm:items-center gap-4">
-                                            <div class="flex items-center gap-3">
-                                                <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center flex-shrink-0">
-                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                                    @if($template->slug === 'seminar_as_a_course')
+                                        @php
+                                            $trackCards = [
+                                                'cybersecurity' => [
+                                                    'name' => 'Cybersecurity Track',
+                                                    'icon' => '🛡️',
+                                                    'badge_bg' => 'bg-cyan-100 text-cyan-800 border-cyan-200',
+                                                    'btn_bg' => 'bg-cyan-600 hover:bg-cyan-700',
+                                                    'examiners' => $cyberExaminers,
+                                                    'profile_ids' => $cyberProfileIds,
+                                                    'count' => $cyberMilestones->count(),
+                                                    'scheduled' => $cyberScheduled,
+                                                ],
+                                                'artificial_intelligence' => [
+                                                    'name' => 'Artificial Intelligence Track',
+                                                    'icon' => '🤖',
+                                                    'badge_bg' => 'bg-violet-100 text-violet-800 border-violet-200',
+                                                    'btn_bg' => 'bg-violet-600 hover:bg-violet-700',
+                                                    'examiners' => $aiExaminers,
+                                                    'profile_ids' => $aiProfileIds,
+                                                    'count' => $aiMilestones->count(),
+                                                    'scheduled' => $aiScheduled,
+                                                ],
+                                                'management_information_systems' => [
+                                                    'name' => 'Management Info Systems Track',
+                                                    'icon' => '📊',
+                                                    'badge_bg' => 'bg-amber-100 text-amber-800 border-amber-200',
+                                                    'btn_bg' => 'bg-amber-600 hover:bg-amber-700',
+                                                    'examiners' => $misExaminers,
+                                                    'profile_ids' => $misProfileIds,
+                                                    'count' => $misMilestones->count(),
+                                                    'scheduled' => $misScheduled,
+                                                ],
+                                            ];
+                                        @endphp
+                                        <div class="mb-6 space-y-3">
+                                            <div class="flex items-center justify-between pb-1">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+                                                    <h4 class="text-xs font-black uppercase tracking-wider text-slate-800">Track-Specific Examiner Assignments</h4>
                                                 </div>
-                                                <div>
-                                                    <p class="text-xs font-black text-indigo-900 uppercase tracking-wider">{{ $examinerBoxTitle }}</p>
-                                                    <div class="flex flex-wrap items-center gap-2 mt-0.5">
-                                                        <p class="text-[10px] text-indigo-600">
-                                                            @if($currentExaminers->count() > 0)
-                                                                Currently: <strong>{{ $currentExaminers->map(fn($e) => $e->name)->implode(', ') }}</strong>
-                                                            @else
-                                                                No examiner assigned yet.
-                                                            @endif
-                                                        </p>
-                                                        @if($currentExaminers->count() > 0)
-                                                            <form action="{{ (auth()->user()->hasRole('Program Coordinator') && !auth()->user()->hasRole('Admin')) ? route('coordinator.milestone-templates.assign-examiner-global', $template->id) : route('admin.milestone-templates.assign-examiner-global', $template->id) }}" method="POST" class="inline">
-                                                                @csrf
-                                                                <button type="submit" 
-                                                                    data-confirm="Are you sure you want to remove all currently assigned examiners from this presentation milestone?"
-                                                                    data-confirm-title="Remove All Examiners"
-                                                                    data-confirm-type="danger"
-                                                                    data-confirm-btn="Yes, Remove All"
-                                                                    class="text-[10px] font-bold text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2 py-0.5 rounded transition-colors inline-flex items-center gap-1 cursor-pointer">
-                                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                                                    Remove All
-                                                                </button>
-                                                            </form>
-                                                        @endif
-                                                    </div>
-                                                </div>
+                                                <span class="text-[11px] text-slate-400 font-medium">Each discipline group is examined independently by its dedicated panel</span>
                                             </div>
-                                            <form action="{{ (auth()->user()->hasRole('Program Coordinator') && !auth()->user()->hasRole('Admin')) ? route('coordinator.milestone-templates.assign-examiner-global', $template->id) : route('admin.milestone-templates.assign-examiner-global', $template->id) }}" method="POST" class="flex items-center gap-2 sm:ml-auto overflow-visible relative" 
-                                                x-data="{
-                                                    search: '',
-                                                    options: [
-                                                        @foreach($supervisors as $sup)
-                                                            { id: '{{ $sup->id }}', name: '{{ addslashes($sup->user->name) }}', program: '{{ addslashes($sup->programs->first()->code ?? 'N/A') }}' }{{ !$loop->last ? ',' : '' }}
-                                                        @endforeach
-                                                    ],
-                                                    selected: [{{ $selectedJsArray }}],
-                                                    open: false,
-                                                    get filteredOptions() {
-                                                        if (this.search === '') return this.options;
-                                                        let s = this.search.toLowerCase();
-                                                        return this.options.filter(o => o.name.toLowerCase().includes(s) || o.program.toLowerCase().includes(s));
-                                                    },
-                                                    get selectedNames() {
-                                                        if (this.selected.length === 0) return 'Select Examiner(s)';
-                                                        if (this.selected.length === 1) return this.options.find(o => o.id == this.selected[0])?.name || '';
-                                                        return this.selected.length + ' selected';
-                                                    }
-                                                }"
-                                                @submit="if(selected.length === 0) { if(!confirm('No examiners selected. Do you want to remove all examiners from this milestone?')) { $event.preventDefault(); } }">
-                                                @csrf
-                                                <template x-for="id in selected" :key="id">
-                                                    <input type="hidden" name="supervisor_profile_ids[]" :value="id">
-                                                </template>
-                                                
-                                                <!-- Alpine component for multiselect -->
-                                                <div class="relative w-48 z-50">
-                                                    <div @click="open = !open" class="block w-full py-1.5 pl-3 pr-8 text-xs border border-indigo-200 bg-white rounded-lg cursor-pointer flex items-center justify-between">
-                                                        <span class="truncate text-slate-700" x-text="selectedNames"></span>
-                                                        <svg class="w-3 h-3 text-slate-400 absolute right-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                                                    </div>
 
-                                                    <div x-show="open" @click.outside="open = false" x-transition class="absolute right-0 w-64 mt-1 bg-white border border-indigo-100 rounded-lg shadow-xl overflow-y-auto z-50" style="display: none;">
-                                                        <div class="p-2 sticky top-0 bg-slate-50 border-b border-slate-100 z-10 flex flex-col gap-2">
-                                                            <input type="text" x-model="search" placeholder="Search name or programme..." class="w-full text-xs p-1.5 border border-slate-200 rounded-md focus:ring-indigo-500 focus:border-indigo-500" @click.stop>
-                                                            <div class="flex justify-between gap-2">
-                                                                <button type="button" @click.stop="selected = [...new Set([...selected, ...filteredOptions.map(o => o.id)])]" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 uppercase tracking-wider px-2 py-1 bg-indigo-50 hover:bg-indigo-100 rounded flex-1">Select All</button>
-                                                                <button type="button" @click.stop="selected = []" class="text-[10px] font-bold text-slate-500 hover:text-slate-700 uppercase tracking-wider px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded flex-1">Clear</button>
+                                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                                @foreach($trackCards as $tKey => $tConfig)
+                                                    @php
+                                                        $tSelJs = collect($tConfig['profile_ids'])->map(fn($id) => "'{$id}'")->implode(', ');
+                                                    @endphp
+                                                    <div x-show="trackFilter === 'all' || trackFilter === '{{ $tKey }}'"
+                                                         class="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+                                                        <div>
+                                                            <div class="flex items-center justify-between pb-2 border-b border-slate-200/60">
+                                                                <div class="flex items-center gap-2">
+                                                                    <span class="text-base">{{ $tConfig['icon'] }}</span>
+                                                                    <div>
+                                                                        <h5 class="text-xs font-black text-slate-900 leading-tight">{{ $tConfig['name'] }}</h5>
+                                                                        <p class="text-[10px] text-slate-400 font-medium">{{ $tConfig['count'] }} candidates ({{ $tConfig['scheduled'] }} scheduled)</p>
+                                                                    </div>
+                                                                </div>
+                                                                <span class="px-2 py-0.5 rounded-full text-[10px] font-black border {{ $tConfig['badge_bg'] }}">
+                                                                    {{ $tConfig['examiners']->count() }} assigned
+                                                                </span>
+                                                            </div>
+
+                                                            {{-- Currently Assigned List --}}
+                                                            <div class="mt-2.5">
+                                                                <div class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5 flex items-center justify-between">
+                                                                    <span>Active Examiners</span>
+                                                                    @if($tConfig['examiners']->isNotEmpty())
+                                                                        <form action="{{ (auth()->user()->hasRole('Program Coordinator') && !auth()->user()->hasRole('Admin')) ? route('coordinator.milestone-templates.assign-examiner-global', $template->id) : route('admin.milestone-templates.assign-examiner-global', $template->id) }}" method="POST" class="inline">
+                                                                            @csrf
+                                                                            <input type="hidden" name="discipline_group" value="{{ $tKey }}">
+                                                                            <button type="submit" 
+                                                                                data-confirm="Remove all examiners assigned to {{ $tConfig['name'] }}?"
+                                                                                data-confirm-title="Remove Track Examiners"
+                                                                                class="text-[9px] font-bold text-rose-600 hover:text-rose-800 hover:underline cursor-pointer">
+                                                                                Clear All
+                                                                            </button>
+                                                                        </form>
+                                                                    @endif
+                                                                </div>
+                                                                @if($tConfig['examiners']->isNotEmpty())
+                                                                    <div class="flex flex-wrap gap-1.5 mb-2">
+                                                                        @foreach($tConfig['examiners'] as $ex)
+                                                                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-slate-800 border border-slate-200 shadow-2xs">
+                                                                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                                                <span class="truncate max-w-[140px]">{{ $ex->name }}</span>
+                                                                            </span>
+                                                                        @endforeach
+                                                                    </div>
+                                                                @else
+                                                                    <p class="text-[11px] text-slate-400 italic mb-2">No examiners assigned yet.</p>
+                                                                @endif
                                                             </div>
                                                         </div>
-                                                        <div class="py-1 max-h-40 overflow-y-auto">
-                                                            <template x-for="option in filteredOptions" :key="option.id">
-                                                                <label class="flex items-center px-3 py-2 hover:bg-indigo-50 cursor-pointer">
-                                                                    <input type="checkbox" :value="option.id" x-model="selected" class="rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 mr-2 w-3.5 h-3.5">
-                                                                    <span class="text-xs text-slate-700 flex flex-col"><span x-text="option.name"></span><span class="text-[9px] text-slate-400 font-bold tracking-wider" x-text="option.program"></span></span>
-                                                                </label>
+
+                                                        {{-- Multiselect Form --}}
+                                                        <form action="{{ (auth()->user()->hasRole('Program Coordinator') && !auth()->user()->hasRole('Admin')) ? route('coordinator.milestone-templates.assign-examiner-global', $template->id) : route('admin.milestone-templates.assign-examiner-global', $template->id) }}" method="POST"
+                                                            x-data="{
+                                                                search: '',
+                                                                options: [
+                                                                    @foreach($supervisors as $sup)
+                                                                        { id: '{{ $sup->id }}', name: '{{ addslashes($sup->user->name) }}', program: '{{ addslashes($sup->programs->first()->code ?? 'N/A') }}' }{{ !$loop->last ? ',' : '' }}
+                                                                    @endforeach
+                                                                ],
+                                                                selected: [{{ $tSelJs }}],
+                                                                open: false,
+                                                                get filteredOptions() {
+                                                                    if (this.search === '') return this.options;
+                                                                    let s = this.search.toLowerCase();
+                                                                    return this.options.filter(o => o.name.toLowerCase().includes(s) || o.program.toLowerCase().includes(s));
+                                                                },
+                                                                get selectedNames() {
+                                                                    if (this.selected.length === 0) return 'Select Examiners...';
+                                                                    if (this.selected.length === 1) return this.options.find(o => o.id == this.selected[0])?.name || '';
+                                                                    return this.selected.length + ' selected';
+                                                                }
+                                                            }"
+                                                            @submit="if(selected.length === 0) { if(!confirm('No examiners selected. Remove all examiners for {{ $tConfig['name'] }}?')) { $event.preventDefault(); } }">
+                                                            @csrf
+                                                            <input type="hidden" name="discipline_group" value="{{ $tKey }}">
+                                                            <template x-for="id in selected" :key="id">
+                                                                <input type="hidden" name="supervisor_profile_ids[]" :value="id">
                                                             </template>
-                                                        </div>
-                                                        <div class="p-2 border-t border-slate-100 bg-slate-50 space-y-2">
-                                                            <textarea name="custom_message" placeholder="Custom Message (Optional)..." rows="2" class="w-full text-xs p-1 border border-slate-200 rounded-md focus:ring-indigo-500 focus:border-indigo-500"></textarea>
-                                                            <div class="flex items-center gap-2">
-                                                                <button type="button" @click.stop="selected = []; $el.closest('form').submit();" class="py-1.5 px-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[10px] font-bold uppercase tracking-wider rounded">Remove All</button>
-                                                                <button type="button" @click.stop="open = false" class="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold uppercase tracking-wider rounded">Done</button>
+
+                                                            <div class="flex items-center gap-1.5">
+                                                                <div class="relative flex-1">
+                                                                    <div @click="open = !open" class="w-full py-1.5 pl-2.5 pr-6 text-xs border border-slate-200 bg-white rounded-lg cursor-pointer flex items-center justify-between">
+                                                                        <span class="truncate text-slate-700 font-medium" x-text="selectedNames"></span>
+                                                                        <svg class="w-3 h-3 text-slate-400 absolute right-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                                                    </div>
+
+                                                                    <div x-show="open" @click.outside="open = false" x-transition class="absolute bottom-full left-0 mb-1 w-64 bg-white border border-slate-200 rounded-xl shadow-xl overflow-y-auto z-50 text-left" style="display: none;">
+                                                                        <div class="p-2 sticky top-0 bg-slate-50 border-b border-slate-100 z-10 flex flex-col gap-1.5">
+                                                                            <input type="text" x-model="search" placeholder="Search supervisor..." class="w-full text-xs p-1.5 border border-slate-200 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" @click.stop>
+                                                                            <div class="flex justify-between gap-1.5">
+                                                                                <button type="button" @click.stop="selected = [...new Set([...selected, ...filteredOptions.map(o => o.id)])]" class="text-[9px] font-bold text-indigo-600 hover:text-indigo-800 uppercase tracking-wider px-2 py-0.5 bg-indigo-50 rounded flex-1">All</button>
+                                                                                <button type="button" @click.stop="selected = []" class="text-[9px] font-bold text-slate-500 hover:text-slate-700 uppercase tracking-wider px-2 py-0.5 bg-slate-100 rounded flex-1">Clear</button>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="py-1 max-h-40 overflow-y-auto">
+                                                                            <template x-for="option in filteredOptions" :key="option.id">
+                                                                                <label class="flex items-center px-3 py-1.5 hover:bg-slate-50 cursor-pointer text-xs">
+                                                                                    <input type="checkbox" :value="option.id" x-model="selected" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 mr-2 w-3.5 h-3.5">
+                                                                                    <span class="truncate text-slate-700" x-text="option.name"></span>
+                                                                                </label>
+                                                                            </template>
+                                                                        </div>
+                                                                        <div class="p-2 border-t border-slate-100 bg-slate-50">
+                                                                            <button type="button" @click.stop="open = false" class="w-full py-1 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg">Done</button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <button type="submit" class="text-white {{ $tConfig['btn_bg'] }} px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-2xs shrink-0 cursor-pointer">
+                                                                    Assign
+                                                                </button>
                                                             </div>
+                                                        </form>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        </div>
+                                    @else
+                                        @php
+                                            $globalEventType = $template->defence_type ?? match($template->slug) {
+                                                'seminar_as_a_course' => 'seminar',
+                                                'proposal_defence' => 'proposal',
+                                                'progress_report_1' => 'progress_report_1',
+                                                'progress_report_2' => 'progress_report_2',
+                                                default => 'first_seminar',
+                                            };
+
+                                            // Resolve current examiners: metadata first, then search events
+                                            $metaUserIds = $template->metadata['examiner_user_ids'] ?? [];
+                                            if (!empty($metaUserIds)) {
+                                                $currentExaminers = \App\Models\User::whereIn('id', $metaUserIds)->get();
+                                            } else {
+                                                $firstEventWithEx = null;
+                                                foreach ($template->studentMilestones as $mItem) {
+                                                    $ev = $mItem->thesis?->defenceEvents?->firstWhere('type', $globalEventType);
+                                                    if ($ev && $ev->panelMembers->where('role', 'examiner')->count() > 0) {
+                                                        $firstEventWithEx = $ev;
+                                                        break;
+                                                    }
+                                                }
+                                                $currentExaminers = $firstEventWithEx 
+                                                    ? $firstEventWithEx->panelMembers->where('role', 'examiner')->map(fn($pm) => $pm->user)->filter() 
+                                                    : collect();
+                                            }
+
+                                            $examinerBoxTitle = match($template->slug) {
+                                                'proposal_defence' => 'Proposal Defence Examiner(s)',
+                                                'progress_report_1' => 'Progress Report 1 Examiner(s)',
+                                                'progress_report_2' => 'Progress Report 2 Examiner(s)',
+                                                default => 'Seminar Examiner(s)',
+                                            };
+
+                                            $selectedProfileIds = $template->metadata['examiner_profile_ids'] ?? [];
+                                            if (empty($selectedProfileIds) && $currentExaminers->count() > 0) {
+                                                $currentExaminerUserIds = $currentExaminers->pluck('id')->all();
+                                                $selectedProfileIds = $supervisors->whereIn('user_id', $currentExaminerUserIds)->pluck('id')->values()->all();
+                                            }
+                                            $selectedJsArray = collect($selectedProfileIds)->map(fn($id) => "'{$id}'")->implode(', ');
+                                        @endphp
+                                        <div class="mb-6 bg-indigo-50/50 border border-indigo-100 rounded-xl p-4">
+                                            <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center flex-shrink-0">
+                                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                                                    </div>
+                                                    <div>
+                                                        <p class="text-xs font-black text-indigo-900 uppercase tracking-wider">{{ $examinerBoxTitle }}</p>
+                                                        <div class="flex flex-wrap items-center gap-2 mt-0.5">
+                                                            <p class="text-[10px] text-indigo-600">
+                                                                @if($currentExaminers->count() > 0)
+                                                                    Currently: <strong>{{ $currentExaminers->map(fn($e) => $e->name)->implode(', ') }}</strong>
+                                                                @else
+                                                                    No examiner assigned yet.
+                                                                @endif
+                                                            </p>
+                                                            @if($currentExaminers->count() > 0)
+                                                                <form action="{{ (auth()->user()->hasRole('Program Coordinator') && !auth()->user()->hasRole('Admin')) ? route('coordinator.milestone-templates.assign-examiner-global', $template->id) : route('admin.milestone-templates.assign-examiner-global', $template->id) }}" method="POST" class="inline">
+                                                                    @csrf
+                                                                    <button type="submit" 
+                                                                        data-confirm="Are you sure you want to remove all currently assigned examiners from this presentation milestone?"
+                                                                        data-confirm-title="Remove All Examiners"
+                                                                        data-confirm-type="danger"
+                                                                        data-confirm-btn="Yes, Remove All"
+                                                                        class="text-[10px] font-bold text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2 py-0.5 rounded transition-colors inline-flex items-center gap-1 cursor-pointer">
+                                                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                                        Remove All
+                                                                    </button>
+                                                                </form>
+                                                            @endif
                                                         </div>
                                                     </div>
                                                 </div>
-                                                
-                                                <button type="submit" class="text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm shrink-0">
-                                                    Assign to All
-                                                </button>
-                                            </form>
+                                                <form action="{{ (auth()->user()->hasRole('Program Coordinator') && !auth()->user()->hasRole('Admin')) ? route('coordinator.milestone-templates.assign-examiner-global', $template->id) : route('admin.milestone-templates.assign-examiner-global', $template->id) }}" method="POST" class="flex items-center gap-2 sm:ml-auto overflow-visible relative" 
+                                                    x-data="{
+                                                        search: '',
+                                                        options: [
+                                                            @foreach($supervisors as $sup)
+                                                                { id: '{{ $sup->id }}', name: '{{ addslashes($sup->user->name) }}', program: '{{ addslashes($sup->programs->first()->code ?? 'N/A') }}' }{{ !$loop->last ? ',' : '' }}
+                                                            @endforeach
+                                                        ],
+                                                        selected: [{{ $selectedJsArray }}],
+                                                        open: false,
+                                                        get filteredOptions() {
+                                                            if (this.search === '') return this.options;
+                                                            let s = this.search.toLowerCase();
+                                                            return this.options.filter(o => o.name.toLowerCase().includes(s) || o.program.toLowerCase().includes(s));
+                                                        },
+                                                        get selectedNames() {
+                                                            if (this.selected.length === 0) return 'Select Examiner(s)';
+                                                            if (this.selected.length === 1) return this.options.find(o => o.id == this.selected[0])?.name || '';
+                                                            return this.selected.length + ' selected';
+                                                        }
+                                                    }"
+                                                    @submit="if(selected.length === 0) { if(!confirm('No examiners selected. Do you want to remove all examiners from this milestone?')) { $event.preventDefault(); } }">
+                                                    @csrf
+                                                    <template x-for="id in selected" :key="id">
+                                                        <input type="hidden" name="supervisor_profile_ids[]" :value="id">
+                                                    </template>
+                                                    
+                                                    <!-- Alpine component for multiselect -->
+                                                    <div class="relative w-48 z-50">
+                                                        <div @click="open = !open" class="block w-full py-1.5 pl-3 pr-8 text-xs border border-indigo-200 bg-white rounded-lg cursor-pointer flex items-center justify-between">
+                                                            <span class="truncate text-slate-700" x-text="selectedNames"></span>
+                                                            <svg class="w-3 h-3 text-slate-400 absolute right-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                                        </div>
+
+                                                        <div x-show="open" @click.outside="open = false" x-transition class="absolute right-0 w-64 mt-1 bg-white border border-indigo-100 rounded-lg shadow-xl overflow-y-auto z-50" style="display: none;">
+                                                            <div class="p-2 sticky top-0 bg-slate-50 border-b border-slate-100 z-10 flex flex-col gap-2">
+                                                                <input type="text" x-model="search" placeholder="Search name or programme..." class="w-full text-xs p-1.5 border border-slate-200 rounded-md focus:ring-indigo-500 focus:border-indigo-500" @click.stop>
+                                                                <div class="flex justify-between gap-2">
+                                                                    <button type="button" @click.stop="selected = [...new Set([...selected, ...filteredOptions.map(o => o.id)])]" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 uppercase tracking-wider px-2 py-1 bg-indigo-50 hover:bg-indigo-100 rounded flex-1">Select All</button>
+                                                                    <button type="button" @click.stop="selected = []" class="text-[10px] font-bold text-slate-500 hover:text-slate-700 uppercase tracking-wider px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded flex-1">Clear</button>
+                                                                </div>
+                                                            </div>
+                                                            <div class="py-1 max-h-40 overflow-y-auto">
+                                                                <template x-for="option in filteredOptions" :key="option.id">
+                                                                    <label class="flex items-center px-3 py-2 hover:bg-indigo-50 cursor-pointer">
+                                                                        <input type="checkbox" :value="option.id" x-model="selected" class="rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 mr-2 w-3.5 h-3.5">
+                                                                        <span class="text-xs text-slate-700 flex flex-col"><span x-text="option.name"></span><span class="text-[9px] text-slate-400 font-bold tracking-wider" x-text="option.program"></span></span>
+                                                                    </label>
+                                                                </template>
+                                                            </div>
+                                                            <div class="p-2 border-t border-slate-100 bg-slate-50 space-y-2">
+                                                                <textarea name="custom_message" placeholder="Custom Message (Optional)..." rows="2" class="w-full text-xs p-1 border border-slate-200 rounded-md focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                                                                <div class="flex items-center gap-2">
+                                                                    <button type="button" @click.stop="selected = []; $el.closest('form').submit();" class="py-1.5 px-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[10px] font-bold uppercase tracking-wider rounded">Remove All</button>
+                                                                    <button type="button" @click.stop="open = false" class="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold uppercase tracking-wider rounded">Done</button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <button type="submit" class="text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm shrink-0">
+                                                        Assign to All
+                                                    </button>
+                                                </form>
+                                            </div>
                                         </div>
-                                    </div>
+                                    @endif
                                 @endif
 
                                 {{-- Schedule Form (Admin only) --}}
@@ -746,9 +1005,22 @@
                                                 <div>
                                                     <h4 class="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
                                                         <span>{{ $scheduledCount > 0 ? 'Add Students to Schedule' : 'Generate Presentation Schedule' }}</span>
-                                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">Automated</span>
+                                                        @if($isSeminar)
+                                                            <span x-show="trackFilter === 'all'" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-slate-900 text-white">All Tracks</span>
+                                                            <span x-show="trackFilter === 'cybersecurity'" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-cyan-100 text-cyan-800 border border-cyan-200">🛡️ Cybersecurity Track</span>
+                                                            <span x-show="trackFilter === 'artificial_intelligence'" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-violet-100 text-violet-800 border border-violet-200">🤖 AI Track</span>
+                                                            <span x-show="trackFilter === 'management_information_systems'" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">📊 MIS Track</span>
+                                                        @else
+                                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">Automated</span>
+                                                        @endif
                                                     </h4>
-                                                    <p class="text-xs text-slate-500 font-medium">{{ $scheduledCount > 0 ? 'Select unscheduled students below and add them to the existing schedule. Fields are pre-filled from the current schedule.' : 'Batch assign defence dates, presentation time, and Zoom meeting link to selected students.' }}</p>
+                                                    <p class="text-xs text-slate-500 font-medium">
+                                                        @if($isSeminar)
+                                                            <span>Batch assign presentation slots and Zoom room to selected students. Only candidates in the currently selected track will be scheduled with their dedicated panel.</span>
+                                                        @else
+                                                            <span>{{ $scheduledCount > 0 ? 'Select unscheduled students below and add them to the existing schedule. Fields are pre-filled from the current schedule.' : 'Batch assign defence dates, presentation time, and Zoom meeting link to selected students.' }}</span>
+                                                        @endif
+                                                    </p>
                                                 </div>
                                             </div>
                                             <div class="flex items-center gap-2">
@@ -788,12 +1060,30 @@
                                                     class="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-sm transition">
                                             </div>
                                             <div>
-                                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                                                    <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                                                    <span>Zoom / Meeting Link</span>
+                                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                                                    <span class="flex items-center gap-1">
+                                                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                                        <span>Zoom / Meeting Link</span>
+                                                    </span>
+                                                    @if($isSeminar)
+                                                        <span class="text-[10px] font-bold text-indigo-600">Track link</span>
+                                                    @endif
                                                 </label>
                                                 <input type="url" name="meeting_link" value="{{ $existingLink ?? '' }}" placeholder="https://zoom.us/j/..." 
                                                     class="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-medium text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-sm transition">
+                                                @if($isSeminar)
+                                                    <div class="mt-1.5 flex flex-wrap gap-1 text-[10px]">
+                                                        @if($cyberLink)
+                                                            <button type="button" @click="$el.closest('form').querySelector('input[name=meeting_link]').value = '{{ addslashes($cyberLink) }}'" class="px-2 py-0.5 rounded bg-cyan-50 text-cyan-700 hover:bg-cyan-100 border border-cyan-200 font-semibold cursor-pointer">Use Cyber Zoom</button>
+                                                        @endif
+                                                        @if($aiLink)
+                                                            <button type="button" @click="$el.closest('form').querySelector('input[name=meeting_link]').value = '{{ addslashes($aiLink) }}'" class="px-2 py-0.5 rounded bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200 font-semibold cursor-pointer">Use AI Zoom</button>
+                                                        @endif
+                                                        @if($misLink)
+                                                            <button type="button" @click="$el.closest('form').querySelector('input[name=meeting_link]').value = '{{ addslashes($misLink) }}'" class="px-2 py-0.5 rounded bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 font-semibold cursor-pointer">Use MIS Zoom</button>
+                                                        @endif
+                                                    </div>
+                                                @endif
                                             </div>
                                         </div>
 
@@ -987,6 +1277,9 @@
                                                         </th>
                                                         @endif
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Student</th>
+                                                        @if($template->slug === 'seminar_as_a_course')
+                                                        <th class="px-4 py-3 font-semibold text-slate-700">Discipline Track</th>
+                                                        @endif
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Status</th>
                                                         <th class="px-4 py-3 font-semibold text-slate-700">{{ $template->allow_defence_date ? 'Schedule & Meeting' : ($template->slug === 'supervisors_assigned' ? 'Assigned Supervisors' : 'Details') }}</th>
                                                         @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
@@ -1038,7 +1331,21 @@
                                                             };
                                                             $event = $sm->thesis ? current($sm->thesis->defenceEvents->where('type', $rowEventType)->all()) : null;
                                                             $rowExaminers = $event ? $event->panelMembers->where('role', 'examiner') : collect();
-                                                            if ($rowExaminers->isEmpty() && isset($currentExaminers) && $currentExaminers->isNotEmpty()) {
+                                                            if ($rowExaminers->isEmpty() && $template->slug === 'seminar_as_a_course') {
+                                                                $trackEx = match($sm->discipline_group) {
+                                                                    'cybersecurity' => $cyberExaminers,
+                                                                    'artificial_intelligence' => $aiExaminers,
+                                                                    'management_information_systems' => $misExaminers,
+                                                                    default => collect(),
+                                                                };
+                                                                if ($trackEx->isNotEmpty()) {
+                                                                    $rowExaminers = $trackEx->map(fn($u) => (object)[
+                                                                        'user' => $u,
+                                                                        'user_id' => $u->id,
+                                                                        'is_present' => false,
+                                                                    ]);
+                                                                }
+                                                            } elseif ($rowExaminers->isEmpty() && isset($currentExaminers) && $currentExaminers->isNotEmpty()) {
                                                                 $rowExaminers = $currentExaminers->map(fn($u) => (object)[
                                                                     'user' => $u,
                                                                     'user_id' => $u->id,
@@ -1078,7 +1385,7 @@
                                                             $cohortId = $sm->thesis->student->cohort_id ?? '';
                                                         @endphp
                                                         <tr data-milestone-id="{{ $sm->id }}" class="hover:bg-slate-50/50 transition-colors" 
-                                                            x-show="(cohortFilter === '' || cohortFilter == '{{ $cohortId }}') && (!search || '{{ strtolower($studentName) }}'.includes(search.toLowerCase()) || '{{ strtolower($matricNo) }}'.includes(search.toLowerCase()))">
+                                                            x-show="(trackFilter === 'all' || trackFilter === '{{ $sm->discipline_group }}') && (cohortFilter === '' || cohortFilter == '{{ $cohortId }}') && (!search || '{{ strtolower($studentName) }}'.includes(search.toLowerCase()) || '{{ strtolower($matricNo) }}'.includes(search.toLowerCase()))">
                                                             @if(!isset($isCoordinator) || !$isCoordinator)
                                                             <td class="px-4 py-3">
                                                                 <input type="checkbox" :value="'{{ $sm->id }}'" x-model="selected" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 disabled:opacity-30 disabled:cursor-not-allowed" @if(in_array('Supervisor', $template->required_approvers ?? []) && !$sm->is_supervisor_approved) disabled title="Awaiting Supervisor Approval" @endif>
@@ -1090,6 +1397,17 @@
                                                                 </a>
                                                                 <div class="text-xs text-slate-500">{{ $matricNo }}</div>
                                                             </td>
+                                                            @if($template->slug === 'seminar_as_a_course')
+                                                            <td class="px-4 py-3">
+                                                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider
+                                                                    {{ $sm->discipline_group === 'cybersecurity' ? 'bg-cyan-50 text-cyan-800 border border-cyan-200' : ($sm->discipline_group === 'artificial_intelligence' ? 'bg-violet-50 text-violet-800 border border-violet-200' : 'bg-amber-50 text-amber-800 border border-amber-200') }}">
+                                                                    @if($sm->discipline_group === 'cybersecurity') 🛡️ Cyber
+                                                                    @elseif($sm->discipline_group === 'artificial_intelligence') 🤖 AI
+                                                                    @else 📊 MIS
+                                                                    @endif
+                                                                </span>
+                                                            </td>
+                                                            @endif
                                                             <td class="px-4 py-3">
                                                                 @if($latestSub && $latestSub->file_url)
                                                                     <button type="button" 

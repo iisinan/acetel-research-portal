@@ -203,6 +203,34 @@ class StudentProfile extends Model
     }
 
     /**
+     * Resolve the discipline group (Cybersecurity, Artificial Intelligence, Management Information Systems)
+     */
+    public function getDisciplineGroupAttribute(): string
+    {
+        $pName = strtolower(($this->program?->name ?? '') . ' ' . ($this->program?->code ?? ''));
+        if (str_contains($pName, 'cyber')) {
+            return 'cybersecurity';
+        }
+        if (str_contains($pName, 'intelligence') || str_contains($pName, ' ai') || str_ends_with($pName, 'ai')) {
+            return 'artificial_intelligence';
+        }
+        if (str_contains($pName, 'management') || str_contains($pName, 'information') || str_contains($pName, 'mis')) {
+            return 'management_information_systems';
+        }
+        return 'other';
+    }
+
+    public function getDisciplineGroupLabelAttribute(): string
+    {
+        return match($this->discipline_group) {
+            'cybersecurity' => 'Cybersecurity',
+            'artificial_intelligence' => 'Artificial Intelligence',
+            'management_information_systems' => 'Management Information Systems',
+            default => 'General',
+        };
+    }
+
+    /**
      * Handle cascade deletions.
      */
     protected static function booted()

@@ -363,9 +363,13 @@ class MilestoneTemplateController extends Controller
                     $event->update(['outcome' => 'pending']);
                 }
 
-                // Auto-attach template global examiners if none exist on this event yet
-                if ($event->panelMembers()->where('role', 'examiner')->count() === 0 && !empty($template->metadata['examiner_user_ids'])) {
-                    foreach ($template->metadata['examiner_user_ids'] as $uId) {
+                // Auto-attach examiners: check track/group-specific first, then global
+                $discGroup = $milestone->discipline_group;
+                $groupExaminers = $template->metadata['group_examiners'][$discGroup]['user_ids'] ?? null;
+                $examinersToAttach = !empty($groupExaminers) ? $groupExaminers : ($template->metadata['examiner_user_ids'] ?? []);
+
+                if ($event->panelMembers()->where('role', 'examiner')->count() === 0 && !empty($examinersToAttach)) {
+                    foreach ($examinersToAttach as $uId) {
                         \App\Models\PanelMember::firstOrCreate([
                             'defence_event_id' => $event->id,
                             'user_id' => $uId,
@@ -963,9 +967,12 @@ class MilestoneTemplateController extends Controller
     {
         $request->validate([
             'supervisor_profile_ids' => 'nullable|array',
-            'supervisor_profile_ids.*' => 'exists:supervisor_profiles,id'
+            'supervisor_profile_ids.*' => 'exists:supervisor_profiles,id',
+            'discipline_group' => 'nullable|string|in:cybersecurity,artificial_intelligence,management_information_systems',
+            'custom_message' => 'nullable|string|max:1000'
         ]);
 
+        $disciplineGroup = $request->input('discipline_group');
         $template = MilestoneTemplate::findOrFail($templateId);
         $profileIds = $request->input('supervisor_profile_ids', []);
         $supervisors = !empty($profileIds) 
@@ -977,7 +984,7 @@ class MilestoneTemplateController extends Controller
         $milestonesQuery = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
             ->where('status', '!=', 'approved')
             ->where('status', '!=', 'withdrawn')
-            ->with('thesis');
+            ->with(['thesis.student.program', 'thesis.defenceEvents.panelMembers']);
 
         if ($isCoordinator) {
             $coordinatorProfile = auth()->user()->coordinatorProfiles()->where('active', true)->first();
@@ -997,6 +1004,86 @@ class MilestoneTemplateController extends Controller
             'viva' => 'external',
             default => 'first_seminar',
         };
+
+        // Track/Discipline Group specific examiner assignment
+        if ($disciplineGroup) {
+            $metadata = $template->metadata ?? [];
+            $groupExaminers = $metadata['group_examiners'] ?? [];
+            $groupLabel = match($disciplineGroup) {
+                'cybersecurity' => 'Cybersecurity',
+                'artificial_intelligence' => 'Artificial Intelligence',
+                'management_information_systems' => 'Management Information Systems',
+                default => ucfirst($disciplineGroup),
+            };
+
+            if ($supervisors->isEmpty()) {
+                unset($groupExaminers[$disciplineGroup]);
+                $metadata['group_examiners'] = $groupExaminers;
+                $template->update(['metadata' => $metadata]);
+
+                $clearedCount = 0;
+                foreach ($milestones as $milestone) {
+                    if ($milestone->discipline_group !== $disciplineGroup) continue;
+                    $thesisId = $milestone->thesis_project_id ?? $milestone->thesis?->id;
+                    if (!$thesisId) continue;
+
+                    $event = \App\Models\DefenceEvent::where('thesis_project_id', $thesisId)->where('type', $type)->first();
+                    if ($event) {
+                        \App\Models\PanelMember::where('defence_event_id', $event->id)->where('role', 'examiner')->delete();
+                        $clearedCount++;
+                    }
+                }
+                return back()->with('success', "Examiner assignments cleared for the {$groupLabel} track in {$template->name}.");
+            }
+
+            $groupExaminers[$disciplineGroup] = [
+                'profile_ids' => $supervisors->pluck('id')->values()->all(),
+                'user_ids' => $supervisors->pluck('user_id')->values()->all(),
+            ];
+            $metadata['group_examiners'] = $groupExaminers;
+            $template->update(['metadata' => $metadata]);
+
+            $assignedCount = 0;
+            foreach ($milestones as $milestone) {
+                if ($milestone->discipline_group !== $disciplineGroup) continue;
+                $thesisId = $milestone->thesis_project_id ?? $milestone->thesis?->id;
+                if (!$thesisId) continue;
+
+                $event = \App\Models\DefenceEvent::firstOrCreate(
+                    [
+                        'thesis_project_id' => $thesisId,
+                        'type' => $type,
+                    ],
+                    [
+                        'schedule_start' => $milestone->defence_date ? \Carbon\Carbon::parse($milestone->defence_date)->setHour(9) : now()->addDays(7),
+                        'schedule_end' => $milestone->defence_date ? \Carbon\Carbon::parse($milestone->defence_date)->setHour(10) : now()->addDays(7)->addHour(),
+                    ]
+                );
+
+                \App\Models\PanelMember::where('defence_event_id', $event->id)->where('role', 'examiner')->delete();
+
+                foreach ($supervisors as $supervisor) {
+                    \App\Models\PanelMember::create([
+                        'defence_event_id' => $event->id,
+                        'user_id' => $supervisor->user_id,
+                        'role' => 'examiner',
+                        'invitation_status' => 'accepted'
+                    ]);
+                }
+                $assignedCount++;
+            }
+
+            try {
+                foreach ($supervisors as $supervisor) {
+                    $supervisor->user->notify(new \App\Notifications\ExaminerNominated($template, $request->custom_message, $assignedCount));
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Notification failed in assignExaminerGlobal: ' . $e->getMessage());
+            }
+
+            $names = $supervisors->map(fn($s) => $s->user->name)->implode(', ');
+            return back()->with('success', "Examiner(s) ({$names}) assigned to {$assignedCount} candidate(s) in the {$groupLabel} track for {$template->name} and notified successfully.");
+        }
 
         // If no supervisors selected, clear/unassign all examiners
         if ($supervisors->isEmpty()) {

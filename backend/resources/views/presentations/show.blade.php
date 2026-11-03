@@ -4,7 +4,7 @@
 @section('title', $presentationTitle . ' - ACETEL')
 
 @section('content')
-<div class="space-y-8 animate-in-up" x-data="{ activeDate: 'all', search: '' }">
+<div class="space-y-8 animate-in-up" x-data="{ activeDate: 'all', search: '', activeTrack: 'all' }">
 
     {{-- Presentation Milestone Specific Tabs --}}
     @if(isset($allPresentationTabs) && $allPresentationTabs->count() > 0)
@@ -114,7 +114,23 @@
             </div>
 
             <div class="flex flex-col sm:flex-row lg:flex-col items-stretch gap-3 shrink-0">
-                @if($meetingLink)
+                @if($isSeminarCourse && !empty($trackData))
+                    <div class="flex flex-col gap-2">
+                        <span class="text-[10px] font-black uppercase tracking-widest text-emerald-400">Join Virtual Rooms:</span>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach($trackData as $tKey => $track)
+                                @if(!empty($track['meeting_link']))
+                                    <a href="{{ $track['meeting_link'] }}" target="_blank" rel="noopener noreferrer"
+                                       class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-black text-xs uppercase tracking-wider transition-all duration-200 active:scale-95 shadow-md
+                                       {{ $tKey === 'cybersecurity' ? 'bg-cyan-400 hover:bg-cyan-300 text-slate-950' : ($tKey === 'artificial_intelligence' ? 'bg-violet-400 hover:bg-violet-300 text-slate-950' : 'bg-amber-400 hover:bg-amber-300 text-slate-950') }}">
+                                        <span>@if($tKey === 'cybersecurity') 🛡️ @elseif($tKey === 'artificial_intelligence') 🤖 @else 📊 @endif {{ $track['label'] }}</span>
+                                        <svg class="w-3.5 h-3.5 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                    </a>
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
+                @elseif($meetingLink)
                     <a href="{{ $meetingLink }}" target="_blank" rel="noopener noreferrer"
                        class="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/25 transition-all duration-200 active:scale-95">
                         <svg class="w-4 h-4 text-slate-950" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -158,6 +174,76 @@
             </div>
         </div>
     </div>
+
+    {{-- Parallel Discipline Tracks Navigation (Seminar Course) --}}
+    @if($isSeminarCourse && !empty($trackData))
+        <div class="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-sm space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+                <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    Parallel Discipline Tracks (Independent Zoom Rooms & Examiners)
+                </span>
+                <span class="text-[10px] font-bold text-slate-400">Filter candidate schedule and examiner panels by discipline track</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <button type="button" @click="activeTrack = 'all'"
+                    :class="activeTrack === 'all' ? 'bg-slate-900 text-white shadow-lg ring-2 ring-slate-900/30' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80'"
+                    class="p-4 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-black uppercase tracking-wider">All Tracks</span>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-black" :class="activeTrack === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'">
+                                {{ $allScheduled->count() }}
+                            </span>
+                        </div>
+                        <p class="text-[11px] opacity-75 font-medium">All 3 parallel tracks combined</p>
+                    </div>
+                </button>
+
+                @foreach($trackData as $tKey => $track)
+                    <button type="button" @click="activeTrack = '{{ $tKey }}'"
+                        :class="activeTrack === '{{ $tKey }}' 
+                            ? '{{ $tKey === 'cybersecurity' ? 'bg-cyan-800 ring-2 ring-cyan-500' : ($tKey === 'artificial_intelligence' ? 'bg-violet-800 ring-2 ring-violet-500' : 'bg-amber-800 ring-2 ring-amber-500') }} text-white shadow-lg' 
+                            : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80'"
+                        class="p-4 rounded-2xl text-left transition-all cursor-pointer flex flex-col justify-between space-y-2">
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-xs font-black tracking-tight flex items-center gap-1.5">
+                                    @if($tKey === 'cybersecurity') 🛡️ @elseif($tKey === 'artificial_intelligence') 🤖 @else 📊 @endif
+                                    <span>{{ $track['label'] }}</span>
+                                </span>
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-black" :class="activeTrack === '{{ $tKey }}' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'">
+                                    {{ $track['total'] }}
+                                </span>
+                            </div>
+                            <div class="text-[11px] opacity-75 truncate">
+                                @if($track['examiners']->count() > 0)
+                                    Panel: {{ $track['examiners']->pluck('name')->implode(', ') }}
+                                @else
+                                    No examiners assigned
+                                @endif
+                            </div>
+                        </div>
+
+                        @if(!empty($track['meeting_link']))
+                            <div class="pt-2 border-t border-white/10 flex items-center justify-between text-[10px] font-bold">
+                                <span class="flex items-center gap-1 text-emerald-400">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                    Zoom Room Active
+                                </span>
+                                <a href="{{ $track['meeting_link'] }}" target="_blank" rel="noopener noreferrer" @click.stop class="underline hover:text-white" :class="activeTrack === '{{ $tKey }}' ? 'text-white' : 'text-indigo-600'">
+                                    Join Zoom &rarr;
+                                </a>
+                            </div>
+                        @endif
+                    </button>
+                @endforeach
+            </div>
+        </div>
+    @endif
 
     @if($allScheduled->isEmpty())
         {{-- Empty State --}}
@@ -241,7 +327,9 @@
                             $todaySupervisors = $pres->thesis?->assignments?->map(fn($a) => $a->supervisor?->user?->name)->filter()->implode(', ');
                             $todayDisplayPanel = $todayExaminers ?: $todaySupervisors;
                             if (empty($todayDisplayPanel)) {
-                                if ($template->slug === 'internal_defence' && $pres->thesis?->internalExaminer?->user) {
+                                if ($isSeminarCourse && !empty($trackData[$pres->discipline_group]['examiners'])) {
+                                    $todayDisplayPanel = $trackData[$pres->discipline_group]['examiners']->pluck('name')->implode(', ');
+                                } elseif ($template->slug === 'internal_defence' && $pres->thesis?->internalExaminer?->user) {
                                     $todayDisplayPanel = 'Internal Examiner: ' . $pres->thesis->internalExaminer->user->name;
                                 } elseif ($template->slug === 'viva' && $pres->thesis?->externalExaminer?->user) {
                                     $todayDisplayPanel = 'External Examiner: ' . $pres->thesis->externalExaminer->user->name;
@@ -249,18 +337,30 @@
                             }
                             $todayCanEval = $todayDefEvent && $todayDefEvent->isAuthorizedEvaluator(auth()->id());
                             $todayEval = $todayCanEval ? $todayDefEvent->evaluations->firstWhere('evaluator_id', auth()->id()) : null;
-                            $todayCardLink = $pres->meeting_link ?: $meetingLink;
+                            $todayCardLink = $pres->meeting_link ?: ($isSeminarCourse ? ($trackData[$pres->discipline_group]['meeting_link'] ?? $meetingLink) : $meetingLink);
                         @endphp
-                        <div class="bg-white rounded-3xl p-6 border-2 border-emerald-200/90 shadow-md shadow-emerald-500/5 hover:shadow-xl hover:border-emerald-400 transition-all duration-300 space-y-4 flex flex-col justify-between group">
+                        <div x-show="activeTrack === 'all' || activeTrack === '{{ $pres->discipline_group }}'"
+                             class="bg-white rounded-3xl p-6 border-2 border-emerald-200/90 shadow-md shadow-emerald-500/5 hover:shadow-xl hover:border-emerald-400 transition-all duration-300 space-y-4 flex flex-col justify-between group">
                             <div class="space-y-3.5">
                                 {{-- Slot & Status Row --}}
                                 <div class="flex items-center justify-between gap-2 pb-3 border-b border-emerald-100/70">
-                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-black border border-emerald-200/80 shadow-2xs">
-                                        <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                        </svg>
-                                        <span>{{ $pres->defence_time ? \Carbon\Carbon::parse($pres->defence_time)->format('g:i A') : 'Slot ' . ($index + 1) }}</span>
-                                    </span>
+                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-black border border-emerald-200/80 shadow-2xs">
+                                            <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                            </svg>
+                                            <span>{{ $pres->defence_time ? \Carbon\Carbon::parse($pres->defence_time)->format('g:i A') : 'Slot ' . ($index + 1) }}</span>
+                                        </span>
+                                        @if($isSeminarCourse)
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider
+                                                {{ $pres->discipline_group === 'cybersecurity' ? 'bg-cyan-50 text-cyan-800 border border-cyan-200' : ($pres->discipline_group === 'artificial_intelligence' ? 'bg-violet-50 text-violet-800 border border-violet-200' : 'bg-amber-50 text-amber-800 border border-amber-200') }}">
+                                                @if($pres->discipline_group === 'cybersecurity') 🛡️ Cyber
+                                                @elseif($pres->discipline_group === 'artificial_intelligence') 🤖 AI
+                                                @else 📊 MIS
+                                                @endif
+                                            </span>
+                                        @endif
+                                    </div>
                                     @if($pres->status === 'approved')
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-teal-100 text-teal-800 border border-teal-300/80">
                                             Approved
@@ -516,7 +616,7 @@
                             $latestSub = $sm->submissions->first();
                             $cardLink = $sm->meeting_link ?: $meetingLink;
                         @endphp
-                        <div x-show="(activeDate === 'all' || activeDate === '{{ $dateStr }}') && 
+                        <div x-show="(activeTrack === 'all' || activeTrack === '{{ $sm->discipline_group }}') && (activeDate === 'all' || activeDate === '{{ $dateStr }}') && 
                                      ('{{ strtolower($studentName) }}'.includes(search.toLowerCase()) || 
                                       '{{ strtolower($matricNo) }}'.includes(search.toLowerCase()) || 
                                       '{{ strtolower(addslashes($topic)) }}'.includes(search.toLowerCase()))"
@@ -528,7 +628,15 @@
                                     </div>
                                     <div class="min-w-0">
                                         <h4 class="text-sm font-black text-slate-900 leading-tight truncate">{{ $studentName }}</h4>
-                                        <p class="text-[11px] text-slate-500 font-mono mt-0.5">{{ $matricNo }} • {{ $student?->program?->code ?? 'Prog' }}</p>
+                                        <div class="flex items-center gap-1.5 mt-0.5">
+                                            <p class="text-[11px] text-slate-500 font-mono">{{ $matricNo }} • {{ $student?->program?->code ?? 'Prog' }}</p>
+                                            @if($isSeminarCourse)
+                                                <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-black uppercase
+                                                    {{ $sm->discipline_group === 'cybersecurity' ? 'bg-cyan-50 text-cyan-800' : ($sm->discipline_group === 'artificial_intelligence' ? 'bg-violet-50 text-violet-800' : 'bg-amber-50 text-amber-800') }}">
+                                                    @if($sm->discipline_group === 'cybersecurity') 🛡️ Cyber @elseif($sm->discipline_group === 'artificial_intelligence') 🤖 AI @else 📊 MIS @endif
+                                                </span>
+                                            @endif
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="text-right shrink-0">
@@ -602,6 +710,9 @@
                             <tr>
                                 <th class="px-4 py-4 w-14 text-center">#</th>
                                 <th class="px-5 py-4 min-w-[240px]">Presenter Details</th>
+                                @if($isSeminarCourse)
+                                    <th class="px-5 py-4 min-w-[150px]">Track</th>
+                                @endif
                                 <th class="px-5 py-4 min-w-[260px] max-w-sm">Research Topic</th>
                                 <th class="px-5 py-4 min-w-[170px]">Date & Time</th>
                                 <th class="px-5 py-4 min-w-[220px]">Panel / Supervisors</th>
@@ -631,7 +742,9 @@
                                     $supervisors = $sm->thesis?->assignments?->map(fn($a) => $a->supervisor?->user?->name)->filter()->implode(', ');
                                     $displayPanel = $examiners ?: $supervisors;
                                     if (empty($displayPanel)) {
-                                        if ($template->slug === 'internal_defence' && $sm->thesis?->internalExaminer?->user) {
+                                        if ($isSeminarCourse && !empty($trackData[$sm->discipline_group]['examiners'])) {
+                                            $displayPanel = $trackData[$sm->discipline_group]['examiners']->pluck('name')->implode(', ');
+                                        } elseif ($template->slug === 'internal_defence' && $sm->thesis?->internalExaminer?->user) {
                                             $displayPanel = 'Internal Examiner: ' . $sm->thesis->internalExaminer->user->name;
                                         } elseif ($template->slug === 'viva' && $sm->thesis?->externalExaminer?->user) {
                                             $displayPanel = 'External Examiner: ' . $sm->thesis->externalExaminer->user->name;
@@ -640,12 +753,12 @@
                                     $dateStr = \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d');
                                     $isToday = ($dateStr === $todayDateStr);
                                     $latestSub = $sm->submissions->first();
-                                    $rowLink = $sm->meeting_link ?: $meetingLink;
+                                    $rowLink = $sm->meeting_link ?: ($isSeminarCourse ? ($trackData[$sm->discipline_group]['meeting_link'] ?? $meetingLink) : $meetingLink);
                                     $tableCanEval = $tableDefEvent && $tableDefEvent->isAuthorizedEvaluator(auth()->id());
                                     $tableEval = $tableCanEval ? $tableDefEvent->evaluations->firstWhere('evaluator_id', auth()->id()) : null;
                                 @endphp
                                 <tr class="group hover:bg-slate-50/70 transition-all duration-150 {{ $isToday ? 'bg-emerald-50/25 border-l-4 border-l-emerald-500' : '' }}"
-                                    x-show="(activeDate === 'all' || activeDate === '{{ $dateStr }}') && (!search || '{{ strtolower(addslashes($studentName)) }}'.includes(search.toLowerCase()) || '{{ strtolower(addslashes($matricNo)) }}'.includes(search.toLowerCase()) || '{{ strtolower(addslashes($topic)) }}'.includes(search.toLowerCase()))">
+                                    x-show="(activeTrack === 'all' || activeTrack === '{{ $sm->discipline_group }}') && (activeDate === 'all' || activeDate === '{{ $dateStr }}') && (!search || '{{ strtolower(addslashes($studentName)) }}'.includes(search.toLowerCase()) || '{{ strtolower(addslashes($matricNo)) }}'.includes(search.toLowerCase()) || '{{ strtolower(addslashes($topic)) }}'.includes(search.toLowerCase()))">
                                     <td class="px-4 py-4 text-center align-middle">
                                         <span class="inline-flex items-center justify-center w-7 h-7 rounded-xl bg-slate-100 text-slate-500 font-black text-xs border border-slate-200/60 group-hover:bg-slate-200/80 group-hover:text-slate-700 transition-colors">
                                             {{ $index + 1 }}
@@ -713,6 +826,17 @@
                                             </div>
                                         </div>
                                     </td>
+                                    @if($isSeminarCourse)
+                                        <td class="px-5 py-4 align-middle">
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider
+                                                {{ $sm->discipline_group === 'cybersecurity' ? 'bg-cyan-50 text-cyan-800 border border-cyan-200' : ($sm->discipline_group === 'artificial_intelligence' ? 'bg-violet-50 text-violet-800 border border-violet-200' : 'bg-amber-50 text-amber-800 border border-amber-200') }}">
+                                                @if($sm->discipline_group === 'cybersecurity') 🛡️ Cyber
+                                                @elseif($sm->discipline_group === 'artificial_intelligence') 🤖 AI
+                                                @else 📊 MIS
+                                                @endif
+                                            </span>
+                                        </td>
+                                    @endif
                                     <td class="px-5 py-4 align-middle">
                                         @if(Auth::user()->hasRole('Student') && Auth::user()->studentProfile?->id === $sm->thesis?->student_profile_id)
                                             <form action="{{ route('theses.update', $sm->thesis) }}" method="POST" class="flex flex-col gap-1.5 w-full">

@@ -73,6 +73,37 @@ class PresentationController extends Controller
         $startDate = $allScheduled->first() ? Carbon::parse($allScheduled->first()->defence_date)->format('M d, Y') : null;
         $endDate = $allScheduled->last() ? Carbon::parse($allScheduled->last()->defence_date)->format('M d, Y') : null;
 
+        $isSeminarCourse = $template->slug === 'seminar_as_a_course';
+        $trackData = [];
+        if ($isSeminarCourse) {
+            $tracks = [
+                'cybersecurity' => 'Cybersecurity',
+                'artificial_intelligence' => 'Artificial Intelligence',
+                'management_information_systems' => 'Management Information Systems',
+            ];
+
+            foreach ($tracks as $trackKey => $trackLabel) {
+                $trackMilestones = $allScheduled->filter(fn($m) => $m->discipline_group === $trackKey);
+                $trackToday = $todayPresenters->filter(fn($m) => $m->discipline_group === $trackKey);
+                $trackMeetingLink = $trackToday->first(fn($m) => !empty($m->meeting_link))?->meeting_link
+                    ?? $trackMilestones->first(fn($m) => !empty($m->meeting_link))?->meeting_link;
+
+                $trackExaminerUserIds = $template->metadata['group_examiners'][$trackKey]['user_ids'] ?? [];
+                $trackExaminers = !empty($trackExaminerUserIds) 
+                    ? \App\Models\User::whereIn('id', $trackExaminerUserIds)->get()
+                    : collect();
+
+                $trackData[$trackKey] = [
+                    'key' => $trackKey,
+                    'label' => $trackLabel,
+                    'total' => $trackMilestones->count(),
+                    'today_count' => $trackToday->count(),
+                    'meeting_link' => $trackMeetingLink,
+                    'examiners' => $trackExaminers,
+                ];
+            }
+        }
+
         return view('presentations.show', compact(
             'template',
             'allScheduled',
@@ -83,7 +114,9 @@ class PresentationController extends Controller
             'presentationTitle',
             'startDate',
             'endDate',
-            'allPresentationTabs'
+            'allPresentationTabs',
+            'isSeminarCourse',
+            'trackData'
         ));
     }
 }
