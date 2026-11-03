@@ -70,4 +70,5 @@ Route::get('milestone-templates/{template}/export-examiner-attendance', [\App\Ht
 Route::get('milestone-templates/{template}/export-scheduled-pdf', [\App\Http\Controllers\Admin\MilestoneTemplateController::class, 'exportScheduledPdf'])->name('milestone-templates.export-scheduled-pdf');
 Route::post('milestone-templates/{milestone}/assign-examiner', [\App\Http\Controllers\Admin\MilestoneTemplateController::class, 'assignExaminer'])->name('milestone-templates.assign-examiner');
 Route::post('milestone-templates/{template}/assign-examiner-global', [\App\Http\Controllers\Admin\MilestoneTemplateController::class, 'assignExaminerGlobal'])->name('milestone-templates.assign-examiner-global');
+Route::post('milestone-templates/{template}/broadcast-message', [\App\Http\Controllers\Admin\MilestoneTemplateController::class, 'broadcastMessage'])->name('milestone-templates.broadcast-message');
 

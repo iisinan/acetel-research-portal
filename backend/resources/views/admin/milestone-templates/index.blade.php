@@ -31,7 +31,53 @@
                 </thead>
                 
                     @forelse($templates as $template)
-                    <tbody x-data="{ expanded: false, showStudents: false, selectAll: false, selected: [], search: '', cohortFilter: '', trackFilter: 'all', rescheduleDayOpen: false, slotModalOpen: false, slotStudentId: null, slotStudentName: '', slotAction: 'schedule', slotDate: '', slotTime: '', slotLink: '', slotFormUrl: '' }" class="divide-y divide-slate-50 border-t border-slate-50">
+                    <tbody x-data="{ 
+                        expanded: false, 
+                        showStudents: false, 
+                        selectAll: false, 
+                        selected: [], 
+                        search: '', 
+                        cohortFilter: '', 
+                        trackFilter: 'all', 
+                        rescheduleDayOpen: false, 
+                        slotModalOpen: false, 
+                        slotStudentId: null, 
+                        slotStudentName: '', 
+                        slotAction: 'schedule', 
+                        slotDate: '', 
+                        slotTime: '', 
+                        slotLink: '', 
+                        slotFormUrl: '',
+                        messageModalOpen: false,
+                        messageTarget: 'selected',
+                        singleStudentId: null,
+                        singleStudentName: '',
+                        singleStudentMatric: '',
+                        messageSubject: 'Notice regarding {{ addslashes($template->name) }} Milestone',
+                        messageBody: '',
+                        messageChannels: ['inbox', 'email'],
+                        messagePriority: 'normal',
+                        isSubmittingMessage: false,
+                        openMessageModal(target = 'selected') {
+                            this.messageTarget = target;
+                            if (target === 'selected' && this.selected.length === 0) {
+                                this.messageTarget = 'all';
+                            }
+                            this.singleStudentId = null;
+                            this.singleStudentName = '';
+                            this.singleStudentMatric = '';
+                            this.isSubmittingMessage = false;
+                            this.messageModalOpen = true;
+                        },
+                        openSingleMessageModal(id, name, matric) {
+                            this.messageTarget = 'single';
+                            this.singleStudentId = id;
+                            this.singleStudentName = name;
+                            this.singleStudentMatric = matric;
+                            this.isSubmittingMessage = false;
+                            this.messageModalOpen = true;
+                        }
+                    }" class="divide-y divide-slate-50 border-t border-slate-50">
                     <tr class="hover:bg-slate-50/30 transition-colors group cursor-pointer" data-id="{{ $template->id }}" @click="if(!$event.target.closest('button') && !$event.target.closest('a') && !$event.target.closest('input') && !$event.target.closest('form')) expanded = !expanded">
                         <td class="px-10 py-7 text-center">
                             <div class="flex flex-col items-center gap-2">
@@ -234,6 +280,17 @@
                                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                                         Export CSV
                                     </a>
+                                    @if($template->studentMilestones->count() > 0)
+                                    <button type="button" 
+                                        @click="openMessageModal('all')"
+                                        class="inline-flex items-center gap-2 px-4 py-2.5 bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-2xs cursor-pointer"
+                                        title="Send an inbox message or email to students on this milestone">
+                                        <svg class="w-3.5 h-3.5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                        </svg>
+                                        <span>Message Students</span>
+                                    </button>
+                                    @endif
                                     @if($template->slug !== 'supervisors_assigned')
                                     <a href="{{ isset($isCoordinator) && $isCoordinator ? route('coordinator.milestone-templates.export-scheduled-scores', $template->id) : route('admin.milestone-templates.export-scheduled-scores', $template->id) }}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
                                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -1004,6 +1061,195 @@
                                                     </div>
                                                 </div>
                                             </template>
+
+                                            {{-- Send Inbox / Email Modal (Teleported to body) --}}
+                                            <template x-teleport="body">
+                                                <div x-show="messageModalOpen" x-cloak x-transition.opacity 
+                                                    class="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" 
+                                                    @keydown.escape.window="messageModalOpen = false">
+                                                    <div @click.outside="messageModalOpen = false" 
+                                                        class="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
+                                                        
+                                                        <form action="{{ (isset($isCoordinator) && $isCoordinator) ? route('coordinator.milestone-templates.broadcast-message', $template->id) : route('admin.milestone-templates.broadcast-message', $template->id) }}" 
+                                                            method="POST" 
+                                                            @submit="isSubmittingMessage = true">
+                                                            @csrf
+                                                            <input type="hidden" name="target" :value="messageTarget">
+                                                            <input type="hidden" name="student_milestone_id" :value="singleStudentId">
+                                                            <template x-if="messageTarget === 'selected'">
+                                                                <div>
+                                                                    <template x-for="id in selected" :key="id">
+                                                                        <input type="hidden" name="milestone_ids[]" :value="id">
+                                                                    </template>
+                                                                </div>
+                                                            </template>
+
+                                                            {{-- Header --}}
+                                                            <div class="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4 bg-gradient-to-r from-brand-50/50 via-slate-50 to-white">
+                                                                <div class="flex items-center gap-3">
+                                                                    <div class="w-10 h-10 rounded-2xl bg-brand-600 text-white flex items-center justify-center shadow-md shadow-brand-600/20 shrink-0">
+                                                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                                                        </svg>
+                                                                    </div>
+                                                                    <div>
+                                                                        <h3 class="text-base font-black text-slate-900">
+                                                                            <span x-show="messageTarget === 'single'">Message Candidate</span>
+                                                                            <span x-show="messageTarget === 'selected'">Message Selected Candidates</span>
+                                                                            <span x-show="messageTarget === 'all'">Broadcast to All Milestone Candidates</span>
+                                                                        </h3>
+                                                                        <p class="text-xs text-slate-500 mt-0.5">
+                                                                            <span x-show="messageTarget === 'single'" x-text="singleStudentName + (singleStudentMatric ? ' (' + singleStudentMatric + ')' : '') + ' • {{ addslashes($template->name) }}'"></span>
+                                                                            <span x-show="messageTarget === 'selected'" x-text="selected.length + ' student(s) selected in {{ addslashes($template->name) }}'"></span>
+                                                                            <span x-show="messageTarget === 'all'">All {{ $template->studentMilestones->count() }} candidate(s) in {{ addslashes($template->name) }}</span>
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                                <button type="button" @click="messageModalOpen = false" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition cursor-pointer">
+                                                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                                </button>
+                                                            </div>
+
+                                                            {{-- Modal Body --}}
+                                                            <div class="p-6 space-y-5 overflow-y-auto max-h-[calc(90vh-160px)] text-left">
+                                                                
+                                                                {{-- Target Mode Switcher (if not single student) --}}
+                                                                <template x-if="messageTarget !== 'single'">
+                                                                    <div>
+                                                                        <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-2">Recipient Scope</label>
+                                                                        <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
+                                                                            <button type="button" 
+                                                                                @click="messageTarget = 'selected'"
+                                                                                :disabled="selected.length === 0"
+                                                                                class="py-2 px-3 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
+                                                                                :class="messageTarget === 'selected' ? 'bg-white text-slate-900 shadow-xs' : (selected.length === 0 ? 'text-slate-400 cursor-not-allowed opacity-60' : 'text-slate-600 hover:text-slate-900')">
+                                                                                <span>Selected</span>
+                                                                                <span class="px-1.5 py-0.2 rounded-full text-[10px]" :class="messageTarget === 'selected' ? 'bg-brand-100 text-brand-700' : 'bg-slate-200 text-slate-600'" x-text="selected.length"></span>
+                                                                            </button>
+                                                                            <button type="button" 
+                                                                                @click="messageTarget = 'all'"
+                                                                                class="py-2 px-3 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
+                                                                                :class="messageTarget === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'">
+                                                                                <span>All Milestone Students</span>
+                                                                                <span class="px-1.5 py-0.2 rounded-full text-[10px]" :class="messageTarget === 'all' ? 'bg-brand-100 text-brand-700' : 'bg-slate-200 text-slate-600'">{{ $template->studentMilestones->count() }}</span>
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                </template>
+
+                                                                {{-- Delivery Channels --}}
+                                                                <div>
+                                                                    <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-2">Delivery Channels</label>
+                                                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                                        <label class="relative flex items-start gap-3 p-3.5 rounded-2xl border transition-all cursor-pointer select-none"
+                                                                            :class="messageChannels.includes('inbox') ? 'border-brand-500 bg-brand-50/30 ring-1 ring-brand-500/20' : 'border-slate-200 bg-white hover:bg-slate-50'">
+                                                                            <input type="checkbox" name="channels[]" value="inbox" x-model="messageChannels" class="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                                                                            <div class="text-xs">
+                                                                                <div class="font-bold text-slate-900 flex items-center gap-1.5">
+                                                                                    <span>📥 System Inbox</span>
+                                                                                </div>
+                                                                                <div class="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                                                                                    Delivers to candidate's portal inbox with real-time notification.
+                                                                                </div>
+                                                                            </div>
+                                                                        </label>
+
+                                                                        <label class="relative flex items-start gap-3 p-3.5 rounded-2xl border transition-all cursor-pointer select-none"
+                                                                            :class="messageChannels.includes('email') ? 'border-brand-500 bg-brand-50/30 ring-1 ring-brand-500/20' : 'border-slate-200 bg-white hover:bg-slate-50'">
+                                                                            <input type="checkbox" name="channels[]" value="email" x-model="messageChannels" class="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                                                                            <div class="text-xs">
+                                                                                <div class="font-bold text-slate-900 flex items-center gap-1.5">
+                                                                                    <span>✉️ Direct Email</span>
+                                                                                </div>
+                                                                                <div class="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                                                                                    Sends official institutional email to registered email address.
+                                                                                </div>
+                                                                            </div>
+                                                                        </label>
+                                                                    </div>
+                                                                    <template x-if="messageChannels.length === 0">
+                                                                        <p class="text-[11px] font-semibold text-rose-600 mt-1.5">⚠️ Please select at least one delivery channel (Inbox or Email).</p>
+                                                                    </template>
+                                                                </div>
+
+                                                                {{-- Priority / Type --}}
+                                                                <div>
+                                                                    <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-2">Priority Level</label>
+                                                                    <div class="flex items-center gap-2">
+                                                                        <label class="flex-1 text-center py-2 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all"
+                                                                            :class="messagePriority === 'normal' ? 'bg-slate-900 text-white border-slate-900 shadow-xs' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'">
+                                                                            <input type="radio" name="priority" value="normal" x-model="messagePriority" class="sr-only">
+                                                                            <span>Normal Notice</span>
+                                                                        </label>
+                                                                        <label class="flex-1 text-center py-2 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all"
+                                                                            :class="messagePriority === 'important' ? 'bg-amber-600 text-white border-amber-600 shadow-xs' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'">
+                                                                            <input type="radio" name="priority" value="important" x-model="messagePriority" class="sr-only">
+                                                                            <span>⚡ Important</span>
+                                                                        </label>
+                                                                        <label class="flex-1 text-center py-2 px-3 rounded-xl border text-xs font-bold cursor-pointer transition-all"
+                                                                            :class="messagePriority === 'urgent' ? 'bg-rose-600 text-white border-rose-600 shadow-xs' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'">
+                                                                            <input type="radio" name="priority" value="urgent" x-model="messagePriority" class="sr-only">
+                                                                            <span>🚨 Urgent</span>
+                                                                        </label>
+                                                                    </div>
+                                                                </div>
+
+                                                                {{-- Subject --}}
+                                                                <div>
+                                                                    <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                                                                        Subject <span class="text-rose-500">*</span>
+                                                                    </label>
+                                                                    <input type="text" name="subject" x-model="messageSubject" required 
+                                                                        placeholder="e.g. Schedule Update for {{ addslashes($template->name) }}"
+                                                                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
+                                                                </div>
+
+                                                                {{-- Message Body --}}
+                                                                <div>
+                                                                    <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                                                                        Message Content <span class="text-rose-500">*</span>
+                                                                    </label>
+                                                                    <textarea name="body" x-model="messageBody" rows="5" required 
+                                                                        placeholder="Type the message instructions, presentation details, deadline reminders, or requirements to be communicated to the student(s)..."
+                                                                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"></textarea>
+                                                                </div>
+                                                            </div>
+
+                                                            {{-- Footer --}}
+                                                            <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3 bg-slate-50/50">
+                                                                <div class="text-[11px] text-slate-500 font-semibold flex items-center gap-1.5">
+                                                                    <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+                                                                    <span x-show="messageTarget === 'single'">Dispatching to 1 candidate</span>
+                                                                    <span x-show="messageTarget === 'selected'" x-text="'Dispatching to ' + selected.length + ' selected candidate(s)'"></span>
+                                                                    <span x-show="messageTarget === 'all'">Dispatching to {{ $template->studentMilestones->count() }} candidate(s)</span>
+                                                                </div>
+
+                                                                <div class="flex items-center gap-2">
+                                                                    <button type="button" @click="messageModalOpen = false" class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer">
+                                                                        Cancel
+                                                                    </button>
+                                                                    <button type="submit" 
+                                                                        :disabled="messageChannels.length === 0 || !messageSubject.trim() || !messageBody.trim() || isSubmittingMessage || (messageTarget === 'selected' && selected.length === 0)"
+                                                                        class="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-600/20 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none transition-all cursor-pointer">
+                                                                        <template x-if="!isSubmittingMessage">
+                                                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                                                                            </svg>
+                                                                        </template>
+                                                                        <template x-if="isSubmittingMessage">
+                                                                            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                            </svg>
+                                                                        </template>
+                                                                        <span x-text="isSubmittingMessage ? 'Sending...' : 'Send Message'">Send Message</span>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </template>
                                             <form action="{{ route('admin.milestone-templates.end-schedule', $template->id) }}" method="POST" class="inline">
                                                 @csrf
                                                 @if($template->slug === 'seminar_as_a_course')
@@ -1666,42 +1912,71 @@
                                 {{-- Student List (hidden until "View Student Details" is clicked) --}}
                                 <div x-show="showStudents" x-cloak x-transition>
                                     @if($template->studentMilestones->count() > 0)
-                                    {{-- Search and Filter --}}
-                                    <div class="mb-4 flex flex-col md:flex-row gap-4">
-                                        <div class="relative flex-1">
-                                            <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                                            <input x-ref="searchInput" x-model="search" type="text" placeholder="Search by name or matric number..." class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
+                                    {{-- Search and Filter & Actions Toolbar --}}
+                                    <div class="mb-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                                        <div class="flex flex-col sm:flex-row gap-3 flex-1">
+                                            <div class="relative flex-1">
+                                                <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                                <input x-ref="searchInput" x-model="search" type="text" placeholder="Search by name or matric number..." class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
+                                            </div>
+                                            <div class="w-full sm:w-64">
+                                                <select x-model="cohortFilter" class="w-full py-2.5 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
+                                                    <option value="">All Cohorts (Sets/Batches)</option>
+                                                    @foreach($cohorts as $cohort)
+                                                        <option value="{{ $cohort->id }}">{{ $cohort->name }} ({{ $cohort->intake_year }})</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
                                         </div>
-                                        <div class="w-full md:w-64">
-                                            <select x-model="cohortFilter" class="w-full py-2.5 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
-                                                <option value="">All Cohorts (Sets/Batches)</option>
-                                                @foreach($cohorts as $cohort)
-                                                    <option value="{{ $cohort->id }}">{{ $cohort->name }} ({{ $cohort->intake_year }})</option>
-                                                @endforeach
-                                            </select>
+
+                                        {{-- Message & Student Actions --}}
+                                        <div class="flex items-center flex-wrap gap-2">
+                                            {{-- Message Selected Candidates --}}
+                                            <button type="button" 
+                                                @click="openMessageModal('selected')"
+                                                x-show="selected.length > 0"
+                                                x-cloak
+                                                class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-sm transition active:scale-95 whitespace-nowrap cursor-pointer">
+                                                <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                                </svg>
+                                                <span x-text="'Message Selected (' + selected.length + ')'"></span>
+                                            </button>
+
+                                            {{-- Message All Milestone Candidates --}}
+                                            <button type="button" 
+                                                @click="openMessageModal('all')"
+                                                class="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition active:scale-95 whitespace-nowrap cursor-pointer border border-slate-200"
+                                                title="Send an inbox message or email to all students on this milestone">
+                                                <svg class="w-4 h-4 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                                </svg>
+                                                <span>Message All ({{ $template->studentMilestones->count() }})</span>
+                                            </button>
+
+                                            @if(!isset($isCoordinator) || !$isCoordinator)
+                                            <div x-show="selected.length > 0" x-cloak class="flex items-center">
+                                                <form action="{{ route('admin.students.bulk-destroy') }}" method="POST">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <template x-for="id in selected">
+                                                        <input type="hidden" name="milestone_ids[]" :value="id">
+                                                    </template>
+                                                    <button type="submit" 
+                                                        data-confirm="Are you sure you want to permanently delete the selected student record(s) from the system? All their submissions, grades, milestones, and user accounts will be permanently removed. This action cannot be undone."
+                                                        data-confirm-title="Delete Selected Students"
+                                                        data-confirm-type="danger"
+                                                        data-confirm-btn="Delete Selected Students"
+                                                        class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm transition active:scale-95 whitespace-nowrap cursor-pointer">
+                                                        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                        <span x-text="'Delete Selected (' + selected.length + ')'"></span>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                            @endif
                                         </div>
-                                        @if(!isset($isCoordinator) || !$isCoordinator)
-                                        <div x-show="selected.length > 0" x-cloak class="flex items-center">
-                                            <form action="{{ route('admin.students.bulk-destroy') }}" method="POST">
-                                                @csrf
-                                                @method('DELETE')
-                                                <template x-for="id in selected">
-                                                    <input type="hidden" name="milestone_ids[]" :value="id">
-                                                </template>
-                                                <button type="submit" 
-                                                    data-confirm="Are you sure you want to permanently delete the selected student record(s) from the system? All their submissions, grades, milestones, and user accounts will be permanently removed. This action cannot be undone."
-                                                    data-confirm-title="Delete Selected Students"
-                                                    data-confirm-type="danger"
-                                                    data-confirm-btn="Delete Selected Students"
-                                                    class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm transition active:scale-95 whitespace-nowrap">
-                                                    <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                    </svg>
-                                                    <span x-text="'Delete Selected (' + selected.length + ')'"></span>
-                                                </button>
-                                            </form>
-                                        </div>
-                                        @endif
                                     </div>
 
                                     <div class="overflow-hidden border border-slate-100 rounded-xl">
@@ -1714,9 +1989,9 @@
                                                             <input type="checkbox" x-model="selectAll" 
                                                                 @change="if(selectAll) { 
                                                                     let visibleRows = Array.from($root.querySelectorAll('tr[data-milestone-id]')).filter(row => row.style.display !== 'none'); 
-                                                                    selected = visibleRows.filter(row => { const cb = row.querySelector('input[type=checkbox]'); return cb && !cb.disabled; }).map(row => row.getAttribute('data-milestone-id')); 
+                                                                    selected = visibleRows.map(row => row.getAttribute('data-milestone-id')); 
                                                                 } else { selected = []; }" 
-                                                                class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+                                                                class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer">
                                                         </th>
                                                         @endif
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Student</th>
@@ -1831,7 +2106,7 @@
                                                             x-show="(trackFilter === 'all' || trackFilter === '{{ $sm->discipline_group }}') && (cohortFilter === '' || cohortFilter == '{{ $cohortId }}') && (!search || '{{ strtolower($studentName) }}'.includes(search.toLowerCase()) || '{{ strtolower($matricNo) }}'.includes(search.toLowerCase()))">
                                                             @if(!isset($isCoordinator) || !$isCoordinator)
                                                             <td class="px-4 py-3">
-                                                                <input type="checkbox" :value="'{{ $sm->id }}'" x-model="selected" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 disabled:opacity-30 disabled:cursor-not-allowed" @if(in_array('Supervisor', $template->required_approvers ?? []) && !$sm->is_supervisor_approved) disabled title="Awaiting Supervisor Approval" @endif>
+                                                                <input type="checkbox" :value="'{{ $sm->id }}'" x-model="selected" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer">
                                                             </td>
                                                             @endif
                                                             <td class="px-4 py-3">
@@ -2006,6 +2281,16 @@
                                                                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
                                                                     </button>
                                                                     <div x-show="menuOpen" @click.outside="menuOpen = false" x-cloak class="absolute right-8 top-0 w-56 bg-white rounded-xl shadow-xl border border-slate-100 z-[60] overflow-hidden text-left" style="display: none;">
+                                                                        <div class="p-1.5 border-b border-slate-100">
+                                                                            <button type="button" 
+                                                                                @click="menuOpen = false; openSingleMessageModal({{ $sm->id }}, '{{ addslashes($studentName) }}', '{{ addslashes($matricNo) }}')"
+                                                                                class="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-brand-50 hover:text-brand-700 rounded-lg transition-colors flex items-center gap-2">
+                                                                                <svg class="w-3.5 h-3.5 text-brand-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                                                                </svg>
+                                                                                <span>Send Inbox / Email</span>
+                                                                            </button>
+                                                                        </div>
                                                                         @if((!isset($isCoordinator) || !$isCoordinator) && $sm->status !== 'approved')
                                                                             <div class="p-1.5 border-b border-slate-100 space-y-1">
                                                                                 @if(!empty($sm->defence_date))

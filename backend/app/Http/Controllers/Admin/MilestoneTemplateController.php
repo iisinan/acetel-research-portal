@@ -1673,5 +1673,132 @@ class MilestoneTemplateController extends Controller
 
         return $pdf->download($fileName);
     }
+
+    /**
+     * Broadcast an inbox message and/or email to students on this milestone.
+     */
+    public function broadcastMessage(Request $request, MilestoneTemplate $template)
+    {
+        $validated = $request->validate([
+            'target' => 'required|in:selected,all,single',
+            'student_milestone_id' => 'nullable|exists:student_milestones,id',
+            'milestone_ids' => 'nullable|array',
+            'milestone_ids.*' => 'exists:student_milestones,id',
+            'channels' => 'required|array|min:1',
+            'channels.*' => 'in:inbox,email',
+            'subject' => 'required|string|max:255',
+            'body' => 'required|string|max:10000',
+            'priority' => 'nullable|in:normal,important,urgent',
+        ]);
+
+        $channels = $validated['channels'];
+        $hasInbox = in_array('inbox', $channels);
+        $hasEmail = in_array('email', $channels);
+        $deliveryMethod = ($hasInbox && $hasEmail) ? 'both' : ($hasInbox ? 'in_app' : 'email');
+
+        $user = auth()->user();
+        $isCoordinator = $user->hasRole('Program Coordinator') && !$user->hasRole('Admin');
+        $coordinatorProgramId = null;
+        if ($isCoordinator) {
+            $coordinatorProfile = $user->coordinatorProfiles()->where('active', true)->first();
+            $coordinatorProgramId = $coordinatorProfile ? $coordinatorProfile->program_id : -1;
+        }
+
+        // Fetch candidate student milestones
+        $target = $validated['target'];
+        if ($target === 'single') {
+            if (empty($validated['student_milestone_id'])) {
+                return back()->with('error', 'No candidate specified for single student message.');
+            }
+            $milestones = \App\Models\StudentMilestone::where('id', $validated['student_milestone_id'])
+                ->with('thesis.student.user')
+                ->get();
+        } elseif ($target === 'selected') {
+            $ids = $request->input('milestone_ids', []);
+            if (empty($ids)) {
+                return back()->with('error', 'No students were selected. Please select at least one student or choose to message all.');
+            }
+            $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+                ->whereIn('id', $ids)
+                ->with('thesis.student.user')
+                ->get();
+        } else {
+            // Target is 'all'
+            $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+                ->whereIn('status', ['in_progress', 'submitted', 'revision_required', 'partially_approved'])
+                ->with('thesis.student.user')
+                ->get();
+            
+            // If empty under active statuses, fallback to all student milestones for this template
+            if ($milestones->isEmpty()) {
+                $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+                    ->with('thesis.student.user')
+                    ->get();
+            }
+        }
+
+        if ($isCoordinator && $coordinatorProgramId) {
+            $milestones = $milestones->filter(function($sm) use ($coordinatorProgramId) {
+                return $sm->thesis?->student?->program_id == $coordinatorProgramId;
+            });
+        }
+
+        // Extract student User models
+        $studentUsers = $milestones->map(function($sm) {
+            return $sm->thesis?->student?->user;
+        })->filter()->unique('id')->values();
+
+        if ($studentUsers->isEmpty()) {
+            return back()->with('error', 'No valid student user accounts were found for the chosen recipient selection.');
+        }
+
+        // Format subject with priority tag if needed
+        $subject = trim($validated['subject']);
+        $priority = $validated['priority'] ?? 'normal';
+        if ($priority === 'urgent' && !str_starts_with(strtoupper($subject), '[URGENT]')) {
+            $subject = '[URGENT] ' . $subject;
+        } elseif ($priority === 'important' && !str_starts_with(strtoupper($subject), '[IMPORTANT]')) {
+            $subject = '[IMPORTANT] ' . $subject;
+        }
+
+        // Create InboxMessage record
+        $inboxMessage = \App\Models\InboxMessage::create([
+            'sender_id' => $user->id,
+            'subject' => $subject,
+            'body' => $validated['body'],
+            'delivery_method' => $deliveryMethod,
+        ]);
+
+        // Attach recipients in bulk
+        $attachData = [];
+        $recipientIds = [];
+        foreach ($studentUsers as $stUser) {
+            $attachData[$stUser->id] = [
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'recipient_type' => 'to',
+                'read_at' => null,
+                'is_starred' => false,
+                'is_archived' => false,
+            ];
+            $recipientIds[] = $stUser->id;
+        }
+        foreach (array_chunk($attachData, 500, true) as $chunk) {
+            $inboxMessage->recipients()->attach($chunk);
+        }
+
+        // Dispatch notifications via ProcessMessageDelivery
+        try {
+            \App\Jobs\ProcessMessageDelivery::dispatch($inboxMessage, $recipientIds);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("ProcessMessageDelivery dispatch error: " . $e->getMessage());
+        }
+
+        // Construct descriptive success message
+        $channelDesc = ($hasInbox && $hasEmail) ? 'System Inbox & Email' : ($hasInbox ? 'System Inbox' : 'Direct Email');
+        $count = $studentUsers->count();
+        $studentLabel = $count === 1 ? 'student candidate' : 'student candidates';
+
+        return back()->with('success', "Dispatched message to {$count} {$studentLabel} on {$template->name} via {$channelDesc}.");
+    }
 }
 

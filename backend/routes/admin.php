@@ -95,6 +95,7 @@ Route::post('milestone-templates/{template}/date', [MilestoneTemplateController:
     Route::get('milestone-templates/{template}/export-scheduled-scores', [MilestoneTemplateController::class, 'exportScheduledScores'])->name('milestone-templates.export-scheduled-scores');
     Route::get('milestone-templates/{template}/export-examiner-attendance', [MilestoneTemplateController::class, 'exportExaminerAttendance'])->name('milestone-templates.export-examiner-attendance');
     Route::get('milestone-templates/{template}/export-scheduled-pdf', [MilestoneTemplateController::class, 'exportScheduledPdf'])->name('milestone-templates.export-scheduled-pdf');
+    Route::post('milestone-templates/{template}/broadcast-message', [MilestoneTemplateController::class, 'broadcastMessage'])->name('milestone-templates.broadcast-message');
 
 
 use App\Http\Controllers\Admin\BulkScheduleController;
