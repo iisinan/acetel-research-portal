@@ -91,31 +91,32 @@ class StudentController extends Controller
             return back()->with('error', 'Student does not have an active thesis project.');
         }
 
-        $milestones = $student->thesis->milestones()->with('template')->get()->sortBy('template.order');
-        $current = $milestones->firstWhere('status', 'in_progress');
+        $milestones = $student->thesis->milestones()->with('template')->get()->sortBy('template.order')->values();
+        $current = $milestones->first(fn($m) => $m->status !== 'approved');
 
         if (!$current) {
-            // Find first not_started
-            $current = $milestones->firstWhere('status', 'not_started');
+            return back()->with('error', 'All milestones for this student have already been approved.');
         }
 
-        if (!$current) {
-            return back()->with('error', 'No active milestone found to promote.');
-        }
-
-        // Approve current
+        // Approve current milestone
         $current->update([
             'status' => 'approved',
-            'date_approved_at' => now()
+            'date_approved_at' => $current->date_approved_at ?? now(),
+            'approved_at' => $current->approved_at ?? now(),
         ]);
 
-        // Find next
-        $next = $milestones->where('template.order', '>', $current->template->order)->first();
+        // Find next milestone
+        $next = $milestones->first(fn($m) => $m->template->order > $current->template->order);
         if ($next) {
             $next->update([
                 'status' => 'in_progress',
                 'due_date' => now()->addDays(30)
             ]);
+            $msg = "Institutional Notice: Your thesis progress has been administratively advanced. You have been promoted past '" . $current->template->name . "' to Milestone {$next->template->order}: '" . $next->template->name . "'.";
+            $success = "Student promoted to Milestone {$next->template->order}: {$next->template->name} successfully.";
+        } else {
+            $msg = "Institutional Notice: Your final thesis milestone '" . $current->template->name . "' has been approved! All research milestones are now completed.";
+            $success = "Final milestone approved. All research milestones for this student are now completed.";
         }
 
         // Notify student
@@ -123,18 +124,18 @@ class StudentController extends Controller
         $messageService->sendMessage(
             $student->thesis,
             auth()->user(),
-            "Institutional Notice: Your thesis progress has been administratively advanced. You have been promoted past the '" . $current->template->name . "' milestone.",
+            $msg,
             null,
             ['administrative_action' => 'promotion']
         );
 
-        return back()->with('success', 'Student promoted to the next milestone successfully.');
+        return back()->with('success', $success);
     }
 
     /**
      * Demote a student to the previous milestone.
      */
-        public function setMilestone(Request $request, \App\Models\StudentProfile $student)
+    public function setMilestone(Request $request, \App\Models\StudentProfile $student)
     {
         $request->validate([
             'milestone_id' => 'required|exists:student_milestones,id'
@@ -157,10 +158,12 @@ class StudentController extends Controller
                     'approved_at' => $m->approved_at ?? now()
                 ]);
             } elseif ($m->template->order == $targetOrder) {
-                // If it was already approved, maybe we are demoting TO it, so we mark it in_progress
+                // Set target milestone as in_progress
                 $m->update([
                     'status' => 'in_progress',
-                    'due_date' => now()->addDays(30)
+                    'due_date' => now()->addDays(30),
+                    'approved_at' => null,
+                    'date_approved_at' => null
                 ]);
             } else {
                 // Future milestones
@@ -180,12 +183,12 @@ class StudentController extends Controller
         $messageService->sendMessage(
             $student->thesis,
             auth()->user(),
-            "Institutional Notice: Your thesis progress has been administratively adjusted to the '" . $targetMilestone->template->name . "' milestone.",
+            "Institutional Notice: Your thesis progress has been administratively adjusted to Milestone {$targetMilestone->template->order}: '" . $targetMilestone->template->name . "'.",
             null,
             ['administrative_action' => 'set_milestone']
         );
 
-        return back()->with('success', 'Student milestone has been set successfully.');
+        return back()->with('success', "Student milestone successfully set to Milestone {$targetMilestone->template->order}: {$targetMilestone->template->name}.");
     }
 
     public function demoteMilestone(Request $request, StudentProfile $student)
@@ -194,32 +197,38 @@ class StudentController extends Controller
             return back()->with('error', 'Student does not have an active thesis project.');
         }
 
-        $milestones = $student->thesis->milestones()->with('template')->get()->sortByDesc('template.order');
+        $milestones = $student->thesis->milestones()->with('template')->get()->sortBy('template.order')->values();
         
-        $current = $milestones->firstWhere('status', 'in_progress');
+        $current = $milestones->first(fn($m) => $m->status !== 'approved') ?? $milestones->last();
+
         if (!$current) {
-            $current = null;
+            return back()->with('error', 'No milestone found to demote.');
         }
 
-        if ($current) {
-            $current->update([
-                'status' => 'not_started',
-                'due_date' => null
-            ]);
-            $targetOrder = $current->template->order;
-            $previous = $milestones->where('template.order', '<', $targetOrder)->first();
-        } else {
-            // Find the last approved milestone
-            $previous = $milestones->firstWhere('status', 'approved');
-        }
+        $previous = $milestones->filter(fn($m) => $m->template->order < $current->template->order)->last();
 
         if (!$previous) {
-            return back()->with('error', 'No previous milestone found to demote to.');
+            return back()->with('error', 'Student is already at Milestone 1 and cannot be demoted further.');
         }
 
+        // Reset current and later milestones
+        foreach ($milestones->filter(fn($m) => $m->template->order >= $current->template->order) as $later) {
+            $later->update([
+                'status' => 'not_started',
+                'due_date' => null,
+                'submitted_at' => null,
+                'approved_at' => null,
+                'date_approved_at' => null,
+                'approvals' => null,
+                'is_submission_unlocked' => false
+            ]);
+        }
+
+        // Reactivate previous milestone
         $previous->update([
             'status' => 'in_progress',
             'date_approved_at' => null,
+            'approved_at' => null,
             'due_date' => now()->addDays(30)
         ]);
 
@@ -228,12 +237,12 @@ class StudentController extends Controller
         $messageService->sendMessage(
             $student->thesis,
             auth()->user(),
-            "Institutional Notice: Your thesis progress has been administratively rolled back. You have been demoted back to the '" . $previous->template->name . "' milestone.",
+            "Institutional Notice: Your thesis progress has been administratively rolled back to Milestone {$previous->template->order}: '" . $previous->template->name . "'.",
             null,
             ['administrative_action' => 'demotion']
         );
 
-        return back()->with('success', 'Student demoted to the previous milestone successfully.');
+        return back()->with('success', "Student demoted back to Milestone {$previous->template->order}: {$previous->template->name} successfully.");
     }
 
     /**

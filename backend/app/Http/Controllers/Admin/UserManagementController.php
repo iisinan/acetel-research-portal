@@ -346,6 +346,15 @@ class UserManagementController extends Controller
             }
         }
 
+        // Proactively ensure milestones are synced and loaded for student management
+        if ($user->studentProfile && $user->studentProfile->thesis) {
+            $thesis = $user->studentProfile->thesis;
+            if ($thesis->milestones()->count() < $thesis->getApplicableMilestoneTemplates()->count() || $thesis->milestones()->count() === 0) {
+                $thesis->syncMilestones();
+            }
+            $user->load(['studentProfile.thesis.milestones.template']);
+        }
+
         $roles = Role::whereIn('name', $allowedRoles)->pluck('name');
         $cohorts = Cohort::latest()->get();
         $programs = Program::all();

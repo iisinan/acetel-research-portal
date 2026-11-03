@@ -308,34 +308,78 @@
                 <div class="flex flex-col sm:flex-row items-center justify-between px-4 gap-4">
                     <h3 class="text-xl font-black text-slate-900 tracking-tight">Sequential Execution Roadmap</h3>
                     
+                    @php
+                        $sortedMilestones = $student->thesis->milestones->sortBy('template.order')->values();
+                        $currM = $sortedMilestones->first(fn($m) => $m->status !== 'approved') ?? $sortedMilestones->last();
+                        $currOrder = $currM?->template?->order ?? 1;
+                        $prevM = $currM ? $sortedMilestones->filter(fn($m) => $m->template?->order < $currOrder)->last() : null;
+                        $nextM = $currM ? $sortedMilestones->first(fn($m) => $m->template?->order > $currOrder) : null;
+                    @endphp
+
                     <div class="flex items-center gap-4">
                         <form action="{{ route('admin.students.set-milestone', $student) }}" method="POST" class="flex items-center gap-2 mr-2">
                             @csrf
-                            <select name="milestone_id" class="text-[10px] font-black uppercase tracking-widest text-slate-600 bg-slate-100 border-none rounded-lg focus:ring-brand-500 cursor-pointer" onchange="const sel = this; window.confirmModal({ title: 'Change Milestone', message: 'Are you sure you want to set the student to this milestone?', type: 'warning', confirmText: 'Set Milestone' }).then(ok => { if(ok) sel.form.submit(); else sel.selectedIndex = 0; });">
+                            <select name="milestone_id" class="text-[10px] font-black uppercase tracking-widest text-slate-600 bg-slate-100 border-none rounded-lg focus:ring-brand-500 cursor-pointer" onchange="const sel = this; const opt = sel.options[sel.selectedIndex].text; window.confirmModal({ title: 'Change Milestone', message: 'Set {{ addslashes($student->user?->name) }} directly to ' + opt + '?', type: 'warning', confirmText: 'Set Milestone' }).then(ok => { if(ok) sel.form.submit(); else sel.selectedIndex = 0; });">
                                 <option value="" disabled selected>Jump to Milestone</option>
-                                @foreach($student->thesis->milestones->sortBy('template.order') as $m)
-                                    <option value="{{ $m->id }}">{{ $m->template->order }}. {{ $m->template->name }}</option>
+                                @foreach($sortedMilestones as $m)
+                                    <option value="{{ $m->id }}" {{ $m->id === $currM?->id ? 'disabled' : '' }}>
+                                        {{ $m->template->order }}. {{ $m->template->name }} {{ $m->id === $currM?->id ? '(Current Active)' : ($m->status === 'approved' ? '(Completed)' : '') }}
+                                    </option>
                                 @endforeach
                             </select>
                         </form>
 
                         <div class="w-px h-4 bg-slate-200"></div>
 
-                        <form action="{{ route('admin.students.demote-milestone', $student) }}" method="POST" data-confirm="Are you sure you want to demote this student to the previous milestone?" data-confirm-title="Demote Student" data-confirm-type="danger" data-confirm-btn="Demote">
-                            @csrf
-                            <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-700 transition-colors flex items-center gap-1">
+                        @if($prevM)
+                            <form action="{{ route('admin.students.demote-milestone', $student) }}" method="POST" 
+                                data-confirm="Are you sure you want to demote {{ addslashes($student->user?->name) }} from Milestone {{ $currM?->template?->order }} ({{ addslashes($currM?->template?->name) }}) back to Milestone {{ $prevM->template?->order }} ({{ addslashes($prevM->template?->name) }})?" 
+                                data-confirm-title="Demote to Milestone {{ $prevM->template?->order }}" 
+                                data-confirm-type="danger" 
+                                data-confirm-btn="Demote to M{{ $prevM->template?->order }}">
+                                @csrf
+                                <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-700 transition-colors flex items-center gap-1" title="Demote back to Milestone {{ $prevM->template?->order }}: {{ $prevM->template?->name }}">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                                    Demote (to M{{ $prevM->template?->order }})
+                                </button>
+                            </form>
+                        @else
+                            <span class="text-[10px] font-bold uppercase tracking-widest text-slate-300 flex items-center gap-1 cursor-not-allowed" title="Already at Milestone 1">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
                                 Demote
-                            </button>
-                        </form>
+                            </span>
+                        @endif
 
-                        <form action="{{ route('admin.students.promote-milestone', $student) }}" method="POST" data-confirm="Are you sure you want to promote this student to the next milestone?" data-confirm-title="Promote Student" data-confirm-type="success" data-confirm-btn="Promote">
-                            @csrf
-                            <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:text-emerald-700 transition-colors flex items-center gap-1">
-                                Promote
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
-                            </button>
-                        </form>
+                        @if($nextM)
+                            <form action="{{ route('admin.students.promote-milestone', $student) }}" method="POST" 
+                                data-confirm="Are you sure you want to promote {{ addslashes($student->user?->name) }} from Milestone {{ $currM?->template?->order }} ({{ addslashes($currM?->template?->name) }}) to Milestone {{ $nextM->template?->order }} ({{ addslashes($nextM->template?->name) }})?" 
+                                data-confirm-title="Promote to Milestone {{ $nextM->template?->order }}" 
+                                data-confirm-type="success" 
+                                data-confirm-btn="Promote to M{{ $nextM->template?->order }}">
+                                @csrf
+                                <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:text-emerald-700 transition-colors flex items-center gap-1" title="Promote to Milestone {{ $nextM->template?->order }}: {{ $nextM->template?->name }}">
+                                    Promote (to M{{ $nextM->template?->order }})
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                                </button>
+                            </form>
+                        @elseif($currM && $currM->status !== 'approved')
+                            <form action="{{ route('admin.students.promote-milestone', $student) }}" method="POST" 
+                                data-confirm="Are you sure you want to approve the final milestone ({{ addslashes($currM->template?->name) }}) for {{ addslashes($student->user?->name) }}?" 
+                                data-confirm-title="Approve Final Milestone" 
+                                data-confirm-type="success" 
+                                data-confirm-btn="Approve Final Milestone">
+                                @csrf
+                                <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:text-emerald-700 transition-colors flex items-center gap-1" title="Approve Final Milestone">
+                                    Approve Final
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                </button>
+                            </form>
+                        @else
+                            <span class="text-[10px] font-bold uppercase tracking-widest text-slate-300 flex items-center gap-1 cursor-not-allowed">
+                                Complete
+                                <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            </span>
+                        @endif
 
                         <div class="w-px h-4 bg-slate-200"></div>
 

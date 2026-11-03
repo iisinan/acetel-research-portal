@@ -374,30 +374,209 @@
 
                         <!-- Milestone Management -->
                         @if($user->studentProfile && $user->studentProfile->thesis)
-                        <div class="col-span-6 p-4 bg-slate-50 rounded-xl border border-slate-200 mt-6">
-                            <h4 class="text-sm font-bold text-black mb-1">Milestone Management</h4>
-                            <p class="text-xs text-slate-500 mb-4">Administratively promote or demote this student's thesis progress. The student will be notified.</p>
-                            <div class="flex gap-3">
-                                <button type="button" 
-                                    data-confirm="Are you sure you want to demote this student to the previous milestone? The student will be notified to revise and re-submit."
-                                    data-confirm-title="Demote Student Milestone"
-                                    data-confirm-type="danger"
-                                    data-confirm-btn="Demote Milestone"
-                                    onclick="document.getElementById('demote-form').submit();"
-                                    class="px-4 py-2 bg-red-50 text-red-600 rounded-lg text-xs font-bold border border-red-200 hover:bg-red-100 transition flex items-center gap-2">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
-                                    Demote Milestone
-                                </button>
-                                <button type="button" 
-                                    data-confirm="Are you sure you want to promote this student to the next milestone? This will advance their research stage."
-                                    data-confirm-title="Promote Student Milestone"
-                                    data-confirm-type="success"
-                                    data-confirm-btn="Promote Milestone"
-                                    onclick="document.getElementById('promote-form').submit();"
-                                    class="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold border border-emerald-200 hover:bg-emerald-100 transition flex items-center gap-2">
-                                    Promote Milestone
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
-                                </button>
+                        @php
+                            $thesis = $user->studentProfile->thesis;
+                            $studentMilestones = $thesis->milestones()->with('template')->get()->sortBy('template.order')->values();
+                            $totalMilestones = $studentMilestones->count();
+                            $completedMilestones = $studentMilestones->where('status', 'approved')->count();
+                            $isAllCompleted = $totalMilestones > 0 && $completedMilestones === $totalMilestones;
+                            
+                            // Current active milestone is the first non-approved one, or the final one if all are completed
+                            $currentMilestone = $studentMilestones->first(fn($m) => $m->status !== 'approved') ?? $studentMilestones->last();
+                            $currentOrder = $currentMilestone?->template?->order ?? 1;
+                            
+                            // Milestone to demote back to: the one immediately preceding the current milestone
+                            $prevMilestone = $currentMilestone ? $studentMilestones->filter(fn($m) => $m->template?->order < $currentOrder)->last() : null;
+                            
+                            // Milestone to promote to: the one immediately following the current milestone
+                            $nextMilestone = $currentMilestone ? $studentMilestones->first(fn($m) => $m->template?->order > $currentOrder) : null;
+                            
+                            $pctComplete = $totalMilestones > 0 ? round(($completedMilestones / $totalMilestones) * 100) : 0;
+                        @endphp
+                        <div class="col-span-6 p-5 sm:p-6 bg-slate-50/90 rounded-2xl border border-slate-200 mt-6 space-y-5">
+                            {{-- Header & Progress --}}
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
+                                <div>
+                                    <h4 class="text-sm font-black text-slate-900 tracking-tight flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        Milestone Progression Management
+                                    </h4>
+                                    <p class="text-xs text-slate-500 mt-0.5">Administratively review current status, promote, demote, or jump this student's thesis progress.</p>
+                                </div>
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <span class="text-[11px] font-bold text-slate-600">{{ $completedMilestones }}/{{ $totalMilestones }} Completed</span>
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-black {{ $isAllCompleted ? 'bg-emerald-600 text-white' : 'bg-emerald-100 text-emerald-800' }}">
+                                        {{ $pctComplete }}%
+                                    </span>
+                                </div>
+                            </div>
+
+                            {{-- Active Stage vs Targets (3-Card Status Display) --}}
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                                {{-- 1. Current Active Milestone --}}
+                                <div class="p-3.5 bg-white rounded-xl border-2 border-emerald-400/80 shadow-xs flex items-start gap-3">
+                                    <div class="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
+                                        M{{ $currentMilestone?->template?->order ?? '1' }}
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-[10px] font-black uppercase tracking-wider text-emerald-700 flex items-center gap-1.5">
+                                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                            Current Position
+                                        </p>
+                                        <p class="text-xs font-bold text-slate-900 truncate mt-0.5" title="{{ $currentMilestone?->template?->name }}">
+                                            {{ $currentMilestone?->template?->name ?? 'None' }}
+                                        </p>
+                                        <div class="mt-1 flex items-center gap-1.5">
+                                            @if($isAllCompleted)
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                                                    ✓ All Approved
+                                                </span>
+                                            @else
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-700">
+                                                    {{ ucwords(str_replace('_', ' ', $currentMilestone?->status ?? 'in_progress')) }}
+                                                </span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {{-- 2. Promote Target --}}
+                                <div class="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs flex items-start gap-3">
+                                    <div class="w-9 h-9 rounded-xl {{ $nextMilestone ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'bg-slate-100 text-slate-400' }} flex items-center justify-center font-black text-xs shrink-0">
+                                        {{ $nextMilestone ? 'M' . $nextMilestone->template?->order : '✓' }}
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-[10px] font-black uppercase tracking-wider text-blue-600">Promoting Advances To</p>
+                                        <p class="text-xs font-bold text-slate-900 truncate mt-0.5" title="{{ $nextMilestone ? $nextMilestone->template?->name : ($isAllCompleted ? 'Already at Final Stage' : 'Final Completion Approval') }}">
+                                            {{ $nextMilestone ? $nextMilestone->template?->name : ($isAllCompleted ? 'All Completed' : 'Final Clearance') }}
+                                        </p>
+                                        <p class="text-[10px] text-slate-500 mt-1">
+                                            {{ $nextMilestone ? 'Approves current & unlocks M' . $nextMilestone->template?->order : ($isAllCompleted ? 'No further milestones' : 'Marks thesis fully approved') }}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {{-- 3. Demote Target --}}
+                                <div class="p-3.5 bg-white rounded-xl border border-slate-200 shadow-xs flex items-start gap-3">
+                                    <div class="w-9 h-9 rounded-xl {{ $prevMilestone ? 'bg-rose-50 border border-rose-200 text-rose-700' : 'bg-slate-100 text-slate-400' }} flex items-center justify-center font-black text-xs shrink-0">
+                                        {{ $prevMilestone ? 'M' . $prevMilestone->template?->order : '–' }}
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-[10px] font-black uppercase tracking-wider text-rose-600">Demoting Rolls Back To</p>
+                                        <p class="text-xs font-bold text-slate-900 truncate mt-0.5" title="{{ $prevMilestone ? $prevMilestone->template?->name : 'At Initial Milestone' }}">
+                                            {{ $prevMilestone ? $prevMilestone->template?->name : 'None (Initial Stage)' }}
+                                        </p>
+                                        <p class="text-[10px] text-slate-500 mt-1">
+                                            {{ $prevMilestone ? 'Re-opens M' . $prevMilestone->template?->order . ' for revision' : 'Cannot demote below M1' }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Mini Milestone Sequence / Visual Pill Track --}}
+                            <div>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Roadmap Stages</p>
+                                <div class="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                                    @foreach($studentMilestones as $sm)
+                                        @php
+                                            $isSmCurrent = $sm->id === $currentMilestone?->id && !$isAllCompleted;
+                                            $isSmApproved = $sm->status === 'approved';
+                                        @endphp
+                                        <div class="flex items-center gap-2 shrink-0">
+                                            <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all
+                                                {{ $isSmCurrent 
+                                                    ? 'bg-slate-900 text-white border-slate-900 shadow-xs ring-2 ring-emerald-500/50' 
+                                                    : ($isSmApproved 
+                                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                                                        : 'bg-white text-slate-500 border-slate-200') }}">
+                                                @if($isSmApproved)
+                                                    <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                                                @elseif($isSmCurrent)
+                                                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+                                                @else
+                                                    <span class="text-[10px] text-slate-400 shrink-0 font-bold">{{ $sm->template?->order }}</span>
+                                                @endif
+                                                <span class="truncate max-w-[130px]" title="{{ $sm->template?->name }}">{{ $sm->template?->name }}</span>
+                                                @if($isSmCurrent)
+                                                    <span class="ml-1 px-1.5 py-0.2 rounded-full bg-emerald-500 text-[8px] font-black uppercase text-slate-950">Active</span>
+                                                @endif
+                                            </div>
+                                            @if(!$loop->last)
+                                                <svg class="w-3.5 h-3.5 text-slate-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+
+                            {{-- Actions Row: Demote, Promote, and Jump Dropdown --}}
+                            <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-200/80">
+                                <div class="flex flex-wrap items-center gap-2.5">
+                                    {{-- Demote Button --}}
+                                    @if($prevMilestone)
+                                        <button type="button" 
+                                            data-confirm="Are you sure you want to demote {{ addslashes($user->name) }} from Milestone {{ $currentMilestone?->template?->order }} ({{ addslashes($currentMilestone?->template?->name) }}) back to Milestone {{ $prevMilestone->template?->order }} ({{ addslashes($prevMilestone->template?->name) }})? The student will be required to re-complete Milestone {{ $prevMilestone->template?->order }}."
+                                            data-confirm-title="Demote Student to Milestone {{ $prevMilestone->template?->order }}"
+                                            data-confirm-type="danger"
+                                            data-confirm-btn="Demote to M{{ $prevMilestone->template?->order }}"
+                                            onclick="document.getElementById('demote-form').submit();"
+                                            class="inline-flex items-center gap-2 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition shadow-xs active:scale-95 cursor-pointer">
+                                            <svg class="w-4 h-4 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                                            <span>Demote to M{{ $prevMilestone->template?->order }}: {{ $prevMilestone->template?->name }}</span>
+                                        </button>
+                                    @else
+                                        <button type="button" disabled
+                                            class="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-400 border border-slate-200 rounded-xl text-xs font-bold cursor-not-allowed opacity-60">
+                                            <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                                            <span>At Initial Milestone (Cannot Demote)</span>
+                                        </button>
+                                    @endif
+
+                                    {{-- Promote Button --}}
+                                    @if($nextMilestone)
+                                        <button type="button" 
+                                            data-confirm="Are you sure you want to promote {{ addslashes($user->name) }} from Milestone {{ $currentMilestone?->template?->order }} ({{ addslashes($currentMilestone?->template?->name) }}) to Milestone {{ $nextMilestone->template?->order }} ({{ addslashes($nextMilestone->template?->name) }})? This will approve Milestone {{ $currentMilestone?->template?->order }} and advance their research stage."
+                                            data-confirm-title="Promote Student to Milestone {{ $nextMilestone->template?->order }}"
+                                            data-confirm-type="success"
+                                            data-confirm-btn="Promote to M{{ $nextMilestone->template?->order }}"
+                                            onclick="document.getElementById('promote-form').submit();"
+                                            class="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-600/20 active:scale-95 cursor-pointer">
+                                            <span>Promote to M{{ $nextMilestone->template?->order }}: {{ $nextMilestone->template?->name }}</span>
+                                            <svg class="w-4 h-4 text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                                        </button>
+                                    @elseif(!$isAllCompleted)
+                                        <button type="button" 
+                                            data-confirm="Are you sure you want to approve the final milestone ({{ addslashes($currentMilestone?->template?->name) }}) for {{ addslashes($user->name) }}? This will mark all thesis requirements as completed."
+                                            data-confirm-title="Approve Final Milestone"
+                                            data-confirm-type="success"
+                                            data-confirm-btn="Approve Final Milestone"
+                                            onclick="document.getElementById('promote-form').submit();"
+                                            class="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-600/20 active:scale-95 cursor-pointer">
+                                            <span>Approve Final Milestone: {{ $currentMilestone?->template?->name }}</span>
+                                            <svg class="w-4 h-4 text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                        </button>
+                                    @else
+                                        <button type="button" disabled
+                                            class="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-400 border border-slate-200 rounded-xl text-xs font-bold cursor-not-allowed opacity-60">
+                                            <span>All Milestones Completed</span>
+                                            <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                        </button>
+                                    @endif
+                                </div>
+
+                                {{-- Jump Directly Dropdown --}}
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-bold text-slate-500 whitespace-nowrap">Or Jump:</span>
+                                    <select onchange="if(this.value) { const val = this.value; const name = this.options[this.selectedIndex].getAttribute('data-name'); const msg = 'Are you sure you want to administratively set {{ addslashes($user->name) }} directly to ' + name + '?'; if(window.confirmModal) { window.confirmModal({ title: 'Jump Milestone', message: msg, type: 'warning', confirmText: 'Set Milestone' }).then(ok => { if(ok) { document.getElementById('jump-milestone-id').value = val; document.getElementById('jump-milestone-form').submit(); } else { this.selectedIndex = 0; } }); } else { if(confirm(msg)) { document.getElementById('jump-milestone-id').value = val; document.getElementById('jump-milestone-form').submit(); } else { this.selectedIndex = 0; } } }"
+                                        class="py-2 px-3 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-700 focus:ring-emerald-500 focus:border-emerald-500 shadow-xs cursor-pointer">
+                                        <option value="" disabled selected>Jump to specific milestone...</option>
+                                        @foreach($studentMilestones as $sm)
+                                            <option value="{{ $sm->id }}" data-name="Milestone {{ $sm->template?->order }} ({{ $sm->template?->name }})" {{ $sm->id === $currentMilestone?->id ? 'disabled' : '' }}>
+                                                Milestone {{ $sm->template?->order }}: {{ $sm->template?->name }} {{ $sm->id === $currentMilestone?->id ? '(Current Active)' : ($sm->status === 'approved' ? '(Completed)' : '') }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
                             </div>
                         </div>
                         @endif
@@ -478,6 +657,10 @@
             </form>
             <form id="demote-form" action="{{ route('admin.students.demote-milestone', $user->studentProfile) }}" method="POST" class="hidden">
                 @csrf
+            </form>
+            <form id="jump-milestone-form" action="{{ route('admin.students.set-milestone', $user->studentProfile) }}" method="POST" class="hidden">
+                @csrf
+                <input type="hidden" name="milestone_id" id="jump-milestone-id" value="">
             </form>
             @endif
         </div>
