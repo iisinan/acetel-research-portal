@@ -89,9 +89,13 @@ x-init="
 <!-- Milestone Presentations (Visible to All Users when a Schedule is Active) -->
 @php
     $todayStr = now()->toDateString();
-    $activePresentations = \Illuminate\Support\Facades\Cache::remember('sidebar_active_pres_' . $todayStr, 60, function() {
-        return \App\Models\MilestoneTemplate::getActivePresentations();
-    });
+    $activePresentations = \App\Models\MilestoneTemplate::getActivePresentations()->filter(function ($pt) {
+        return $pt->studentMilestones
+            ->where('status', '!=', 'approved')
+            ->whereNotNull('defence_date')
+            ->isNotEmpty();
+    })->values();
+
     $anyLiveToday = $activePresentations->contains(function ($pt) use ($todayStr) {
         return $pt->studentMilestones
             ->where('status', '!=', 'approved')

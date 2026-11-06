@@ -49,7 +49,7 @@ class DefenceEvent extends Model
     public function isAuthorizedEvaluator($userId)
     {
         // 0. Check if user is admin for presentation/defence milestones
-        if (in_array($this->type, ['seminar', 'proposal', 'progress_report_1', 'progress_report_2'])) {
+        if (in_array($this->type, ['seminar', 'proposal', 'progress_report_1', 'progress_report_2', 'internal', 'external', 'viva'])) {
             $user = \App\Models\User::find($userId);
             if ($user && $user->hasRole('Admin')) {
                 return true;
@@ -61,8 +61,8 @@ class DefenceEvent extends Model
             return true;
         }
 
-        // 2. Check Thesis Examiners
-        $thesis = $this->thesis()->with(['internalExaminer.user', 'externalExaminer.user'])->first();
+        // 2. Check Thesis Examiners and Supervisors
+        $thesis = $this->thesis()->with(['internalExaminer.user', 'externalExaminer.user', 'assignments.supervisor'])->first();
         
         if ($thesis) {
             if ($thesis->internalExaminer && $thesis->internalExaminer->user_id == $userId) {
@@ -70,6 +70,11 @@ class DefenceEvent extends Model
             }
             if ($thesis->externalExaminer && $thesis->externalExaminer->user_id == $userId) {
                 return true;
+            }
+            if (in_array($this->type, ['internal', 'seminar', 'proposal', 'progress_report_1', 'progress_report_2'])) {
+                if ($thesis->assignments()->whereHas('supervisor', fn($q) => $q->where('user_id', $userId))->exists()) {
+                    return true;
+                }
             }
         }
 

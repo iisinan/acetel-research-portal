@@ -412,6 +412,19 @@ class StudentMilestone extends Model
     }
 
     /**
+     * Resolve the discipline group for this milestone via student's program
+     */
+    public function getDisciplineGroupAttribute(): string
+    {
+        return $this->thesis?->student?->discipline_group ?? 'other';
+    }
+
+    public function getDisciplineGroupLabelAttribute(): string
+    {
+        return $this->thesis?->student?->discipline_group_label ?? 'General';
+    }
+
+    /**
      * Handle cascade deletions.
      */
     protected static function booted()

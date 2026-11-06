@@ -119,6 +119,8 @@ class EvaluationController extends Controller
                 'progress_report_1' => 'Progress Report 1 Defence',
                 'progress_report_2' => 'Progress Report 2 Defence',
                 'seminar' => 'Seminar as a Course',
+                'internal' => 'Internal Defence',
+                'external', 'viva' => 'Final Viva Voce',
                 default => ucfirst(str_replace('_', ' ', $defenceEvent->type)),
             };
 
@@ -173,6 +175,8 @@ class EvaluationController extends Controller
             'progress_report_1' => 'progress_report_1',
             'progress_report_2' => 'progress_report_2',
             'seminar' => 'seminar_as_a_course',
+            'internal' => 'internal_defence',
+            'external', 'viva' => 'viva',
             default => null,
         };
 

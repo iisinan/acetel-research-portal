@@ -27,6 +27,7 @@ class MilestoneTemplateController extends Controller
                       'thesis.student.user', 
                       'thesis.student.cohort', 
                       'thesis.student.level',
+                      'thesis.student.program',
                       'thesis.defenceEvents.panelMembers.user', 
                       'thesis.defenceEvents.evaluations', 
                       'thesis.milestones',
@@ -321,20 +322,24 @@ class MilestoneTemplateController extends Controller
                     continue; // Skip if supervisor hasn't approved
                 }
                 
+                $slotIndexOnDay = $count % $request->students_per_day;
+                $slotDuration = 30; // 30 minutes interval per presenter
+                $slotStartTime = $currentDate->copy()->setHour($hour)->setMinute($minute)->addMinutes($slotIndexOnDay * $slotDuration);
+                $slotEndTime = $slotStartTime->copy()->addMinutes($slotDuration);
+                $slotTimeStr = $slotStartTime->format('H:i');
+
                 $updateData = [
-                    'defence_date' => $currentDate->format('Y-m-d')
+                    'defence_date' => $currentDate->format('Y-m-d'),
+                    'defence_time' => $slotTimeStr,
                 ];
-                if ($request->filled('start_time')) {
-                    $updateData['defence_time'] = $request->start_time;
-                }
                 if ($request->filled('meeting_link')) {
                     $updateData['meeting_link'] = $request->meeting_link;
                 }
                 $milestone->update($updateData);
 
                 $eventData = [
-                    'schedule_start' => $currentDate->copy()->setHour($hour)->setMinute($minute),
-                    'schedule_end' => $currentDate->copy()->setHour($hour + 1)->setMinute($minute),
+                    'schedule_start' => $slotStartTime,
+                    'schedule_end' => $slotEndTime,
                     'outcome' => 'pending',
                 ];
                 if ($request->filled('meeting_link')) {
@@ -349,6 +354,8 @@ class MilestoneTemplateController extends Controller
                             'proposal_defence' => 'proposal',
                             'progress_report_1' => 'progress_report_1',
                             'progress_report_2' => 'progress_report_2',
+                            'internal_defence' => 'internal',
+                            'viva' => 'external',
                             default => 'first_seminar',
                         },
                     ],
@@ -362,9 +369,13 @@ class MilestoneTemplateController extends Controller
                     $event->update(['outcome' => 'pending']);
                 }
 
-                // Auto-attach template global examiners if none exist on this event yet
-                if ($event->panelMembers()->where('role', 'examiner')->count() === 0 && !empty($template->metadata['examiner_user_ids'])) {
-                    foreach ($template->metadata['examiner_user_ids'] as $uId) {
+                // Auto-attach examiners: check track/group-specific first, then global
+                $discGroup = $milestone->discipline_group;
+                $groupExaminers = $template->metadata['group_examiners'][$discGroup]['user_ids'] ?? null;
+                $examinersToAttach = !empty($groupExaminers) ? $groupExaminers : ($template->metadata['examiner_user_ids'] ?? []);
+
+                if ($event->panelMembers()->where('role', 'examiner')->count() === 0 && !empty($examinersToAttach)) {
+                    foreach ($examinersToAttach as $uId) {
                         \App\Models\PanelMember::firstOrCreate([
                             'defence_event_id' => $event->id,
                             'user_id' => $uId,
@@ -419,6 +430,8 @@ class MilestoneTemplateController extends Controller
             'proposal_defence' => 'proposal',
             'progress_report_1' => 'progress_report_1',
             'progress_report_2' => 'progress_report_2',
+            'internal_defence' => 'internal',
+            'viva' => 'external',
             default => 'first_seminar',
         };
         $updated = 0;
@@ -514,6 +527,23 @@ class MilestoneTemplateController extends Controller
                 $updated++;
             }
 
+            if ($template->slug === 'seminar_as_a_course') {
+                $meta = $template->metadata ?? [];
+                $trackLinks = $meta['track_zoom_links'] ?? [];
+                $activeSms = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+                    ->whereNotNull('defence_date')
+                    ->with('thesis.student.program')
+                    ->get();
+                foreach (['cybersecurity', 'artificial_intelligence', 'management_information_systems'] as $grp) {
+                    $foundLink = $activeSms->first(fn($m) => $m->discipline_group === $grp && !empty($m->meeting_link))?->meeting_link;
+                    if ($foundLink) {
+                        $trackLinks[$grp] = $foundLink;
+                    }
+                }
+                $meta['track_zoom_links'] = $trackLinks;
+                $template->update(['metadata' => $meta]);
+            }
+
             \Illuminate\Support\Facades\DB::commit();
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\DB::rollBack();
@@ -538,16 +568,22 @@ class MilestoneTemplateController extends Controller
             'to_date' => 'required|date',
             'start_time' => 'nullable|string|max:20',
             'meeting_link' => 'nullable|url|max:500',
+            'discipline_group' => 'nullable|string|in:cybersecurity,artificial_intelligence,management_information_systems',
         ]);
 
         $fromDateStr = \Carbon\Carbon::parse($request->from_date)->format('Y-m-d');
         $toDate = \Carbon\Carbon::parse($request->to_date);
         $toDateStr = $toDate->format('Y-m-d');
 
-        $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+        $query = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
             ->whereDate('defence_date', $fromDateStr)
-            ->with(['thesis.student.user'])
-            ->get();
+            ->with(['thesis.student.user', 'thesis.student.program']);
+
+        $milestones = $query->get();
+
+        if ($request->filled('discipline_group')) {
+            $milestones = $milestones->filter(fn($m) => $m->discipline_group === $request->discipline_group);
+        }
 
         if ($milestones->isEmpty()) {
             return back()->with('error', 'No presentations found scheduled on ' . \Carbon\Carbon::parse($request->from_date)->format('M d, Y') . '.');
@@ -558,6 +594,8 @@ class MilestoneTemplateController extends Controller
             'proposal_defence' => 'proposal',
             'progress_report_1' => 'progress_report_1',
             'progress_report_2' => 'progress_report_2',
+            'internal_defence' => 'internal',
+            'viva' => 'external',
             default => 'first_seminar',
         };
 
@@ -618,7 +656,13 @@ class MilestoneTemplateController extends Controller
                 $count++;
             }
             \Illuminate\Support\Facades\DB::commit();
-            return back()->with('success', "Rescheduled {$count} presenter(s) from " . \Carbon\Carbon::parse($request->from_date)->format('M d, Y') . " to " . $toDate->format('M d, Y') . " successfully.");
+            $trackLabel = $request->filled('discipline_group') ? match($request->discipline_group) {
+                'cybersecurity' => ' (Cybersecurity Track)',
+                'artificial_intelligence' => ' (AI Track)',
+                'management_information_systems' => ' (MIS Track)',
+                default => '',
+            } : '';
+            return back()->with('success', "Rescheduled {$count} presenter(s){$trackLabel} from " . \Carbon\Carbon::parse($request->from_date)->format('M d, Y') . " to " . $toDate->format('M d, Y') . " successfully.");
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\DB::rollBack();
             return back()->with('error', 'Error rescheduling day: ' . $e->getMessage());
@@ -651,6 +695,8 @@ class MilestoneTemplateController extends Controller
             'proposal_defence' => 'proposal',
             'progress_report_1' => 'progress_report_1',
             'progress_report_2' => 'progress_report_2',
+            'internal_defence' => 'internal',
+            'viva' => 'external',
             default => 'first_seminar',
         };
 
@@ -747,19 +793,26 @@ class MilestoneTemplateController extends Controller
         }
     }
 
-    public function endSchedule(MilestoneTemplate $template)
+    public function endSchedule(Request $request, MilestoneTemplate $template)
     {
         if (!auth()->user()->hasRole('Admin')) {
             abort(403, 'Institutional authority required. Only an Administrator can end presentation sessions.');
         }
 
+        $discGroup = $request->input('discipline_group');
+
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
-            $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+            $query = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
                 ->whereNotNull('defence_date')
                 ->where('status', '!=', 'approved')
-                ->with(['template', 'thesis.student.user'])
-                ->get();
+                ->with(['template', 'thesis.student.user', 'thesis.student.program']);
+
+            $milestones = $query->get();
+
+            if ($discGroup && in_array($discGroup, ['cybersecurity', 'artificial_intelligence', 'management_information_systems'])) {
+                $milestones = $milestones->filter(fn($m) => $m->discipline_group === $discGroup);
+            }
 
             $workflow = new \App\Services\MilestoneWorkflowService();
             $advanced = 0;
@@ -784,16 +837,31 @@ class MilestoneTemplateController extends Controller
             }
 
             \Illuminate\Support\Facades\DB::commit();
+            \App\Models\MilestoneTemplate::clearPresentationCache();
+
+            $trackLabel = match($discGroup) {
+                'cybersecurity' => ' (Cybersecurity Track)',
+                'artificial_intelligence' => ' (AI Track)',
+                'management_information_systems' => ' (MIS Track)',
+                default => '',
+            };
+            $sessionTitle = "{$template->name}{$trackLabel}";
 
             if ($advanced === 0) {
                 return redirect()->back()
-                    ->with('error', "No student was advanced from {$template->name}. None of the scheduled students met the requirements.")
+                    ->with('error', "No student was advanced from {$sessionTitle}. None of the scheduled students met the requirements.")
                     ->with('skipped_students', $skipped);
             }
 
-            $msg = "Presentation session for {$template->name} ended: {$advanced} student(s) advanced to the next milestone.";
+            $msg = "Presentation session for {$sessionTitle} ended: {$advanced} student(s) advanced to the next milestone.";
             if (count($skipped) > 0) {
                 $msg .= ' ' . count($skipped) . ' student(s) remain scheduled or were marked to repeat because of requirements or grading.';
+            }
+
+            if ($discGroup) {
+                return redirect()->back()
+                    ->with('success', $msg)
+                    ->with('skipped_students', $skipped);
             }
 
             if ($template->slug === 'seminar_as_a_course') {
@@ -856,6 +924,8 @@ class MilestoneTemplateController extends Controller
                 'proposal_defence' => 'proposal',
                 'progress_report_1' => 'progress_report_1',
                 'progress_report_2' => 'progress_report_2',
+                'internal_defence' => 'internal',
+                'viva' => 'external',
                 default => 'first_seminar',
             };
             
@@ -872,6 +942,7 @@ class MilestoneTemplateController extends Controller
             }
 
             \Illuminate\Support\Facades\DB::commit();
+            \App\Models\MilestoneTemplate::clearPresentationCache();
 
             return redirect()->route('admin.milestone-templates.index')->with('success', "Presentation schedule for {$template->name} has been cancelled successfully. All assigned dates, times, and Zoom links have been cleared.");
         } catch (\Exception $e) {
@@ -902,6 +973,8 @@ class MilestoneTemplateController extends Controller
             'proposal_defence' => 'proposal',
             'progress_report_1' => 'progress_report_1',
             'progress_report_2' => 'progress_report_2',
+            'internal_defence' => 'internal',
+            'viva' => 'external',
             default => 'first_seminar',
         };
 
@@ -950,9 +1023,12 @@ class MilestoneTemplateController extends Controller
     {
         $request->validate([
             'supervisor_profile_ids' => 'nullable|array',
-            'supervisor_profile_ids.*' => 'exists:supervisor_profiles,id'
+            'supervisor_profile_ids.*' => 'exists:supervisor_profiles,id',
+            'discipline_group' => 'nullable|string|in:cybersecurity,artificial_intelligence,management_information_systems',
+            'custom_message' => 'nullable|string|max:1000'
         ]);
 
+        $disciplineGroup = $request->input('discipline_group');
         $template = MilestoneTemplate::findOrFail($templateId);
         $profileIds = $request->input('supervisor_profile_ids', []);
         $supervisors = !empty($profileIds) 
@@ -964,7 +1040,7 @@ class MilestoneTemplateController extends Controller
         $milestonesQuery = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
             ->where('status', '!=', 'approved')
             ->where('status', '!=', 'withdrawn')
-            ->with('thesis');
+            ->with(['thesis.student.program', 'thesis.defenceEvents.panelMembers']);
 
         if ($isCoordinator) {
             $coordinatorProfile = auth()->user()->coordinatorProfiles()->where('active', true)->first();
@@ -980,8 +1056,90 @@ class MilestoneTemplateController extends Controller
             'proposal_defence' => 'proposal',
             'progress_report_1' => 'progress_report_1',
             'progress_report_2' => 'progress_report_2',
+            'internal_defence' => 'internal',
+            'viva' => 'external',
             default => 'first_seminar',
         };
+
+        // Track/Discipline Group specific examiner assignment
+        if ($disciplineGroup) {
+            $metadata = $template->metadata ?? [];
+            $groupExaminers = $metadata['group_examiners'] ?? [];
+            $groupLabel = match($disciplineGroup) {
+                'cybersecurity' => 'Cybersecurity',
+                'artificial_intelligence' => 'Artificial Intelligence',
+                'management_information_systems' => 'Management Information Systems',
+                default => ucfirst($disciplineGroup),
+            };
+
+            if ($supervisors->isEmpty()) {
+                unset($groupExaminers[$disciplineGroup]);
+                $metadata['group_examiners'] = $groupExaminers;
+                $template->update(['metadata' => $metadata]);
+
+                $clearedCount = 0;
+                foreach ($milestones as $milestone) {
+                    if ($milestone->discipline_group !== $disciplineGroup) continue;
+                    $thesisId = $milestone->thesis_project_id ?? $milestone->thesis?->id;
+                    if (!$thesisId) continue;
+
+                    $event = \App\Models\DefenceEvent::where('thesis_project_id', $thesisId)->where('type', $type)->first();
+                    if ($event) {
+                        \App\Models\PanelMember::where('defence_event_id', $event->id)->where('role', 'examiner')->delete();
+                        $clearedCount++;
+                    }
+                }
+                return back()->with('success', "Examiner assignments cleared for the {$groupLabel} track in {$template->name}.");
+            }
+
+            $groupExaminers[$disciplineGroup] = [
+                'profile_ids' => $supervisors->pluck('id')->values()->all(),
+                'user_ids' => $supervisors->pluck('user_id')->values()->all(),
+            ];
+            $metadata['group_examiners'] = $groupExaminers;
+            $template->update(['metadata' => $metadata]);
+
+            $assignedCount = 0;
+            foreach ($milestones as $milestone) {
+                if ($milestone->discipline_group !== $disciplineGroup) continue;
+                $thesisId = $milestone->thesis_project_id ?? $milestone->thesis?->id;
+                if (!$thesisId) continue;
+
+                $event = \App\Models\DefenceEvent::firstOrCreate(
+                    [
+                        'thesis_project_id' => $thesisId,
+                        'type' => $type,
+                    ],
+                    [
+                        'schedule_start' => $milestone->defence_date ? \Carbon\Carbon::parse($milestone->defence_date)->setHour(9) : now()->addDays(7),
+                        'schedule_end' => $milestone->defence_date ? \Carbon\Carbon::parse($milestone->defence_date)->setHour(10) : now()->addDays(7)->addHour(),
+                    ]
+                );
+
+                \App\Models\PanelMember::where('defence_event_id', $event->id)->where('role', 'examiner')->delete();
+
+                foreach ($supervisors as $supervisor) {
+                    \App\Models\PanelMember::create([
+                        'defence_event_id' => $event->id,
+                        'user_id' => $supervisor->user_id,
+                        'role' => 'examiner',
+                        'invitation_status' => 'accepted'
+                    ]);
+                }
+                $assignedCount++;
+            }
+
+            try {
+                foreach ($supervisors as $supervisor) {
+                    $supervisor->user->notify(new \App\Notifications\ExaminerNominated($template, $request->custom_message, $assignedCount));
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Notification failed in assignExaminerGlobal: ' . $e->getMessage());
+            }
+
+            $names = $supervisors->map(fn($s) => $s->user->name)->implode(', ');
+            return back()->with('success', "Examiner(s) ({$names}) assigned to {$assignedCount} candidate(s) in the {$groupLabel} track for {$template->name} and notified successfully.");
+        }
 
         // If no supervisors selected, clear/unassign all examiners
         if ($supervisors->isEmpty()) {
@@ -1116,6 +1274,8 @@ class MilestoneTemplateController extends Controller
                         'proposal_defence' => 'proposal',
                         'progress_report_1' => 'progress_report_1',
                         'progress_report_2' => 'progress_report_2',
+                        'internal_defence' => 'internal',
+                        'viva' => 'external',
                         default => null,
                     };
                     $event = $eventType ? current($milestone->thesis->defenceEvents->where('type', $eventType)->all()) : null;
@@ -1182,12 +1342,15 @@ class MilestoneTemplateController extends Controller
             "Expires" => "0"
         ];
 
+        $isSeminar = $template->slug === 'seminar_as_a_course';
         $isPassFail = in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2']);
-        $columns = $isPassFail
-            ? ['Student Name', 'Matric Number', 'Presentation Date', 'Grade / Result']
-            : ['Student Name', 'Matric Number', 'Presentation Date', 'Average Score'];
+        $columns = $isSeminar
+            ? ['Student Name', 'Matric Number', 'Discipline Track', 'Presentation Date', 'Slot Time', 'Meeting Link', 'Average Score']
+            : ($isPassFail
+                ? ['Student Name', 'Matric Number', 'Presentation Date', 'Grade / Result']
+                : ['Student Name', 'Matric Number', 'Presentation Date', 'Average Score']);
 
-        $callback = function() use($milestones, $columns, $template, $isPassFail) {
+        $callback = function() use($milestones, $columns, $template, $isPassFail, $isSeminar) {
             $file = fopen('php://output', 'w');
             fputcsv($file, $columns);
 
@@ -1196,6 +1359,8 @@ class MilestoneTemplateController extends Controller
                 'proposal_defence' => 'proposal',
                 'progress_report_1' => 'progress_report_1',
                 'progress_report_2' => 'progress_report_2',
+                'internal_defence' => 'internal',
+                'viva' => 'external',
                 default => 'first_seminar',
             };
 
@@ -1230,12 +1395,21 @@ class MilestoneTemplateController extends Controller
                     }
                 }
 
-                fputcsv($file, [
+                $row = [
                     $milestone->thesis->student->user->name ?? '',
                     $milestone->thesis->student->student_id_number ?? '',
-                    $milestone->defence_date ?? 'Not Scheduled',
-                    $avgScore
-                ]);
+                ];
+                if ($isSeminar) {
+                    $row[] = $milestone->discipline_group_label ?? 'General';
+                }
+                $row[] = $milestone->defence_date ?? 'Not Scheduled';
+                if ($isSeminar) {
+                    $row[] = $milestone->defence_time ?? 'N/A';
+                    $row[] = $milestone->meeting_link ?? 'N/A';
+                }
+                $row[] = $avgScore;
+
+                fputcsv($file, $row);
             }
             fclose($file);
         };
@@ -1334,6 +1508,11 @@ class MilestoneTemplateController extends Controller
 
         $milestones = $query->get();
 
+        $selectedGroup = request()->query('discipline_group');
+        if ($selectedGroup && in_array($selectedGroup, ['cybersecurity', 'artificial_intelligence', 'management_information_systems'])) {
+            $milestones = $milestones->filter(fn($m) => $m->discipline_group === $selectedGroup)->values();
+        }
+
         // Arranged according to their presentation date (ascending)
         $scheduledMilestones = $milestones->sortBy(function($m) {
             $date = $m->defence_date ? \Carbon\Carbon::parse($m->defence_date)->format('Y-m-d') : '9999-12-31';
@@ -1341,12 +1520,120 @@ class MilestoneTemplateController extends Controller
             return $date . ' ' . $time;
         })->values();
 
-        // Title: "Seminar presentation scheduled"
-        $title = ($template->slug === 'seminar_as_a_course') 
-            ? 'Seminar presentation scheduled' 
-            : ($template->name . ' Presentation Scheduled');
+        $metadata = $template->metadata ?? [];
+        $trackZoomLinks = $metadata['track_zoom_links'] ?? [];
 
-        // Starting Date & Ending Date
+        $trackDefs = [
+            'cybersecurity' => [
+                'name' => 'Cybersecurity',
+                'badge' => 'Cybersecurity',
+                'icon' => '🛡️',
+                'color' => '#0e7490',
+                'border_color' => '#0891b2',
+                'bg_color' => '#f0fdfa',
+                'header_bg' => '#0e7490',
+            ],
+            'artificial_intelligence' => [
+                'name' => 'Artificial Intelligence',
+                'badge' => 'Artificial Intelligence',
+                'icon' => '🤖',
+                'color' => '#6d28d9',
+                'border_color' => '#7c3aed',
+                'bg_color' => '#f5f3ff',
+                'header_bg' => '#6d28d9',
+            ],
+            'management_information_systems' => [
+                'name' => 'Management Information Systems',
+                'badge' => 'Management Information Systems',
+                'icon' => '📊',
+                'color' => '#b45309',
+                'border_color' => '#d97706',
+                'bg_color' => '#fffbeb',
+                'header_bg' => '#b45309',
+            ],
+            'other' => [
+                'name' => 'General / Other Disciplines',
+                'badge' => 'General',
+                'icon' => '🎓',
+                'color' => '#1e293b',
+                'border_color' => '#334155',
+                'bg_color' => '#f8fafc',
+                'header_bg' => '#1e293b',
+            ],
+        ];
+
+        // Organize into groups
+        $groups = [];
+        if ($template->slug === 'seminar_as_a_course') {
+            $tracksToIterate = $selectedGroup ? [$selectedGroup] : ['cybersecurity', 'artificial_intelligence', 'management_information_systems'];
+            
+            $otherCount = $scheduledMilestones->where('discipline_group', 'other')->count();
+            if ($otherCount > 0 && !$selectedGroup) {
+                $tracksToIterate[] = 'other';
+            }
+
+            foreach ($tracksToIterate as $tKey) {
+                $groupItems = $scheduledMilestones->filter(fn($m) => $m->discipline_group === $tKey)->values();
+                if ($groupItems->isEmpty() && !$selectedGroup) {
+                    continue;
+                }
+                $def = $trackDefs[$tKey] ?? $trackDefs['other'];
+                $grpZoom = $trackZoomLinks[$tKey] ?? $groupItems->first(fn($m) => !empty($m->meeting_link))?->meeting_link;
+
+                // Group examiners
+                $examinerUserIds = $metadata['group_examiners'][$tKey]['user_ids'] ?? ($metadata['examiner_user_ids'] ?? []);
+                $examinerNames = !empty($examinerUserIds) 
+                    ? \App\Models\User::whereIn('id', $examinerUserIds)->pluck('name')->all() 
+                    : [];
+
+                $groups[] = [
+                    'key' => $tKey,
+                    'name' => $def['name'],
+                    'badge' => $def['badge'],
+                    'icon' => $def['icon'],
+                    'color' => $def['color'],
+                    'border_color' => $def['border_color'],
+                    'bg_color' => $def['bg_color'],
+                    'header_bg' => $def['header_bg'],
+                    'zoom_link' => $grpZoom,
+                    'examiners' => $examinerNames,
+                    'items' => $groupItems,
+                    'count' => $groupItems->count(),
+                    'start_date' => $groupItems->first()?->defence_date ? \Carbon\Carbon::parse($groupItems->first()->defence_date)->format('D, M d, Y') : 'N/A',
+                    'end_date' => $groupItems->last()?->defence_date ? \Carbon\Carbon::parse($groupItems->last()->defence_date)->format('D, M d, Y') : 'N/A',
+                ];
+            }
+        } else {
+            $groups[] = [
+                'key' => 'all',
+                'name' => $template->name,
+                'badge' => $template->name,
+                'icon' => '🎓',
+                'color' => '#065f46',
+                'border_color' => '#047857',
+                'bg_color' => '#f0fdf4',
+                'header_bg' => '#065f46',
+                'zoom_link' => $scheduledMilestones->first(fn($m) => !empty($m->meeting_link))?->meeting_link,
+                'examiners' => !empty($metadata['examiner_user_ids']) 
+                    ? \App\Models\User::whereIn('id', $metadata['examiner_user_ids'])->pluck('name')->all() 
+                    : [],
+                'items' => $scheduledMilestones,
+                'count' => $scheduledMilestones->count(),
+                'start_date' => $scheduledMilestones->first()?->defence_date ? \Carbon\Carbon::parse($scheduledMilestones->first()->defence_date)->format('D, M d, Y') : 'N/A',
+                'end_date' => $scheduledMilestones->last()?->defence_date ? \Carbon\Carbon::parse($scheduledMilestones->last()->defence_date)->format('D, M d, Y') : 'N/A',
+            ];
+        }
+
+        // Title
+        if ($selectedGroup && isset($trackDefs[$selectedGroup])) {
+            $title = 'Seminar presentation scheduled — ' . $trackDefs[$selectedGroup]['name'] . ' Group';
+        } else {
+            $title = ($template->slug === 'seminar_as_a_course') 
+                ? 'Seminar presentation scheduled' 
+                : ($template->name . ' Presentation Scheduled');
+        }
+
+        // Overall Starting Date & Ending Date
         $startingDate = $scheduledMilestones->first()?->defence_date 
             ? \Carbon\Carbon::parse($scheduledMilestones->first()->defence_date)->format('D, M d, Y') 
             : 'N/A';
@@ -1361,21 +1648,161 @@ class MilestoneTemplateController extends Controller
 
         $cohortsDisplay = !empty($cohorts) ? implode(', ', $cohorts) : 'All Cohorts';
 
+        $groupBreakdownParts = [];
+        foreach ($groups as $g) {
+            $groupBreakdownParts[] = $g['count'] . ' ' . $g['name'];
+        }
+        $groupBreakdown = implode(' • ', $groupBreakdownParts);
+
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.scheduled-presentation', [
             'template' => $template,
             'title' => $title,
+            'groups' => $groups,
             'scheduledMilestones' => $scheduledMilestones,
             'startingDate' => $startingDate,
             'endingDate' => $endingDate,
             'cohortsDisplay' => $cohortsDisplay,
+            'groupBreakdown' => $groupBreakdown,
+            'selectedGroup' => $selectedGroup,
             'generatedAt' => now()->format('M d, Y h:i A'),
         ]);
 
         $pdf->setPaper('a4', 'landscape');
 
-        $fileName = str_replace(' ', '_', strtolower($title)) . '_' . now()->format('Ymd_His') . '.pdf';
+        $fileName = str_replace([' ', '—', '-'], '_', strtolower($title)) . '_' . now()->format('Ymd_His') . '.pdf';
+        $fileName = preg_replace('/_+/', '_', $fileName);
 
         return $pdf->download($fileName);
+    }
+
+    /**
+
+    /**
+     * Broadcast an inbox message and/or email to students on this milestone.
+     */
+    public function broadcastMessage(Request $request, MilestoneTemplate $template)
+    {
+        $validated = $request->validate([
+            'target' => 'required|in:selected,all,single',
+            'student_milestone_id' => 'nullable|exists:student_milestones,id',
+            'milestone_ids' => 'nullable|array',
+            'milestone_ids.*' => 'exists:student_milestones,id',
+            'channels' => 'required|array|min:1',
+            'channels.*' => 'in:inbox,email',
+            'subject' => 'required|string|max:255',
+            'body' => 'required|string|max:10000',
+            'priority' => 'nullable|in:normal,important,urgent',
+        ]);
+
+        $channels = $validated['channels'];
+        $hasInbox = in_array('inbox', $channels);
+        $hasEmail = in_array('email', $channels);
+        $deliveryMethod = ($hasInbox && $hasEmail) ? 'both' : ($hasInbox ? 'in_app' : 'email');
+
+        $user = auth()->user();
+        $isCoordinator = $user->hasRole('Program Coordinator') && !$user->hasRole('Admin');
+        $coordinatorProgramId = null;
+
+        if ($isCoordinator) {
+            $coordinatorProfile = $user->coordinatorProfiles()->where('active', true)->first();
+            $coordinatorProgramId = $coordinatorProfile ? $coordinatorProfile->program_id : -1;
+        }
+
+        // Fetch candidate student milestones
+        $target = $validated['target'];
+        if ($target === 'single') {
+            if (empty($validated['student_milestone_id'])) {
+                return back()->with('error', 'No candidate specified for single student message.');
+            }
+            $milestones = \App\Models\StudentMilestone::where('id', $validated['student_milestone_id'])
+                ->with('thesis.student.user')
+                ->get();
+        } elseif ($target === 'selected') {
+            $ids = $request->input('milestone_ids', []);
+            if (empty($ids)) {
+                return back()->with('error', 'No students were selected. Please select at least one student or choose to message all.');
+            }
+            $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+                ->whereIn('id', $ids)
+                ->with('thesis.student.user')
+                ->get();
+        } else {
+            // Target is 'all'
+            $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+                ->whereIn('status', ['in_progress', 'submitted', 'revision_required', 'partially_approved'])
+                ->with('thesis.student.user')
+                ->get();
+            
+            // If empty under active statuses, fallback to all student milestones for this template
+            if ($milestones->isEmpty()) {
+                $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+                    ->with('thesis.student.user')
+                    ->get();
+            }
+        }
+
+        if ($isCoordinator && $coordinatorProgramId) {
+            $milestones = $milestones->filter(function($sm) use ($coordinatorProgramId) {
+                return $sm->thesis?->student?->program_id == $coordinatorProgramId;
+            });
+        }
+
+        // Extract student User models
+        $studentUsers = $milestones->map(function($sm) {
+            return $sm->thesis?->student?->user;
+        })->filter()->unique('id')->values();
+
+        if ($studentUsers->isEmpty()) {
+            return back()->with('error', 'No valid student user accounts were found for the chosen recipient selection.');
+        }
+
+        // Format subject with priority tag if needed
+        $subject = trim($validated['subject']);
+        $priority = $validated['priority'] ?? 'normal';
+        if ($priority === 'urgent' && !str_starts_with(strtoupper($subject), '[URGENT]')) {
+            $subject = '[URGENT] ' . $subject;
+        } elseif ($priority === 'important' && !str_starts_with(strtoupper($subject), '[IMPORTANT]')) {
+            $subject = '[IMPORTANT] ' . $subject;
+        }
+
+        // Create InboxMessage record
+        $inboxMessage = \App\Models\InboxMessage::create([
+            'sender_id' => $user->id,
+            'subject' => $subject,
+            'body' => $validated['body'],
+            'delivery_method' => $deliveryMethod,
+        ]);
+
+        // Attach recipients in bulk
+        $attachData = [];
+        $recipientIds = [];
+        foreach ($studentUsers as $stUser) {
+            $attachData[$stUser->id] = [
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'recipient_type' => 'to',
+                'read_at' => null,
+                'is_starred' => false,
+                'is_archived' => false,
+            ];
+            $recipientIds[] = $stUser->id;
+        }
+        foreach (array_chunk($attachData, 500, true) as $chunk) {
+            $inboxMessage->recipients()->attach($chunk);
+        }
+
+        // Dispatch notifications via ProcessMessageDelivery
+        try {
+            \App\Jobs\ProcessMessageDelivery::dispatch($inboxMessage, $recipientIds);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("ProcessMessageDelivery dispatch error: " . $e->getMessage());
+        }
+
+        // Construct descriptive success message
+        $channelDesc = ($hasInbox && $hasEmail) ? 'System Inbox & Email' : ($hasInbox ? 'System Inbox' : 'Direct Email');
+        $count = $studentUsers->count();
+        $studentLabel = $count === 1 ? 'student candidate' : 'student candidates';
+
+        return back()->with('success', "Dispatched message to {$count} {$studentLabel} on {$template->name} via {$channelDesc}.");
     }
 
     /**
@@ -1581,4 +2008,3 @@ class MilestoneTemplateController extends Controller
         return $pdf->download($fileName);
     }
 }
-

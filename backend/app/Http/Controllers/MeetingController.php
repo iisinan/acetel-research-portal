@@ -10,40 +10,39 @@ class MeetingController extends Controller
 {
     public function join(Request $request, StudentMilestone $milestone)
     {
-        $user = auth()->user();
-        
-        $milestone->load('thesis.student.user', 'template');
-        
-        $roomName = 'ACETEL-Presentation-' . $milestone->id . '-' . md5($milestone->thesis_project_id);
-        
-        $eventName = $milestone->template->name;
-        $studentName = $milestone->thesis->student->user->name ?? 'Candidate';
+        $link = $milestone->meeting_link;
 
-        return view('meeting.join', compact('milestone', 'user', 'roomName', 'eventName', 'studentName'));
+        if (!empty($link) && filter_var($link, FILTER_VALIDATE_URL)) {
+            return redirect()->away($link);
+        }
+
+        // Check if defense event has location link
+        $event = $milestone->thesis?->defenceEvents()->latest()->first();
+        if ($event && !empty($event->location) && filter_var($event->location, FILTER_VALIDATE_URL)) {
+            return redirect()->away($event->location);
+        }
+
+        return back()->with('info', 'Virtual presentation room: A Zoom meeting link has not yet been assigned by the administrator for this session.');
     }
 
     public function joinEvent(Request $request, DefenceEvent $event)
     {
-        $user = auth()->user();
-        
-        $event->load('thesis.student.user');
-        
-        // Find corresponding milestone to keep room name consistent
-        // If we can't find it, fallback to event ID
-        $milestone = \App\Models\StudentMilestone::where('thesis_project_id', $event->thesis_project_id)
-            ->whereIn('status', ['in_progress', 'submitted', 'revision_required', 'approved', 'partially_approved'])
+        $link = $event->location;
+
+        if (!empty($link) && filter_var($link, FILTER_VALIDATE_URL)) {
+            return redirect()->away($link);
+        }
+
+        // Check milestone meeting_link
+        $milestone = StudentMilestone::where('thesis_project_id', $event->thesis_project_id)
+            ->whereNotNull('meeting_link')
             ->latest()
             ->first();
 
-        if ($milestone) {
-            $roomName = 'ACETEL-Presentation-' . $milestone->id . '-' . md5($event->thesis_project_id);
-        } else {
-            $roomName = 'ACETEL-Event-' . $event->id . '-' . md5($event->thesis_project_id);
+        if ($milestone && !empty($milestone->meeting_link) && filter_var($milestone->meeting_link, FILTER_VALIDATE_URL)) {
+            return redirect()->away($milestone->meeting_link);
         }
-        
-        $eventName = ucfirst(str_replace('_', ' ', $event->type));
-        $studentName = $event->thesis->student->user->name ?? 'Candidate';
 
-        return view('meeting.join', compact('user', 'roomName', 'eventName', 'studentName'));
+        return back()->with('info', 'Virtual presentation room: A Zoom meeting link has not yet been assigned by the administrator for this defence event.');
     }
 }

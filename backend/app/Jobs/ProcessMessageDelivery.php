@@ -39,7 +39,11 @@ class ProcessMessageDelivery implements ShouldQueue
         // Chunk broadcasts to avoid memory issues
         if (in_array($this->message->delivery_method, ['in_app', 'both', null])) {
             foreach ($this->recipientIds as $userId) {
-                \App\Events\MessageReceived::dispatch($this->message, $userId);
+                try {
+                    \App\Events\MessageReceived::dispatch($this->message, $userId);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning("Realtime broadcast error in ProcessMessageDelivery: " . $e->getMessage());
+                }
             }
         }
 
@@ -48,7 +52,11 @@ class ProcessMessageDelivery implements ShouldQueue
             $userChunks = array_chunk($this->recipientIds, 500);
             foreach ($userChunks as $chunk) {
                 $users = User::whereIn('id', $chunk)->get();
-                Notification::send($users, new \App\Notifications\NewInboxMessage($this->message));
+                try {
+                    Notification::send($users, new \App\Notifications\NewInboxMessage($this->message));
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error("Email delivery failed in ProcessMessageDelivery: " . $e->getMessage());
+                }
             }
         }
     }

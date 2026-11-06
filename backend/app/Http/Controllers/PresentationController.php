@@ -42,9 +42,67 @@ class PresentationController extends Controller
 
         $presentationTitle = $template->presentation_title;
 
+        // Retrieve all active presentation templates with scheduled candidates
+        $allPresentationTabs = MilestoneTemplate::getActivePresentations()
+            ->filter(fn($pt) => $pt->studentMilestones->where('status', '!=', 'approved')->whereNotNull('defence_date')->isNotEmpty())
+            ->values();
+
+        // If there are NO active scheduled candidates for this template, redirect gracefully
+        if ($allScheduled->isEmpty()) {
+            if ($allPresentationTabs->isNotEmpty()) {
+                return redirect()->route('presentations.show', $allPresentationTabs->first()->id)
+                    ->with('info', "Presentation schedule for {$template->name} is not active. Switched to active session.");
+            }
+
+            if (auth()->user()?->hasRole('Admin')) {
+                return redirect()->route('admin.milestone-templates.index')
+                    ->with('info', "Presentation schedule for {$template->name} has been cancelled or has concluded.");
+            }
+
+            return redirect()->route('dashboard')
+                ->with('info', "There is currently no active presentation session for {$template->name}.");
+        }
+
+        // Ensure current active presentation template is present in tabs
+        if (!$allPresentationTabs->contains('id', $template->id)) {
+            $allPresentationTabs->push($template);
+            $allPresentationTabs = $allPresentationTabs->sortBy('order')->values();
+        }
+
         // Determine date range for display
         $startDate = $allScheduled->first() ? Carbon::parse($allScheduled->first()->defence_date)->format('M d, Y') : null;
         $endDate = $allScheduled->last() ? Carbon::parse($allScheduled->last()->defence_date)->format('M d, Y') : null;
+
+        $isSeminarCourse = $template->slug === 'seminar_as_a_course';
+        $trackData = [];
+        if ($isSeminarCourse) {
+            $tracks = [
+                'cybersecurity' => 'Cybersecurity',
+                'artificial_intelligence' => 'Artificial Intelligence',
+                'management_information_systems' => 'Management Information Systems',
+            ];
+
+            foreach ($tracks as $trackKey => $trackLabel) {
+                $trackMilestones = $allScheduled->filter(fn($m) => $m->discipline_group === $trackKey);
+                $trackToday = $todayPresenters->filter(fn($m) => $m->discipline_group === $trackKey);
+                $trackMeetingLink = $trackToday->first(fn($m) => !empty($m->meeting_link))?->meeting_link
+                    ?? $trackMilestones->first(fn($m) => !empty($m->meeting_link))?->meeting_link;
+
+                $trackExaminerUserIds = $template->metadata['group_examiners'][$trackKey]['user_ids'] ?? [];
+                $trackExaminers = !empty($trackExaminerUserIds) 
+                    ? \App\Models\User::whereIn('id', $trackExaminerUserIds)->get()
+                    : collect();
+
+                $trackData[$trackKey] = [
+                    'key' => $trackKey,
+                    'label' => $trackLabel,
+                    'total' => $trackMilestones->count(),
+                    'today_count' => $trackToday->count(),
+                    'meeting_link' => $trackMeetingLink,
+                    'examiners' => $trackExaminers,
+                ];
+            }
+        }
 
         return view('presentations.show', compact(
             'template',
@@ -55,7 +113,10 @@ class PresentationController extends Controller
             'meetingLink',
             'presentationTitle',
             'startDate',
-            'endDate'
+            'endDate',
+            'allPresentationTabs',
+            'isSeminarCourse',
+            'trackData'
         ));
     }
 }
