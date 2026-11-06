@@ -42,8 +42,9 @@ class MilestoneTemplateController extends Controller
             }])->orderBy('order')->get();
             
         $supervisors = \App\Models\SupervisorProfile::with(['user', 'programs'])->get();
-        $cohorts = \App\Models\Cohort::all();
-        return view('admin.milestone-templates.index', compact('templates', 'supervisors', 'isCoordinator', 'cohorts'));
+        $cohorts = \App\Models\Cohort::orderBy('name')->get();
+        $programs = Program::orderBy('name')->get();
+        return view('admin.milestone-templates.index', compact('templates', 'supervisors', 'isCoordinator', 'cohorts', 'programs'));
     }
 
     public function create()
@@ -1373,6 +1374,209 @@ class MilestoneTemplateController extends Controller
         $pdf->setPaper('a4', 'landscape');
 
         $fileName = str_replace(' ', '_', strtolower($title)) . '_' . now()->format('Ymd_His') . '.pdf';
+
+        return $pdf->download($fileName);
+    }
+
+    /**
+     * Build base query for all students in ongoing milestones.
+     */
+    protected function getOngoingMilestonesQuery(Request $request)
+    {
+        $user = auth()->user();
+        $isCoordinator = $user->hasRole('Program Coordinator');
+        $coordinatorProgramId = null;
+
+        if ($isCoordinator) {
+            $coordinatorProfile = $user->coordinatorProfiles()->where('active', true)->first();
+            $coordinatorProgramId = $coordinatorProfile ? $coordinatorProfile->program_id : -1;
+        }
+
+        $query = \App\Models\StudentMilestone::whereIn('status', ['in_progress', 'submitted', 'revision_required', 'partially_approved'])
+            ->with([
+                'template',
+                'thesis.student.user',
+                'thesis.student.program',
+                'thesis.student.level',
+                'thesis.student.cohort',
+                'thesis.assignments.supervisor.user',
+                'thesis.internalExaminer.user',
+                'submissions' => fn($q) => $q->latest(),
+            ]);
+
+        if ($isCoordinator) {
+            $query->whereHas('thesis.student', function($sq) use ($coordinatorProgramId) {
+                $sq->where('program_id', $coordinatorProgramId);
+            });
+        } elseif ($request->filled('program_id')) {
+            $query->whereHas('thesis.student', function($sq) use ($request) {
+                $sq->where('program_id', $request->program_id);
+            });
+        }
+
+        if ($request->filled('cohort_id')) {
+            $query->whereHas('thesis.student', function($sq) use ($request) {
+                $sq->where('cohort_id', $request->cohort_id);
+            });
+        }
+
+        if ($request->filled('template_id')) {
+            $query->where('milestone_template_id', $request->template_id);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Download all students ongoing milestone records as Excel (CSV).
+     */
+    public function exportOngoingExcel(Request $request)
+    {
+        $milestones = $this->getOngoingMilestonesQuery($request)->get();
+
+        $sortedMilestones = $milestones->sortBy(function($m) {
+            $order = $m->template?->order ?? 999;
+            $program = $m->thesis?->student?->program?->code ?? '';
+            $name = $m->thesis?->student?->user?->name ?? '';
+            return sprintf('%04d-%s-%s', $order, $program, $name);
+        })->values();
+
+        $fileName = 'ongoing_students_milestones_' . now()->format('Ymd_His') . '.csv';
+
+        $headers = [
+            "Content-type" => "text/csv; charset=UTF-8",
+            "Content-Disposition" => "attachment; filename={$fileName}",
+            "Pragma" => "no-cache",
+            "Cache-Control" => "must-revalidate, post-check=0, pre-check=0",
+            "Expires" => "0"
+        ];
+
+        $columns = [
+            '#',
+            'Milestone Order',
+            'Ongoing Milestone',
+            'Student Name',
+            'Matric Number',
+            'Email',
+            'Program',
+            'Level',
+            'Cohort',
+            'Thesis Title',
+            'Milestone Status',
+            'Supervisor Approval',
+            'Supervisor(s)',
+            'Internal Examiner',
+            'Scheduled Defence Date',
+            'Defence Time',
+            'Meeting Link / Venue',
+            'Last Submission Date'
+        ];
+
+        $callback = function() use ($sortedMilestones, $columns) {
+            $file = fopen('php://output', 'w');
+            // Write UTF-8 BOM so Excel opens with proper encoding
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            fputcsv($file, $columns);
+
+            foreach ($sortedMilestones as $idx => $m) {
+                $student = $m->thesis?->student;
+                $user = $student?->user;
+                $supervisors = implode('; ', $m->thesis?->getSupervisorNames() ?? []);
+
+                $statusText = match($m->status) {
+                    'in_progress' => 'In Progress',
+                    'submitted' => 'Submitted',
+                    'revision_required' => 'Revision Required',
+                    'partially_approved' => 'Partially Approved',
+                    default => ucfirst(str_replace('_', ' ', $m->status))
+                };
+
+                fputcsv($file, [
+                    $idx + 1,
+                    $m->template?->order ?? 'N/A',
+                    $m->template?->name ?? 'N/A',
+                    $user?->name ?? 'N/A',
+                    $student?->student_id_number ?? 'N/A',
+                    $user?->email ?? 'N/A',
+                    $student?->program?->code ?? ($student?->program?->name ?? 'N/A'),
+                    $student?->level?->name ?? 'N/A',
+                    $student?->cohort?->name ?? 'N/A',
+                    $m->thesis?->title ?? 'Untitled Thesis',
+                    $statusText,
+                    $m->is_supervisor_approved ? 'Approved' : 'Pending',
+                    $supervisors ?: 'None Assigned',
+                    $m->thesis?->internalExaminer?->user?->name ?? 'None Assigned',
+                    $m->defence_date ? \Carbon\Carbon::parse($m->defence_date)->format('Y-m-d') : 'Not Scheduled',
+                    $m->defence_time ? \Carbon\Carbon::parse($m->defence_time)->format('h:i A') : 'N/A',
+                    $m->meeting_link ?: ($m->defence_location ?: 'N/A'),
+                    $m->submissions->first()?->created_at ? $m->submissions->first()->created_at->format('Y-m-d H:i') : 'No Submission'
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Download all students ongoing milestone records as formatted PDF report.
+     */
+    public function exportOngoingPdf(Request $request)
+    {
+        $milestones = $this->getOngoingMilestonesQuery($request)->get();
+
+        $groupedMilestones = [];
+        $byTemplate = $milestones->groupBy('milestone_template_id');
+
+        $allTemplates = MilestoneTemplate::whereIn('id', $byTemplate->keys())->orderBy('order')->get();
+        foreach ($allTemplates as $tpl) {
+            $list = $byTemplate->get($tpl->id);
+            if ($list && $list->count() > 0) {
+                $sortedList = $list->sortBy(function($m) {
+                    $prog = $m->thesis?->student?->program?->code ?? '';
+                    $name = $m->thesis?->student?->user?->name ?? '';
+                    return $prog . ' ' . $name;
+                })->values();
+
+                $groupedMilestones[] = [
+                    'template' => $tpl,
+                    'milestones' => $sortedList
+                ];
+            }
+        }
+
+        $programScope = 'All Programs';
+        if ($request->filled('program_id')) {
+            $p = Program::find($request->program_id);
+            if ($p) $programScope = $p->name . ' (' . $p->code . ')';
+        } elseif (auth()->user()->hasRole('Program Coordinator')) {
+            $coord = auth()->user()->coordinatorProfiles()->where('active', true)->first();
+            if ($coord && $coord->program) {
+                $programScope = $coord->program->name . ' (' . $coord->program->code . ')';
+            }
+        }
+
+        $cohortScope = 'All Cohorts';
+        if ($request->filled('cohort_id')) {
+            $c = \App\Models\Cohort::find($request->cohort_id);
+            if ($c) $cohortScope = $c->name;
+        }
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.ongoing-milestones', [
+            'title' => 'Students Ongoing Milestones Report',
+            'groupedMilestones' => $groupedMilestones,
+            'totalStudents' => $milestones->count(),
+            'scheduledCount' => $milestones->whereNotNull('defence_date')->count(),
+            'programScope' => $programScope,
+            'cohortScope' => $cohortScope,
+            'generatedAt' => now()->format('M d, Y h:i A'),
+            'generatedBy' => auth()->user()->name ?? 'Administrator',
+        ]);
+
+        $pdf->setPaper('a4', 'landscape');
+
+        $fileName = 'ongoing_students_report_' . now()->format('Ymd_His') . '.pdf';
 
         return $pdf->download($fileName);
     }

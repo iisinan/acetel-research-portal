@@ -85,6 +85,8 @@ Route::post('milestone-templates/{template}/date', [MilestoneTemplateController:
     Route::get('past-presentations', [\App\Http\Controllers\Admin\PastPresentationController::class, 'index'])->name('past-presentations.index');
     Route::get('past-presentations/export-scores', [\App\Http\Controllers\Admin\PastPresentationController::class, 'exportScores'])->name('past-presentations.export-scores');
     Route::get('past-presentations/export-attendance', [\App\Http\Controllers\Admin\PastPresentationController::class, 'exportAttendance'])->name('past-presentations.export-attendance');
+    Route::get('milestone-templates/export-ongoing-excel', [MilestoneTemplateController::class, 'exportOngoingExcel'])->name('milestone-templates.export-ongoing-excel');
+    Route::get('milestone-templates/export-ongoing-pdf', [MilestoneTemplateController::class, 'exportOngoingPdf'])->name('milestone-templates.export-ongoing-pdf');
     Route::post('milestone-templates/{template}/cancel-schedule', [MilestoneTemplateController::class, 'cancelSchedule'])->name('milestone-templates.cancel-schedule');
     Route::post('milestone-templates/{template}/update-schedule', [MilestoneTemplateController::class, 'updateSchedule'])->name('milestone-templates.update-schedule');
     Route::post('milestone-templates/{template}/reschedule-day', [MilestoneTemplateController::class, 'rescheduleDay'])->name('milestone-templates.reschedule-day');
