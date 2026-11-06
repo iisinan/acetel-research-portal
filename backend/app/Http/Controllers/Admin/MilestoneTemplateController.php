@@ -48,6 +48,11 @@ class MilestoneTemplateController extends Controller
         return view('admin.milestone-templates.index', compact('templates', 'supervisors', 'isCoordinator', 'cohorts', 'programs'));
     }
 
+    public function show($id = null)
+    {
+        return redirect()->route('admin.milestone-templates.index');
+    }
+
     public function create()
     {
         $programs = Program::all();

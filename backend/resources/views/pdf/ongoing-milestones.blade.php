@@ -293,7 +293,7 @@
                                 @endif
                             </td>
                             <td>{{ $cohort }}</td>
-                            <td class="thesis-title">{{ Str::limit($title, 85) }}</td>
+                            <td class="thesis-title">{{ \Illuminate\Support\Str::limit($title, 85) }}</td>
                             <td class="supervisor-name">{{ $supervisors }}</td>
                             <td>
                                 <span class="status-badge status-{{ $status }}">{{ $statusText }}</span>
