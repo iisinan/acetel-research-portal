@@ -48,14 +48,16 @@ class PresentationController extends Controller
                 }
             }
 
-            // 2. Check panel members of defence events for this milestone template
-            $panelTracks = $allScheduled->filter(function($sm) use ($user) {
-                return $sm->thesis?->defenceEvents?->contains(function($de) use ($user) {
-                    return $de->panelMembers->contains(fn($pm) => $pm->user_id === $user->id && strtolower($pm->role ?? '') === 'examiner');
-                });
-            })->pluck('discipline_group')->filter()->unique()->all();
+            // 2. Check panel members of defence events for this milestone template only if not found in group_examiners
+            if (empty($examinerTracks)) {
+                $panelTracks = $allScheduled->filter(function($sm) use ($user) {
+                    return $sm->thesis?->defenceEvents?->contains(function($de) use ($user) {
+                        return $de->panelMembers->contains(fn($pm) => $pm->user_id === $user->id && strtolower($pm->role ?? '') === 'examiner');
+                    });
+                })->pluck('discipline_group')->filter()->unique()->all();
 
-            $examinerTracks = array_values(array_unique(array_merge($examinerTracks, $panelTracks)));
+                $examinerTracks = array_values(array_unique($panelTracks));
+            }
 
             // If user is assigned as an examiner for specific track(s), scope to those track(s) only
             if (!empty($examinerTracks)) {

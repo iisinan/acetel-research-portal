@@ -368,11 +368,24 @@
                                 default => 'first_seminar',
                             };
                             $todayDefEvent = $pres->thesis?->defenceEvents?->where('type', $todayEventType)->first();
-                            $todayExaminers = $todayDefEvent ? $todayDefEvent->panelMembers->map(fn($pm) => $pm->user?->name)->filter()->implode(', ') : '';
+                            $todayExaminers = '';
+                            $todayPms = collect();
+                            if ($todayDefEvent) {
+                                $todayPms = $todayDefEvent->panelMembers;
+                                if ($isSeminarCourse) {
+                                    $trackUserIds = $template->metadata['group_examiners'][$pres->discipline_group]['user_ids'] ?? [];
+                                    if (!empty($trackUserIds)) {
+                                        $todayPms = $todayPms->filter(fn($pm) => in_array($pm->user_id, $trackUserIds) || $pm->role !== 'examiner');
+                                    } else {
+                                        $todayPms = $todayPms->filter(fn($pm) => $pm->role !== 'examiner');
+                                    }
+                                }
+                                $todayExaminers = $todayPms->filter(fn($pm) => $pm->role === 'examiner')->map(fn($pm) => $pm->user?->name)->filter()->implode(', ');
+                            }
                             $todaySupervisors = $pres->thesis?->assignments?->map(fn($a) => $a->supervisor?->user?->name)->filter()->implode(', ');
                             $todayDisplayPanel = $todayExaminers ?: $todaySupervisors;
                             if (empty($todayDisplayPanel)) {
-                                if ($isSeminarCourse && !empty($trackData[$pres->discipline_group]['examiners'])) {
+                                if ($isSeminarCourse && !empty($trackData[$pres->discipline_group]['examiners']) && $trackData[$pres->discipline_group]['examiners']->isNotEmpty()) {
                                     $todayDisplayPanel = $trackData[$pres->discipline_group]['examiners']->pluck('name')->implode(', ');
                                 } elseif ($template->slug === 'internal_defence' && $pres->thesis?->internalExaminer?->user) {
                                     $todayDisplayPanel = 'Internal Examiner: ' . $pres->thesis->internalExaminer->user->name;
@@ -481,8 +494,8 @@
                                 <div class="space-y-1 pt-1">
                                     <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Panel / Supervisors</div>
                                     <div class="flex flex-wrap gap-1">
-                                        @if($todayDefEvent && $todayDefEvent->panelMembers->count() > 0)
-                                            @foreach($todayDefEvent->panelMembers as $pm)
+                                        @if($todayPms->count() > 0)
+                                            @foreach($todayPms as $pm)
                                                 <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-purple-50 border border-purple-200/70 text-purple-800 text-[10px] font-bold">
                                                     <span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
                                                     <span class="truncate max-w-[150px]">{{ $pm->user?->name ?? 'Panel Member' }}</span>
@@ -783,11 +796,24 @@
                                         default => 'first_seminar',
                                     };
                                     $tableDefEvent = $sm->thesis?->defenceEvents?->where('type', $tableEventType)->first();
-                                    $examiners = $tableDefEvent ? $tableDefEvent->panelMembers->map(fn($pm) => $pm->user?->name)->filter()->implode(', ') : '';
+                                    $examiners = '';
+                                    $pms = collect();
+                                    if ($tableDefEvent) {
+                                        $pms = $tableDefEvent->panelMembers;
+                                        if ($isSeminarCourse) {
+                                            $trackUserIds = $template->metadata['group_examiners'][$sm->discipline_group]['user_ids'] ?? [];
+                                            if (!empty($trackUserIds)) {
+                                                $pms = $pms->filter(fn($pm) => in_array($pm->user_id, $trackUserIds) || $pm->role !== 'examiner');
+                                            } else {
+                                                $pms = $pms->filter(fn($pm) => $pm->role !== 'examiner');
+                                            }
+                                        }
+                                        $examiners = $pms->filter(fn($pm) => $pm->role === 'examiner')->map(fn($pm) => $pm->user?->name)->filter()->implode(', ');
+                                    }
                                     $supervisors = $sm->thesis?->assignments?->map(fn($a) => $a->supervisor?->user?->name)->filter()->implode(', ');
                                     $displayPanel = $examiners ?: $supervisors;
                                     if (empty($displayPanel)) {
-                                        if ($isSeminarCourse && !empty($trackData[$sm->discipline_group]['examiners'])) {
+                                        if ($isSeminarCourse && !empty($trackData[$sm->discipline_group]['examiners']) && $trackData[$sm->discipline_group]['examiners']->isNotEmpty()) {
                                             $displayPanel = $trackData[$sm->discipline_group]['examiners']->pluck('name')->implode(', ');
                                         } elseif ($template->slug === 'internal_defence' && $sm->thesis?->internalExaminer?->user) {
                                             $displayPanel = 'Internal Examiner: ' . $sm->thesis->internalExaminer->user->name;
@@ -918,8 +944,8 @@
                                     </td>
                                     <td class="px-5 py-4 align-middle">
                                         <div class="flex flex-col gap-1.5 max-w-xs">
-                                            @if($tableDefEvent && $tableDefEvent->panelMembers->count() > 0)
-                                                @foreach($tableDefEvent->panelMembers as $pm)
+                                            @if($pms->count() > 0)
+                                                @foreach($pms as $pm)
                                                     <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-50/90 border border-slate-200/70 text-slate-800 text-[11px] font-bold">
                                                         <span class="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0"></span>
                                                         <span class="truncate">{{ $pm->user?->name ?? 'Panel Member' }}</span>

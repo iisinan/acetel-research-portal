@@ -959,9 +959,16 @@ class MilestoneController extends Controller
                 $event->update(['outcome' => 'pending']);
             }
 
-            // Auto-attach template global examiners if none exist on this event yet
-            if ($event->panelMembers()->where('role', 'examiner')->count() === 0 && !empty($milestone->template?->metadata['examiner_user_ids'])) {
-                foreach ($milestone->template->metadata['examiner_user_ids'] as $uId) {
+            // Auto-attach template examiners if none exist on this event yet
+            $examinersToAutoAttach = [];
+            if ($milestone->template?->slug === 'seminar_as_a_course') {
+                $examinersToAutoAttach = $milestone->template->metadata['group_examiners'][$milestone->discipline_group]['user_ids'] ?? [];
+            } elseif (!empty($milestone->template?->metadata['examiner_user_ids'])) {
+                $examinersToAutoAttach = $milestone->template->metadata['examiner_user_ids'];
+            }
+
+            if ($event->panelMembers()->where('role', 'examiner')->count() === 0 && !empty($examinersToAutoAttach)) {
+                foreach ($examinersToAutoAttach as $uId) {
                     \App\Models\PanelMember::firstOrCreate([
                         'defence_event_id' => $event->id,
                         'user_id' => $uId,

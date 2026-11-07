@@ -375,9 +375,12 @@ class MilestoneTemplateController extends Controller
                 }
 
                 // Auto-attach examiners: check track/group-specific first, then global
+                // Institutional rule: Seminar as a Course is track-exclusive and must NEVER fall back to legacy global examiners.
                 $discGroup = $milestone->discipline_group;
                 $groupExaminers = $template->metadata['group_examiners'][$discGroup]['user_ids'] ?? null;
-                $examinersToAttach = !empty($groupExaminers) ? $groupExaminers : ($template->metadata['examiner_user_ids'] ?? []);
+                $examinersToAttach = !empty($groupExaminers) 
+                    ? $groupExaminers 
+                    : ($template->slug === 'seminar_as_a_course' ? [] : ($template->metadata['examiner_user_ids'] ?? []));
 
                 if ($event->panelMembers()->where('role', 'examiner')->count() === 0 && !empty($examinersToAttach)) {
                     foreach ($examinersToAttach as $uId) {
@@ -758,9 +761,15 @@ class MilestoneTemplateController extends Controller
                     ]
                 );
 
-                // Auto-attach template examiners if needed
-                if ($event->panelMembers()->where('role', 'examiner')->count() === 0 && !empty($template->metadata['examiner_user_ids'])) {
-                    foreach ($template->metadata['examiner_user_ids'] as $uId) {
+                // Auto-attach template examiners if needed (track-specific for seminar course)
+                $singleDiscGroup = $milestone->discipline_group;
+                $singleGroupExaminers = $template->metadata['group_examiners'][$singleDiscGroup]['user_ids'] ?? null;
+                $singleExaminersToAttach = !empty($singleGroupExaminers)
+                    ? $singleGroupExaminers
+                    : ($template->slug === 'seminar_as_a_course' ? [] : ($template->metadata['examiner_user_ids'] ?? []));
+
+                if ($event->panelMembers()->where('role', 'examiner')->count() === 0 && !empty($singleExaminersToAttach)) {
+                    foreach ($singleExaminersToAttach as $uId) {
                         \App\Models\PanelMember::firstOrCreate([
                             'defence_event_id' => $event->id,
                             'user_id' => $uId,
@@ -1589,7 +1598,7 @@ class MilestoneTemplateController extends Controller
                 $grpZoom = $trackZoomLinks[$tKey] ?? $groupItems->first(fn($m) => !empty($m->meeting_link))?->meeting_link;
 
                 // Group examiners
-                $examinerUserIds = $metadata['group_examiners'][$tKey]['user_ids'] ?? ($metadata['examiner_user_ids'] ?? []);
+                $examinerUserIds = $metadata['group_examiners'][$tKey]['user_ids'] ?? [];
                 $examinerNames = !empty($examinerUserIds) 
                     ? \App\Models\User::whereIn('id', $examinerUserIds)->pluck('name')->all() 
                     : [];
