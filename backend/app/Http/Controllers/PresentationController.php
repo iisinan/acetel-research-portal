@@ -28,6 +28,49 @@ class PresentationController extends Controller
             ->orderBy('defence_time', 'asc')
             ->get();
 
+        $user = auth()->user();
+        $isAdmin = $user && $user->hasRole('Admin');
+        $isCoordinator = $user && $user->hasRole('Program Coordinator');
+        $isSeminarCourse = $template->slug === 'seminar_as_a_course';
+
+        // Check if current user is an examiner assigned to specific discipline track(s)
+        $examinerTracks = [];
+        $isScopedExaminer = false;
+
+        if ($isSeminarCourse && $user && !$isAdmin) {
+            // 1. Check template metadata for group_examiners
+            $groupExaminers = $template->metadata['group_examiners'] ?? [];
+            foreach ($groupExaminers as $trackKey => $info) {
+                $uIds = $info['user_ids'] ?? [];
+                $pIds = $info['profile_ids'] ?? [];
+                if (in_array($user->id, $uIds) || ($user->supervisorProfile && in_array($user->supervisorProfile->id, $pIds))) {
+                    $examinerTracks[] = $trackKey;
+                }
+            }
+
+            // 2. Check panel members of defence events for this milestone template
+            $panelTracks = $allScheduled->filter(function($sm) use ($user) {
+                return $sm->thesis?->defenceEvents?->contains(function($de) use ($user) {
+                    return $de->panelMembers->contains(fn($pm) => $pm->user_id === $user->id && strtolower($pm->role ?? '') === 'examiner');
+                });
+            })->pluck('discipline_group')->filter()->unique()->all();
+
+            $examinerTracks = array_values(array_unique(array_merge($examinerTracks, $panelTracks)));
+
+            // If user is assigned as an examiner for specific track(s), scope to those track(s) only
+            if (!empty($examinerTracks)) {
+                $isScopedExaminer = true;
+                $allScheduled = $allScheduled->whereIn('discipline_group', $examinerTracks)->values();
+            }
+        }
+
+        $initialTrack = 'all';
+        if ($isScopedExaminer && count($examinerTracks) === 1) {
+            $initialTrack = $examinerTracks[0];
+        } elseif ($user && $user->hasRole('Student') && $user->studentProfile?->discipline_group) {
+            $initialTrack = $user->studentProfile->discipline_group;
+        }
+
         // Group by defence date string (Y-m-d)
         $groupedByDate = $allScheduled->groupBy(function($item) {
             return Carbon::parse($item->defence_date)->format('Y-m-d');
@@ -49,6 +92,11 @@ class PresentationController extends Controller
 
         // If there are NO active scheduled candidates for this template, redirect gracefully
         if ($allScheduled->isEmpty()) {
+            if ($isScopedExaminer) {
+                return redirect()->route('dashboard')
+                    ->with('info', "There is currently no active presentation session scheduled for your assigned track in {$template->name}.");
+            }
+
             if ($allPresentationTabs->isNotEmpty()) {
                 return redirect()->route('presentations.show', $allPresentationTabs->first()->id)
                     ->with('info', "Presentation schedule for {$template->name} is not active. Switched to active session.");
@@ -73,7 +121,6 @@ class PresentationController extends Controller
         $startDate = $allScheduled->first() ? Carbon::parse($allScheduled->first()->defence_date)->format('M d, Y') : null;
         $endDate = $allScheduled->last() ? Carbon::parse($allScheduled->last()->defence_date)->format('M d, Y') : null;
 
-        $isSeminarCourse = $template->slug === 'seminar_as_a_course';
         $trackData = [];
         if ($isSeminarCourse) {
             $tracks = [
@@ -81,6 +128,11 @@ class PresentationController extends Controller
                 'artificial_intelligence' => 'Artificial Intelligence',
                 'management_information_systems' => 'Management Information Systems',
             ];
+
+            // If scoped examiner, only display their assigned track(s) in trackData
+            if ($isScopedExaminer) {
+                $tracks = array_intersect_key($tracks, array_flip($examinerTracks));
+            }
 
             foreach ($tracks as $trackKey => $trackLabel) {
                 $trackMilestones = $allScheduled->filter(fn($m) => $m->discipline_group === $trackKey);
@@ -102,6 +154,11 @@ class PresentationController extends Controller
                     'examiners' => $trackExaminers,
                 ];
             }
+
+            // If scoped examiner with 1 track, ensure master meeting link points to that track's Zoom room
+            if ($isScopedExaminer && count($examinerTracks) === 1 && !empty($trackData[$examinerTracks[0]]['meeting_link'])) {
+                $meetingLink = $trackData[$examinerTracks[0]]['meeting_link'];
+            }
         }
 
         return view('presentations.show', compact(
@@ -116,7 +173,10 @@ class PresentationController extends Controller
             'endDate',
             'allPresentationTabs',
             'isSeminarCourse',
-            'trackData'
+            'trackData',
+            'isScopedExaminer',
+            'examinerTracks',
+            'initialTrack'
         ));
     }
 }
