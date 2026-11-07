@@ -1016,6 +1016,9 @@ class MilestoneTemplateController extends Controller
                 'invitation_status' => 'accepted'
             ]);
             try {
+                if ($supervisor->user && $template) {
+                    $supervisor->user->notify(new \App\Notifications\ExaminerNominated($template, null, 1, $milestone->discipline_group));
+                }
                 $supervisor->user->notify(new \App\Notifications\EventScheduled($event));
             } catch (\Throwable $e) {}
         }
@@ -1136,7 +1139,7 @@ class MilestoneTemplateController extends Controller
 
             try {
                 foreach ($supervisors as $supervisor) {
-                    $supervisor->user->notify(new \App\Notifications\ExaminerNominated($template, $request->custom_message, $assignedCount));
+                    $supervisor->user->notify(new \App\Notifications\ExaminerNominated($template, $request->custom_message, $assignedCount, $disciplineGroup));
                 }
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::error('Notification failed in assignExaminerGlobal: ' . $e->getMessage());

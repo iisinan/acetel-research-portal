@@ -148,6 +148,8 @@ class SeminarController extends Controller
 
         PanelMember::where("defence_event_id", $event->id)->where("role", "Examiner")->delete();
 
+        $template = $milestone->template ?? \App\Models\MilestoneTemplate::where('slug', 'seminar_as_a_course')->first();
+
         foreach ($supervisors as $supervisor) {
             PanelMember::create([
                 "defence_event_id" => $event->id,
@@ -155,6 +157,11 @@ class SeminarController extends Controller
                 "role" => "Examiner",
                 "invitation_status" => "accepted"
             ]);
+            try {
+                if ($supervisor->user && $template) {
+                    $supervisor->user->notify(new \App\Notifications\ExaminerNominated($template, null, 1, $milestone->discipline_group));
+                }
+            } catch (\Throwable $e) {}
         }
 
         return back()->with("success", "Examiners assigned successfully.");
