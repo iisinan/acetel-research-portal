@@ -4,7 +4,23 @@
 @section('title', $presentationTitle . ' - ACETEL')
 
 @section('content')
-<div class="space-y-8 animate-in-up" x-data="{ activeDate: 'all', search: '', activeTrack: '{{ $initialTrack ?? 'all' }}' }">
+<div class="space-y-8 animate-in-up" x-data="{ 
+    activeDate: 'all', 
+    search: '', 
+    activeTrack: '{{ $initialTrack ?? 'all' }}',
+    rescheduleGroupModalOpen: false,
+    rescheduleTrack: '{{ ($initialTrack ?? 'all') !== 'all' ? $initialTrack : '' }}',
+    rescheduleFromDate: 'all',
+    slotModalOpen: false,
+    slotStudentId: null,
+    slotStudentName: '',
+    slotAction: 'schedule',
+    slotDate: '',
+    slotTime: '',
+    slotLink: '',
+    slotTrack: '',
+    slotFormUrl: ''
+}">
 
     {{-- Presentation Milestone Specific Tabs --}}
     @if(isset($allPresentationTabs) && $allPresentationTabs->count() > 0)
@@ -159,8 +175,11 @@
                 @if(auth()->user()->hasRole('Admin') && $allScheduled->isNotEmpty())
                     <form action="{{ route('admin.milestone-templates.end-schedule', $template->id) }}" method="POST" class="w-full">
                         @csrf
+                        @if($isSeminarCourse)
+                            <input type="hidden" name="discipline_group" :value="activeTrack !== 'all' ? activeTrack : ''">
+                        @endif
                         <button type="submit"
-                            data-confirm="Are you sure you want to end the presentation session for {{ addslashes($template->name) }}? Eligible scheduled students who have completed all presentation requirements will be approved and advanced to the next milestone."
+                            :data-confirm="activeTrack === 'cybersecurity' ? 'End the presentation session for Cybersecurity? Passing candidates in this track will be advanced.' : (activeTrack === 'artificial_intelligence' ? 'End the presentation session for AI? Passing candidates in this track will be advanced.' : (activeTrack === 'management_information_systems' ? 'End the presentation session for MIS? Passing candidates in this track will be advanced.' : 'End the presentation session for {{ addslashes($template->name) }}? Eligible scheduled students who have completed all presentation requirements will be approved and advanced to the next milestone.'))"
                             data-confirm-title="End Presentation Session"
                             data-confirm-type="success"
                             data-confirm-btn="End Session"
@@ -168,22 +187,34 @@
                             <svg class="w-4 h-4 text-blue-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            <span>End Presentation Session</span>
+                            <span x-text="activeTrack === 'cybersecurity' ? 'End Cyber Session' : (activeTrack === 'artificial_intelligence' ? 'End AI Session' : (activeTrack === 'management_information_systems' ? 'End MIS Session' : 'End Presentation Session'))">End Presentation Session</span>
                         </button>
                     </form>
 
+                    <button type="button" 
+                        @click="rescheduleGroupModalOpen = true; rescheduleTrack = (activeTrack !== 'all' ? activeTrack : ''); rescheduleFromDate = (activeDate !== 'all' ? activeDate : 'all')"
+                        class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl text-xs font-bold transition-all shadow-md active:scale-95">
+                        <svg class="w-4 h-4 text-indigo-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        <span x-text="activeTrack === 'cybersecurity' ? 'Reschedule Cyber Group' : (activeTrack === 'artificial_intelligence' ? 'Reschedule AI Group' : (activeTrack === 'management_information_systems' ? 'Reschedule MIS Group' : 'Reschedule Presentations'))">Reschedule Presentations</span>
+                    </button>
+
                     <form action="{{ route('admin.milestone-templates.cancel-schedule', $template->id) }}" method="POST" class="w-full">
                         @csrf
+                        @if($isSeminarCourse)
+                            <input type="hidden" name="discipline_group" :value="activeTrack !== 'all' ? activeTrack : ''">
+                        @endif
                         <button type="submit"
-                            data-confirm="Are you sure you want to cancel the entire presentation schedule for {{ addslashes($template->name) }}? This will remove all presentation dates, times, and Zoom links for {{ $allScheduled->count() }} scheduled student(s), and remove this presentation tab."
-                            data-confirm-title="Cancel Presentation Schedule"
+                            :data-confirm="activeTrack === 'cybersecurity' ? 'Are you sure you want to cancel the Cybersecurity presentation schedule? This will clear presentation dates, times, and Zoom links for Cybersecurity candidates without affecting other tracks.' : (activeTrack === 'artificial_intelligence' ? 'Are you sure you want to cancel the AI presentation schedule? This will clear presentation dates, times, and Zoom links for AI candidates without affecting other tracks.' : (activeTrack === 'management_information_systems' ? 'Are you sure you want to cancel the MIS presentation schedule? This will clear presentation dates, times, and Zoom links for MIS candidates without affecting other tracks.' : 'Are you sure you want to cancel the presentation schedule for {{ addslashes($template->name) }}? This will remove all presentation dates, times, and Zoom links for all scheduled candidates.'))"
+                            :data-confirm-title="activeTrack !== 'all' ? 'Cancel ' + (activeTrack === 'cybersecurity' ? 'Cyber' : (activeTrack === 'artificial_intelligence' ? 'AI' : 'MIS')) + ' Schedule' : 'Cancel Presentation Schedule'"
                             data-confirm-type="danger"
                             data-confirm-btn="Cancel Schedule"
                             class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-rose-600/80 text-white rounded-2xl text-xs font-bold transition-all border border-white/15 hover:border-rose-500 shadow-sm active:scale-95">
                             <svg class="w-4 h-4 text-rose-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
                             </svg>
-                            <span>Cancel Schedule</span>
+                            <span x-text="activeTrack === 'cybersecurity' ? 'Cancel Cyber Schedule' : (activeTrack === 'artificial_intelligence' ? 'Cancel AI Schedule' : (activeTrack === 'management_information_systems' ? 'Cancel MIS Schedule' : 'Cancel Schedule'))">Cancel Schedule</span>
                         </button>
                     </form>
                 @endif
@@ -572,6 +603,31 @@
                                     @endif
 
                                     @if(auth()->user()->hasRole('Admin') && $pres->status !== 'approved')
+                                        <button type="button" 
+                                            @click="slotModalOpen = true; slotStudentId = {{ $pres->id }}; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($pres->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $pres->defence_time ? \Carbon\Carbon::parse($pres->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($pres->meeting_link ?? '') }}'; slotTrack = '{{ $pres->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $pres->id]) }}'"
+                                            title="Reschedule presentation"
+                                            class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors shadow-2xs">
+                                            <svg class="w-3.5 h-3.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                            <span>Reschedule</span>
+                                        </button>
+                                        <form action="{{ route('admin.milestone-templates.update-student-slot', [$template->id, $pres->id]) }}" method="POST" class="inline">
+                                            @csrf
+                                            <input type="hidden" name="action" value="remove">
+                                            <button type="submit" 
+                                                data-confirm="Are you sure you want to cancel the presentation for {{ addslashes($studentName) }}? This will clear their presentation date, time, and link."
+                                                data-confirm-title="Cancel Candidate Presentation"
+                                                data-confirm-type="danger"
+                                                data-confirm-btn="Cancel Presentation"
+                                                title="Cancel presentation for this candidate"
+                                                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors shadow-2xs">
+                                                <svg class="w-3.5 h-3.5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                                                </svg>
+                                                <span>Cancel</span>
+                                            </button>
+                                        </form>
                                         <form action="{{ route('milestones.end_presentation', $pres) }}" method="POST" class="inline">
                                             @csrf
                                             <button type="submit" 
@@ -750,6 +806,31 @@
                                     @endif
 
                                     @if(auth()->user()->hasRole('Admin') && $sm->status !== 'approved')
+                                        <button type="button" 
+                                            @click="slotModalOpen = true; slotStudentId = {{ $sm->id }}; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $sm->defence_time ? \Carbon\Carbon::parse($sm->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($sm->meeting_link ?? '') }}'; slotTrack = '{{ $sm->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
+                                            title="Reschedule presentation"
+                                            class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors shadow-2xs">
+                                            <svg class="w-3.5 h-3.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                            <span>Reschedule</span>
+                                        </button>
+                                        <form action="{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}" method="POST" class="inline">
+                                            @csrf
+                                            <input type="hidden" name="action" value="remove">
+                                            <button type="submit" 
+                                                data-confirm="Are you sure you want to cancel the presentation for {{ addslashes($studentName) }}? This will clear their presentation date, time, and link."
+                                                data-confirm-title="Cancel Candidate Presentation"
+                                                data-confirm-type="danger"
+                                                data-confirm-btn="Cancel Presentation"
+                                                title="Cancel presentation for this candidate"
+                                                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors shadow-2xs">
+                                                <svg class="w-3.5 h-3.5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                                                </svg>
+                                                <span>Cancel</span>
+                                            </button>
+                                        </form>
                                         <form action="{{ route('milestones.end_presentation', $sm) }}" method="POST" class="inline">
                                             @csrf
                                             <button type="submit" 
@@ -1044,6 +1125,29 @@
                                             @endif
 
                                             @if(auth()->user()->hasRole('Admin') && $sm->status !== 'approved')
+                                                <button type="button" 
+                                                    @click="slotModalOpen = true; slotStudentId = {{ $sm->id }}; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $sm->defence_time ? \Carbon\Carbon::parse($sm->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($sm->meeting_link ?? '') }}'; slotTrack = '{{ $sm->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
+                                                    title="Reschedule presentation"
+                                                    class="p-1.5 rounded-xl text-amber-600 hover:text-white hover:bg-amber-600 border border-amber-200 hover:border-amber-600 transition-all shadow-2xs">
+                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                    </svg>
+                                                </button>
+                                                <form action="{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}" method="POST" class="inline">
+                                                    @csrf
+                                                    <input type="hidden" name="action" value="remove">
+                                                    <button type="submit" 
+                                                        data-confirm="Are you sure you want to cancel the presentation for {{ addslashes($studentName) }}? This will clear their presentation date, time, and link."
+                                                        data-confirm-title="Cancel Candidate Presentation"
+                                                        data-confirm-type="danger"
+                                                        data-confirm-btn="Cancel Presentation"
+                                                        title="Cancel presentation for {{ $studentName }}"
+                                                        class="p-1.5 rounded-xl text-rose-600 hover:text-white hover:bg-rose-600 border border-rose-200 hover:border-rose-600 transition-all shadow-2xs">
+                                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                                                        </svg>
+                                                    </button>
+                                                </form>
                                                 <form action="{{ route('milestones.end_presentation', $sm) }}" method="POST" class="inline">
                                                     @csrf
                                                     <button type="submit" 
@@ -1076,6 +1180,225 @@
             </div>
         </div>
 
+    @endif
+
+    {{-- Reschedule Day / Group Modal (Teleported to body) --}}
+    @if(auth()->user()->hasRole('Admin'))
+    <template x-teleport="body">
+        <div x-show="rescheduleGroupModalOpen" x-cloak x-transition.opacity class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" @keydown.escape.window="rescheduleGroupModalOpen = false">
+            <div @click.outside="rescheduleGroupModalOpen = false" class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100">
+                <form action="{{ route('admin.milestone-templates.reschedule-day', $template->id) }}" method="POST">
+                    @csrf
+                    {{-- Header --}}
+                    <div class="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4 bg-slate-50/50">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-black text-slate-900">Reschedule Presentations</h3>
+                                <p class="text-xs text-slate-500 mt-0.5">Shift scheduled presentations in a discipline group or specific date to a new date.</p>
+                            </div>
+                        </div>
+                        <button type="button" @click="rescheduleGroupModalOpen = false" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+
+                    {{-- Form Body --}}
+                    <div class="p-6 space-y-4 text-xs text-left">
+                        @if($isSeminarCourse)
+                            <div>
+                                <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                                    Discipline Track to Reschedule
+                                </label>
+                                <select name="discipline_group" x-model="rescheduleTrack" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                                    <option value="">All Tracks (Global shift)</option>
+                                    <option value="cybersecurity">🛡️ Cybersecurity Track Only</option>
+                                    <option value="artificial_intelligence">🤖 AI Track Only</option>
+                                    <option value="management_information_systems">📊 MIS Track Only</option>
+                                </select>
+                                <p class="text-[10px] text-slate-400 mt-1">Select a track to shift only that discipline group, preserving other groups.</p>
+                            </div>
+                        @endif
+
+                        <div>
+                            <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                                Current Scheduled Date to Shift <span class="text-rose-500">*</span>
+                            </label>
+                            <select name="from_date" x-model="rescheduleFromDate" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                                <option value="all">-- All Scheduled Dates in this Group / Session --</option>
+                                @foreach($groupedByDate as $dateKey => $items)
+                                    <option value="{{ $dateKey }}">
+                                        {{ \Carbon\Carbon::parse($dateKey)->format('l, F j, Y') }} ({{ $items->count() }} presenter{{ $items->count() > 1 ? 's' : '' }})
+                                    </option>
+                                @endforeach
+                            </select>
+                            <p class="text-[10px] text-slate-400 mt-1">Shift all dates or a specific day's presentations.</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                                New Target Date <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="date" name="to_date" required min="{{ date('Y-m-d') }}" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                            <p class="text-[10px] text-slate-400 mt-1">Pick the new date when these presentations should take place.</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">
+                                    New Start Time (Optional)
+                                </label>
+                                <input type="time" name="start_time" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                                <p class="text-[9px] text-slate-400 mt-0.5">Leave blank to retain current individual times.</p>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">
+                                    Meeting Link (Optional)
+                                </label>
+                                <input type="url" name="meeting_link" placeholder="https://zoom.us/j/..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                                <p class="text-[9px] text-slate-400 mt-0.5">Leave blank to retain current links.</p>
+                            </div>
+                        </div>
+
+                        <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-800 text-[11px] leading-relaxed flex items-start gap-2">
+                            <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>
+                                Presenters will have their defence schedules updated and receive a notification with the new date details.
+                            </span>
+                        </div>
+                    </div>
+
+                    {{-- Footer --}}
+                    <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 bg-slate-50/50">
+                        <button type="button" @click="rescheduleGroupModalOpen = false" class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 transition-colors">Cancel</button>
+                        <button type="submit" class="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span>Shift Presentations</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </template>
+
+    {{-- Individual Candidate Slot Modal (Teleported to body) --}}
+    <template x-teleport="body">
+        <div x-show="slotModalOpen" x-cloak x-transition.opacity class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" @keydown.escape.window="slotModalOpen = false">
+            <div @click.outside="slotModalOpen = false" class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100">
+                <form :action="slotFormUrl" method="POST" x-ref="slotForm">
+                    @csrf
+                    <input type="hidden" name="action" :value="slotAction">
+
+                    {{-- Header --}}
+                    <div class="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4 bg-slate-50/50">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-black text-slate-900" x-text="slotDate ? 'Manage Candidate Slot' : 'Schedule Candidate Presentation'"></h3>
+                                <p class="text-xs text-slate-500 mt-0.5 truncate max-w-[240px]" x-text="slotStudentName"></p>
+                            </div>
+                        </div>
+                        <button type="button" @click="slotModalOpen = false" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+
+                    {{-- Form fields --}}
+                    <div class="p-6 space-y-4 text-xs text-left">
+                        @if($isSeminarCourse)
+                            <div>
+                                <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                                    Discipline Track / Group
+                                </label>
+                                <select name="discipline_group" x-model="slotTrack" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                                    <option value="cybersecurity">🛡️ Cybersecurity</option>
+                                    <option value="artificial_intelligence">🤖 Artificial Intelligence</option>
+                                    <option value="management_information_systems">📊 Management Information Systems</option>
+                                </select>
+                                <p class="text-[10px] text-slate-400 mt-1">Assign or change the candidate's presentation group.</p>
+                            </div>
+                        @endif
+
+                        <div>
+                            <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                                Presentation Date <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="date" name="defence_date" x-model="slotDate" :required="slotAction === 'schedule'" min="{{ date('Y-m-d') }}" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                            <p class="text-[10px] text-slate-400 mt-1">Assign or move this candidate to any presentation date.</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">
+                                    Time (Optional)
+                                </label>
+                                <input type="time" name="defence_time" x-model="slotTime" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                                        Meeting Link (Optional)
+                                    </label>
+                                    @if($isSeminarCourse && !empty($template->metadata['track_zoom_links']))
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="text-[9px] text-slate-400 font-semibold">Prefill:</span>
+                                            @foreach($template->metadata['track_zoom_links'] as $tKey => $zUrl)
+                                                @if(!empty($zUrl))
+                                                    <button type="button" @click="slotLink = '{{ $zUrl }}'" class="text-[9px] font-bold text-indigo-600 hover:underline">
+                                                        @if($tKey === 'cybersecurity') 🛡️ Cyber
+                                                        @elseif($tKey === 'artificial_intelligence') 🤖 AI
+                                                        @else 📊 MIS
+                                                        @endif
+                                                    </button>
+                                                @endif
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                </div>
+                                <input type="url" name="meeting_link" x-model="slotLink" placeholder="https://zoom.us/j/..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                            </div>
+                        </div>
+
+                        {{-- Notice --}}
+                        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 text-[11px] leading-relaxed">
+                            <span x-show="slotDate">Moving this candidate will update their defence event, clear presentation cache, and notify the candidate.</span>
+                            <span x-show="!slotDate">Scheduling this candidate creates a new defence event and notifies the candidate.</span>
+                        </div>
+                    </div>
+
+                    {{-- Footer --}}
+                    <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3 bg-slate-50/50">
+                        <div>
+                            <template x-if="slotDate">
+                                <button type="button" @click="if(confirm('Are you sure you want to cancel the presentation for ' + slotStudentName + '? This will remove them from the schedule.')) { slotAction = 'remove'; $nextTick(() => $refs.slotForm.submit()); }"
+                                    class="px-3 py-2 rounded-xl text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer">
+                                    Remove from Schedule
+                                </button>
+                            </template>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" @click="slotModalOpen = false" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer">Cancel</button>
+                            <button type="submit" @click="slotAction = 'schedule'" class="px-5 py-2 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 shadow-md shadow-amber-600/20 transition-all font-semibold cursor-pointer">
+                                <span x-text="slotDate ? 'Update Slot' : 'Schedule Candidate'"></span>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </template>
     @endif
 
 </div>

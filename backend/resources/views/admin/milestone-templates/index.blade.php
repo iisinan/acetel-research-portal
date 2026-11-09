@@ -274,6 +274,7 @@
                         slotDate: '', 
                         slotTime: '', 
                         slotLink: '', 
+                        slotTrack: '',
                         slotFormUrl: '',
                         messageModalOpen: false,
                         messageTarget: 'selected',
@@ -1139,15 +1140,15 @@
                                                                         <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
                                                                             Current Scheduled Day to Shift <span class="text-rose-500">*</span>
                                                                         </label>
-                                                                        <select name="from_date" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
-                                                                            <option value="">-- Select scheduled date to move --</option>
+                                                                        <select name="from_date" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                                                                            <option value="all">-- All Scheduled Dates in this Group / Session --</option>
                                                                             @foreach($dayGroups as $dateKey => $group)
                                                                                 <option value="{{ $dateKey }}">
                                                                                     {{ \Carbon\Carbon::parse($dateKey)->format('l, F j, Y') }} ({{ $group->count() }} presenter{{ $group->count() > 1 ? 's' : '' }})
                                                                                 </option>
                                                                             @endforeach
                                                                         </select>
-                                                                        <p class="text-[10px] text-slate-400 mt-1">All presenters on this date will be moved to the new date together.</p>
+                                                                        <p class="text-[10px] text-slate-400 mt-1">Select a specific date or move all scheduled presentations in the selected track together.</p>
                                                                     </div>
 
                                                                     <div>
@@ -1217,18 +1218,22 @@
                                                     <span x-text="trackFilter === 'cybersecurity' ? 'End Cyber Session' : (trackFilter === 'artificial_intelligence' ? 'End AI Session' : (trackFilter === 'management_information_systems' ? 'End MIS Session' : 'End Presentation Session'))">End Presentation Session</span>
                                                 </button>
                                             </form>
-<form action="{{ route('admin.milestone-templates.cancel-schedule', $template->id) }}" method="POST" class="inline">
+
+                                            <form action="{{ route('admin.milestone-templates.cancel-schedule', $template->id) }}" method="POST" class="inline">
                                                 @csrf
+                                                @if($template->slug === 'seminar_as_a_course')
+                                                    <input type="hidden" name="discipline_group" :value="trackFilter !== 'all' ? trackFilter : ''">
+                                                @endif
                                                 <button type="submit" 
-                                                    data-confirm="Are you sure you want to cancel the presentation schedule for {{ addslashes($template->name) }}? This will clear all presentation dates, times, and Zoom links for {{ $scheduledCount }} scheduled student(s), and remove the live presentation tab."
-                                                    data-confirm-title="Cancel Presentation Schedule"
+                                                    :data-confirm="trackFilter === 'cybersecurity' ? 'Are you sure you want to cancel the Cybersecurity presentation schedule? This will clear presentation dates, times, and Zoom links for Cybersecurity candidates without affecting other tracks.' : (trackFilter === 'artificial_intelligence' ? 'Are you sure you want to cancel the AI presentation schedule? This will clear presentation dates, times, and Zoom links for AI candidates without affecting other tracks.' : (trackFilter === 'management_information_systems' ? 'Are you sure you want to cancel the MIS presentation schedule? This will clear presentation dates, times, and Zoom links for MIS candidates without affecting other tracks.' : 'Are you sure you want to cancel the presentation schedule for {{ addslashes($template->name) }}? This will clear all presentation dates, times, and Zoom links for {{ $scheduledCount }} scheduled student(s), and remove the live presentation tab.'))"
+                                                    :data-confirm-title="trackFilter !== 'all' ? 'Cancel ' + (trackFilter === 'cybersecurity' ? 'Cyber' : (trackFilter === 'artificial_intelligence' ? 'AI' : 'MIS')) + ' Schedule' : 'Cancel Presentation Schedule'"
                                                     data-confirm-type="danger"
                                                     data-confirm-btn="Cancel Schedule"
                                                     class="inline-flex items-center gap-2 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm">
                                                     <svg class="w-3.5 h-3.5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                                                     </svg>
-                                                    <span>Cancel Presentation Schedule</span>
+                                                    <span x-text="trackFilter === 'cybersecurity' ? 'Cancel Cyber Schedule' : (trackFilter === 'artificial_intelligence' ? 'Cancel AI Schedule' : (trackFilter === 'management_information_systems' ? 'Cancel MIS Schedule' : 'Cancel Presentation Schedule'))">Cancel Presentation Schedule</span>
                                                 </button>
                                             </form>
                                         @endif
@@ -2124,9 +2129,8 @@
                                                                             </svg>
                                                                             <span>{{ \Carbon\Carbon::parse($sm->defence_date)->format('M d, Y') }}</span>
                                                                         </div>
-                                                                        @if(!isset($isCoordinator) || !$isCoordinator)
                                                                             <button type="button" 
-                                                                                @click="slotModalOpen = true; slotStudentId = {{ $sm->id }}; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $sm->defence_time ? \Carbon\Carbon::parse($sm->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($sm->meeting_link ?? '') }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
+                                                                                @click="slotModalOpen = true; slotStudentId = {{ $sm->id }}; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $sm->defence_time ? \Carbon\Carbon::parse($sm->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($sm->meeting_link ?? '') }}'; slotTrack = '{{ $sm->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
                                                                                 title="Reschedule / Edit slot or remove student"
                                                                                 class="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors">
                                                                                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -2160,7 +2164,7 @@
                                                                         </span>
                                                                         @if(!isset($isCoordinator) || !$isCoordinator)
                                                                             <button type="button" 
-                                                                                @click="slotModalOpen = true; slotStudentId = {{ $sm->id }}; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ $lastScheduledDate ?? date('Y-m-d') }}'; slotTime = '{{ $existingTime ?? '10:00' }}'; slotLink = '{{ addslashes($existingLink ?? '') }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
+                                                                                @click="slotModalOpen = true; slotStudentId = {{ $sm->id }}; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ $lastScheduledDate ?? date('Y-m-d') }}'; slotTime = '{{ $existingTime ?? '10:00' }}'; slotLink = '{{ addslashes($existingLink ?? '') }}'; slotTrack = '{{ $sm->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
                                                                                 class="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded text-[10px] font-black uppercase tracking-wider transition-colors shadow-2xs">
                                                                                 <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
                                                                                 <span>Add to Day</span>
@@ -2246,7 +2250,7 @@
                                                                             <div class="p-1.5 border-b border-slate-100 space-y-1">
                                                                                 @if(!empty($sm->defence_date))
                                                                                 <button type="button" 
-                                                                                    @click="menuOpen = false; slotModalOpen = true; slotStudentId = {{ $sm->id }}; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $sm->defence_time ? \Carbon\Carbon::parse($sm->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($sm->meeting_link ?? '') }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
+                                                                                    @click="menuOpen = false; slotModalOpen = true; slotStudentId = {{ $sm->id }}; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $sm->defence_time ? \Carbon\Carbon::parse($sm->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($sm->meeting_link ?? '') }}'; slotTrack = '{{ $sm->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
                                                                                     class="w-full text-left px-3 py-2 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors flex items-center gap-2">
                                                                                     <svg class="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -2270,7 +2274,7 @@
                                                                                 </form>
                                                                                 @else
                                                                                 <button type="button" 
-                                                                                    @click="menuOpen = false; slotModalOpen = true; slotStudentId = {{ $sm->id }}; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ $lastScheduledDate ?? date('Y-m-d') }}'; slotTime = '{{ $existingTime ?? '10:00' }}'; slotLink = '{{ addslashes($existingLink ?? '') }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
+                                                                                    @click="menuOpen = false; slotModalOpen = true; slotStudentId = {{ $sm->id }}; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ $lastScheduledDate ?? date('Y-m-d') }}'; slotTime = '{{ $existingTime ?? '10:00' }}'; slotLink = '{{ addslashes($existingLink ?? '') }}'; slotTrack = '{{ $sm->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
                                                                                     class="w-full text-left px-3 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors flex items-center gap-2">
                                                                                     <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
@@ -2415,6 +2419,20 @@
 
                                             {{-- Form fields --}}
                                             <div class="p-6 space-y-4 text-xs text-left">
+                                                @if($template->slug === 'seminar_as_a_course')
+                                                    <div>
+                                                        <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                                                            Discipline Track / Group
+                                                        </label>
+                                                        <select name="discipline_group" x-model="slotTrack" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500">
+                                                            <option value="cybersecurity">🛡️ Cybersecurity</option>
+                                                            <option value="artificial_intelligence">🤖 Artificial Intelligence</option>
+                                                            <option value="management_information_systems">📊 Management Information Systems</option>
+                                                        </select>
+                                                        <p class="text-[10px] text-slate-400 mt-1">Assign or change the candidate's presentation group.</p>
+                                                    </div>
+                                                @endif
+
                                                 <div>
                                                     <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
                                                         Presentation Date <span class="text-rose-500">*</span>

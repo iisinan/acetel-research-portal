@@ -727,20 +727,26 @@ class MilestoneTemplateController extends Controller
         }
 
         $request->validate([
-            'from_date' => 'required|date',
+            'from_date' => 'nullable|string',
             'to_date' => 'required|date',
             'start_time' => 'nullable|string|max:20',
             'meeting_link' => 'nullable|url|max:500',
             'discipline_group' => 'nullable|string|in:cybersecurity,artificial_intelligence,management_information_systems',
         ]);
 
-        $fromDateStr = \Carbon\Carbon::parse($request->from_date)->format('Y-m-d');
+        $isAllDates = ($request->from_date === 'all' || empty($request->from_date));
         $toDate = \Carbon\Carbon::parse($request->to_date);
         $toDateStr = $toDate->format('Y-m-d');
+        $fromDateStr = !$isAllDates ? \Carbon\Carbon::parse($request->from_date)->format('Y-m-d') : null;
 
         $query = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
-            ->whereDate('defence_date', $fromDateStr)
+            ->whereNotNull('defence_date')
+            ->where('status', '!=', 'approved')
             ->with(['thesis.student.user', 'thesis.student.program']);
+
+        if (!$isAllDates) {
+            $query->whereDate('defence_date', $fromDateStr);
+        }
 
         $milestones = $query->get();
 
@@ -749,7 +755,8 @@ class MilestoneTemplateController extends Controller
         }
 
         if ($milestones->isEmpty()) {
-            return back()->with('error', 'No presentations found scheduled on ' . \Carbon\Carbon::parse($request->from_date)->format('M d, Y') . '.');
+            $targetDesc = $fromDateStr ? \Carbon\Carbon::parse($fromDateStr)->format('M d, Y') : 'the selected filter';
+            return back()->with('error', "No presentations found scheduled on {$targetDesc}.");
         }
 
         $type = $template->defence_type ?? match($template->slug) {
@@ -766,9 +773,23 @@ class MilestoneTemplateController extends Controller
         $examinerRescheduledMap = [];
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
+            // If track meeting link is provided, also sync it to template group_examiners metadata
+            if ($request->filled('meeting_link') && $request->filled('discipline_group') && $template->slug === 'seminar_as_a_course') {
+                $meta = $template->metadata ?? [];
+                if (isset($meta['group_examiners'][$request->discipline_group])) {
+                    $meta['group_examiners'][$request->discipline_group]['meeting_link'] = $request->meeting_link;
+                }
+                if (isset($meta['track_zoom_links'][$request->discipline_group])) {
+                    $meta['track_zoom_links'][$request->discipline_group] = $request->meeting_link;
+                }
+                $template->metadata = $meta;
+                $template->save();
+            }
+
             foreach ($milestones as $sm) {
                 $thesis = $sm->thesis;
                 $studentUser = $thesis?->student?->user;
+                $previousDate = $sm->defence_date ? \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d') : ($fromDateStr ?? $toDateStr);
                 $previousTime = $sm->defence_time;
 
                 $updateData = ['defence_date' => $toDateStr];
@@ -808,7 +829,7 @@ class MilestoneTemplateController extends Controller
                         try {
                             $studentUser->notify(new EventRescheduled(
                                 $event,
-                                $fromDateStr,
+                                $previousDate,
                                 $previousTime,
                                 $template->name
                             ));
@@ -819,7 +840,7 @@ class MilestoneTemplateController extends Controller
 
                     // Collect examiners for notification
                     $examiners = $this->getExaminersForMilestone($sm, $template, $event);
-                    $prevSlotStr = \Carbon\Carbon::parse($fromDateStr)->format('M d, Y') . ($previousTime ? ' at ' . \Carbon\Carbon::parse($previousTime)->format('g:i A') : '');
+                    $prevSlotStr = \Carbon\Carbon::parse($previousDate)->format('M d, Y') . ($previousTime ? ' at ' . \Carbon\Carbon::parse($previousTime)->format('g:i A') : '');
                     $newSlotStr = $toDate->format('M d, Y') . ($sm->defence_time ? ' at ' . \Carbon\Carbon::parse($sm->defence_time)->format('g:i A') : '');
 
                     foreach ($examiners as $ex) {
@@ -832,7 +853,7 @@ class MilestoneTemplateController extends Controller
                             'new_slot' => $newSlotStr,
                             'meeting_link' => $sm->meeting_link ?: 'Online / Portal',
                             'event' => $event,
-                            'previous_date' => $fromDateStr,
+                            'previous_date' => $previousDate,
                             'previous_time' => $previousTime,
                         ];
                     }
@@ -873,7 +894,12 @@ class MilestoneTemplateController extends Controller
                 'management_information_systems' => ' (MIS Track)',
                 default => '',
             } : '';
-            return back()->with('success', "Rescheduled {$count} presenter(s){$trackLabel} from " . \Carbon\Carbon::parse($request->from_date)->format('M d, Y') . " to " . $toDate->format('M d, Y') . " successfully.");
+
+            $msg = $isAllDates 
+                ? "Rescheduled {$count} presenter(s){$trackLabel} to " . $toDate->format('M d, Y') . " successfully."
+                : "Rescheduled {$count} presenter(s){$trackLabel} from " . \Carbon\Carbon::parse($request->from_date)->format('M d, Y') . " to " . $toDate->format('M d, Y') . " successfully.";
+
+            return back()->with('success', $msg);
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\DB::rollBack();
             return back()->with('error', 'Error rescheduling day: ' . $e->getMessage());
@@ -895,6 +921,7 @@ class MilestoneTemplateController extends Controller
             'defence_date' => 'required_if:action,schedule|nullable|date',
             'defence_time' => 'nullable|string|max:20',
             'meeting_link' => 'nullable|url|max:500',
+            'discipline_group' => 'nullable|string|in:cybersecurity,artificial_intelligence,management_information_systems',
         ]);
 
         $thesis = $milestone->thesis;
@@ -928,7 +955,8 @@ class MilestoneTemplateController extends Controller
                 }
 
                 \Illuminate\Support\Facades\DB::commit();
-                return back()->with('success', "Removed {$studentName} completely from the presentation schedule.");
+                \App\Models\MilestoneTemplate::clearPresentationCache();
+                return back()->with('success', "Cancelled presentation for {$studentName} and removed them from the schedule.");
             }
 
             // Schedule or change date
@@ -939,11 +967,15 @@ class MilestoneTemplateController extends Controller
             $newLink = $request->meeting_link ?: null;
             $isMoved = !empty($previousDate) && ($previousDate !== $newDate || $previousTime !== $newTime || ($milestone->meeting_link ?: null) !== $newLink);
 
-            $milestone->update([
+            $updateData = [
                 'defence_date' => $newDate,
                 'defence_time' => $newTime,
                 'meeting_link' => $newLink,
-            ]);
+            ];
+            if ($request->filled('discipline_group')) {
+                $updateData['discipline_group'] = $request->discipline_group;
+            }
+            $milestone->update($updateData);
 
             if ($thesis) {
                 $start = \Carbon\Carbon::parse($newDate);
@@ -1022,6 +1054,7 @@ class MilestoneTemplateController extends Controller
             }
 
             \Illuminate\Support\Facades\DB::commit();
+            \App\Models\MilestoneTemplate::clearPresentationCache();
             return back()->with('success', "Updated presentation schedule for {$studentName} to " . \Carbon\Carbon::parse($newDate)->format('M d, Y') . ($newTime ? " at " . \Carbon\Carbon::parse($newTime)->format('g:i A') : "") . ".");
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\DB::rollBack();
@@ -1119,28 +1152,34 @@ class MilestoneTemplateController extends Controller
         }
     }
 
-    public function cancelSchedule(MilestoneTemplate $template)
+    public function cancelSchedule(Request $request, MilestoneTemplate $template)
     {
         if (!auth()->user()->hasRole('Admin')) {
             abort(403, 'Institutional authority required. Only an Administrator can cancel presentation schedules.');
         }
 
+        $discGroup = $request->input('discipline_group');
+        if ($discGroup === 'all' || empty($discGroup)) {
+            $discGroup = null;
+        }
+
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
-            $today = now()->toDateString();
-            
-            // Get all unapproved milestones to clear dates
-            $scheduledMilestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+            $query = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
                 ->whereNotNull('defence_date')
-                ->where('status', '!=', 'approved')
-                ->get();
+                ->where('status', '!=', 'approved');
 
-            // Get ALL unapproved milestones to delete their events (including phantom ones)
-            $allMilestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
-                ->where('status', '!=', 'approved')
-                ->get();
+            if ($discGroup && in_array($discGroup, ['cybersecurity', 'artificial_intelligence', 'management_information_systems'])) {
+                $query->where('discipline_group', $discGroup);
+            }
 
-            $thesisIds = $allMilestones->pluck('thesis_project_id')->filter()->unique();
+            $scheduledMilestones = $query->get();
+
+            if ($scheduledMilestones->isEmpty()) {
+                return back()->with('info', 'No scheduled presentations found to cancel.');
+            }
+
+            $thesisIds = $scheduledMilestones->pluck('thesis_project_id')->filter()->unique();
 
             foreach ($scheduledMilestones as $sm) {
                 $sm->update([
@@ -1164,23 +1203,38 @@ class MilestoneTemplateController extends Controller
                 'viva' => 'external',
                 default => 'first_seminar',
             };
-            
-            \App\Models\DefenceEvent::whereIn('thesis_project_id', $thesisIds)
-                ->where('type', $type)
-                ->delete();
 
-            // Also clear examiner metadata from template
-            $metadata = $template->metadata ?? [];
-            if (isset($metadata['examiner_profile_ids'])) {
-                unset($metadata['examiner_profile_ids']);
-                $template->metadata = $metadata;
-                $template->save();
+            if ($thesisIds->isNotEmpty()) {
+                \App\Models\DefenceEvent::whereIn('thesis_project_id', $thesisIds)
+                    ->where('type', $type)
+                    ->delete();
+            }
+
+            // Only clear global examiner metadata if cancelling globally (not group-specific)
+            if (!$discGroup) {
+                $metadata = $template->metadata ?? [];
+                if (isset($metadata['examiner_profile_ids'])) {
+                    unset($metadata['examiner_profile_ids']);
+                    $template->metadata = $metadata;
+                    $template->save();
+                }
             }
 
             \Illuminate\Support\Facades\DB::commit();
             \App\Models\MilestoneTemplate::clearPresentationCache();
 
-            return redirect()->route('admin.milestone-templates.index')->with('success', "Presentation schedule for {$template->name} has been cancelled successfully. All assigned dates, times, and Zoom links have been cleared.");
+            $groupLabel = match($discGroup) {
+                'cybersecurity' => 'Cybersecurity Track',
+                'artificial_intelligence' => 'AI Track',
+                'management_information_systems' => 'MIS Track',
+                default => null,
+            };
+
+            $msg = $groupLabel
+                ? "Presentation schedule for {$groupLabel} ({$template->name}) has been cancelled successfully. All assigned dates, times, and Zoom links for {$scheduledMilestones->count()} student(s) in this group have been cleared."
+                : "Presentation schedule for {$template->name} has been cancelled successfully. All assigned dates, times, and Zoom links have been cleared.";
+
+            return back()->with('success', $msg);
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\DB::rollBack();
             return redirect()->back()->with('error', 'Failed to cancel schedule: ' . $e->getMessage());
