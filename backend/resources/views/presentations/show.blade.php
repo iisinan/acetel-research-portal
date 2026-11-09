@@ -291,11 +291,11 @@
                                         <span>{{ $track['label'] }}</span>
                                     </span>
                                     <span class="px-2 py-0.5 rounded-full text-[10px] font-black" :class="activeTrack === '{{ $tKey }}' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'">
-                                        {{ $track['total'] }}
+                                        {{ $track['total'] ?? 0 }}
                                     </span>
                                 </div>
                                 <div class="text-[11px] opacity-75 truncate">
-                                    @if($track['examiners']->count() > 0)
+                                    @if(!empty($track['examiners']) && $track['examiners']->count() > 0)
                                         Panel: {{ $track['examiners']->pluck('name')->implode(', ') }}
                                     @else
                                         No examiners assigned
@@ -556,63 +556,74 @@
                             </div>
 
                             {{-- Actions Footer --}}
-                            <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                                @if($latestSub && $latestSub->file_url)
-                                    <button type="button"
-                                        @click.prevent="$dispatch('open-document-preview', {
-                                            url: '{{ Storage::url($latestSub->file_url) }}',
-                                            title: '{{ addslashes($studentName) }} - {{ addslashes($template->name) }}',
-                                            type: '{{ str_ends_with(strtolower($latestSub->file_url), '.pdf') ? 'pdf' : 'other' }}'
-                                        })"
-                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-900 text-slate-700 hover:text-white border border-slate-200/80 hover:border-slate-900 text-xs font-bold transition-all shadow-2xs group/btn active:scale-95">
-                                        <svg class="w-3.5 h-3.5 text-slate-500 group-hover/btn:text-emerald-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                        </svg>
-                                        <span>View Doc</span>
-                                    </button>
-                                @else
-                                    <span class="text-[10px] text-slate-400 font-bold uppercase">No Doc</span>
-                                @endif
-
-                                <div class="flex items-center gap-2 ml-auto">
-                                    @if($todayCanEval)
-                                        @if($todayEval && $todayEval->submitted_at)
-                                            <a href="{{ route('evaluations.show', $todayEval->id) }}" 
-                                               class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider {{ strtolower($todayEval->verdict ?? '') === 'fail' ? 'bg-rose-100 hover:bg-rose-200 text-rose-800 border border-rose-200' : 'bg-purple-100 hover:bg-purple-200 text-purple-800 border border-purple-200' }} transition-all shadow-2xs active:scale-95">
-                                                <svg class="w-3.5 h-3.5 {{ strtolower($todayEval->verdict ?? '') === 'fail' ? 'text-rose-600' : 'text-purple-600' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                                <span>{{ $todayEval->verdict ? strtoupper($todayEval->verdict) : 'Graded' }}</span>
-                                            </a>
+                            <div class="pt-3.5 border-t border-slate-100 space-y-2.5">
+                                {{-- Primary Row: View Doc on left, Score & Join Room on right --}}
+                                <div class="flex items-center justify-between gap-2">
+                                    <div>
+                                        @if($latestSub && $latestSub->file_url)
+                                            <button type="button"
+                                                @click.prevent="$dispatch('open-document-preview', {
+                                                    url: '{{ Storage::url($latestSub->file_url) }}',
+                                                    title: '{{ addslashes($studentName) }} - {{ addslashes($template->name) }}',
+                                                    type: '{{ str_ends_with(strtolower($latestSub->file_url), '.pdf') ? 'pdf' : 'other' }}'
+                                                })"
+                                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-900 text-slate-700 hover:text-white border border-slate-200/80 hover:border-slate-900 text-xs font-bold transition-all shadow-2xs group/btn active:scale-95">
+                                                <svg class="w-3.5 h-3.5 text-slate-500 group-hover/btn:text-emerald-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                                <span>View Doc</span>
+                                            </button>
                                         @else
-                                            <a href="{{ route('evaluations.create', $todayDefEvent->id) }}" 
-                                               class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider bg-purple-600 hover:bg-purple-700 text-white shadow-sm shadow-purple-600/25 transition-all active:scale-95 hover:-translate-y-0.5">
-                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                                <span>{{ in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2']) ? 'Grade' : 'Score' }}</span>
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold text-slate-400 bg-slate-50 border border-slate-200/60 uppercase tracking-wider">
+                                                <span>No Doc</span>
+                                            </span>
+                                        @endif
+                                    </div>
+
+                                    <div class="flex items-center gap-1.5 shrink-0">
+                                        @if($todayCanEval)
+                                            @if($todayEval && $todayEval->submitted_at)
+                                                <a href="{{ route('evaluations.show', $todayEval->id) }}" 
+                                                   class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider {{ strtolower($todayEval->verdict ?? '') === 'fail' ? 'bg-rose-100 hover:bg-rose-200 text-rose-800 border border-rose-200' : 'bg-purple-100 hover:bg-purple-200 text-purple-800 border border-purple-200' }} transition-all shadow-2xs active:scale-95">
+                                                    <svg class="w-3.5 h-3.5 {{ strtolower($todayEval->verdict ?? '') === 'fail' ? 'text-rose-600' : 'text-purple-600' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                                    <span>{{ $todayEval->verdict ? strtoupper($todayEval->verdict) : 'Graded' }}</span>
+                                                </a>
+                                            @else
+                                                <a href="{{ route('evaluations.create', $todayDefEvent->id) }}" 
+                                                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider bg-purple-600 hover:bg-purple-700 text-white shadow-sm shadow-purple-600/25 transition-all active:scale-95 hover:-translate-y-0.5">
+                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                                    <span>{{ in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2']) ? 'Grade' : 'Score' }}</span>
+                                                </a>
+                                            @endif
+                                        @endif
+
+                                        @if($todayCardLink)
+                                            <a href="{{ $todayCardLink }}" target="_blank" rel="noopener noreferrer"
+                                               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 transition-all shadow-2xs active:scale-95 group/zoom">
+                                                <svg class="w-3.5 h-3.5 text-blue-600 group-hover:text-white shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                                </svg>
+                                                <span>Join Room</span>
                                             </a>
                                         @endif
-                                    @endif
+                                    </div>
+                                </div>
 
-                                    @if($todayCardLink)
-                                        <a href="{{ $todayCardLink }}" target="_blank" rel="noopener noreferrer"
-                                           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200/80 hover:border-blue-600 shadow-2xs transition-all active:scale-95 group/zoom">
-                                            <svg class="w-3.5 h-3.5 text-blue-600 group-hover/zoom:text-white shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                                            </svg>
-                                            <span>Join Room</span>
-                                        </a>
-                                    @endif
-
-                                    @if(auth()->user()->hasRole('Admin') && $pres->status !== 'approved')
+                                {{-- Admin Management Toolbar: Reschedule, Cancel, End Slot --}}
+                                @if(auth()->user()->hasRole('Admin') && $pres->status !== 'approved')
+                                    <div class="pt-2.5 border-t border-slate-100 grid grid-cols-3 gap-1.5">
                                         <button type="button" 
                                             @click="slotModalOpen = true; slotStudentId = {{ $pres->id }}; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($pres->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $pres->defence_time ? \Carbon\Carbon::parse($pres->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($pres->meeting_link ?? '') }}'; slotTrack = '{{ $pres->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $pres->id]) }}'"
                                             title="Reschedule presentation"
-                                            class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors shadow-2xs">
-                                            <svg class="w-3.5 h-3.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            class="w-full inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 transition-colors shadow-2xs cursor-pointer">
+                                            <svg class="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                             </svg>
-                                            <span>Reschedule</span>
+                                            <span class="truncate">Reschedule</span>
                                         </button>
-                                        <form action="{{ route('admin.milestone-templates.update-student-slot', [$template->id, $pres->id]) }}" method="POST" class="inline">
+
+                                        <form action="{{ route('admin.milestone-templates.update-student-slot', [$template->id, $pres->id]) }}" method="POST" class="w-full">
                                             @csrf
                                             <input type="hidden" name="action" value="remove">
                                             <button type="submit" 
@@ -621,14 +632,15 @@
                                                 data-confirm-type="danger"
                                                 data-confirm-btn="Cancel Presentation"
                                                 title="Cancel presentation for this candidate"
-                                                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors shadow-2xs">
-                                                <svg class="w-3.5 h-3.5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                class="w-full inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-bold text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 transition-colors shadow-2xs cursor-pointer">
+                                                <svg class="w-3.5 h-3.5 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
                                                 </svg>
-                                                <span>Cancel</span>
+                                                <span class="truncate">Cancel</span>
                                             </button>
                                         </form>
-                                        <form action="{{ route('milestones.end_presentation', $pres) }}" method="POST" class="inline">
+
+                                        <form action="{{ route('milestones.end_presentation', $pres) }}" method="POST" class="w-full">
                                             @csrf
                                             <button type="submit" 
                                                 data-confirm="Are you sure you want to end the presentation for {{ addslashes($studentName) }}? If all requirements are met, the candidate will be advanced to the next milestone."
@@ -636,15 +648,15 @@
                                                 data-confirm-type="success"
                                                 data-confirm-btn="End Presentation"
                                                 title="End Presentation for {{ $studentName }}"
-                                                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition-all active:scale-95">
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                                                class="w-full inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-600 hover:text-white border border-blue-200/80 transition-all shadow-2xs active:scale-95 cursor-pointer">
+                                                <svg class="w-3.5 h-3.5 text-blue-600 group-hover:text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                 </svg>
-                                                <span>End</span>
+                                                <span class="truncate">End Slot</span>
                                             </button>
                                         </form>
-                                    @endif
-                                </div>
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     @endforeach
@@ -766,56 +778,65 @@
                                 <p class="text-xs font-bold text-slate-800 leading-snug line-clamp-2">"{{ $topic }}"</p>
                             </div>
 
-                            <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
-                                @if($latestSub && $latestSub->file_url)
-                                    <button type="button" 
-                                        @click.prevent="$dispatch('open-document-preview', { 
-                                            url: '{{ Storage::url($latestSub->file_url) }}', 
-                                            title: '{{ addslashes($studentName) }} - {{ addslashes($template->name) }}',
-                                            type: '{{ str_ends_with(strtolower($latestSub->file_url), '.pdf') ? 'pdf' : 'other' }}'
-                                        })"
-                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-900 text-slate-700 hover:text-white border border-slate-200 text-xs font-bold transition-all">
-                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                                        <span>Doc</span>
-                                    </button>
-                                @else
-                                    <span class="text-[10px] text-slate-400 font-bold uppercase">No Doc</span>
-                                @endif
-
-                                <div class="flex items-center gap-2">
-                                    @if($tableCanEval)
-                                        @if($tableEval && $tableEval->submitted_at)
-                                            <a href="{{ route('evaluations.show', $tableEval->id) }}" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider {{ strtolower($tableEval->verdict ?? '') === 'fail' ? 'bg-rose-100 text-rose-800' : 'bg-purple-100 text-purple-800' }}">
-                                                {{ $tableEval->verdict ? strtoupper($tableEval->verdict) : 'Graded' }}
-                                            </a>
-                                        @elseif($canScore)
-                                            <a href="{{ route('evaluations.create', $tableDefEvent->id) }}" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider bg-purple-600 text-white">
-                                                {{ in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2']) ? 'Grade' : 'Score' }}
-                                            </a>
+                            <div class="pt-3 border-t border-slate-100 space-y-2">
+                                {{-- Primary Row: Doc on left, Score & Zoom on right --}}
+                                <div class="flex items-center justify-between gap-2">
+                                    <div>
+                                        @if($latestSub && $latestSub->file_url)
+                                            <button type="button" 
+                                                @click.prevent="$dispatch('open-document-preview', { 
+                                                    url: '{{ Storage::url($latestSub->file_url) }}', 
+                                                    title: '{{ addslashes($studentName) }} - {{ addslashes($template->name) }}',
+                                                    type: '{{ str_ends_with(strtolower($latestSub->file_url), '.pdf') ? 'pdf' : 'other' }}'
+                                                })"
+                                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-900 text-slate-700 hover:text-white border border-slate-200 text-xs font-bold transition-all shadow-2xs active:scale-95">
+                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                                <span>Doc</span>
+                                            </button>
                                         @else
-                                            <span title="Scoring opens on the presentation date ({{ \Carbon\Carbon::parse($sm->defence_date)->format('M d, Y') }})" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-400 border border-slate-200/70 cursor-not-allowed">
-                                                {{ in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2']) ? 'Grade' : 'Score' }}
-                                            </span>
+                                            <span class="inline-flex items-center px-2 py-1 rounded-lg text-[10px] font-bold text-slate-400 bg-slate-50 border border-slate-200/60 uppercase tracking-wider">No Doc</span>
                                         @endif
-                                    @endif
+                                    </div>
 
-                                    @if($cardLink)
-                                        <a href="{{ $cardLink }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                                            Zoom
-                                        </a>
-                                    @endif
+                                    <div class="flex items-center gap-1.5 shrink-0">
+                                        @if($tableCanEval)
+                                            @if($tableEval && $tableEval->submitted_at)
+                                                <a href="{{ route('evaluations.show', $tableEval->id) }}" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider {{ strtolower($tableEval->verdict ?? '') === 'fail' ? 'bg-rose-100 text-rose-800' : 'bg-purple-100 text-purple-800' }}">
+                                                    {{ $tableEval->verdict ? strtoupper($tableEval->verdict) : 'Graded' }}
+                                                </a>
+                                            @elseif($canScore)
+                                                <a href="{{ route('evaluations.create', $tableDefEvent->id) }}" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider bg-purple-600 text-white shadow-2xs active:scale-95">
+                                                    {{ in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2']) ? 'Grade' : 'Score' }}
+                                                </a>
+                                            @else
+                                                <span title="Scoring opens on the presentation date ({{ \Carbon\Carbon::parse($sm->defence_date)->format('M d, Y') }})" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-400 border border-slate-200/70 cursor-not-allowed">
+                                                    {{ in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2']) ? 'Grade' : 'Score' }}
+                                                </span>
+                                            @endif
+                                        @endif
 
-                                    @if(auth()->user()->hasRole('Admin') && $sm->status !== 'approved')
+                                        @if($cardLink)
+                                            <a href="{{ $cardLink }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 transition-colors shadow-2xs active:scale-95">
+                                                <span>Zoom</span>
+                                            </a>
+                                        @endif
+                                    </div>
+                                </div>
+
+                                {{-- Admin Management Toolbar --}}
+                                @if(auth()->user()->hasRole('Admin') && $sm->status !== 'approved')
+                                    <div class="pt-2 border-t border-slate-100 grid grid-cols-3 gap-1.5">
                                         <button type="button" 
                                             @click="slotModalOpen = true; slotStudentId = {{ $sm->id }}; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $sm->defence_time ? \Carbon\Carbon::parse($sm->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($sm->meeting_link ?? '') }}'; slotTrack = '{{ $sm->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
                                             title="Reschedule presentation"
-                                            class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors shadow-2xs">
-                                            <svg class="w-3.5 h-3.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            class="w-full inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 transition-colors shadow-2xs truncate">
+                                            <svg class="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                             </svg>
-                                            <span>Reschedule</span>
+                                            <span class="truncate">Reschedule</span>
                                         </button>
-                                        <form action="{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}" method="POST" class="inline">
+
+                                        <form action="{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}" method="POST" class="w-full">
                                             @csrf
                                             <input type="hidden" name="action" value="remove">
                                             <button type="submit" 
@@ -824,24 +845,28 @@
                                                 data-confirm-type="danger"
                                                 data-confirm-btn="Cancel Presentation"
                                                 title="Cancel presentation for this candidate"
-                                                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors shadow-2xs">
-                                                <svg class="w-3.5 h-3.5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                class="w-full inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-bold text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 transition-colors shadow-2xs truncate">
+                                                <svg class="w-3.5 h-3.5 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
                                                 </svg>
-                                                <span>Cancel</span>
+                                                <span class="truncate">Cancel</span>
                                             </button>
                                         </form>
-                                        <form action="{{ route('milestones.end_presentation', $sm) }}" method="POST" class="inline">
+
+                                        <form action="{{ route('milestones.end_presentation', $sm) }}" method="POST" class="w-full">
                                             @csrf
                                             <button type="submit" 
                                                 data-confirm="End presentation for {{ addslashes($studentName) }}?"
                                                 data-confirm-title="End Presentation"
-                                                class="px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200">
-                                                End
+                                                class="w-full inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-600 hover:text-white border border-blue-200/80 transition-colors shadow-2xs truncate active:scale-95">
+                                                <svg class="w-3.5 h-3.5 text-blue-600 group-hover:text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                <span class="truncate">End Slot</span>
                                             </button>
                                         </form>
-                                    @endif
-                                </div>
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     @endforeach

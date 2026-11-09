@@ -2129,6 +2129,7 @@
                                                                             </svg>
                                                                             <span>{{ \Carbon\Carbon::parse($sm->defence_date)->format('M d, Y') }}</span>
                                                                         </div>
+                                                                        @if(!isset($isCoordinator) || !$isCoordinator)
                                                                             <button type="button" 
                                                                                 @click="slotModalOpen = true; slotStudentId = {{ $sm->id }}; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $sm->defence_time ? \Carbon\Carbon::parse($sm->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($sm->meeting_link ?? '') }}'; slotTrack = '{{ $sm->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
                                                                                 title="Reschedule / Edit slot or remove student"
