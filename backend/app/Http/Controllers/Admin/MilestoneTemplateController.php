@@ -33,7 +33,7 @@ class MilestoneTemplateController extends Controller
                       'thesis.student.program',
                       'thesis.defenceEvents.panelMembers.user', 
                       'thesis.defenceEvents.evaluations', 
-                      'thesis.milestones:id,thesis_id,milestone_template_id',
+                      'thesis.milestones:id,thesis_project_id,milestone_template_id',
                       'thesis.assignments.supervisor.user',
                       'submissions.feedback'
                   ]); 
