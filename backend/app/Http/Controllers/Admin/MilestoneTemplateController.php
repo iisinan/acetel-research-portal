@@ -33,7 +33,7 @@ class MilestoneTemplateController extends Controller
                       'thesis.student.program',
                       'thesis.defenceEvents.panelMembers.user', 
                       'thesis.defenceEvents.evaluations', 
-                      'thesis.milestones',
+                      'thesis.milestones:id,thesis_id,milestone_template_id',
                       'thesis.assignments.supervisor.user',
                       'submissions.feedback'
                   ]); 
@@ -45,10 +45,28 @@ class MilestoneTemplateController extends Controller
                 }
             }])->orderBy('order')->get();
             
+        // Preload examiners mapped by id to prevent N+1 queries in the Blade view
+        $examinerUserIds = collect();
+        foreach ($templates as $t) {
+            if (!empty($t->metadata['group_examiners'])) {
+                foreach ($t->metadata['group_examiners'] as $grp) {
+                    if (!empty($grp['user_ids'])) {
+                        $examinerUserIds = $examinerUserIds->merge($grp['user_ids']);
+                    }
+                }
+            }
+            if (!empty($t->metadata['examiner_user_ids'])) {
+                $examinerUserIds = $examinerUserIds->merge($t->metadata['examiner_user_ids']);
+            }
+        }
+        $examinerUsersMap = $examinerUserIds->isNotEmpty()
+            ? \App\Models\User::whereIn('id', $examinerUserIds->unique()->filter())->get()->keyBy('id')
+            : collect();
+
         $supervisors = \App\Models\SupervisorProfile::with(['user', 'programs'])->get();
         $cohorts = \App\Models\Cohort::orderBy('name')->get();
         $programs = Program::orderBy('name')->get();
-        return view('admin.milestone-templates.index', compact('templates', 'supervisors', 'isCoordinator', 'cohorts', 'programs'));
+        return view('admin.milestone-templates.index', compact('templates', 'supervisors', 'isCoordinator', 'cohorts', 'programs', 'examinerUsersMap'));
     }
 
     public function show($id = null)

@@ -303,6 +303,16 @@
                             this.singleStudentMatric = matric;
                             this.isSubmittingMessage = false;
                             this.messageModalOpen = true;
+                        },
+                        assignModalOpen: false,
+                        assignStudentName: '',
+                        assignFormUrl: '',
+                        assignProfileIds: [],
+                        openAssignModal(name, formUrl, profileIds) {
+                            this.assignStudentName = name;
+                            this.assignFormUrl = formUrl;
+                            this.assignProfileIds = (profileIds || []).map(Number);
+                            this.assignModalOpen = true;
                         }
                     }" class="divide-y divide-slate-50 border-t border-slate-50">
                     <tr class="hover:bg-slate-50/30 transition-colors group cursor-pointer" data-id="{{ $template->id }}" @click="if(!$event.target.closest('button') && !$event.target.closest('a') && !$event.target.closest('input') && !$event.target.closest('form')) expanded = !expanded">
@@ -383,6 +393,31 @@
                             <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 cursor-default" @click.stop>
                                 
                                 @php
+                                    $scheduledMilestones = $template->studentMilestones
+                                        ->filter(fn($m) => !empty($m->defence_date) && $m->status !== 'approved')
+                                        ->sortBy(fn($m) => \Carbon\Carbon::parse($m->defence_date)->format('Y-m-d') . ' ' . ($m->defence_time ?? ''))
+                                        ->values();
+                                    $scheduledCount = $scheduledMilestones->count();
+                                    $existingLink = $scheduledMilestones->first(fn($m) => !empty($m->meeting_link))?->meeting_link;
+                                    $existingTimeRaw = $scheduledMilestones->first(fn($m) => !empty($m->defence_time))?->defence_time;
+                                    $existingTime = $existingTimeRaw ? \Carbon\Carbon::parse($existingTimeRaw)->format('H:i') : null;
+                                    $lastScheduledDate = $scheduledCount > 0 ? \Carbon\Carbon::parse($scheduledMilestones->last()->defence_date)->format('Y-m-d') : null;
+
+                                    $schedCyberCount = $scheduledMilestones->where('discipline_group', 'cybersecurity')->count();
+                                    $schedAiCount = $scheduledMilestones->where('discipline_group', 'artificial_intelligence')->count();
+                                    $schedMisCount = $scheduledMilestones->where('discipline_group', 'management_information_systems')->count();
+                                    $trackZoomLinks = $template->metadata['track_zoom_links'] ?? [];
+
+                                    if (empty($trackZoomLinks['cybersecurity'])) {
+                                        $trackZoomLinks['cybersecurity'] = $scheduledMilestones->first(fn($m) => $m->discipline_group === 'cybersecurity' && !empty($m->meeting_link))?->meeting_link;
+                                    }
+                                    if (empty($trackZoomLinks['artificial_intelligence'])) {
+                                        $trackZoomLinks['artificial_intelligence'] = $scheduledMilestones->first(fn($m) => $m->discipline_group === 'artificial_intelligence' && !empty($m->meeting_link))?->meeting_link;
+                                    }
+                                    if (empty($trackZoomLinks['management_information_systems'])) {
+                                        $trackZoomLinks['management_information_systems'] = $scheduledMilestones->first(fn($m) => $m->discipline_group === 'management_information_systems' && !empty($m->meeting_link))?->meeting_link;
+                                    }
+
                                     $isSeminar = $template->slug === 'seminar_as_a_course';
                                     if ($isSeminar) {
                                         $cyberMilestones = $template->studentMilestones->filter(fn($m) => $m->discipline_group === 'cybersecurity');
@@ -398,9 +433,9 @@
                                         $aiUserIds = $groupMeta['artificial_intelligence']['user_ids'] ?? [];
                                         $misUserIds = $groupMeta['management_information_systems']['user_ids'] ?? [];
 
-                                        $cyberExaminers = !empty($cyberUserIds) ? \App\Models\User::whereIn('id', $cyberUserIds)->get() : collect();
-                                        $aiExaminers = !empty($aiUserIds) ? \App\Models\User::whereIn('id', $aiUserIds)->get() : collect();
-                                        $misExaminers = !empty($misUserIds) ? \App\Models\User::whereIn('id', $misUserIds)->get() : collect();
+                                        $cyberExaminers = !empty($cyberUserIds) ? collect($cyberUserIds)->map(fn($id) => $examinerUsersMap[$id] ?? null)->filter() : collect();
+                                        $aiExaminers = !empty($aiUserIds) ? collect($aiUserIds)->map(fn($id) => $examinerUsersMap[$id] ?? null)->filter() : collect();
+                                        $misExaminers = !empty($misUserIds) ? collect($misUserIds)->map(fn($id) => $examinerUsersMap[$id] ?? null)->filter() : collect();
 
                                         $cyberLink = $cyberMilestones->first(fn($m) => !empty($m->meeting_link))?->meeting_link ?? '';
                                         $aiLink = $aiMilestones->first(fn($m) => !empty($m->meeting_link))?->meeting_link ?? '';
@@ -591,32 +626,6 @@
                                         </button>
                                     @endif
 
-                                    @php
-                                        $scheduledMilestones = $template->studentMilestones
-                                            ->filter(fn($m) => !empty($m->defence_date) && $m->status !== 'approved')
-                                            ->sortBy(fn($m) => \Carbon\Carbon::parse($m->defence_date)->format('Y-m-d') . ' ' . ($m->defence_time ?? ''))
-                                            ->values();
-                                        $scheduledCount = $scheduledMilestones->count();
-                                        $existingLink = $scheduledMilestones->first(fn($m) => !empty($m->meeting_link))?->meeting_link;
-                                        $existingTimeRaw = $scheduledMilestones->first(fn($m) => !empty($m->defence_time))?->defence_time;
-                                        $existingTime = $existingTimeRaw ? \Carbon\Carbon::parse($existingTimeRaw)->format('H:i') : null;
-                                        $lastScheduledDate = $scheduledCount > 0 ? \Carbon\Carbon::parse($scheduledMilestones->last()->defence_date)->format('Y-m-d') : null;
-
-                                        $schedCyberCount = $scheduledMilestones->where('discipline_group', 'cybersecurity')->count();
-                                        $schedAiCount = $scheduledMilestones->where('discipline_group', 'artificial_intelligence')->count();
-                                        $schedMisCount = $scheduledMilestones->where('discipline_group', 'management_information_systems')->count();
-                                        $trackZoomLinks = $template->metadata['track_zoom_links'] ?? [];
-
-                                        if (empty($trackZoomLinks['cybersecurity'])) {
-                                            $trackZoomLinks['cybersecurity'] = $scheduledMilestones->first(fn($m) => $m->discipline_group === 'cybersecurity' && !empty($m->meeting_link))?->meeting_link;
-                                        }
-                                        if (empty($trackZoomLinks['artificial_intelligence'])) {
-                                            $trackZoomLinks['artificial_intelligence'] = $scheduledMilestones->first(fn($m) => $m->discipline_group === 'artificial_intelligence' && !empty($m->meeting_link))?->meeting_link;
-                                        }
-                                        if (empty($trackZoomLinks['management_information_systems'])) {
-                                            $trackZoomLinks['management_information_systems'] = $scheduledMilestones->first(fn($m) => $m->discipline_group === 'management_information_systems' && !empty($m->meeting_link))?->meeting_link;
-                                        }
-                                    @endphp
 
                                     @if($scheduledCount > 0)
                                         @if(!isset($isCoordinator) || !$isCoordinator)
@@ -1422,7 +1431,7 @@
                                             // Resolve current examiners: metadata first, then search events
                                             $metaUserIds = $template->metadata['examiner_user_ids'] ?? [];
                                             if (!empty($metaUserIds)) {
-                                                $currentExaminers = \App\Models\User::whereIn('id', $metaUserIds)->get();
+                                                $currentExaminers = collect($metaUserIds)->map(fn($id) => $examinerUsersMap[$id] ?? null)->filter();
                                             } else {
                                                 $firstEventWithEx = null;
                                                 foreach ($template->studentMilestones as $mItem) {
@@ -2218,7 +2227,7 @@
                                                             @endif
                                                             @endif
                                                             <td class="px-4 py-3 text-right">
-                                                                <div x-data="{ menuOpen: false, showAssignModal: false }" class="relative inline-block text-left">
+                                                                <div x-data="{ menuOpen: false }" class="relative inline-block text-left">
                                                                     <button type="button" @click.prevent.stop="menuOpen = !menuOpen" class="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors focus:outline-none">
                                                                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
                                                                     </button>
@@ -2270,7 +2279,12 @@
                                                                                 </button>
                                                                                 @endif
                                                                                 @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
-                                                                                <button type="button" @click="showAssignModal = true; menuOpen = false" class="w-full text-left px-3 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-2">
+                                                                                @php
+                                                                                    $assignUrl = (auth()->user()->hasRole('Program Coordinator') && !auth()->user()->hasRole('Admin')) ? route('coordinator.milestone-templates.assign-examiner', $sm->id) : route('admin.milestone-templates.assign-examiner', $sm->id);
+                                                                                    $currentExaminerUserIds = $rowExaminers->pluck('user_id')->all();
+                                                                                    $currentAssignedProfileIds = $supervisors->whereIn('user_id', $currentExaminerUserIds)->pluck('id')->values()->all();
+                                                                                @endphp
+                                                                                <button type="button" @click="menuOpen = false; openAssignModal('{{ addslashes($studentName) }}', '{{ $assignUrl }}', {{ json_encode($currentAssignedProfileIds) }})" class="w-full text-left px-3 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-2">
                                                                                     <svg class="w-3.5 h-3.5 text-indigo-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                                                                                     </svg>
@@ -2350,42 +2364,6 @@
                                                                         </div>
                                                                         @endif
                                                                     </div>
-
-                                                                    {{-- Individual Student Examiner Assignment Modal --}}
-                                                                    @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
-                                                                    <div x-show="showAssignModal" @click.outside="showAssignModal = false" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs" style="display: none;">
-                                                                        <div @click.stop class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 text-left">
-                                                                            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-                                                                                <div>
-                                                                                    <h4 class="text-sm font-black text-slate-900">Assign Examiner(s)</h4>
-                                                                                    <p class="text-xs text-slate-500 mt-0.5">{{ $studentName }} — {{ $template->name }}</p>
-                                                                                </div>
-                                                                                <button type="button" @click="showAssignModal = false" class="text-slate-400 hover:text-slate-600 text-xl font-bold leading-none">&times;</button>
-                                                                            </div>
-                                                                            <form action="{{ (auth()->user()->hasRole('Program Coordinator') && !auth()->user()->hasRole('Admin')) ? route('coordinator.milestone-templates.assign-examiner', $sm->id) : route('admin.milestone-templates.assign-examiner', $sm->id) }}" method="POST" class="space-y-4">
-                                                                                @csrf
-                                                                                <div>
-                                                                                    <label class="block text-xs font-bold text-slate-700 mb-2">Select Examiner(s)</label>
-                                                                                    <div class="max-h-56 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 p-1">
-                                                                                        @foreach($supervisors as $sup)
-                                                                                            <label class="flex items-center gap-2.5 p-2 hover:bg-indigo-50/50 rounded-lg cursor-pointer">
-                                                                                                <input type="checkbox" name="supervisor_profile_ids[]" value="{{ $sup->id }}" {{ $rowExaminers->pluck('user_id')->contains($sup->user_id) ? 'checked' : '' }} class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
-                                                                                                <div class="text-xs">
-                                                                                                    <span class="font-bold text-slate-800">{{ $sup->user->name }}</span>
-                                                                                                    <span class="text-[10px] text-slate-400 block font-semibold">{{ $sup->programs->first()->code ?? 'Supervisor' }}</span>
-                                                                                                </div>
-                                                                                            </label>
-                                                                                        @endforeach
-                                                                                    </div>
-                                                                                </div>
-                                                                                <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-                                                                                    <button type="button" @click="showAssignModal = false" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
-                                                                                    <button type="submit" class="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm transition-colors">Save Examiner(s)</button>
-                                                                                </div>
-                                                                            </form>
-                                                                        </div>
-                                                                    </div>
-                                                                    @endif
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -2505,6 +2483,46 @@
                                     </div>
                                 </div>
                             </template>
+
+                            {{-- Individual Student Examiner Assignment Modal (Teleported to body) --}}
+                            @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
+                            <template x-teleport="body">
+                                <div x-show="assignModalOpen" x-cloak x-transition.opacity class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" @keydown.escape.window="assignModalOpen = false">
+                                    <div @click.outside="assignModalOpen = false" class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 text-left">
+                                        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                                            <div>
+                                                <h4 class="text-base font-black text-slate-900">Assign Examiner(s)</h4>
+                                                <p class="text-xs text-slate-500 mt-0.5"><span x-text="assignStudentName"></span> — {{ $template->name }}</p>
+                                            </div>
+                                            <button type="button" @click="assignModalOpen = false" class="p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer">
+                                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                            </button>
+                                        </div>
+                                        <form :action="assignFormUrl" method="POST" class="space-y-4">
+                                            @csrf
+                                            <div>
+                                                <label class="block text-xs font-bold text-slate-700 mb-2">Select Examiner(s)</label>
+                                                <div class="max-h-56 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 p-1">
+                                                    @foreach($supervisors as $sup)
+                                                        <label class="flex items-center gap-2.5 p-2 hover:bg-indigo-50/50 rounded-lg cursor-pointer">
+                                                            <input type="checkbox" name="supervisor_profile_ids[]" value="{{ $sup->id }}" :value="{{ $sup->id }}" x-model="assignProfileIds" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                                                            <div class="text-xs">
+                                                                <span class="font-bold text-slate-800">{{ $sup->user->name }}</span>
+                                                                <span class="text-[10px] text-slate-400 block font-semibold">{{ $sup->programs->first()->code ?? 'Supervisor' }}</span>
+                                                            </div>
+                                                        </label>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                                                <button type="button" @click="assignModalOpen = false" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
+                                                <button type="submit" class="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm transition-colors">Save Examiner(s)</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </template>
+                            @endif
 
                             {{-- Send Inbox / Email Modal (Teleported to body) --}}
                             <template x-teleport="body">
