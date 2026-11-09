@@ -42,8 +42,22 @@ class SeminarExaminationController extends Controller
                     $pq->where('user_id', $user->id);
                 });
                 if (!empty($examinerTracks)) {
-                    $q->orWhereHas('thesis.milestones', function($mq) use ($examinerTracks) {
-                        $mq->whereIn('student_milestones.discipline_group', $examinerTracks);
+                    $q->orWhereHas('thesis.student.program', function($pq) use ($examinerTracks) {
+                        $pq->where(function($subQ) use ($examinerTracks) {
+                            foreach ($examinerTracks as $track) {
+                                if ($track === 'cybersecurity') {
+                                    $subQ->orWhereRaw('LOWER(name) LIKE ?', ['%cyber%'])
+                                         ->orWhereRaw('LOWER(code) LIKE ?', ['%cyber%']);
+                                } elseif ($track === 'artificial_intelligence') {
+                                    $subQ->orWhereRaw('LOWER(name) LIKE ?', ['%intelligence%'])
+                                         ->orWhereRaw('LOWER(code) LIKE ?', ['%ai%']);
+                                } elseif ($track === 'management_information_systems') {
+                                    $subQ->orWhereRaw('LOWER(name) LIKE ?', ['%management%'])
+                                         ->orWhereRaw('LOWER(name) LIKE ?', ['%information%'])
+                                         ->orWhereRaw('LOWER(code) LIKE ?', ['%mis%']);
+                                }
+                            }
+                        });
                     });
                 }
             });

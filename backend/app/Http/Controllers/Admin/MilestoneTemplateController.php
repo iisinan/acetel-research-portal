@@ -972,9 +972,6 @@ class MilestoneTemplateController extends Controller
                 'defence_time' => $newTime,
                 'meeting_link' => $newLink,
             ];
-            if ($request->filled('discipline_group')) {
-                $updateData['discipline_group'] = $request->discipline_group;
-            }
             $milestone->update($updateData);
 
             if ($thesis) {
@@ -1167,13 +1164,14 @@ class MilestoneTemplateController extends Controller
         try {
             $query = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
                 ->whereNotNull('defence_date')
-                ->where('status', '!=', 'approved');
-
-            if ($discGroup && in_array($discGroup, ['cybersecurity', 'artificial_intelligence', 'management_information_systems'])) {
-                $query->where('discipline_group', $discGroup);
-            }
+                ->where('status', '!=', 'approved')
+                ->with(['thesis.student.user', 'thesis.student.program']);
 
             $scheduledMilestones = $query->get();
+
+            if ($discGroup && in_array($discGroup, ['cybersecurity', 'artificial_intelligence', 'management_information_systems'])) {
+                $scheduledMilestones = $scheduledMilestones->filter(fn($m) => $m->discipline_group === $discGroup);
+            }
 
             if ($scheduledMilestones->isEmpty()) {
                 return back()->with('info', 'No scheduled presentations found to cancel.');
