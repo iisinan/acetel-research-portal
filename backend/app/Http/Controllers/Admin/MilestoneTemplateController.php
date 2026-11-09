@@ -745,6 +745,7 @@ class MilestoneTemplateController extends Controller
         };
 
         $count = 0;
+        $examinerRescheduledMap = [];
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
             foreach ($milestones as $sm) {
@@ -787,7 +788,7 @@ class MilestoneTemplateController extends Controller
                     if ($studentUser) {
                         \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
                         try {
-                            $studentUser->notify(new \App\Notifications\EventRescheduled(
+                            $studentUser->notify(new EventRescheduled(
                                 $event,
                                 $fromDateStr,
                                 $previousTime,
@@ -797,10 +798,57 @@ class MilestoneTemplateController extends Controller
                             \Illuminate\Support\Facades\Log::error('Reschedule notification failed: ' . $e->getMessage());
                         }
                     }
+
+                    // Collect examiners for notification
+                    $examiners = $this->getExaminersForMilestone($sm, $template, $event);
+                    $prevSlotStr = \Carbon\Carbon::parse($fromDateStr)->format('M d, Y') . ($previousTime ? ' at ' . \Carbon\Carbon::parse($previousTime)->format('g:i A') : '');
+                    $newSlotStr = $toDate->format('M d, Y') . ($sm->defence_time ? ' at ' . \Carbon\Carbon::parse($sm->defence_time)->format('g:i A') : '');
+
+                    foreach ($examiners as $ex) {
+                        $examinerRescheduledMap[$ex->id]['user'] = $ex;
+                        $examinerRescheduledMap[$ex->id]['items'][] = [
+                            'candidate_name' => $studentUser?->name ?? 'Candidate',
+                            'student_id' => $sm->thesis?->student?->student_id_number ?? 'N/A',
+                            'program' => $sm->thesis?->student?->program?->code ?? ($sm->thesis?->student?->program?->name ?? 'N/A'),
+                            'previous_slot' => $prevSlotStr,
+                            'new_slot' => $newSlotStr,
+                            'meeting_link' => $sm->meeting_link ?: 'Online / Portal',
+                            'event' => $event,
+                            'previous_date' => $fromDateStr,
+                            'previous_time' => $previousTime,
+                        ];
+                    }
                 }
                 $count++;
             }
             \Illuminate\Support\Facades\DB::commit();
+
+            // Notify examiners who have rescheduled candidates
+            foreach ($examinerRescheduledMap as $exId => $data) {
+                try {
+                    $exUser = $data['user'];
+                    $items = $data['items'];
+                    if (count($items) === 1) {
+                        $first = $items[0];
+                        $exUser->notify(new EventRescheduled(
+                            $first['event'],
+                            $first['previous_date'],
+                            $first['previous_time'],
+                            $template->name
+                        ));
+                    } else {
+                        $exUser->notify(new ExaminerBatchScheduleRescheduled(
+                            $template,
+                            $items,
+                            $template->name,
+                            $request->discipline_group
+                        ));
+                    }
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error("Failed to notify examiner {$exId} on rescheduleDay: " . $e->getMessage());
+                }
+            }
+
             $trackLabel = $request->filled('discipline_group') ? match($request->discipline_group) {
                 'cybersecurity' => ' (Cybersecurity Track)',
                 'artificial_intelligence' => ' (AI Track)',
@@ -871,7 +919,7 @@ class MilestoneTemplateController extends Controller
             $newDate = \Carbon\Carbon::parse($request->defence_date)->format('Y-m-d');
             $newTime = $request->defence_time ?: null;
             $newLink = $request->meeting_link ?: null;
-            $isMoved = !empty($previousDate) && ($previousDate !== $newDate || $previousTime !== $newTime);
+            $isMoved = !empty($previousDate) && ($previousDate !== $newDate || $previousTime !== $newTime || ($milestone->meeting_link ?: null) !== $newLink);
 
             $milestone->update([
                 'defence_date' => $newDate,
@@ -921,17 +969,36 @@ class MilestoneTemplateController extends Controller
                     \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
                     try {
                         if ($isMoved) {
-                            $studentUser->notify(new \App\Notifications\EventRescheduled(
+                            $studentUser->notify(new EventRescheduled(
                                 $event,
                                 $previousDate,
                                 $previousTime,
                                 $template->name
                             ));
                         } else {
-                            $studentUser->notify(new \App\Notifications\EventScheduled($event));
+                            $studentUser->notify(new EventScheduled($event));
                         }
                     } catch (\Throwable $e) {
                         \Illuminate\Support\Facades\Log::error('Event notification error: ' . $e->getMessage());
+                    }
+                }
+
+                // Notify assigned examiners as well
+                $examiners = $this->getExaminersForMilestone($milestone, $template, $event);
+                foreach ($examiners as $ex) {
+                    try {
+                        if ($isMoved) {
+                            $ex->notify(new EventRescheduled(
+                                $event,
+                                $previousDate,
+                                $previousTime,
+                                $template->name
+                            ));
+                        } else {
+                            $ex->notify(new EventScheduled($event));
+                        }
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::error("Failed to notify examiner {$ex->id} in updateStudentSlot: " . $e->getMessage());
                     }
                 }
             }
