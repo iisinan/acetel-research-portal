@@ -17,14 +17,39 @@ class SeminarExaminationController extends Controller
     public function index()
     {
         $user = Auth::user();
+        $isAdmin = $user && $user->hasRole('Admin');
         
-        $events = DefenceEvent::where('type', 'seminar')
-            ->whereHas('panelMembers', function($q) use ($user) {
-                $q->where('user_id', $user->id);
-            })
+        $eventsQuery = DefenceEvent::where('type', 'seminar')
             ->whereHas('thesis.milestones', function($q) {
                 $q->whereNotNull('student_milestones.defence_date');
-            })
+            });
+
+        if (!$isAdmin) {
+            $seminarTemplate = \App\Models\MilestoneTemplate::where('slug', 'seminar_as_a_course')->first();
+            $examinerTracks = [];
+            if ($seminarTemplate) {
+                $groupExaminers = $seminarTemplate->metadata['group_examiners'] ?? [];
+                foreach ($groupExaminers as $trackKey => $info) {
+                    $uIds = $info['user_ids'] ?? [];
+                    if (in_array($user->id, $uIds)) {
+                        $examinerTracks[] = $trackKey;
+                    }
+                }
+            }
+
+            $eventsQuery->where(function($q) use ($user, $examinerTracks) {
+                $q->whereHas('panelMembers', function($pq) use ($user) {
+                    $pq->where('user_id', $user->id);
+                });
+                if (!empty($examinerTracks)) {
+                    $q->orWhereHas('thesis.milestones', function($mq) use ($examinerTracks) {
+                        $mq->whereIn('student_milestones.discipline_group', $examinerTracks);
+                    });
+                }
+            });
+        }
+
+        $events = $eventsQuery
             ->with([
                 'thesis.student.user',
                 'thesis.student.program',
@@ -53,9 +78,8 @@ class SeminarExaminationController extends Controller
 
         $event = DefenceEvent::findOrFail($eventId);
 
-        // Verification: ensure user is an assigned panel member for this defence
-        $isPanelMember = $event->panelMembers()->where('user_id', Auth::id())->exists();
-        if (!$isPanelMember && !Auth::user()->hasRole('Admin')) {
+        // Verification: ensure user is an assigned panel member / authorized evaluator for this defence
+        if (!$event->isAuthorizedEvaluator(Auth::id())) {
             abort(403, 'Institutional Protocol: You are not an assigned examiner for this candidate.');
         }
 
@@ -113,6 +137,8 @@ class SeminarExaminationController extends Controller
                     'delivery_method' => 'in_app',
                 ]);
                 $inboxMsg->recipients()->attach($studentUser->id, [
+                    'id' => (string) \Illuminate\Support\Str::uuid(),
+                    'recipient_type' => 'to',
                     'is_read' => false,
                     'created_at' => now(),
                     'updated_at' => now(),

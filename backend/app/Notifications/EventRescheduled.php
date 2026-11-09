@@ -35,19 +35,32 @@ class EventRescheduled extends Notification implements ShouldQueue
         $eventType = $this->milestoneName ?? ucfirst(str_replace('_', ' ', $this->event->type));
         $newDateStr = $this->event->schedule_start ? $this->event->schedule_start->format('l, F j, Y') : 'TBD';
 
+        $candidateName = $this->event->thesis?->student?->user?->name;
+        $isStudent = $notifiable->id === ($this->event->thesis?->student?->user_id ?? null);
+
+        $subject = $isStudent
+            ? 'Schedule Movement Notice: ' . $eventType . ' Rescheduled to ' . $newDateStr
+            : 'Schedule Movement Notice: Candidate ' . ($candidateName ?? 'Presentation') . ' - ' . $eventType . ' Rescheduled to ' . $newDateStr;
+
         return (new MailMessage)
-            ->subject('Schedule Movement Notice: ' . $eventType . ' Rescheduled to ' . $newDateStr)
+            ->subject($subject)
             ->markdown('emails.event-rescheduled', [
                 'event' => $this->event,
                 'previousDate' => $this->previousDate,
                 'previousTime' => $this->previousTime,
                 'milestoneName' => $this->milestoneName,
-                'notifiable' => $notifiable
+                'notifiable' => $notifiable,
+                'isStudent' => $isStudent,
+                'candidateName' => $candidateName,
             ]);
     }
 
     public function toArray(object $notifiable): array
     {
+        $candidateName = $this->event->thesis?->student?->user?->name;
+        $isStudent = $notifiable->id === ($this->event->thesis?->student?->user_id ?? null);
+        $subject = $isStudent ? 'Your' : ($candidateName ? "Candidate {$candidateName}'s" : 'The');
+
         return [
             'event_id' => $this->event->id,
             'type' => $this->event->type,
@@ -55,7 +68,9 @@ class EventRescheduled extends Notification implements ShouldQueue
             'previous_date' => $this->previousDate,
             'previous_time' => $this->previousTime,
             'time' => $this->event->schedule_start,
-            'message' => 'Your ' . ($this->milestoneName ?? $this->event->type) . ' presentation schedule has been moved to ' . ($this->event->schedule_start ? $this->event->schedule_start->format('M d, Y g:i A') : 'a new date') . '.',
+            'candidate_name' => $candidateName,
+            'is_examiner' => !$isStudent,
+            'message' => "{$subject} " . ($this->milestoneName ?? $this->event->type) . ' presentation schedule has been moved to ' . ($this->event->schedule_start ? $this->event->schedule_start->format('M d, Y g:i A') : 'a new date') . '.',
         ];
     }
 }

@@ -300,12 +300,24 @@ x-init="
 <div x-show="activeRole === 'Supervisor'" x-cloak>
     @php
         try {
+            $uId = auth()->id();
+            $semTemp = \App\Models\MilestoneTemplate::where('slug', 'seminar_as_a_course')->first();
+            $uTracks = [];
+            if ($semTemp) {
+                foreach (($semTemp->metadata['group_examiners'] ?? []) as $tK => $inf) {
+                    if (in_array($uId, $inf['user_ids'] ?? [])) $uTracks[] = $tK;
+                }
+            }
+
             $pendingSeminarCount = \App\Models\DefenceEvent::where('type', 'seminar')
-                ->whereHas('panelMembers', function($q) {
-                    $q->where('user_id', auth()->id());
+                ->where(function($q) use ($uId, $uTracks) {
+                    $q->whereHas('panelMembers', fn($pq) => $pq->where('user_id', $uId));
+                    if (!empty($uTracks)) {
+                        $q->orWhereHas('thesis.milestones', fn($mq) => $mq->whereIn('student_milestones.discipline_group', $uTracks));
+                    }
                 })
-                ->whereDoesntHave('evaluations', function($q) {
-                    $q->where('evaluator_id', auth()->id());
+                ->whereDoesntHave('evaluations', function($q) use ($uId) {
+                    $q->where('evaluator_id', $uId);
                 })
                 ->whereHas('thesis.milestones', function($q) {
                     $q->whereNotNull('student_milestones.defence_date');

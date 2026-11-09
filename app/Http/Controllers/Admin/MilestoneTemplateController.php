@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\MilestoneTemplate;
 use App\Models\Program;
 use Illuminate\Http\Request;
+use App\Notifications\EventRescheduled;
+use App\Notifications\ExaminerBatchScheduleRescheduled;
+use App\Notifications\EventScheduled;
 
 class MilestoneTemplateController extends Controller
 {

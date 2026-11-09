@@ -669,6 +669,7 @@
                             $tableDefEvent = $sm->thesis?->defenceEvents?->where('type', $tableEventType)->first();
                             $dateStr = \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d');
                             $isToday = ($dateStr === $todayDateStr);
+                            $canScore = ($dateStr <= $todayDateStr) || (auth()->user() && auth()->user()->hasRole('Admin'));
                             $tableCanEval = $tableDefEvent && $tableDefEvent->isAuthorizedEvaluator(auth()->id());
                             $tableEval = $tableCanEval ? $tableDefEvent->evaluations->firstWhere('evaluator_id', auth()->id()) : null;
                             $latestSub = $sm->submissions->first();
@@ -731,10 +732,14 @@
                                             <a href="{{ route('evaluations.show', $tableEval->id) }}" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider {{ strtolower($tableEval->verdict ?? '') === 'fail' ? 'bg-rose-100 text-rose-800' : 'bg-purple-100 text-purple-800' }}">
                                                 {{ $tableEval->verdict ? strtoupper($tableEval->verdict) : 'Graded' }}
                                             </a>
-                                        @elseif($isToday)
+                                        @elseif($canScore)
                                             <a href="{{ route('evaluations.create', $tableDefEvent->id) }}" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider bg-purple-600 text-white">
-                                                Score
+                                                {{ in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2']) ? 'Grade' : 'Score' }}
                                             </a>
+                                        @else
+                                            <span title="Scoring opens on the presentation date ({{ \Carbon\Carbon::parse($sm->defence_date)->format('M d, Y') }})" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-400 border border-slate-200/70 cursor-not-allowed">
+                                                {{ in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2']) ? 'Grade' : 'Score' }}
+                                            </span>
                                         @endif
                                     @endif
 
@@ -823,6 +828,7 @@
                                     }
                                     $dateStr = \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d');
                                     $isToday = ($dateStr === $todayDateStr);
+                                    $canScore = ($dateStr <= $todayDateStr) || (auth()->user() && auth()->user()->hasRole('Admin'));
                                     $latestSub = $sm->submissions->first();
                                     $rowLink = $sm->meeting_link ?: ($isSeminarCourse ? ($trackData[$sm->discipline_group]['meeting_link'] ?? $meetingLink) : $meetingLink);
                                     $tableCanEval = $tableDefEvent && $tableDefEvent->isAuthorizedEvaluator(auth()->id());
@@ -1010,14 +1016,14 @@
                                                         <span>{{ $tableEval->verdict ? strtoupper($tableEval->verdict) : 'Graded' }}</span>
                                                     </a>
                                                 @else
-                                                    @if($isToday)
+                                                    @if($canScore)
                                                         <a href="{{ route('evaluations.create', $tableDefEvent->id) }}" 
                                                            class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider bg-purple-600 hover:bg-purple-700 text-white shadow-sm shadow-purple-600/25 transition-all active:scale-95 hover:-translate-y-0.5">
                                                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                                             <span>{{ in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2']) ? 'Grade' : 'Score' }}</span>
                                                         </a>
                                                     @else
-                                                        <span title="Scoring opens on the presentation date" 
+                                                        <span title="Scoring opens on the presentation date ({{ \Carbon\Carbon::parse($sm->defence_date)->format('M d, Y') }})" 
                                                               class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-400 border border-slate-200/70 cursor-not-allowed">
                                                             <span>{{ in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2']) ? 'Grade' : 'Score' }}</span>
                                                         </span>

@@ -28,6 +28,54 @@ class PresentationController extends Controller
             ->orderBy('defence_time', 'asc')
             ->get();
 
+        $targetEventType = $template->defence_type ?? match($template->slug) {
+            'seminar_as_a_course' => 'seminar',
+            'proposal_defence' => 'proposal',
+            'progress_report_1' => 'progress_report_1',
+            'progress_report_2' => 'progress_report_2',
+            'internal_defence' => 'internal',
+            'viva' => 'external',
+            default => 'first_seminar',
+        };
+
+        // Ensure all scheduled milestones have their corresponding DefenceEvent created
+        $missingEventFound = false;
+        foreach ($allScheduled as $sm) {
+            if ($sm->thesis && !$sm->thesis->defenceEvents->where('type', $targetEventType)->first()) {
+                $ev = \App\Models\DefenceEvent::create([
+                    'thesis_project_id' => $sm->thesis->id,
+                    'type' => $targetEventType,
+                    'schedule_start' => $sm->defence_date ? \Carbon\Carbon::parse($sm->defence_date)->setHour(9) : now(),
+                    'schedule_end' => $sm->defence_date ? \Carbon\Carbon::parse($sm->defence_date)->setHour(10) : now()->addHour(),
+                ]);
+
+                $examinersToAttach = [];
+                if ($template->slug === 'seminar_as_a_course') {
+                    $examinersToAttach = $template->metadata['group_examiners'][$sm->discipline_group]['user_ids'] ?? [];
+                } elseif (!empty($template->metadata['examiner_user_ids'])) {
+                    $examinersToAttach = $template->metadata['examiner_user_ids'];
+                }
+
+                foreach ($examinersToAttach as $uId) {
+                    \App\Models\PanelMember::firstOrCreate([
+                        'defence_event_id' => $ev->id,
+                        'user_id' => $uId,
+                        'role' => 'examiner',
+                    ], [
+                        'invitation_status' => 'accepted'
+                    ]);
+                }
+                $missingEventFound = true;
+            }
+        }
+
+        if ($missingEventFound) {
+            $allScheduled->load([
+                'thesis.defenceEvents.panelMembers.user',
+                'thesis.defenceEvents.evaluations',
+            ]);
+        }
+
         $user = auth()->user();
         $isAdmin = $user && $user->hasRole('Admin');
         $isCoordinator = $user && $user->hasRole('Program Coordinator');

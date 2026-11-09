@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\MilestoneTemplate;
 use App\Models\Program;
 use Illuminate\Http\Request;
+use App\Notifications\EventRescheduled;
+use App\Notifications\ExaminerBatchScheduleRescheduled;
+use App\Notifications\EventScheduled;
 
 class MilestoneTemplateController extends Controller
 {
@@ -417,6 +420,71 @@ class MilestoneTemplateController extends Controller
         }
     }
 
+    /**
+     * Resolve all unique examiner User models assigned to evaluate this milestone presentation.
+     */
+    protected function getExaminersForMilestone(\App\Models\StudentMilestone $sm, ?MilestoneTemplate $template = null, ?\App\Models\DefenceEvent $event = null): \Illuminate\Support\Collection
+    {
+        $template = $template ?? $sm->template;
+        $thesis = $sm->thesis;
+        $studentUserId = $thesis?->student?->user_id;
+
+        $examiners = collect();
+
+        // 1. From DefenceEvent panel members
+        if ($event) {
+            $panelUsers = $event->panelMembers()
+                ->where('role', 'examiner')
+                ->with('user')
+                ->get()
+                ->pluck('user')
+                ->filter();
+            $examiners = $examiners->merge($panelUsers);
+        }
+
+        // 2. From Template metadata (discipline group or template-level)
+        if ($template) {
+            $discGroup = $sm->discipline_group;
+            $groupExaminerIds = $template->metadata['group_examiners'][$discGroup]['user_ids'] ?? null;
+            $templateExaminerIds = !empty($groupExaminerIds)
+                ? $groupExaminerIds
+                : ($template->slug === 'seminar_as_a_course' ? [] : ($template->metadata['examiner_user_ids'] ?? []));
+
+            if (!empty($templateExaminerIds)) {
+                $tplUsers = \App\Models\User::whereIn('id', $templateExaminerIds)->get();
+                $examiners = $examiners->merge($tplUsers);
+
+                // Auto-attach to panelMembers for this event if not already present
+                if ($event) {
+                    foreach ($templateExaminerIds as $uId) {
+                        \App\Models\PanelMember::firstOrCreate([
+                            'defence_event_id' => $event->id,
+                            'user_id' => $uId,
+                            'role' => 'examiner',
+                        ], [
+                            'invitation_status' => 'accepted'
+                        ]);
+                    }
+                }
+            }
+        }
+
+        // 3. From Thesis assigned internal / external examiners
+        if ($thesis) {
+            if ($thesis->internalExaminer && $thesis->internalExaminer->user) {
+                $examiners->push($thesis->internalExaminer->user);
+            }
+            if ($thesis->externalExaminer && $thesis->externalExaminer->user) {
+                $examiners->push($thesis->externalExaminer->user);
+            }
+        }
+
+        return $examiners
+            ->filter(fn($u) => $u && $u->id !== $studentUserId && !empty($u->email))
+            ->unique('id')
+            ->values();
+    }
+
     public function updateSchedule(Request $request, MilestoneTemplate $template)
     {
         if (!auth()->user()->hasRole('Admin')) {
@@ -444,11 +512,13 @@ class MilestoneTemplateController extends Controller
         };
         $updated = 0;
         $removed = 0;
+        $examinerRescheduledMap = [];
+        $examinerScheduledMap = [];
 
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
             foreach ($request->input('entries', []) as $smId => $entry) {
-                $sm = \App\Models\StudentMilestone::with('thesis.student.user')
+                $sm = \App\Models\StudentMilestone::with(['thesis.student.user', 'thesis.student.program', 'thesis.internalExaminer.user', 'thesis.externalExaminer.user', 'template'])
                     ->where('milestone_template_id', $template->id)
                     ->find($smId);
                 if (!$sm) {
@@ -489,6 +559,8 @@ class MilestoneTemplateController extends Controller
                     continue;
                 }
 
+                $isRescheduled = !empty($oldDate);
+
                 $sm->update([
                     'defence_date' => \Carbon\Carbon::parse($date)->format('Y-m-d'),
                     'defence_time' => $time ?: null,
@@ -516,18 +588,45 @@ class MilestoneTemplateController extends Controller
                     if ($studentUser) {
                         \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
                         try {
-                            if ($oldDate && ($oldDate !== \Carbon\Carbon::parse($date)->toDateString() || $oldTime !== $newTime)) {
-                                $studentUser->notify(new \App\Notifications\EventRescheduled(
+                            if ($isRescheduled) {
+                                $studentUser->notify(new EventRescheduled(
                                     $event,
                                     $oldDate,
                                     $oldTime,
                                     $template->name
                                 ));
                             } else {
-                                $studentUser->notify(new \App\Notifications\EventScheduled($event));
+                                $studentUser->notify(new EventScheduled($event));
                             }
                         } catch (\Throwable $e) {
                             \Illuminate\Support\Facades\Log::error('Failed to send schedule notification: ' . $e->getMessage());
+                        }
+                    }
+
+                    // Collect examiners for notification
+                    $examiners = $this->getExaminersForMilestone($sm, $template, $event);
+                    if ($isRescheduled) {
+                        $prevSlotStr = $oldDate ? \Carbon\Carbon::parse($oldDate)->format('M d, Y') . ($oldTime ? ' at ' . \Carbon\Carbon::parse($oldTime)->format('g:i A') : '') : 'Not set';
+                        $newSlotStr = \Carbon\Carbon::parse($date)->format('M d, Y') . ($newTime ? ' at ' . \Carbon\Carbon::parse($newTime)->format('g:i A') : '');
+
+                        foreach ($examiners as $ex) {
+                            $examinerRescheduledMap[$ex->id]['user'] = $ex;
+                            $examinerRescheduledMap[$ex->id]['items'][] = [
+                                'candidate_name' => $studentUser?->name ?? 'Candidate',
+                                'student_id' => $sm->thesis?->student?->student_id_number ?? 'N/A',
+                                'program' => $sm->thesis?->student?->program?->code ?? ($sm->thesis?->student?->program?->name ?? 'N/A'),
+                                'previous_slot' => $prevSlotStr,
+                                'new_slot' => $newSlotStr,
+                                'meeting_link' => $link ?: ($sm->meeting_link ?: 'Online / Portal'),
+                                'event' => $event,
+                                'previous_date' => $oldDate,
+                                'previous_time' => $oldTime,
+                            ];
+                        }
+                    } else {
+                        foreach ($examiners as $ex) {
+                            $examinerScheduledMap[$ex->id]['user'] = $ex;
+                            $examinerScheduledMap[$ex->id]['events'][] = $event;
                         }
                     }
                 }
@@ -553,6 +652,44 @@ class MilestoneTemplateController extends Controller
             }
 
             \Illuminate\Support\Facades\DB::commit();
+
+            // Notify examiners who have rescheduled candidates
+            foreach ($examinerRescheduledMap as $exId => $data) {
+                try {
+                    $exUser = $data['user'];
+                    $items = $data['items'];
+                    if (count($items) === 1) {
+                        $first = $items[0];
+                        $exUser->notify(new EventRescheduled(
+                            $first['event'],
+                            $first['previous_date'],
+                            $first['previous_time'],
+                            $template->name
+                        ));
+                    } else {
+                        $exUser->notify(new ExaminerBatchScheduleRescheduled(
+                            $template,
+                            $items,
+                            $template->name
+                        ));
+                    }
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error("Failed to notify examiner {$exId} on batch reschedule: " . $e->getMessage());
+                }
+            }
+
+            // Notify examiners of newly scheduled presentations
+            foreach ($examinerScheduledMap as $exId => $data) {
+                try {
+                    $exUser = $data['user'];
+                    foreach ($data['events'] as $ev) {
+                        $exUser->notify(new EventScheduled($ev));
+                    }
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error("Failed to notify examiner {$exId} on initial schedule: " . $e->getMessage());
+                }
+            }
+
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\DB::rollBack();
             return back()->with('error', 'Failed to update schedule: ' . $e->getMessage());

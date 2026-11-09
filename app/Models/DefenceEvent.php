@@ -48,6 +48,10 @@ class DefenceEvent extends Model
      */
     public function isAuthorizedEvaluator($userId)
     {
+        if (!$userId) {
+            return false;
+        }
+
         // 0. Check if user is admin for presentation/defence milestones
         if (in_array($this->type, ['seminar', 'proposal', 'progress_report_1', 'progress_report_2', 'internal', 'external', 'viva'])) {
             $user = \App\Models\User::find($userId);
@@ -61,7 +65,49 @@ class DefenceEvent extends Model
             return true;
         }
 
-        // 2. Check Thesis Examiners and Supervisors
+        // 2. Check MilestoneTemplate assigned examiners (track-specific for seminar, global for other milestones)
+        $milestone = $this->thesis?->milestones?->first(function($m) {
+            $eventType = $m->template?->defence_type ?? match($m->template?->slug) {
+                'seminar_as_a_course' => 'seminar',
+                'proposal_defence' => 'proposal',
+                'progress_report_1' => 'progress_report_1',
+                'progress_report_2' => 'progress_report_2',
+                'internal_defence' => 'internal',
+                'viva' => 'external',
+                default => 'first_seminar',
+            };
+            return $eventType === $this->type;
+        });
+
+        if ($milestone && $milestone->template) {
+            $meta = $milestone->template->metadata ?? [];
+            $isAssigned = false;
+            if ($milestone->template->slug === 'seminar_as_a_course') {
+                $trackUserIds = $meta['group_examiners'][$milestone->discipline_group]['user_ids'] ?? [];
+                if (in_array($userId, $trackUserIds)) {
+                    $isAssigned = true;
+                }
+            } else {
+                $globalUserIds = $meta['examiner_user_ids'] ?? [];
+                if (in_array($userId, $globalUserIds)) {
+                    $isAssigned = true;
+                }
+            }
+
+            if ($isAssigned) {
+                // Ensure PanelMember record exists so attendance/panel relations work
+                \App\Models\PanelMember::firstOrCreate([
+                    'defence_event_id' => $this->id,
+                    'user_id' => $userId,
+                ], [
+                    'role' => 'examiner',
+                    'invitation_status' => 'accepted'
+                ]);
+                return true;
+            }
+        }
+
+        // 3. Check Thesis Examiners and Supervisors
         $thesis = $this->thesis()->with(['internalExaminer.user', 'externalExaminer.user', 'assignments.supervisor'])->first();
         
         if ($thesis) {
