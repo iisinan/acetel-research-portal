@@ -20,8 +20,8 @@
             @php
                 $existingRoles = $user->roles->pluck('name')->toArray();
                 $isStudent = in_array('Student', $existingRoles);
-                $isAdmin = in_array('Admin', $existingRoles) || in_array('Director', $existingRoles);
-                $initCat = $isStudent ? 'student' : ($isAdmin && count($existingRoles) === 1 ? 'administrative' : 'faculty');
+                $isAdmin = in_array('Admin', $existingRoles);
+                $initCat = $isStudent ? 'student' : ($isAdmin && !in_array('Supervisor', $existingRoles) && !in_array('Program Coordinator', $existingRoles) ? 'administrative' : 'faculty');
                 $defaultRoles = old('roles', $existingRoles);
                 if (empty($defaultRoles)) {
                     $defaultRoles = ['Supervisor'];
@@ -93,7 +93,7 @@
                     } else if (cat === 'administrative') {
                         this.selectedRoles = [this.adminRole];
                     } else {
-                        this.selectedRoles = this.selectedRoles.filter(r => ['Supervisor', 'Program Coordinator', 'Internal Examiner', 'External Examiner'].includes(r));
+                        this.selectedRoles = this.selectedRoles.filter(r => ['Supervisor', 'Program Coordinator', 'Internal Examiner', 'External Examiner', 'Director'].includes(r));
                         if (this.selectedRoles.length === 0) {
                             this.selectedRoles = ['Supervisor'];
                         }
@@ -165,7 +165,7 @@
                         <div class="flex items-center justify-between">
                             <div>
                                 <h4 class="text-sm font-black text-black uppercase tracking-wider">Faculty Role Assignments</h4>
-                                <p class="text-xs text-slate-500 mt-0.5">Faculty members can hold one, several, or all four academic roles simultaneously.</p>
+                                <p class="text-xs text-slate-500 mt-0.5">Faculty members can hold one, several, or all academic roles simultaneously, including Center Director.</p>
                             </div>
                             <span class="px-2.5 py-1 bg-green-50 border border-green-200 text-green-700 text-[10px] font-black rounded-lg uppercase tracking-wider">Multi-Role Active</span>
                         </div>
@@ -244,6 +244,25 @@
                                         <span class="text-[9px] font-bold uppercase tracking-widest text-amber-700 bg-amber-100/60 px-1.5 py-0.5 rounded">External</span>
                                     </div>
                                     <p class="text-[11px] text-slate-500 mt-1 font-medium leading-relaxed">Conducts external thesis appraisals and evaluates oral defence sessions.</p>
+                                </div>
+                            </div>
+
+                            <!-- Role 5: Center Director -->
+                            <div @click="toggleFacultyRole('Director')"
+                                 :class="hasRole('Director') ? 'bg-indigo-50/70 border-indigo-400 ring-2 ring-indigo-500/20' : 'bg-white border-slate-200 hover:border-slate-300'"
+                                 class="p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-3.5 group select-none sm:col-span-2">
+                                <div class="mt-0.5">
+                                    <div :class="hasRole('Director') ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-slate-300'"
+                                         class="w-5 h-5 rounded-md border flex items-center justify-center transition-colors">
+                                        <svg x-show="hasRole('Director')" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                    </div>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center justify-between">
+                                        <h5 class="text-sm font-black text-slate-800 tracking-tight leading-none">Center Director</h5>
+                                        <span class="text-[9px] font-bold uppercase tracking-widest text-indigo-700 bg-indigo-100/60 px-1.5 py-0.5 rounded">Executive Oversight</span>
+                                    </div>
+                                    <p class="text-[11px] text-slate-500 mt-1 font-medium leading-relaxed">Center leadership, institutional analytics, high-level thesis tracking, and executive governance.</p>
                                 </div>
                             </div>
                         </div>

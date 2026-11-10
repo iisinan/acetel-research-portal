@@ -2,7 +2,10 @@
     $userRoles = Auth::user()->getRoleNames();
     $hasMultipleRoles = $userRoles->count() > 1;
     $rolesJson = json_encode($userRoles->values());
-    $primaryRole = $userRoles->first() ?? 'Student';
+    $requestedRole = request('role') ?? request()->cookie('active_dashboard_role');
+    $primaryRole = ($requestedRole && $userRoles->contains($requestedRole))
+        ? $requestedRole
+        : ($userRoles->first() ?? 'Student');
 @endphp
 
 <div x-data="{ 
@@ -11,10 +14,18 @@
 }" 
 x-on:role-changed.window="if (roles.includes($event.detail)) activeRole = $event.detail" 
 x-init="
-    const saved = localStorage.getItem('activeDashboardRole');
-    activeRole = (saved && roles.includes(saved)) ? saved : '{{ $primaryRole }}';
+    const urlParam = new URLSearchParams(window.location.search).get('role');
+    if (urlParam && roles.includes(urlParam)) {
+        activeRole = urlParam;
+        localStorage.setItem('activeDashboardRole', urlParam);
+        document.cookie = 'active_dashboard_role=' + urlParam + '; path=/; max-age=31536000';
+    } else {
+        const saved = localStorage.getItem('activeDashboardRole');
+        activeRole = (saved && roles.includes(saved)) ? saved : '{{ $primaryRole }}';
+    }
     $watch('activeRole', val => { 
         localStorage.setItem('activeDashboardRole', val); 
+        document.cookie = 'active_dashboard_role=' + val + '; path=/; max-age=31536000';
         window.dispatchEvent(new CustomEvent('role-changed', {detail: val})); 
     });
 ">
@@ -24,9 +35,16 @@ x-init="
         <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">My Roles</label>
         <div class="flex flex-col gap-1.5">
             @foreach($userRoles as $role)
-                <button @click="activeRole = '{{ $role }}'"
-                        :class="activeRole === '{{ $role }}' ? 'bg-green-600 text-white border-green-700 shadow-md' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-green-50 hover:text-green-700'"
-                        class="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-between">
+                <button @click="
+                        activeRole = '{{ $role }}';
+                        document.cookie = 'active_dashboard_role={{ $role }}; path=/; max-age=31536000';
+                        localStorage.setItem('activeDashboardRole', '{{ $role }}');
+                        if (window.location.pathname.endsWith('/dashboard') || window.location.pathname === '/dashboard') {
+                            window.location.href = '{{ route('dashboard') }}?role={{ $role }}';
+                        }
+                    "
+                    :class="activeRole === '{{ $role }}' ? 'bg-green-600 text-white border-green-700 shadow-md' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-green-50 hover:text-green-700'"
+                    class="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all border flex items-center justify-between">
                     <span>{{ $role }}</span>
                     <svg x-show="activeRole === '{{ $role }}'" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4"/></svg>
                 </button>
@@ -250,11 +268,12 @@ x-init="
 </div>
 
 <!-- Director Section (Strategic Oversight) -->
+<div x-show="activeRole === 'Director'" x-cloak>
 @role('Director')
     <div class="mb-4">
         <p class="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Institutional Oversight</p>
         <div class="space-y-1">
-            <a href="{{ route('dashboard') }}" class="{{ $navClass }} {{ request()->routeIs('dashboard') ? $activeClass : $inactiveClass }}">
+            <a href="{{ route('dashboard', ['role' => 'Director']) }}" class="{{ $navClass }} {{ request()->routeIs('dashboard') && (!request('role') || request('role') === 'Director') ? $activeClass : $inactiveClass }}">
                 <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-primary-600 transition-colors {{ request()->routeIs('dashboard') ? '!text-primary-600' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                 Strategic Dashboard
             </a>
@@ -272,8 +291,8 @@ x-init="
             </a>
         </div>
     </div>
-</div>
 @endrole
+</div>
 
 <!-- Coordinator Section -->
 <div x-show="activeRole === 'Program Coordinator'" x-cloak>

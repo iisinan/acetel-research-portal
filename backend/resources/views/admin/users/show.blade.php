@@ -161,6 +161,15 @@
                                 <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-md text-[9px] font-black uppercase tracking-wider">External Examiner</span>
                             </div>
                         @endforeach
+            @if($user->hasRole('Director'))
+                <div class="space-y-4">
+                    <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest">Center Directorship & Institutional Governance</h4>
+                    <div class="p-6 bg-indigo-50/50 rounded-2xl border border-indigo-100 flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-bold text-slate-900">ACETEL Center Director</p>
+                            <p class="text-xs text-slate-500 mt-0.5">Authorized for executive analytics, strategic dashboards, and high-level thesis governance.</p>
+                        </div>
+                        <span class="px-2.5 py-1 bg-indigo-100 text-indigo-800 rounded-lg text-[10px] font-black uppercase tracking-wider">Executive Oversight</span>
                     </div>
                 </div>
             @endif

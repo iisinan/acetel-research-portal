@@ -31,12 +31,31 @@ class DashboardController extends Controller
 
         $data['document_templates'] = \App\Models\DocumentTemplate::where('is_active', true)->latest()->get();
 
+        $requestedRole = $request->query('role') ?? $request->cookie('active_dashboard_role');
+
+        if ($requestedRole && $user->hasRole($requestedRole)) {
+            $data['announcements'] = \App\Models\Announcement::active()
+                ->forRole($requestedRole) 
+                ->latest()
+                ->get();
+
+            if ($requestedRole === 'Director') {
+                return $this->directorDashboard($user, $data);
+            } elseif ($requestedRole === 'Admin') {
+                return $this->adminDashboard($user, $data);
+            } elseif (in_array($requestedRole, ['Supervisor', 'Program Coordinator', 'Internal Examiner', 'External Examiner'])) {
+                return $this->supervisorDashboard($user, $data);
+            } elseif ($requestedRole === 'Student') {
+                return $this->studentDashboard($user, $data);
+            }
+        }
+
         if ($user->hasRole('Student')) {
             return $this->studentDashboard($user, $data);
-        } elseif ($user->hasAnyRole(['Supervisor', 'Program Coordinator', 'Internal Examiner', 'External Examiner'])) {
-            return $this->supervisorDashboard($user, $data);
         } elseif ($user->hasRole('Director')) {
             return $this->directorDashboard($user, $data);
+        } elseif ($user->hasAnyRole(['Supervisor', 'Program Coordinator', 'Internal Examiner', 'External Examiner'])) {
+            return $this->supervisorDashboard($user, $data);
         } elseif ($user->hasRole('Admin')) {
             return $this->adminDashboard($user, $data);
         }
@@ -127,8 +146,17 @@ class DashboardController extends Controller
         $data['activeFacultyRoles'] = $activeFacultyRoles;
         $data['facultyRoleCount'] = $facultyRoleCount;
 
-        // Determine default tab based on roles
-        if ($facultyRoleCount > 1) {
+        // Determine default tab based on roles or requested active role
+        $requestedRole = request()->query('role') ?? request()->cookie('active_dashboard_role');
+        if ($requestedRole === 'Supervisor' && $isSupervisor) {
+            $data['defaultTab'] = 'supervision';
+        } elseif ($requestedRole === 'Program Coordinator' && $isCoordinator) {
+            $data['defaultTab'] = 'coordination';
+        } elseif ($requestedRole === 'Internal Examiner' && $isInternalExaminer) {
+            $data['defaultTab'] = 'internal_exam';
+        } elseif ($requestedRole === 'External Examiner' && $isExternalExaminer) {
+            $data['defaultTab'] = 'external_exam';
+        } elseif ($facultyRoleCount > 1) {
             $data['defaultTab'] = 'overview';
         } elseif ($isSupervisor) {
             $data['defaultTab'] = 'supervision';
