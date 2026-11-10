@@ -185,6 +185,34 @@ class ThesisController extends Controller
         $studentName = $thesis->student?->user?->name ?? 'Candidate';
         $examinerName = $examiner?->user?->name ?? 'Internal Examiner';
 
+        if ($examiner && $examiner->user_id) {
+            \App\Models\ExaminerAssignment::updateOrCreate(
+                [
+                    'thesis_project_id' => $thesis->id,
+                    'type' => 'internal_examiner',
+                ],
+                [
+                    'examiner_id' => $examiner->user_id,
+                    'invitation_status' => 'accepted',
+                    'assigned_at' => now(),
+                ]
+            );
+
+            // Sync panel member on internal defence event if exists
+            $internalEvent = \App\Models\DefenceEvent::where('thesis_project_id', $thesis->id)
+                ->where('type', 'internal')
+                ->first();
+            if ($internalEvent) {
+                \App\Models\PanelMember::firstOrCreate([
+                    'defence_event_id' => $internalEvent->id,
+                    'user_id' => $examiner->user_id,
+                    'role' => 'examiner',
+                ], [
+                    'invitation_status' => 'accepted',
+                ]);
+            }
+        }
+
         $milestone = $thesis->milestones()->whereHas('template', function($q) {
             $q->where('slug', 'internal_defence')->orWhere('order', 6);
         })->first();

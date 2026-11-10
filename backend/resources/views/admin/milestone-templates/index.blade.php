@@ -310,10 +310,12 @@
                         assignStudentName: '',
                         assignFormUrl: '',
                         assignProfileIds: [],
-                        openAssignModal(name, formUrl, profileIds) {
+                        assignInternalExaminerProfileId: '',
+                        openAssignModal(name, formUrl, profileIds, internalExaminerProfileId = '') {
                             this.assignStudentName = name;
                             this.assignFormUrl = formUrl;
                             this.assignProfileIds = (profileIds || []).map(Number);
+                            this.assignInternalExaminerProfileId = internalExaminerProfileId ? String(internalExaminerProfileId) : '';
                             this.assignModalOpen = true;
                         }
                     }" class="divide-y divide-slate-50 border-t border-slate-50">
@@ -2251,9 +2253,19 @@
                                                             </td>
                                                             @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']))
                                                             <td class="px-4 py-3 text-xs">
-                                                                @if($rowExaminers->count() > 0)
+                                                                @php
+                                                                    $assignedInternalEx = ($template->slug === 'internal_defence') ? $sm->thesis?->internalExaminer : null;
+                                                                @endphp
+                                                                @if($assignedInternalEx || $rowExaminers->count() > 0)
                                                                     <div class="flex flex-col gap-1">
+                                                                        @if($assignedInternalEx)
+                                                                            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-800 text-[11px] font-bold border border-indigo-200 max-w-[170px]" title="Institutional Internal Examiner">
+                                                                                <span class="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
+                                                                                <span class="truncate">⭐ {{ $assignedInternalEx->user->name ?? 'Internal Examiner' }}</span>
+                                                                            </span>
+                                                                        @endif
                                                                         @foreach($rowExaminers as $ex)
+                                                                            @if(!$assignedInternalEx || $ex->user_id !== $assignedInternalEx->user_id)
                                                                             <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-purple-50 text-purple-800 text-[11px] font-bold border border-purple-100 max-w-[170px]" title="{{ $ex->is_present ? 'Present (Graded candidate)' : 'Assigned (Pending grading)' }}">
                                                                                 <span class="w-1.5 h-1.5 rounded-full {{ $ex->is_present ? 'bg-emerald-500' : 'bg-purple-300' }}"></span>
                                                                                 <span class="truncate">{{ $ex->user?->name ?? 'Examiner' }}</span>
@@ -2261,6 +2273,7 @@
                                                                                     <span class="text-[9px] text-emerald-600 font-extrabold uppercase shrink-0">Present</span>
                                                                                 @endif
                                                                             </span>
+                                                                            @endif
                                                                         @endforeach
                                                                     </div>
                                                                 @else
@@ -2363,8 +2376,9 @@
                                                                                     $assignUrl = (auth()->user()->hasRole('Program Coordinator') && !auth()->user()->hasRole('Admin')) ? route('coordinator.milestone-templates.assign-examiner', $sm->id) : route('admin.milestone-templates.assign-examiner', $sm->id);
                                                                                     $currentExaminerUserIds = $rowExaminers->pluck('user_id')->all();
                                                                                     $currentAssignedProfileIds = $supervisors->whereIn('user_id', $currentExaminerUserIds)->pluck('id')->values()->all();
+                                                                                    $currentInternalExaminerProfileId = $sm->thesis?->internal_examiner_profile_id ?? '';
                                                                                 @endphp
-                                                                                <button type="button" @click="menuOpen = false; openAssignModal('{{ addslashes($studentName) }}', '{{ $assignUrl }}', {{ json_encode($currentAssignedProfileIds) }})" class="w-full text-left px-3 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-2">
+                                                                                <button type="button" @click="menuOpen = false; openAssignModal('{{ addslashes($studentName) }}', '{{ $assignUrl }}', {{ json_encode($currentAssignedProfileIds) }}, '{{ $currentInternalExaminerProfileId }}')" class="w-full text-left px-3 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-2">
                                                                                     <svg class="w-3.5 h-3.5 text-indigo-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                                                                                     </svg>
@@ -2594,6 +2608,34 @@
                                         </div>
                                         <form :action="assignFormUrl" method="POST" class="space-y-4">
                                             @csrf
+                                            @if($template->slug === 'internal_defence')
+                                            <div>
+                                                <label class="block text-xs font-bold text-slate-800 mb-1">
+                                                    Institutional Internal Examiner <span class="text-indigo-600 font-semibold">(Milestone 6 Clearance)</span>
+                                                </label>
+                                                <p class="text-[11px] text-slate-500 mb-2">Select the examiner authorized to review post-defence revisions and give final institutional clearance.</p>
+                                                <select name="internal_examiner_profile_id" x-model="assignInternalExaminerProfileId" class="w-full text-xs rounded-xl border-slate-300 focus:ring-indigo-500 focus:border-indigo-500 py-2.5 bg-slate-50 font-medium">
+                                                    <option value="">-- None / Select Internal Examiner --</option>
+                                                    @foreach($internalExaminers as $iex)
+                                                        <option value="{{ $iex->id }}">{{ $iex->user->name ?? 'Examiner' }} ({{ $iex->program->name ?? 'Institutional Examiner' }})</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-bold text-slate-700 mb-1.5">Additional Defence Panel Members (Optional)</label>
+                                                <div class="max-h-44 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 p-1">
+                                                    @foreach($supervisors as $sup)
+                                                        <label class="flex items-center gap-2.5 p-2 hover:bg-indigo-50/50 rounded-lg cursor-pointer">
+                                                            <input type="checkbox" name="supervisor_profile_ids[]" value="{{ $sup->id }}" :value="{{ $sup->id }}" x-model="assignProfileIds" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                                                            <div class="text-xs">
+                                                                <span class="font-bold text-slate-800">{{ $sup->user->name }}</span>
+                                                                <span class="text-[10px] text-slate-400 block font-semibold">{{ $sup->programs->first()->code ?? 'Supervisor' }}</span>
+                                                            </div>
+                                                        </label>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                            @else
                                             <div>
                                                 <label class="block text-xs font-bold text-slate-700 mb-2">Select Examiner(s)</label>
                                                 <div class="max-h-56 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 p-1">
@@ -2608,9 +2650,13 @@
                                                     @endforeach
                                                 </div>
                                             </div>
-                                            <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-                                                <button type="button" @click="assignModalOpen = false" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
-                                                <button type="submit" class="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm transition-colors">Save Examiner(s)</button>
+                                            @endif
+                                            <div class="flex items-center justify-between pt-3 border-t border-slate-100">
+                                                <button type="button" @click="assignProfileIds = []; assignInternalExaminerProfileId = ''; $nextTick(() => $el.closest('form').submit())" class="text-xs font-bold text-rose-600 hover:text-rose-800 transition-colors">Clear All</button>
+                                                <div class="flex items-center gap-2">
+                                                    <button type="button" @click="assignModalOpen = false" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
+                                                    <button type="submit" class="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm transition-colors">Save Examiner(s)</button>
+                                                </div>
                                             </div>
                                         </form>
                                     </div>

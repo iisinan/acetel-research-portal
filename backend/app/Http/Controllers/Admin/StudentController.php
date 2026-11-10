@@ -48,10 +48,18 @@ class StudentController extends Controller
             'thesis.internalExaminer.user'
         ]);
 
-        $internalExaminers = InternalExaminerProfile::with('user')
+        $internalExaminers = InternalExaminerProfile::with(['user', 'program'])
             ->where('active', true)
-            ->where('program_id', $student->program_id)
+            ->where(function($q) use ($student) {
+                $q->whereNull('program_id')->orWhere('program_id', $student->program_id);
+            })
             ->get();
+
+        if ($internalExaminers->isEmpty()) {
+            $internalExaminers = InternalExaminerProfile::with(['user', 'program'])
+                ->where('active', true)
+                ->get();
+        }
 
         $recent_logs = \App\Models\AuditLog::with('user')
             ->where('user_id', $student->user_id)
@@ -75,11 +83,48 @@ class StudentController extends Controller
             return back()->with('error', 'Student does not have an active thesis project.');
         }
 
+        $examiner = InternalExaminerProfile::with('user')->findOrFail($request->internal_examiner_profile_id);
+
         $student->thesis->update([
-            'internal_examiner_profile_id' => $request->internal_examiner_profile_id,
+            'internal_examiner_profile_id' => $examiner->id,
         ]);
 
-        return back()->with('success', 'Internal Examiner assigned successfully.');
+        // Keep ExaminerAssignment in sync
+        \App\Models\ExaminerAssignment::updateOrCreate(
+            ['thesis_project_id' => $student->thesis->id, 'type' => 'internal_examiner'],
+            [
+                'examiner_id' => $examiner->user_id,
+                'assigned_by' => auth()->id(),
+                'active' => true
+            ]
+        );
+
+        // If internal defence event exists, attach examiner as panel member
+        $event = \App\Models\DefenceEvent::where('thesis_project_id', $student->thesis->id)
+            ->where('type', 'internal')
+            ->first();
+        if ($event && $examiner->user_id) {
+            \App\Models\PanelMember::firstOrCreate([
+                'defence_event_id' => $event->id,
+                'user_id' => $examiner->user_id,
+                'role' => 'examiner',
+            ], [
+                'invitation_status' => 'accepted'
+            ]);
+        }
+
+        $studentName = $student->user?->name ?? 'Candidate';
+        $examinerName = $examiner->user?->name ?? 'Internal Examiner';
+
+        $internalMilestone = $student->thesis->milestones()->whereHas('template', fn($q) => $q->where('slug', 'internal_defence')->orWhere('order', 6))->first();
+        if ($internalMilestone) {
+            app(\App\Services\MilestoneWorkflowService::class)->notifyUpdate(
+                $internalMilestone, 
+                "Internal Examiner {$examinerName} was assigned to {$studentName}."
+            );
+        }
+
+        return back()->with('success', "Internal Examiner ({$examinerName}) assigned successfully to {$studentName}.");
     }
 
     /**

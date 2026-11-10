@@ -31,6 +31,7 @@ class MilestoneTemplateController extends Controller
                       'thesis.student.cohort', 
                       'thesis.student.level',
                       'thesis.student.program',
+                      'thesis.internalExaminer.user',
                       'thesis.defenceEvents.panelMembers.user', 
                       'thesis.defenceEvents.evaluations', 
                       'thesis.milestones:id,thesis_project_id,milestone_template_id',
@@ -64,9 +65,13 @@ class MilestoneTemplateController extends Controller
             : collect();
 
         $supervisors = \App\Models\SupervisorProfile::with(['user', 'programs'])->get();
+        $internalExaminers = \App\Models\InternalExaminerProfile::with(['user', 'program'])->where('active', true)->get();
+        if ($internalExaminers->isEmpty()) {
+            $internalExaminers = \App\Models\InternalExaminerProfile::with(['user', 'program'])->get();
+        }
         $cohorts = \App\Models\Cohort::orderBy('name')->get();
         $programs = Program::orderBy('name')->get();
-        return view('admin.milestone-templates.index', compact('templates', 'supervisors', 'isCoordinator', 'cohorts', 'programs', 'examinerUsersMap'));
+        return view('admin.milestone-templates.index', compact('templates', 'supervisors', 'internalExaminers', 'isCoordinator', 'cohorts', 'programs', 'examinerUsersMap'));
     }
 
     public function show($id = null)
@@ -1261,13 +1266,15 @@ class MilestoneTemplateController extends Controller
             'supervisor_profile_id' => 'nullable|exists:supervisor_profiles,id',
             'supervisor_profile_ids' => 'nullable|array',
             'supervisor_profile_ids.*' => 'exists:supervisor_profiles,id',
+            'internal_examiner_profile_id' => 'nullable|exists:internal_examiner_profiles,id',
         ]);
 
         $milestone = $milestoneId instanceof \App\Models\StudentMilestone ? $milestoneId : \App\Models\StudentMilestone::findOrFail($milestoneId);
         $template = $milestone->template;
 
         $profileIds = $request->supervisor_profile_ids ?? ($request->supervisor_profile_id ? [$request->supervisor_profile_id] : []);
-        $thesisId = $milestone->thesis_project_id ?? $milestone->thesis?->id;
+        $thesis = $milestone->thesis;
+        $thesisId = $milestone->thesis_project_id ?? $thesis?->id;
         if (!$thesisId) {
             return back()->with('error', 'No linked research thesis project found for this milestone.');
         }
@@ -1282,17 +1289,27 @@ class MilestoneTemplateController extends Controller
             default => 'first_seminar',
         };
 
-        $candidateName = $milestone->thesis?->student?->user?->name ?? 'candidate';
+        $candidateName = $thesis?->student?->user?->name ?? 'candidate';
 
-        if (empty($profileIds)) {
+        $hasInternalExaminerInput = $request->filled('internal_examiner_profile_id');
+        $hasSupervisorInput = !empty($profileIds);
+
+        // Clearing assignments if nothing selected
+        if (!$hasInternalExaminerInput && !$hasSupervisorInput) {
             $event = \App\Models\DefenceEvent::where('thesis_project_id', $thesisId)->where('type', $type)->first();
             if ($event) {
                 \App\Models\PanelMember::where('defence_event_id', $event->id)->where('role', 'examiner')->delete();
             }
+            if ($type === 'internal' || $template->slug === 'internal_defence') {
+                $thesis?->update(['internal_examiner_profile_id' => null]);
+                \App\Models\ExaminerAssignment::where('thesis_project_id', $thesisId)->where('type', 'internal_examiner')->delete();
+            }
             return back()->with('success', "Examiner assignments cleared for {$candidateName}.");
         }
 
-        $supervisors = \App\Models\SupervisorProfile::with(['user', 'programs'])->whereIn('id', $profileIds)->get();
+        $supervisors = !empty($profileIds)
+            ? \App\Models\SupervisorProfile::with(['user', 'programs'])->whereIn('id', $profileIds)->get()
+            : collect();
 
         $event = \App\Models\DefenceEvent::firstOrCreate(
             [
@@ -1307,22 +1324,83 @@ class MilestoneTemplateController extends Controller
 
         \App\Models\PanelMember::where('defence_event_id', $event->id)->where('role', 'examiner')->delete();
 
+        $assignedUsers = collect();
+
+        // Handle Internal Examiner logic
+        if ($type === 'internal' || $template->slug === 'internal_defence' || $hasInternalExaminerInput) {
+            if ($hasInternalExaminerInput) {
+                $internalEx = \App\Models\InternalExaminerProfile::with('user')->find($request->internal_examiner_profile_id);
+                if ($internalEx && $internalEx->user) {
+                    $thesis->update(['internal_examiner_profile_id' => $internalEx->id]);
+                    \App\Models\ExaminerAssignment::updateOrCreate(
+                        [
+                            'thesis_project_id' => $thesisId,
+                            'type' => 'internal_examiner',
+                        ],
+                        [
+                            'examiner_id' => $internalEx->user_id,
+                            'invitation_status' => 'accepted',
+                            'assigned_at' => now(),
+                        ]
+                    );
+                    $assignedUsers->push($internalEx->user);
+                }
+            } elseif ($supervisors->isNotEmpty()) {
+                $firstSup = $supervisors->first();
+                $internalEx = \App\Models\InternalExaminerProfile::firstOrCreate(
+                    ['user_id' => $firstSup->user_id],
+                    [
+                        'program_id' => $thesis->student?->program_id ?? $firstSup->programs()->first()?->id,
+                        'institution' => 'National Open University of Nigeria (NOUN)',
+                        'qualification' => 'Faculty Internal Examiner',
+                        'active' => true,
+                    ]
+                );
+                $thesis->update(['internal_examiner_profile_id' => $internalEx->id]);
+                \App\Models\ExaminerAssignment::updateOrCreate(
+                    [
+                        'thesis_project_id' => $thesisId,
+                        'type' => 'internal_examiner',
+                    ],
+                    [
+                        'examiner_id' => $firstSup->user_id,
+                        'invitation_status' => 'accepted',
+                        'assigned_at' => now(),
+                    ]
+                );
+            }
+        }
+
+        // Add selected supervisors to assigned users collection
         foreach ($supervisors as $supervisor) {
+            if ($supervisor->user && !$assignedUsers->contains('id', $supervisor->user_id)) {
+                $assignedUsers->push($supervisor->user);
+            }
+        }
+
+        foreach ($assignedUsers as $user) {
             \App\Models\PanelMember::create([
                 'defence_event_id' => $event->id,
-                'user_id' => $supervisor->user_id,
+                'user_id' => $user->id,
                 'role' => 'examiner',
                 'invitation_status' => 'accepted'
             ]);
+
             try {
-                if ($supervisor->user && $template) {
-                    $supervisor->user->notify(new \App\Notifications\ExaminerNominated($template, null, 1, $milestone->discipline_group));
+                if ($template) {
+                    $user->notify(new \App\Notifications\ExaminerNominated($template, null, 1, $milestone->discipline_group));
                 }
-                $supervisor->user->notify(new \App\Notifications\EventScheduled($event));
+                $user->notify(new \App\Notifications\EventScheduled($event));
             } catch (\Throwable $e) {}
         }
 
-        $names = $supervisors->map(fn($s) => $s->user->name)->implode(', ');
+        try {
+            $workflow = app(\App\Services\MilestoneWorkflowService::class);
+            $namesStr = $assignedUsers->pluck('name')->implode(', ');
+            $workflow->notifyUpdate($milestone, "Examiner(s) ({$namesStr}) assigned to {$candidateName}.");
+        } catch (\Throwable $e) {}
+
+        $names = $assignedUsers->pluck('name')->implode(', ');
         return back()->with('success', "Examiner(s) ({$names}) assigned successfully for {$candidateName}.");
     }
 

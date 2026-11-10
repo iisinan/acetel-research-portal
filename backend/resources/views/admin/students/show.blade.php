@@ -196,17 +196,68 @@
                         </div>
                     @endforelse
 
-                    @if($student->thesis->internalExaminer)
-                        <div class="mt-6 pt-6 border-t border-slate-50">
-                            <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Institutional Internal Examiner</p>
-                            <div class="p-4 bg-slate-900 rounded-2xl flex items-center justify-between">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-xs font-black text-white">
-                                        {{ substr($student->thesis->internalExaminer->user->name ?? '?', 0, 1) }}
+                    @if($student->thesis)
+                        <div class="mt-6 pt-6 border-t border-slate-100" x-data="{ openAssign: false }">
+                            <div class="flex items-center justify-between mb-3">
+                                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Institutional Internal Examiner</p>
+                                @if($student->thesis->internalExaminer)
+                                    <button type="button" @click="openAssign = !openAssign" class="text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer">
+                                        <span x-text="openAssign ? 'Cancel' : 'Change Examiner'"></span>
+                                    </button>
+                                @endif
+                            </div>
+
+                            @if($student->thesis->internalExaminer)
+                                <div class="p-4 bg-slate-900 rounded-2xl flex items-center justify-between shadow-sm">
+                                    <div class="flex items-center gap-3 min-w-0">
+                                        <div class="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-sm font-black shrink-0">
+                                            {{ substr($student->thesis->internalExaminer->user->name ?? '?', 0, 1) }}
+                                        </div>
+                                        <div class="min-w-0">
+                                            <p class="text-xs font-black text-white truncate">{{ $student->thesis->internalExaminer->user->name ?? 'N/A' }}</p>
+                                            <p class="text-[10px] text-slate-400 font-medium truncate">{{ $student->thesis->internalExaminer->program->name ?? 'Institutional Examiner' }}</p>
+                                        </div>
                                     </div>
-                                    <p class="text-xs font-black text-white">{{ $student->thesis->internalExaminer->user->name ?? 'N/A' }}</p>
+                                    <div class="px-2 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded text-[8px] font-black uppercase tracking-widest shrink-0">Active</div>
                                 </div>
-                                <div class="px-2 py-1 bg-white/10 rounded text-[8px] font-black text-white uppercase tracking-widest">Active</div>
+                            @else
+                                <div class="p-4 bg-amber-50/70 rounded-2xl border border-amber-200/80 flex items-center justify-between gap-3">
+                                    <div>
+                                        <p class="text-xs font-bold text-amber-900">No Internal Examiner Assigned</p>
+                                        <p class="text-[10px] text-amber-700">Assign an internal examiner for Milestone 6 clearance.</p>
+                                    </div>
+                                    <button type="button" @click="openAssign = !openAssign" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm transition shrink-0 cursor-pointer">
+                                        <span x-text="openAssign ? 'Close' : 'Assign Examiner'"></span>
+                                    </button>
+                                </div>
+                            @endif
+
+                            {{-- Assignment Form --}}
+                            <div x-show="openAssign" x-cloak x-collapse class="mt-3">
+                                <form action="{{ route('admin.students.assign-examiner', $student) }}" method="POST" class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                                    @csrf
+                                    <div>
+                                        <label class="block text-[10px] font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                            Select Internal Examiner
+                                        </label>
+                                        <select name="internal_examiner_profile_id" required class="w-full text-xs font-medium bg-white rounded-xl border-slate-300 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 py-2.5">
+                                            <option value="">-- Choose Faculty / Internal Examiner --</option>
+                                            @foreach($internalExaminers as $iex)
+                                                <option value="{{ $iex->id }}" {{ $student->thesis->internal_examiner_profile_id === $iex->id ? 'selected' : '' }}>
+                                                    {{ $iex->user->name ?? 'Examiner' }} ({{ $iex->program->code ?? $iex->program->name ?? 'Faculty' }})
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <button type="submit" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-sm transition cursor-pointer">
+                                            {{ $student->thesis->internalExaminer ? 'Update Internal Examiner' : 'Confirm Assignment' }}
+                                        </button>
+                                        <button type="button" @click="openAssign = false" class="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer">
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
                         </div>
                     @endif

@@ -26,6 +26,7 @@
                     <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-black uppercase tracking-wider">Name</th>
                     <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-black uppercase tracking-wider">Email</th>
                     <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-black uppercase tracking-wider">Department/Program</th>
+                    <th scope="col" class="px-6 py-4 text-center text-xs font-bold text-black uppercase tracking-wider">Assigned Theses</th>
                     <th scope="col" class="px-6 py-4 text-left text-xs font-bold text-black uppercase tracking-wider">Status</th>
                     <th scope="col" class="px-6 py-4 text-right text-xs font-bold text-black uppercase tracking-wider">Actions</th>
                 </tr>
@@ -48,6 +49,11 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="text-sm text-black">{{ $examiner->program->name ?? 'All Programs' }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-black {{ ($examiner->assignments_count ?? 0) > 0 ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' : 'bg-slate-100 text-slate-500' }}">
+                            {{ $examiner->assignments_count ?? 0 }} {{ \Illuminate\Support\Str::plural('candidate', $examiner->assignments_count ?? 0) }}
+                        </span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                         @if($examiner->active && $examiner->user->is_active)
@@ -77,7 +83,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="5" class="px-6 py-10 text-center text-black italic">No internal examiners found.</td>
+                    <td colspan="6" class="px-6 py-10 text-center text-black italic">No internal examiners found.</td>
                 </tr>
                 @endforelse
             </tbody>

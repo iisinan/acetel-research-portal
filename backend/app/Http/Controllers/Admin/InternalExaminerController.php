@@ -14,7 +14,7 @@ class InternalExaminerController extends Controller
 {
     public function index()
     {
-        $examiners = InternalExaminerProfile::with('user', 'program')->latest()->paginate(10);
+        $examiners = InternalExaminerProfile::with('user', 'program')->withCount('assignments')->latest()->paginate(10);
         return view('admin.internal_examiners.index', compact('examiners'));
     }
 

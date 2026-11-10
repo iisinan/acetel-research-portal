@@ -1294,9 +1294,15 @@
                     $examinersList = $allInternalExaminers ?? collect();
                     if ($examinersList->isEmpty() && $canAssignExaminer && $milestone->thesis->student) {
                         $examinersList = \App\Models\InternalExaminerProfile::with('user')
-                            ->where('program_id', $milestone->thesis->student->program_id)
+                            ->where(function($q) use ($milestone) {
+                                $q->where('program_id', $milestone->thesis->student->program_id)
+                                  ->orWhereNull('program_id');
+                            })
                             ->where('active', true)
                             ->get();
+                        if ($examinersList->isEmpty()) {
+                            $examinersList = \App\Models\InternalExaminerProfile::with('user')->where('active', true)->get();
+                        }
                     }
                 @endphp
                 @if($showExaminerSection)
