@@ -272,6 +272,7 @@ class MilestoneTemplateController extends Controller
             'active_days.*' => 'string|in:monday,tuesday,wednesday,thursday,friday,saturday,sunday',
             'excluded_dates' => 'nullable|array',
             'excluded_dates.*' => 'nullable|string',
+            'degree_type' => 'nullable|string|in:all,PhD,MSc,phd,msc',
         ]);
 
         // Active days of the week (default to Monday-Friday if not supplied or empty)
@@ -337,6 +338,8 @@ class MilestoneTemplateController extends Controller
             }
         }
 
+        $targetDegree = strtolower((string)$request->input('degree_type', 'all'));
+
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
             foreach ($ids as $id) {
@@ -346,6 +349,19 @@ class MilestoneTemplateController extends Controller
                 
                 if (in_array('Supervisor', $template->required_approvers ?? []) && !$milestone->is_supervisor_approved) {
                     continue; // Skip if supervisor hasn't approved
+                }
+
+                // If filtering by degree type (PhD or MSc)
+                if ($targetDegree !== 'all' && in_array($targetDegree, ['phd', 'msc'])) {
+                    $student = $thesis?->student;
+                    $rawDegree = $student?->level?->name 
+                        ?? $student?->program?->degree_type 
+                        ?? ($student?->program?->name ?? '');
+                    $isPhd = str_contains(strtolower($rawDegree), 'phd') || str_contains(strtolower($rawDegree), 'doctor');
+                    $studentDegree = $isPhd ? 'phd' : 'msc';
+                    if ($studentDegree !== $targetDegree) {
+                        continue;
+                    }
                 }
                 
                 $slotIndexOnDay = $count % $request->students_per_day;

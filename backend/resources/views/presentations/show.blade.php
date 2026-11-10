@@ -472,7 +472,7 @@
                                             <h4 class="text-sm font-black text-slate-900 group-hover:text-emerald-700 transition-colors leading-snug truncate">
                                                 {{ $studentName }}
                                             </h4>
-                                            @if($todayDefEvent && in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2']))
+                                            @if($todayDefEvent && in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']))
                                                 @php
                                                     $todayPassCount = $todayDefEvent->evaluations->where('verdict', 'pass')->count();
                                                     $todayFailCount = $todayDefEvent->evaluations->where('verdict', 'fail')->count();
@@ -496,6 +496,13 @@
                                         <div class="flex items-center gap-1.5 mt-1 text-[11px] text-slate-500 font-medium">
                                             <span class="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 font-mono font-bold text-[10px] border border-slate-200/60 shrink-0">
                                                 {{ $matricNo }}
+                                            </span>
+                                            @php
+                                                $candDeg = $student?->level?->name ?? $student?->program?->degree_type ?? ($student?->program?->name ?? '');
+                                                $candDegType = str_contains(strtolower($candDeg), 'phd') || str_contains(strtolower($candDeg), 'doctor') ? 'PhD' : 'MSc';
+                                            @endphp
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black {{ $candDegType === 'PhD' ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-blue-100 text-blue-700 border border-blue-200' }}">
+                                                {{ $candDegType }}
                                             </span>
                                             <span class="text-slate-300">•</span>
                                             <span class="truncate" title="{{ $student?->program?->name ?? 'Program' }}">
@@ -593,7 +600,7 @@
                                                 <a href="{{ route('evaluations.create', $todayDefEvent->id) }}" 
                                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider bg-purple-600 hover:bg-purple-700 text-white shadow-sm shadow-purple-600/25 transition-all active:scale-95 hover:-translate-y-0.5">
                                                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                                    <span>{{ in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2']) ? 'Grade' : 'Score' }}</span>
+                                                    <span>{{ in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']) ? 'Grade' : 'Score' }}</span>
                                                 </a>
                                             @endif
                                         @endif
@@ -757,6 +764,13 @@
                                         <h4 class="text-sm font-black text-slate-900 leading-tight truncate">{{ $studentName }}</h4>
                                         <div class="flex items-center gap-1.5 mt-0.5">
                                             <p class="text-[11px] text-slate-500 font-mono">{{ $matricNo }} • {{ $student?->program?->code ?? 'Prog' }}</p>
+                                            @php
+                                                $tableDeg = $student?->level?->name ?? $student?->program?->degree_type ?? ($student?->program?->name ?? '');
+                                                $tableDegType = str_contains(strtolower($tableDeg), 'phd') || str_contains(strtolower($tableDeg), 'doctor') ? 'PhD' : 'MSc';
+                                            @endphp
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black {{ $tableDegType === 'PhD' ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-blue-100 text-blue-700 border border-blue-200' }}">
+                                                {{ $tableDegType }}
+                                            </span>
                                             @if($isSeminarCourse)
                                                 <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-black uppercase
                                                     {{ $sm->discipline_group === 'cybersecurity' ? 'bg-cyan-50 text-cyan-800' : ($sm->discipline_group === 'artificial_intelligence' ? 'bg-violet-50 text-violet-800' : 'bg-amber-50 text-amber-800') }}">
@@ -806,11 +820,11 @@
                                                 </a>
                                             @elseif($canScore)
                                                 <a href="{{ route('evaluations.create', $tableDefEvent->id) }}" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider bg-purple-600 text-white shadow-2xs active:scale-95">
-                                                    {{ in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2']) ? 'Grade' : 'Score' }}
+                                                    {{ in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']) ? 'Grade' : 'Score' }}
                                                 </a>
                                             @else
                                                 <span title="Scoring opens on the presentation date ({{ \Carbon\Carbon::parse($sm->defence_date)->format('M d, Y') }})" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-400 border border-slate-200/70 cursor-not-allowed">
-                                                    {{ in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2']) ? 'Grade' : 'Score' }}
+                                                    {{ in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']) ? 'Grade' : 'Score' }}
                                                 </span>
                                             @endif
                                         @endif
@@ -976,7 +990,7 @@
                                                             Approved
                                                         </span>
                                                     @endif
-                                                    @if($tableDefEvent && in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2']))
+                                                    @if($tableDefEvent && in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']))
                                                         @php
                                                             $rowPassCount = $tableDefEvent->evaluations->where('verdict', 'pass')->count();
                                                             $rowFailCount = $tableDefEvent->evaluations->where('verdict', 'fail')->count();
@@ -1126,12 +1140,12 @@
                                                         <a href="{{ route('evaluations.create', $tableDefEvent->id) }}" 
                                                            class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider bg-purple-600 hover:bg-purple-700 text-white shadow-sm shadow-purple-600/25 transition-all active:scale-95 hover:-translate-y-0.5">
                                                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                                            <span>{{ in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2']) ? 'Grade' : 'Score' }}</span>
+                                                            <span>{{ in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']) ? 'Grade' : 'Score' }}</span>
                                                         </a>
                                                     @else
                                                         <span title="Scoring opens on the presentation date ({{ \Carbon\Carbon::parse($sm->defence_date)->format('M d, Y') }})" 
                                                               class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-400 border border-slate-200/70 cursor-not-allowed">
-                                                            <span>{{ in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2']) ? 'Grade' : 'Score' }}</span>
+                                                            <span>{{ in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']) ? 'Grade' : 'Score' }}</span>
                                                         </span>
                                                     @endif
                                                 @endif

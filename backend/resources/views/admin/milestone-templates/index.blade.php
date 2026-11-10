@@ -266,6 +266,7 @@
                         search: '', 
                         cohortFilter: '', 
                         trackFilter: 'all', 
+                        degreeFilter: 'all',
                         rescheduleDayOpen: false, 
                         slotModalOpen: false, 
                         slotStudentId: null, 
@@ -446,6 +447,23 @@
                                         $aiProfileIds = $groupMeta['artificial_intelligence']['profile_ids'] ?? [];
                                         $misProfileIds = $groupMeta['management_information_systems']['profile_ids'] ?? [];
                                     }
+
+                                    $allMilestones = $template->studentMilestones;
+                                    $phdMilestones = $allMilestones->filter(function($m) {
+                                        $raw = $m->thesis?->student?->level?->name 
+                                            ?? $m->thesis?->student?->program?->degree_type 
+                                            ?? ($m->thesis?->student?->program?->name ?? '');
+                                        return str_contains(strtolower($raw), 'phd') || str_contains(strtolower($raw), 'doctor');
+                                    });
+                                    $mscMilestones = $allMilestones->reject(function($m) {
+                                        $raw = $m->thesis?->student?->level?->name 
+                                            ?? $m->thesis?->student?->program?->degree_type 
+                                            ?? ($m->thesis?->student?->program?->name ?? '');
+                                        return str_contains(strtolower($raw), 'phd') || str_contains(strtolower($raw), 'doctor');
+                                    });
+                                    $phdCount = $phdMilestones->count();
+                                    $mscCount = $mscMilestones->count();
+                                    $showDegreeFilter = ($phdCount > 0 && $mscCount > 0) || $template->slug === 'internal_defence';
                                 @endphp
 
                                 @if($isSeminar)
@@ -1244,7 +1262,7 @@
                                             </svg>
                                             <span>View Presentation Page</span>
                                         </a>
-                                    @elseif($template->allow_defence_date || in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
+                                    @elseif($template->allow_defence_date || in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']))
                                         @if(!isset($isCoordinator) || !$isCoordinator)
                                             <button type="button" disabled title="No presentations currently scheduled for this milestone"
                                                 class="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-50 text-slate-400 border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest cursor-not-allowed opacity-60">
@@ -1258,7 +1276,7 @@
                                 </div>
 
                                 {{-- Global / Track Examiner Assignment (Admin & Coordinator) --}}
-                                @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
+                                @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']))
                                     @if($template->slug === 'seminar_as_a_course')
                                         @php
                                             $trackCards = [
@@ -1430,6 +1448,7 @@
                                                 'proposal_defence' => 'proposal',
                                                 'progress_report_1' => 'progress_report_1',
                                                 'progress_report_2' => 'progress_report_2',
+                                                'internal_defence' => 'internal',
                                                 default => 'first_seminar',
                                             };
 
@@ -1455,6 +1474,7 @@
                                                 'proposal_defence' => 'Proposal Defence Examiner(s)',
                                                 'progress_report_1' => 'Progress Report 1 Examiner(s)',
                                                 'progress_report_2' => 'Progress Report 2 Examiner(s)',
+                                                'internal_defence' => 'Internal Defence Examiner(s)',
                                                 default => 'Seminar Examiner(s)',
                                             };
 
@@ -1639,6 +1659,7 @@
                                         <template x-for="exDate in excludedDates" :key="'ex-date-' + exDate">
                                             <input type="hidden" name="excluded_dates[]" :value="exDate">
                                         </template>
+                                        <input type="hidden" name="degree_type" :value="degreeFilter">
 
                                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-100">
                                             <div class="flex items-center gap-3">
@@ -1655,6 +1676,10 @@
                                                             <span x-show="trackFilter === 'cybersecurity'" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-cyan-100 text-cyan-800 border border-cyan-200">🛡️ Cybersecurity Track</span>
                                                             <span x-show="trackFilter === 'artificial_intelligence'" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-violet-100 text-violet-800 border border-violet-200">🤖 AI Track</span>
                                                             <span x-show="trackFilter === 'management_information_systems'" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">📊 MIS Track</span>
+                                                        @elseif($showDegreeFilter)
+                                                            <span x-show="degreeFilter === 'all'" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-slate-900 text-white">All Degree Levels</span>
+                                                            <span x-show="degreeFilter === 'PhD'" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 border border-purple-200">🎓 PhD Candidates</span>
+                                                            <span x-show="degreeFilter === 'MSc'" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-blue-100 text-blue-800 border border-blue-200">📘 MSc Candidates</span>
                                                         @else
                                                             <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">Automated</span>
                                                         @endif
@@ -1662,10 +1687,41 @@
                                                     <p class="text-xs text-slate-500 font-medium">
                                                         @if($isSeminar)
                                                             <span>Batch assign presentation slots and Zoom room to selected students. Only candidates in the currently selected track will be scheduled with their dedicated panel.</span>
+                                                        @elseif($showDegreeFilter)
+                                                            <span>Batch assign presentation dates, time slots, and Zoom link. You can generate for <strong>PhD</strong>, <strong>MSc</strong>, or <strong>All</strong> candidates together.</span>
                                                         @else
                                                             <span>{{ $scheduledCount > 0 ? 'Select unscheduled students below and add them to the existing schedule. Fields are pre-filled from the current schedule.' : 'Batch assign defence dates, presentation time, and Zoom meeting link to selected students.' }}</span>
                                                         @endif
                                                     </p>
+
+                                                    @if($showDegreeFilter && !$isSeminar)
+                                                    <div class="mt-3 flex flex-wrap items-center gap-2">
+                                                        <span class="text-[10px] font-black uppercase tracking-wider text-slate-400">Target Degree:</span>
+                                                        <div class="inline-flex rounded-xl bg-slate-100 p-0.5 border border-slate-200">
+                                                            <button type="button" @click="degreeFilter = 'all'"
+                                                                :class="degreeFilter === 'all' ? 'bg-white text-slate-800 shadow-sm font-black' : 'text-slate-600 hover:text-slate-900 font-bold'"
+                                                                class="px-2.5 py-1 text-xs rounded-lg transition-all flex items-center gap-1 cursor-pointer">
+                                                                All ({{ $template->studentMilestones->count() }})
+                                                            </button>
+                                                            <button type="button" @click="degreeFilter = 'PhD'"
+                                                                :class="degreeFilter === 'PhD' ? 'bg-purple-600 text-white shadow-sm font-black' : 'text-slate-600 hover:text-purple-700 font-bold'"
+                                                                class="px-2.5 py-1 text-xs rounded-lg transition-all flex items-center gap-1 cursor-pointer">
+                                                                🎓 PhD Only ({{ $phdCount }})
+                                                            </button>
+                                                            <button type="button" @click="degreeFilter = 'MSc'"
+                                                                :class="degreeFilter === 'MSc' ? 'bg-blue-600 text-white shadow-sm font-black' : 'text-slate-600 hover:text-blue-700 font-bold'"
+                                                                class="px-2.5 py-1 text-xs rounded-lg transition-all flex items-center gap-1 cursor-pointer">
+                                                                📘 MSc Only ({{ $mscCount }})
+                                                            </button>
+                                                        </div>
+                                                        <button type="button" 
+                                                            @click="let visibleRows = Array.from($root.querySelectorAll('tr[data-milestone-id]')).filter(row => row.style.display !== 'none'); selected = visibleRows.map(row => row.getAttribute('data-milestone-id')); selectAll = true;"
+                                                            class="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition flex items-center gap-1 cursor-pointer shadow-2xs">
+                                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                                            <span>Select visible <span x-text="degreeFilter === 'all' ? 'All' : degreeFilter"></span> (<span x-text="degreeFilter === 'PhD' ? '{{ $phdCount }}' : (degreeFilter === 'MSc' ? '{{ $mscCount }}' : '{{ $template->studentMilestones->count() }}')"></span>)</span>
+                                                        </button>
+                                                    </div>
+                                                    @endif
                                                 </div>
                                             </div>
                                             <div class="flex items-center gap-2">
@@ -1883,6 +1939,15 @@
                                                     @endforeach
                                                 </select>
                                             </div>
+                                            @if($showDegreeFilter && !$isSeminar)
+                                            <div class="w-full sm:w-56">
+                                                <select x-model="degreeFilter" class="w-full py-2.5 px-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500">
+                                                    <option value="all">All Degree Levels</option>
+                                                    <option value="PhD">🎓 PhD Candidates ({{ $phdCount }})</option>
+                                                    <option value="MSc">📘 MSc Candidates ({{ $mscCount }})</option>
+                                                </select>
+                                            </div>
+                                            @endif
                                         </div>
 
                                         {{-- Message & Student Actions --}}
@@ -1956,7 +2021,7 @@
                                                         @endif
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Status</th>
                                                         <th class="px-4 py-3 font-semibold text-slate-700">{{ $template->allow_defence_date ? 'Schedule & Meeting' : ($template->slug === 'supervisors_assigned' ? 'Assigned Supervisors' : 'Details') }}</th>
-                                                        @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
+                                                        @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']))
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Examiner(s)</th>
                                                         @if($template->slug === 'seminar_as_a_course')
                                                         <th class="px-4 py-3 font-semibold text-slate-700">Presentation (PDF)</th>
@@ -2001,6 +2066,7 @@
                                                                 'proposal_defence' => 'proposal',
                                                                 'progress_report_1' => 'progress_report_1',
                                                                 'progress_report_2' => 'progress_report_2',
+                                                                'internal_defence' => 'internal',
                                                                 default => 'first_seminar',
                                                             };
                                                             $event = $sm->thesis ? current($sm->thesis->defenceEvents->where('type', $rowEventType)->all()) : null;
@@ -2057,9 +2123,13 @@
                                                             $studentName = $sm->thesis->student->user->name ?? 'N/A';
                                                             $matricNo = $sm->thesis->student->student_id_number ?? 'N/A';
                                                             $cohortId = $sm->thesis->student->cohort_id ?? '';
+                                                            $rawDegree = $sm->thesis?->student?->level?->name 
+                                                                ?? $sm->thesis?->student?->program?->degree_type 
+                                                                ?? ($sm->thesis?->student?->program?->name ?? '');
+                                                            $rowDegreeType = str_contains(strtolower($rawDegree), 'phd') || str_contains(strtolower($rawDegree), 'doctor') ? 'PhD' : 'MSc';
                                                         @endphp
                                                         <tr data-milestone-id="{{ $sm->id }}" class="hover:bg-slate-50/50 transition-colors" 
-                                                            x-show="(trackFilter === 'all' || trackFilter === '{{ $sm->discipline_group }}') && (cohortFilter === '' || cohortFilter == '{{ $cohortId }}') && (!search || '{{ strtolower($studentName) }}'.includes(search.toLowerCase()) || '{{ strtolower($matricNo) }}'.includes(search.toLowerCase()))">
+                                                            x-show="(trackFilter === 'all' || trackFilter === '{{ $sm->discipline_group }}') && (degreeFilter === 'all' || degreeFilter === '{{ $rowDegreeType }}') && (cohortFilter === '' || cohortFilter == '{{ $cohortId }}') && (!search || '{{ strtolower($studentName) }}'.includes(search.toLowerCase()) || '{{ strtolower($matricNo) }}'.includes(search.toLowerCase()))">
                                                             @if(!isset($isCoordinator) || !$isCoordinator)
                                                             <td class="px-4 py-3">
                                                                 <input type="checkbox" :value="'{{ $sm->id }}'" x-model="selected" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer">
@@ -2069,7 +2139,12 @@
                                                                 <a href="{{ route('admin.students.show', $sm->thesis->student->id) }}" class="font-medium text-brand-600 hover:text-brand-700 hover:underline block">
                                                                     {{ $studentName }}
                                                                 </a>
-                                                                <div class="text-xs text-slate-500">{{ $matricNo }}</div>
+                                                                <div class="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                                                                    <span>{{ $matricNo }}</span>
+                                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black {{ $rowDegreeType === 'PhD' ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-blue-100 text-blue-700 border border-blue-200' }}">
+                                                                        {{ $rowDegreeType }}
+                                                                    </span>
+                                                                </div>
                                                             </td>
                                                             @if($template->slug === 'seminar_as_a_course')
                                                             <td class="px-4 py-3">
@@ -2174,7 +2249,7 @@
                                                                     </div>
                                                                 @endif
                                                             </td>
-                                                            @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
+                                                            @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']))
                                                             <td class="px-4 py-3 text-xs">
                                                                 @if($rowExaminers->count() > 0)
                                                                     <div class="flex flex-col gap-1">
@@ -2283,7 +2358,7 @@
                                                                                     <span>Schedule Slot</span>
                                                                                 </button>
                                                                                 @endif
-                                                                                @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
+                                                                                @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']))
                                                                                 @php
                                                                                     $assignUrl = (auth()->user()->hasRole('Program Coordinator') && !auth()->user()->hasRole('Admin')) ? route('coordinator.milestone-templates.assign-examiner', $sm->id) : route('admin.milestone-templates.assign-examiner', $sm->id);
                                                                                     $currentExaminerUserIds = $rowExaminers->pluck('user_id')->all();
@@ -2296,7 +2371,7 @@
                                                                                     <span>Assign Examiner(s)</span>
                                                                                 </button>
                                                                                 @endif
-                                                                                @if(!empty($sm->defence_date) || in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
+                                                                                @if(!empty($sm->defence_date) || in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']))
                                                                                 <form action="{{ route('milestones.end_presentation', $sm) }}" method="POST">
                                                                                     @csrf
                                                                                     <button type="submit" 
@@ -2504,7 +2579,7 @@
                             </template>
 
                             {{-- Individual Student Examiner Assignment Modal (Teleported to body) --}}
-                            @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']))
+                            @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']))
                             <template x-teleport="body">
                                 <div x-show="assignModalOpen" x-cloak x-transition.opacity class="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" @keydown.escape.window="assignModalOpen = false">
                                     <div @click.outside="assignModalOpen = false" class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 text-left">
