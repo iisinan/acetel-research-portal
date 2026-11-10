@@ -128,10 +128,7 @@ Route::get('/run-migrations', function () {
     });
 
     Route::middleware(['role:Admin|Director'])->group(function () {
-        
-        // specific admin only
-        // Note: Admin-only routes are now handled in routes/admin.php
-
+        Route::get('/director/milestones', [\App\Http\Controllers\Director\MilestoneController::class, 'index'])->name('director.milestones.index');
     });
 
     // Program Coordinator & Admin/Director (Event Management)
