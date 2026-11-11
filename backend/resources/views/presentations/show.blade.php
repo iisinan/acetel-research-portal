@@ -619,50 +619,77 @@
 
                                 {{-- Admin Management Toolbar: Reschedule, Cancel, End Slot --}}
                                 @if(auth()->user()->hasRole('Admin') && $pres->status !== 'approved')
-                                    <div class="pt-2.5 border-t border-slate-100 grid grid-cols-3 gap-1.5">
-                                        <button type="button" 
-                                            @click="slotModalOpen = true; slotStudentId = '{{ $pres->id }}'; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($pres->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $pres->defence_time ? \Carbon\Carbon::parse($pres->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($pres->meeting_link ?? '') }}'; slotTrack = '{{ $pres->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $pres->id]) }}'"
-                                            title="Reschedule presentation"
-                                            class="w-full inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 transition-colors shadow-2xs cursor-pointer">
-                                            <svg class="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
-                                            <span class="truncate">Reschedule</span>
-                                        </button>
-
-                                        <form action="{{ route('admin.milestone-templates.update-student-slot', [$template->id, $pres->id]) }}" method="POST" class="w-full">
-                                            @csrf
-                                            <input type="hidden" name="action" value="remove">
-                                            <button type="submit" 
-                                                data-confirm="Are you sure you want to cancel the presentation for {{ addslashes($studentName) }}? This will clear their presentation date, time, and link."
-                                                data-confirm-title="Cancel Candidate Presentation"
-                                                data-confirm-type="danger"
-                                                data-confirm-btn="Cancel Presentation"
-                                                title="Cancel presentation for this candidate"
-                                                class="w-full inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-bold text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 transition-colors shadow-2xs cursor-pointer">
-                                                <svg class="w-3.5 h-3.5 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                                    @php
+                                        $presIsGraded = ($todayDefEvent && $todayDefEvent->evaluations->isNotEmpty()) || app(\App\Services\MilestoneWorkflowService::class)->hasBeenGraded($pres);
+                                    @endphp
+                                    @if(!$presIsGraded)
+                                        <div class="pt-2.5 border-t border-slate-100 grid grid-cols-3 gap-1.5">
+                                            <button type="button" 
+                                                @click="slotModalOpen = true; slotStudentId = '{{ $pres->id }}'; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($pres->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $pres->defence_time ? \Carbon\Carbon::parse($pres->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($pres->meeting_link ?? '') }}'; slotTrack = '{{ $pres->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $pres->id]) }}'"
+                                                title="Reschedule presentation"
+                                                class="w-full inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 transition-colors shadow-2xs cursor-pointer">
+                                                <svg class="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                 </svg>
-                                                <span class="truncate">Cancel</span>
+                                                <span class="truncate">Reschedule</span>
                                             </button>
-                                        </form>
 
-                                        <form action="{{ route('milestones.end_presentation', $pres) }}" method="POST" class="w-full">
-                                            @csrf
-                                            <button type="submit" 
-                                                data-confirm="Are you sure you want to end the presentation for {{ addslashes($studentName) }}? If all requirements are met, the candidate will be advanced to the next milestone."
-                                                data-confirm-title="End Presentation Session"
-                                                data-confirm-type="success"
-                                                data-confirm-btn="End Presentation"
-                                                title="End Presentation for {{ $studentName }}"
-                                                class="w-full inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-600 hover:text-white border border-blue-200/80 transition-all shadow-2xs active:scale-95 cursor-pointer">
-                                                <svg class="w-3.5 h-3.5 text-blue-600 group-hover:text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                </svg>
-                                                <span class="truncate">End Slot</span>
-                                            </button>
-                                        </form>
-                                    </div>
+                                            <form action="{{ route('admin.milestone-templates.update-student-slot', [$template->id, $pres->id]) }}" method="POST" class="w-full">
+                                                @csrf
+                                                <input type="hidden" name="action" value="remove">
+                                                <button type="submit" 
+                                                    data-confirm="Are you sure you want to cancel the presentation for {{ addslashes($studentName) }}? This will clear their presentation date, time, and link."
+                                                    data-confirm-title="Cancel Candidate Presentation"
+                                                    data-confirm-type="danger"
+                                                    data-confirm-btn="Cancel Presentation"
+                                                    title="Cancel presentation for this candidate"
+                                                    class="w-full inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-bold text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 transition-colors shadow-2xs cursor-pointer">
+                                                    <svg class="w-3.5 h-3.5 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                                                    </svg>
+                                                    <span class="truncate">Cancel</span>
+                                                </button>
+                                            </form>
+
+                                            <form action="{{ route('milestones.end_presentation', $pres) }}" method="POST" class="w-full">
+                                                @csrf
+                                                <button type="submit" 
+                                                    data-confirm="Are you sure you want to end the presentation for {{ addslashes($studentName) }}? If all requirements are met, the candidate will be advanced to the next milestone."
+                                                    data-confirm-title="End Presentation Session"
+                                                    data-confirm-type="success"
+                                                    data-confirm-btn="End Presentation"
+                                                    title="End Presentation for {{ $studentName }}"
+                                                    class="w-full inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-600 hover:text-white border border-blue-200/80 transition-all shadow-2xs active:scale-95 cursor-pointer">
+                                                    <svg class="w-3.5 h-3.5 text-blue-600 group-hover:text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    <span class="truncate">End Slot</span>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    @else
+                                        <div class="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                                <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                                <span>Graded</span>
+                                            </span>
+                                            <form action="{{ route('milestones.end_presentation', $pres) }}" method="POST" class="inline">
+                                                @csrf
+                                                <button type="submit" 
+                                                    data-confirm="Are you sure you want to end the presentation for {{ addslashes($studentName) }}? If all requirements are met, the candidate will be advanced to the next milestone."
+                                                    data-confirm-title="End Presentation Session"
+                                                    data-confirm-type="success"
+                                                    data-confirm-btn="End Presentation"
+                                                    title="End Presentation for {{ $studentName }}"
+                                                    class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-600 hover:text-white border border-blue-200/80 transition-all shadow-2xs active:scale-95 cursor-pointer">
+                                                    <svg class="w-3.5 h-3.5 text-blue-600 group-hover:text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    <span>End Slot</span>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    @endif
                                 @endif
                             </div>
                         </div>
@@ -839,47 +866,71 @@
 
                                 {{-- Admin Management Toolbar --}}
                                 @if(auth()->user()->hasRole('Admin') && $sm->status !== 'approved')
-                                    <div class="pt-2 border-t border-slate-100 grid grid-cols-3 gap-1.5">
-                                        <button type="button" 
-                                            @click="slotModalOpen = true; slotStudentId = '{{ $sm->id }}'; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $sm->defence_time ? \Carbon\Carbon::parse($sm->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($sm->meeting_link ?? '') }}'; slotTrack = '{{ $sm->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
-                                            title="Reschedule presentation"
-                                            class="w-full inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 transition-colors shadow-2xs truncate">
-                                            <svg class="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
-                                            <span class="truncate">Reschedule</span>
-                                        </button>
-
-                                        <form action="{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}" method="POST" class="w-full">
-                                            @csrf
-                                            <input type="hidden" name="action" value="remove">
-                                            <button type="submit" 
-                                                data-confirm="Are you sure you want to cancel the presentation for {{ addslashes($studentName) }}? This will clear their presentation date, time, and link."
-                                                data-confirm-title="Cancel Candidate Presentation"
-                                                data-confirm-type="danger"
-                                                data-confirm-btn="Cancel Presentation"
-                                                title="Cancel presentation for this candidate"
-                                                class="w-full inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-bold text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 transition-colors shadow-2xs truncate">
-                                                <svg class="w-3.5 h-3.5 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                                    @php
+                                        $smIsGraded = ($tableDefEvent && $tableDefEvent->evaluations->isNotEmpty()) || app(\App\Services\MilestoneWorkflowService::class)->hasBeenGraded($sm);
+                                    @endphp
+                                    @if(!$smIsGraded)
+                                        <div class="pt-2 border-t border-slate-100 grid grid-cols-3 gap-1.5">
+                                            <button type="button" 
+                                                @click="slotModalOpen = true; slotStudentId = '{{ $sm->id }}'; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $sm->defence_time ? \Carbon\Carbon::parse($sm->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($sm->meeting_link ?? '') }}'; slotTrack = '{{ $sm->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
+                                                title="Reschedule presentation"
+                                                class="w-full inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 transition-colors shadow-2xs truncate">
+                                                <svg class="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                 </svg>
-                                                <span class="truncate">Cancel</span>
+                                                <span class="truncate">Reschedule</span>
                                             </button>
-                                        </form>
 
-                                        <form action="{{ route('milestones.end_presentation', $sm) }}" method="POST" class="w-full">
-                                            @csrf
-                                            <button type="submit" 
-                                                data-confirm="End presentation for {{ addslashes($studentName) }}?"
-                                                data-confirm-title="End Presentation"
-                                                class="w-full inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-600 hover:text-white border border-blue-200/80 transition-colors shadow-2xs truncate active:scale-95">
-                                                <svg class="w-3.5 h-3.5 text-blue-600 group-hover:text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                </svg>
-                                                <span class="truncate">End Slot</span>
-                                            </button>
-                                        </form>
-                                    </div>
+                                            <form action="{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}" method="POST" class="w-full">
+                                                @csrf
+                                                <input type="hidden" name="action" value="remove">
+                                                <button type="submit" 
+                                                    data-confirm="Are you sure you want to cancel the presentation for {{ addslashes($studentName) }}? This will clear their presentation date, time, and link."
+                                                    data-confirm-title="Cancel Candidate Presentation"
+                                                    data-confirm-type="danger"
+                                                    data-confirm-btn="Cancel Presentation"
+                                                    title="Cancel presentation for this candidate"
+                                                    class="w-full inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-bold text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 transition-colors shadow-2xs truncate">
+                                                    <svg class="w-3.5 h-3.5 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                                                    </svg>
+                                                    <span class="truncate">Cancel</span>
+                                                </button>
+                                            </form>
+
+                                            <form action="{{ route('milestones.end_presentation', $sm) }}" method="POST" class="w-full">
+                                                @csrf
+                                                <button type="submit" 
+                                                    data-confirm="End presentation for {{ addslashes($studentName) }}?"
+                                                    data-confirm-title="End Presentation"
+                                                    class="w-full inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-600 hover:text-white border border-blue-200/80 transition-colors shadow-2xs truncate active:scale-95">
+                                                    <svg class="w-3.5 h-3.5 text-blue-600 group-hover:text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    <span class="truncate">End Slot</span>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    @else
+                                        <div class="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                                <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                                <span>Graded</span>
+                                            </span>
+                                            <form action="{{ route('milestones.end_presentation', $sm) }}" method="POST" class="inline">
+                                                @csrf
+                                                <button type="submit" 
+                                                    data-confirm="End presentation for {{ addslashes($studentName) }}?"
+                                                    data-confirm-title="End Presentation"
+                                                    class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-600 hover:text-white border border-blue-200/80 transition-colors shadow-2xs truncate active:scale-95">
+                                                    <svg class="w-3.5 h-3.5 text-blue-600 group-hover:text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    <span>End Slot</span>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    @endif
                                 @endif
                             </div>
                         </div>
@@ -1164,29 +1215,36 @@
                                             @endif
 
                                             @if(auth()->user()->hasRole('Admin') && $sm->status !== 'approved')
-                                                <button type="button" 
-                                                    @click="slotModalOpen = true; slotStudentId = '{{ $sm->id }}'; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $sm->defence_time ? \Carbon\Carbon::parse($sm->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($sm->meeting_link ?? '') }}'; slotTrack = '{{ $sm->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
-                                                    title="Reschedule presentation"
-                                                    class="p-1.5 rounded-xl text-amber-600 hover:text-white hover:bg-amber-600 border border-amber-200 hover:border-amber-600 transition-all shadow-2xs">
-                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                    </svg>
-                                                </button>
-                                                <form action="{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}" method="POST" class="inline">
-                                                    @csrf
-                                                    <input type="hidden" name="action" value="remove">
-                                                    <button type="submit" 
-                                                        data-confirm="Are you sure you want to cancel the presentation for {{ addslashes($studentName) }}? This will clear their presentation date, time, and link."
-                                                        data-confirm-title="Cancel Candidate Presentation"
-                                                        data-confirm-type="danger"
-                                                        data-confirm-btn="Cancel Presentation"
-                                                        title="Cancel presentation for {{ $studentName }}"
-                                                        class="p-1.5 rounded-xl text-rose-600 hover:text-white hover:bg-rose-600 border border-rose-200 hover:border-rose-600 transition-all shadow-2xs">
+                                                @php
+                                                    $rowIsGraded = ($tableDefEvent && $tableDefEvent->evaluations->isNotEmpty()) || app(\App\Services\MilestoneWorkflowService::class)->hasBeenGraded($sm);
+                                                @endphp
+                                                @if(!$rowIsGraded)
+                                                    <button type="button" 
+                                                        @click="slotModalOpen = true; slotStudentId = '{{ $sm->id }}'; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $sm->defence_time ? \Carbon\Carbon::parse($sm->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($sm->meeting_link ?? '') }}'; slotTrack = '{{ $sm->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
+                                                        title="Reschedule presentation"
+                                                        class="p-1.5 rounded-xl text-amber-600 hover:text-white hover:bg-amber-600 border border-amber-200 hover:border-amber-600 transition-all shadow-2xs">
                                                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                         </svg>
                                                     </button>
-                                                </form>
+                                                    <form action="{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}" method="POST" class="inline">
+                                                        @csrf
+                                                        <input type="hidden" name="action" value="remove">
+                                                        <button type="submit" 
+                                                            data-confirm="Are you sure you want to cancel the presentation for {{ addslashes($studentName) }}? This will clear their presentation date, time, and link."
+                                                            data-confirm-title="Cancel Candidate Presentation"
+                                                            data-confirm-type="danger"
+                                                            data-confirm-btn="Cancel Presentation"
+                                                            title="Cancel presentation for {{ $studentName }}"
+                                                            class="p-1.5 rounded-xl text-rose-600 hover:text-white hover:bg-rose-600 border border-rose-200 hover:border-rose-600 transition-all shadow-2xs">
+                                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                                                            </svg>
+                                                        </button>
+                                                    </form>
+                                                @else
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200" title="Candidate already graded">Graded</span>
+                                                @endif
                                                 <form action="{{ route('milestones.end_presentation', $sm) }}" method="POST" class="inline">
                                                     @csrf
                                                     <button type="submit" 

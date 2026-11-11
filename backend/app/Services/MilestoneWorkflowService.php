@@ -216,16 +216,39 @@ class MilestoneWorkflowService
             'viva' => 'external',
             default => null,
         };
-        $events = $milestone->thesis?->defenceEvents()
-            ->when($type, fn($q) => $q->where('type', $type))
-            ->withCount('evaluations')
-            ->get() ?? collect();
 
-        if ($events->sum('evaluations_count') > 0) {
-            return true;
+        // 1. Check in-memory eager loaded defenceEvents to avoid N+1 queries
+        if ($milestone->relationLoaded('thesis') && $milestone->thesis && $milestone->thesis->relationLoaded('defenceEvents')) {
+            $events = $milestone->thesis->defenceEvents;
+            if ($type) {
+                $events = $events->where('type', $type);
+            }
+            $hasEvals = $events->contains(function ($e) {
+                if ($e->relationLoaded('evaluations')) {
+                    return $e->evaluations->isNotEmpty();
+                }
+                return $e->evaluations()->exists();
+            });
+            if ($hasEvals) {
+                return true;
+            }
+        } else {
+            $events = $milestone->thesis?->defenceEvents()
+                ->when($type, fn($q) => $q->where('type', $type))
+                ->withCount('evaluations')
+                ->get() ?? collect();
+
+            if ($events->sum('evaluations_count') > 0) {
+                return true;
+            }
         }
 
-        if (\Illuminate\Support\Facades\Schema::hasTable('seminar_grades')) {
+        // 2. Check seminar_grades table if present
+        static $hasSeminarGradesTable = null;
+        if ($hasSeminarGradesTable === null) {
+            $hasSeminarGradesTable = \Illuminate\Support\Facades\Schema::hasTable('seminar_grades');
+        }
+        if ($hasSeminarGradesTable) {
             if (\Illuminate\Support\Facades\DB::table('seminar_grades')->where('student_milestone_id', $milestone->id)->exists()) {
                 return true;
             }

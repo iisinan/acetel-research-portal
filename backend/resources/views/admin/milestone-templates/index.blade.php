@@ -397,8 +397,18 @@
                             <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 cursor-default" @click.stop>
                                 
                                 @php
+                                    $workflow = app(\App\Services\MilestoneWorkflowService::class);
                                     $scheduledMilestones = $template->studentMilestones
-                                        ->filter(fn($m) => !empty($m->defence_date) && $m->status !== 'approved')
+                                        ->filter(function($m) use ($workflow) {
+                                            if (empty($m->defence_date) || $m->status === 'approved') {
+                                                return false;
+                                            }
+                                            // Requirement: Any students that were graded should not appear on edit schedule tab/modal
+                                            if ($workflow->hasBeenGraded($m)) {
+                                                return false;
+                                            }
+                                            return true;
+                                        })
                                         ->sortBy(fn($m) => \Carbon\Carbon::parse($m->defence_date)->format('Y-m-d') . ' ' . ($m->defence_time ?? ''))
                                         ->values();
                                     $scheduledCount = $scheduledMilestones->count();
@@ -428,9 +438,9 @@
                                         $aiMilestones = $template->studentMilestones->filter(fn($m) => $m->discipline_group === 'artificial_intelligence');
                                         $misMilestones = $template->studentMilestones->filter(fn($m) => $m->discipline_group === 'management_information_systems');
 
-                                        $cyberScheduled = $cyberMilestones->filter(fn($m) => !empty($m->defence_date))->count();
-                                        $aiScheduled = $aiMilestones->filter(fn($m) => !empty($m->defence_date))->count();
-                                        $misScheduled = $misMilestones->filter(fn($m) => !empty($m->defence_date))->count();
+                                        $cyberScheduled = $schedCyberCount;
+                                        $aiScheduled = $schedAiCount;
+                                        $misScheduled = $schedMisCount;
 
                                         $groupMeta = $template->metadata['group_examiners'] ?? [];
                                         $cyberUserIds = $groupMeta['cybersecurity']['user_ids'] ?? [];
@@ -2129,12 +2139,17 @@
                                                                 ?? $sm->thesis?->student?->program?->degree_type 
                                                                 ?? ($sm->thesis?->student?->program?->name ?? '');
                                                             $rowDegreeType = str_contains(strtolower($rawDegree), 'phd') || str_contains(strtolower($rawDegree), 'doctor') ? 'PhD' : 'MSc';
+                                                            $isGraded = ($event && $event->evaluations->count() > 0) || $workflow->hasBeenGraded($sm);
                                                         @endphp
                                                         <tr data-milestone-id="{{ $sm->id }}" class="hover:bg-slate-50/50 transition-colors" 
                                                             x-show="(trackFilter === 'all' || trackFilter === '{{ $sm->discipline_group }}') && (degreeFilter === 'all' || degreeFilter === '{{ $rowDegreeType }}') && (cohortFilter === '' || cohortFilter == '{{ $cohortId }}') && (!search || '{{ strtolower($studentName) }}'.includes(search.toLowerCase()) || '{{ strtolower($matricNo) }}'.includes(search.toLowerCase()))">
                                                             @if(!isset($isCoordinator) || !$isCoordinator)
                                                             <td class="px-4 py-3">
-                                                                <input type="checkbox" :value="'{{ $sm->id }}'" x-model="selected" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer">
+                                                                @if(!$isGraded)
+                                                                    <input type="checkbox" :value="'{{ $sm->id }}'" x-model="selected" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer">
+                                                                @else
+                                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200" title="Candidate already graded">Graded</span>
+                                                                @endif
                                                             </td>
                                                             @endif
                                                             <td class="px-4 py-3">
@@ -2207,14 +2222,18 @@
                                                                             <span>{{ \Carbon\Carbon::parse($sm->defence_date)->format('M d, Y') }}</span>
                                                                         </div>
                                                                         @if(!isset($isCoordinator) || !$isCoordinator)
-                                                                            <button type="button" 
-                                                                                @click="slotModalOpen = true; slotStudentId = '{{ $sm->id }}'; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $sm->defence_time ? \Carbon\Carbon::parse($sm->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($sm->meeting_link ?? '') }}'; slotTrack = '{{ $sm->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
-                                                                                title="Reschedule / Edit slot or remove student"
-                                                                                class="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors">
-                                                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                                                </svg>
-                                                                            </button>
+                                                                            @if(!$isGraded)
+                                                                                <button type="button" 
+                                                                                    @click="slotModalOpen = true; slotStudentId = '{{ $sm->id }}'; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $sm->defence_time ? \Carbon\Carbon::parse($sm->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($sm->meeting_link ?? '') }}'; slotTrack = '{{ $sm->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
+                                                                                    title="Reschedule / Edit slot or remove student"
+                                                                                    class="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors">
+                                                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                                                    </svg>
+                                                                                </button>
+                                                                            @else
+                                                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200" title="Candidate already graded">Graded</span>
+                                                                            @endif
                                                                         @endif
                                                                     </div>
                                                                     @if($sm->defence_time)
@@ -2241,12 +2260,16 @@
                                                                             Not scheduled
                                                                         </span>
                                                                         @if(!isset($isCoordinator) || !$isCoordinator)
-                                                                            <button type="button" 
-                                                                                @click="slotModalOpen = true; slotStudentId = '{{ $sm->id }}'; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ $lastScheduledDate ?? date('Y-m-d') }}'; slotTime = '{{ $existingTime ?? '10:00' }}'; slotLink = '{{ addslashes($existingLink ?? '') }}'; slotTrack = '{{ $sm->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
-                                                                                class="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded text-[10px] font-black uppercase tracking-wider transition-colors shadow-2xs">
-                                                                                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                                                                                <span>Add to Day</span>
-                                                                            </button>
+                                                                            @if(!$isGraded)
+                                                                                <button type="button" 
+                                                                                    @click="slotModalOpen = true; slotStudentId = '{{ $sm->id }}'; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ $lastScheduledDate ?? date('Y-m-d') }}'; slotTime = '{{ $existingTime ?? '10:00' }}'; slotLink = '{{ addslashes($existingLink ?? '') }}'; slotTrack = '{{ $sm->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
+                                                                                    class="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded text-[10px] font-black uppercase tracking-wider transition-colors shadow-2xs">
+                                                                                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                                                                                    <span>Add to Day</span>
+                                                                                </button>
+                                                                            @else
+                                                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200" title="Candidate already graded">Graded</span>
+                                                                            @endif
                                                                         @endif
                                                                     </div>
                                                                 @endif

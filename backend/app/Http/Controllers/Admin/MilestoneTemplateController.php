@@ -557,11 +557,16 @@ class MilestoneTemplateController extends Controller
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
             foreach ($request->input('entries', []) as $smId => $entry) {
-                $sm = \App\Models\StudentMilestone::with(['thesis.student.user', 'thesis.student.program', 'thesis.internalExaminer.user', 'thesis.externalExaminer.user', 'template'])
+                $sm = \App\Models\StudentMilestone::with(['thesis.student.user', 'thesis.student.program', 'thesis.internalExaminer.user', 'thesis.externalExaminer.user', 'template', 'thesis.defenceEvents.evaluations'])
                     ->where('milestone_template_id', $template->id)
                     ->find($smId);
                 if (!$sm) {
                     continue;
+                }
+
+                $workflow = app(\App\Services\MilestoneWorkflowService::class);
+                if ($workflow->hasBeenGraded($sm)) {
+                    continue; // Graded students cannot have their schedule modified or removed
                 }
 
                 $thesis = $sm->thesis;
@@ -763,7 +768,7 @@ class MilestoneTemplateController extends Controller
         $query = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
             ->whereNotNull('defence_date')
             ->where('status', '!=', 'approved')
-            ->with(['thesis.student.user', 'thesis.student.program']);
+            ->with(['thesis.student.user', 'thesis.student.program', 'thesis.defenceEvents.evaluations']);
 
         if (!$isAllDates) {
             $query->whereDate('defence_date', $fromDateStr);
@@ -775,9 +780,13 @@ class MilestoneTemplateController extends Controller
             $milestones = $milestones->filter(fn($m) => $m->discipline_group === $request->discipline_group);
         }
 
+        // Graded students must not have their presentation rescheduled
+        $workflow = app(\App\Services\MilestoneWorkflowService::class);
+        $milestones = $milestones->reject(fn($m) => $workflow->hasBeenGraded($m));
+
         if ($milestones->isEmpty()) {
             $targetDesc = $fromDateStr ? \Carbon\Carbon::parse($fromDateStr)->format('M d, Y') : 'the selected filter';
-            return back()->with('error', "No presentations found scheduled on {$targetDesc}.");
+            return back()->with('error', "No un-graded presentations found scheduled on {$targetDesc}.");
         }
 
         $type = $template->defence_type ?? match($template->slug) {
@@ -948,6 +957,11 @@ class MilestoneTemplateController extends Controller
         $thesis = $milestone->thesis;
         $studentUser = $thesis?->student?->user;
         $studentName = $studentUser?->name ?? 'Candidate';
+
+        $workflow = app(\App\Services\MilestoneWorkflowService::class);
+        if ($workflow->hasBeenGraded($milestone)) {
+            return back()->with('error', "Candidate {$studentName} has already been graded and cannot be rescheduled or modified.");
+        }
 
         $type = $template->defence_type ?? match($template->slug) {
             'seminar_as_a_course' => 'seminar',
