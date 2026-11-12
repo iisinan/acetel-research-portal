@@ -273,58 +273,64 @@
                             return str_contains(strtolower($raw), 'phd') || str_contains(strtolower($raw), 'doctor');
                         });
 
-                        // Supervisors assigned to MSc / PhD students on this milestone
+                        // Supervisors assigned to MSc / PhD students on this milestone ONLY
                         $milestoneMscSupIds = [];
+                        $milestonePhdSupIds = [];
+                        $supMilestoneStudentsMap = [];
+
                         foreach ($tplMscMilestones as $mItem) {
+                            $stName = $mItem->thesis?->student?->user?->name ?? 'Candidate';
                             foreach ($mItem->thesis?->assignments ?? [] as $aItem) {
                                 if ($aItem->supervisor_profile_id) {
-                                    $milestoneMscSupIds[] = (string) $aItem->supervisor_profile_id;
+                                    $sid = (string) $aItem->supervisor_profile_id;
+                                    $milestoneMscSupIds[] = $sid;
+                                    $supMilestoneStudentsMap[$sid]['msc'][] = $stName;
                                 }
                             }
                         }
                         $milestoneMscSupIds = array_values(array_unique($milestoneMscSupIds));
 
-                        $milestonePhdSupIds = [];
                         foreach ($tplPhdMilestones as $mItem) {
+                            $stName = $mItem->thesis?->student?->user?->name ?? 'Candidate';
                             foreach ($mItem->thesis?->assignments ?? [] as $aItem) {
                                 if ($aItem->supervisor_profile_id) {
-                                    $milestonePhdSupIds[] = (string) $aItem->supervisor_profile_id;
+                                    $sid = (string) $aItem->supervisor_profile_id;
+                                    $milestonePhdSupIds[] = $sid;
+                                    $supMilestoneStudentsMap[$sid]['phd'][] = $stName;
                                 }
                             }
                         }
                         $milestonePhdSupIds = array_values(array_unique($milestonePhdSupIds));
                         $milestoneAllSupIds = array_values(array_unique(array_merge($milestoneMscSupIds, $milestonePhdSupIds)));
 
-                        // System-wide MSc / PhD supervisor profile IDs (fallback when milestone has none assigned yet)
-                        $sysMscSupIds = $supervisors->filter(fn($s) => $s->is_msc_supervisor ?? true)->pluck('id')->map(fn($id) => (string) $id)->values()->all();
-                        $sysPhdSupIds = $supervisors->filter(fn($s) => $s->is_phd_supervisor ?? false)->pluck('id')->map(fn($id) => (string) $id)->values()->all();
-                        if (empty($sysPhdSupIds)) {
-                            $sysPhdSupIds = $supervisors->pluck('id')->map(fn($id) => (string) $id)->values()->all();
-                        }
-                        $sysAllSupIds = $supervisors->pluck('id')->map(fn($id) => (string) $id)->values()->all();
+                        $defaultMscSupIds = $milestoneMscSupIds;
+                        $defaultPhdSupIds = $milestonePhdSupIds;
+                        $defaultAllSupIds = $milestoneAllSupIds;
 
-                        $defaultMscSupIds = !empty($milestoneMscSupIds) ? $milestoneMscSupIds : $sysMscSupIds;
-                        $defaultPhdSupIds = !empty($milestonePhdSupIds) ? $milestonePhdSupIds : $sysPhdSupIds;
-                        $defaultAllSupIds = !empty($milestoneAllSupIds) ? $milestoneAllSupIds : $sysAllSupIds;
-
-                        $supervisorPoolForJs = $supervisors->map(function($s) use ($milestoneMscSupIds, $milestonePhdSupIds, $milestoneAllSupIds) {
-                            $sid = (string) $s->id;
-                            $onMsc = in_array($sid, $milestoneMscSupIds, true);
-                            $onPhd = in_array($sid, $milestonePhdSupIds, true);
-                            $isMsc = ($s->is_msc_supervisor ?? true) || $onMsc;
-                            $isPhd = ($s->is_phd_supervisor ?? false) || $onPhd;
-                            return [
-                                'id' => $sid,
-                                'name' => $s->user?->name ?? 'Supervisor',
-                                'email' => $s->user?->email ?? '',
-                                'program' => $s->programs->first()?->code ?? ($s->specialization ?? 'Academic Staff'),
-                                'rank' => $s->rank ?? '',
-                                'isMsc' => $isMsc,
-                                'isPhd' => $isPhd,
-                                'onMilestone' => in_array($sid, $milestoneAllSupIds, true),
-                                'badge' => ($isMsc && $isPhd) ? 'MSc & PhD' : ($isPhd ? 'PhD' : 'MSc'),
-                            ];
-                        })->values();
+                        // Only include supervisors who have students on THIS milestone
+                        $supervisorPoolForJs = $supervisors
+                            ->filter(fn($s) => in_array((string) $s->id, $milestoneAllSupIds, true))
+                            ->map(function($s) use ($milestoneMscSupIds, $milestonePhdSupIds, $supMilestoneStudentsMap) {
+                                $sid = (string) $s->id;
+                                $onMsc = in_array($sid, $milestoneMscSupIds, true);
+                                $onPhd = in_array($sid, $milestonePhdSupIds, true);
+                                $mscStudents = array_values(array_unique($supMilestoneStudentsMap[$sid]['msc'] ?? []));
+                                $phdStudents = array_values(array_unique($supMilestoneStudentsMap[$sid]['phd'] ?? []));
+                                $allNames = array_values(array_unique(array_merge($mscStudents, $phdStudents)));
+                                return [
+                                    'id' => $sid,
+                                    'name' => $s->user?->name ?? 'Supervisor',
+                                    'email' => $s->user?->email ?? '',
+                                    'program' => $s->programs->first()?->code ?? ($s->specialization ?? 'Academic Staff'),
+                                    'rank' => $s->rank ?? '',
+                                    'isMsc' => $onMsc,
+                                    'isPhd' => $onPhd,
+                                    'onMilestone' => true,
+                                    'studentCount' => count($allNames),
+                                    'studentNames' => implode(', ', array_slice($allNames, 0, 3)) . (count($allNames) > 3 ? ' +' . (count($allNames) - 3) . ' more' : ''),
+                                    'badge' => ($onMsc && $onPhd) ? 'MSc & PhD' : ($onPhd ? 'PhD' : 'MSc'),
+                                ];
+                            })->values();
                     @endphp
                     <tbody x-data="{ 
                         expanded: false, 
@@ -3025,8 +3031,8 @@
                                                 <div class="space-y-3 bg-indigo-50/40 p-4 rounded-2xl border border-indigo-100">
                                                     <div class="flex items-center justify-between">
                                                         <div>
-                                                            <label class="block text-[11px] font-black text-indigo-950 uppercase tracking-wider">2. Select Supervisors (MSc or PhD Supervisors)</label>
-                                                            <p class="text-[10px] text-slate-500 mt-0.5">Choose whether to include MSc supervisors, PhD supervisors, or both in this email/message.</p>
+                                                            <label class="block text-[11px] font-black text-indigo-950 uppercase tracking-wider">2. Select Milestone Supervisors (MSc or PhD Supervisors)</label>
+                                                            <p class="text-[10px] text-slate-500 mt-0.5">Shows only supervisors of candidates currently on {{ $template->name }}.</p>
                                                         </div>
                                                         <span x-show="supervisorScope !== 'none'" class="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-100 text-indigo-800 border border-indigo-200" x-text="selectedSupervisors.length + ' supervisor(s) selected'"></span>
                                                     </div>
@@ -3040,17 +3046,17 @@
                                                         <button type="button" @click="setSupervisorScope('msc')"
                                                             :class="supervisorScope === 'msc' ? 'bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-500/20' : 'bg-white text-blue-800 border-blue-200 hover:bg-blue-50'"
                                                             class="py-2 px-2.5 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer flex items-center justify-center gap-1">
-                                                            <span>📘 MSc Supervisors</span>
+                                                            <span>📘 MSc Sups ({{ count($milestoneMscSupIds) }})</span>
                                                         </button>
                                                         <button type="button" @click="setSupervisorScope('phd')"
                                                             :class="supervisorScope === 'phd' ? 'bg-purple-600 text-white border-purple-600 shadow-xs ring-2 ring-purple-500/20' : 'bg-white text-purple-800 border-purple-200 hover:bg-purple-50'"
                                                             class="py-2 px-2.5 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer flex items-center justify-center gap-1">
-                                                            <span>🎓 PhD Supervisors</span>
+                                                            <span>🎓 PhD Sups ({{ count($milestonePhdSupIds) }})</span>
                                                         </button>
                                                         <button type="button" @click="setSupervisorScope('all')"
                                                             :class="supervisorScope === 'all' ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-500/20' : 'bg-white text-indigo-800 border-indigo-200 hover:bg-indigo-50'"
                                                             class="py-2 px-2.5 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer flex items-center justify-center gap-1">
-                                                            <span>👥 Both (MSc & PhD)</span>
+                                                            <span>👥 Both ({{ count($milestoneAllSupIds) }})</span>
                                                         </button>
                                                     </div>
 
@@ -3058,9 +3064,9 @@
                                                     <div x-show="supervisorScope !== 'none'" x-transition class="bg-white rounded-xl border border-indigo-100 overflow-hidden shadow-2xs">
                                                         <div class="p-2.5 bg-slate-50 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                                             <div class="flex items-center gap-1">
-                                                                <button type="button" @click="supervisorDegreeFilter = 'all'" :class="supervisorDegreeFilter === 'all' ? 'bg-slate-900 text-white font-black' : 'bg-white text-slate-600 border border-slate-200 font-semibold'" class="px-2 py-1 rounded-lg text-[10px] transition cursor-pointer">All ({{ $supervisors->count() }})</button>
-                                                                <button type="button" @click="supervisorDegreeFilter = 'msc'" :class="supervisorDegreeFilter === 'msc' ? 'bg-blue-600 text-white font-black' : 'bg-white text-blue-700 border border-blue-200 font-semibold'" class="px-2 py-1 rounded-lg text-[10px] transition cursor-pointer">📘 MSc Sups</button>
-                                                                <button type="button" @click="supervisorDegreeFilter = 'phd'" :class="supervisorDegreeFilter === 'phd' ? 'bg-purple-600 text-white font-black' : 'bg-white text-purple-700 border border-purple-200 font-semibold'" class="px-2 py-1 rounded-lg text-[10px] transition cursor-pointer">🎓 PhD Sups</button>
+                                                                <button type="button" @click="supervisorDegreeFilter = 'all'" :class="supervisorDegreeFilter === 'all' ? 'bg-slate-900 text-white font-black' : 'bg-white text-slate-600 border border-slate-200 font-semibold'" class="px-2 py-1 rounded-lg text-[10px] transition cursor-pointer">All ({{ count($milestoneAllSupIds) }})</button>
+                                                                <button type="button" @click="supervisorDegreeFilter = 'msc'" :class="supervisorDegreeFilter === 'msc' ? 'bg-blue-600 text-white font-black' : 'bg-white text-blue-700 border border-blue-200 font-semibold'" class="px-2 py-1 rounded-lg text-[10px] transition cursor-pointer">📘 MSc ({{ count($milestoneMscSupIds) }})</button>
+                                                                <button type="button" @click="supervisorDegreeFilter = 'phd'" :class="supervisorDegreeFilter === 'phd' ? 'bg-purple-600 text-white font-black' : 'bg-white text-purple-700 border border-purple-200 font-semibold'" class="px-2 py-1 rounded-lg text-[10px] transition cursor-pointer">🎓 PhD ({{ count($milestonePhdSupIds) }})</button>
                                                             </div>
                                                             <div class="flex items-center gap-1.5 flex-1 sm:max-w-[220px]">
                                                                 <input type="text" x-model="supervisorSearch" placeholder="Search supervisor..." class="w-full text-[11px] px-2.5 py-1 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500">
@@ -3068,20 +3074,22 @@
                                                                 <button type="button" @click="selectedSupervisors = []" class="text-[10px] font-bold text-rose-600 hover:underline shrink-0 cursor-pointer">Clear</button>
                                                             </div>
                                                         </div>
-                                                        <div class="max-h-36 overflow-y-auto divide-y divide-slate-100 p-1">
+                                                        <div class="max-h-40 overflow-y-auto divide-y divide-slate-100 p-1">
                                                             <template x-for="sup in filteredModalSupervisors" :key="sup.id">
-                                                                <label class="flex items-center justify-between gap-2 px-2.5 py-1.5 hover:bg-indigo-50/40 rounded-lg cursor-pointer">
+                                                                <label class="flex items-center justify-between gap-2 px-2.5 py-2 hover:bg-indigo-50/40 rounded-lg cursor-pointer">
                                                                     <div class="flex items-center gap-2 min-w-0">
                                                                         <input type="checkbox" :value="sup.id" x-model="selectedSupervisors" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 shrink-0">
                                                                         <div class="text-xs truncate">
-                                                                            <span class="font-bold text-slate-800" x-text="sup.name"></span>
-                                                                            <span class="text-[10px] text-slate-400 ml-1" x-text="sup.email ? '(' + sup.email + ')' : ''"></span>
+                                                                            <div>
+                                                                                <span class="font-bold text-slate-800" x-text="sup.name"></span>
+                                                                                <span class="text-[10px] text-slate-400 ml-1" x-text="sup.email ? '(' + sup.email + ')' : ''"></span>
+                                                                            </div>
+                                                                            <div class="text-[10px] text-slate-500 truncate mt-0.5" x-show="sup.studentNames">
+                                                                                Supervising on milestone: <span class="font-semibold text-slate-700" x-text="sup.studentNames"></span>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                     <div class="flex items-center gap-1 shrink-0">
-                                                                        <template x-if="sup.onMilestone">
-                                                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">On Milestone</span>
-                                                                        </template>
                                                                         <span class="px-1.5 py-0.5 rounded text-[9px] font-black border"
                                                                             :class="sup.isPhd && sup.isMsc ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : (sup.isPhd ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-blue-50 text-blue-700 border-blue-200')"
                                                                             x-text="sup.badge"></span>
@@ -3089,7 +3097,7 @@
                                                                 </label>
                                                             </template>
                                                             <template x-if="filteredModalSupervisors.length === 0">
-                                                                <div class="py-4 text-center text-xs text-slate-400 italic">No supervisors match the current filter.</div>
+                                                                <div class="py-4 text-center text-xs text-slate-400 italic">No supervisors have candidates on this milestone matching the selected filter.</div>
                                                             </template>
                                                         </div>
                                                     </div>

@@ -94,14 +94,7 @@ class MilestoneTemplateController extends Controller
                 }
             }
 
-            $rankAndName = strtolower(($sup->rank ?? '') . ' ' . ($sup->user?->name ?? ''));
-            $isSenior = str_contains($rankAndName, 'prof')
-                || str_contains($rankAndName, 'reader')
-                || str_contains($rankAndName, 'senior lecturer')
-                || str_contains($rankAndName, 'dr.')
-                || str_contains($rankAndName, 'dr ');
-
-            $isPhd = $hasPhdStudent || $hasPhdProg || $isSenior;
+            $isPhd = $hasPhdStudent || $hasPhdProg;
             $isMsc = $hasMscStudent || $hasMscProg || (!$hasPhdStudent && !$hasPhdProg);
 
             $sup->is_msc_supervisor = $isMsc;
@@ -2385,47 +2378,6 @@ class MilestoneTemplateController extends Controller
                     }
                 }
                 $supervisorUsers = $fromMilestoneSups->unique('id')->values();
-
-                // Fallback to all system MSc / PhD supervisors if none are assigned on this milestone yet
-                if ($supervisorUsers->isEmpty()) {
-                    $allSups = \App\Models\SupervisorProfile::with([
-                        'user',
-                        'programs',
-                        'assignments.thesis.student.level',
-                        'assignments.thesis.student.program',
-                    ])->get();
-
-                    $supervisorUsers = $allSups->filter(function ($sup) use ($supervisorScope) {
-                        if ($supervisorScope === 'all') return true;
-                        $hasPhdSt = false;
-                        $hasMscSt = false;
-                        foreach ($sup->assignments as $a) {
-                            $st = $a->thesis?->student;
-                            if (!$st) continue;
-                            $raw = strtolower(($st->level?->name ?? '') . ' ' . ($st->program?->degree_type ?? '') . ' ' . ($st->program?->name ?? ''));
-                            if (str_contains($raw, 'phd') || str_contains($raw, 'ph.d') || str_contains($raw, 'doctor')) {
-                                $hasPhdSt = true;
-                            } else {
-                                $hasMscSt = true;
-                            }
-                        }
-                        $hasPhdPrg = false;
-                        $hasMscPrg = false;
-                        foreach ($sup->programs as $p) {
-                            $pRaw = strtolower(($p->degree_type ?? '') . ' ' . ($p->name ?? '') . ' ' . ($p->code ?? ''));
-                            if (str_contains($pRaw, 'phd') || str_contains($pRaw, 'ph.d') || str_contains($pRaw, 'doctor')) {
-                                $hasPhdPrg = true;
-                            } else {
-                                $hasMscPrg = true;
-                            }
-                        }
-                        $rankName = strtolower(($sup->rank ?? '') . ' ' . ($sup->user?->name ?? ''));
-                        $isSenior = str_contains($rankName, 'prof') || str_contains($rankName, 'reader') || str_contains($rankName, 'senior lecturer') || str_contains($rankName, 'dr.') || str_contains($rankName, 'dr ');
-                        $isPhd = $hasPhdSt || $hasPhdPrg || $isSenior;
-                        $isMsc = $hasMscSt || $hasMscPrg || (!$hasPhdSt && !$hasPhdPrg);
-                        return $supervisorScope === 'phd' ? $isPhd : $isMsc;
-                    })->map(fn($sp) => $sp->user)->filter()->unique('id')->values();
-                }
             }
         }
 
