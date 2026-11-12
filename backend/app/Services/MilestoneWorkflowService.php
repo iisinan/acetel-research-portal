@@ -745,13 +745,53 @@ class MilestoneWorkflowService
 
         $milestone->save();
 
-        // Invalidate student dashboard query cache
+        $finalSummary = $this->getSupervisorReviewSummary($milestone);
+
+        // Invalidate student dashboard query cache & send portal Inbox notification
         $studentUser = $milestone->thesis?->student?->user;
         if ($studentUser) {
             \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
+
+            try {
+                $milestoneTitle = $milestone->template?->name ?? 'Milestone Submission';
+                $isApprovedDecision = ($decision === 'approved');
+                $subject = $isApprovedDecision
+                    ? "Thesis Upload Approved by {$user->name} — {$milestoneTitle}"
+                    : "Revision Requested by {$user->name} — {$milestoneTitle}";
+
+                $remarksText = !empty($remarks) ? "\n\nSupervisor Remarks:\n\"{$remarks}\"" : '';
+                $eligibilityNote = $isApprovedDecision
+                    ? ($finalSummary['is_eligible']
+                        ? "\n\nStatus: Your submission has met supervisor clearance requirements and you are eligible to present at the defence."
+                        : "\n\nStatus: Your submission is still awaiting review or revision clearance from your co-supervisor(s).")
+                    : "\n\nAction Required: Please address the requested revisions and upload your revised PDF manuscript on the Milestones page.";
+
+                $body = "Dear {$studentUser->name},\n\n"
+                    . "Your supervisor ({$user->name}) has reviewed your uploaded submission for \"{$milestoneTitle}\" and recorded the following decision: "
+                    . ($isApprovedDecision ? "APPROVED" : "REVISION REQUIRED") . "."
+                    . $remarksText
+                    . $eligibilityNote . "\n\n"
+                    . "ACETEL Academic Portal";
+
+                $inboxMsg = \App\Models\InboxMessage::create([
+                    'sender_id' => $user->id,
+                    'subject' => $subject,
+                    'body' => $body,
+                    'delivery_method' => 'in_app',
+                ]);
+
+                $inboxMsg->recipients()->attach($studentUser->id, [
+                    'id' => (string) \Illuminate\Support\Str::uuid(),
+                    'recipient_type' => 'to',
+                ]);
+
+                \App\Events\MessageReceived::dispatch($inboxMsg, $studentUser->id);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Failed to create inbox message on supervisor review: " . $e->getMessage());
+            }
         }
 
-        return $this->getSupervisorReviewSummary($milestone);
+        return $finalSummary;
     }
 
     /**

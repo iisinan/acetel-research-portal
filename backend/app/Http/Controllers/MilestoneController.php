@@ -221,6 +221,13 @@ class MilestoneController extends Controller
             ? 'Upload accepted successfully. All active reviews are approved — candidate is eligible to present.'
             : 'Upload accepted. Your approval stands. Note: Candidate still has pending or revision requests from co-supervisor(s).';
 
+        if (str_contains((string) url()->previous(), '/milestones')) {
+            return redirect()->route('milestones.index', [
+                'thesis_id' => $milestone->thesis_project_id,
+                'expanded' => $milestone->id,
+            ])->with('success', $msg);
+        }
+
         return back()->with('success', $msg);
     }
 
@@ -294,7 +301,16 @@ class MilestoneController extends Controller
 
         $workflowService->notifyUpdate($milestone, "Supervisor {$user->name} requested revisions for: {$milestone->template->name}");
 
-        return back()->with('success', 'Upload rejected successfully. The student has been notified to revise it and is not eligible to present until revised.');
+        $rejectMsg = 'Upload rejected successfully. The student has been notified to revise it and is not eligible to present until revised.';
+
+        if (str_contains((string) url()->previous(), '/milestones')) {
+            return redirect()->route('milestones.index', [
+                'thesis_id' => $milestone->thesis_project_id,
+                'expanded' => $milestone->id,
+            ])->with('success', $rejectMsg);
+        }
+
+        return back()->with('success', $rejectMsg);
     }
 
     public function quickApprove(Request $request, StudentMilestone $milestone)
@@ -833,6 +849,47 @@ class MilestoneController extends Controller
 
         foreach ($recipients as $userId) {
             \App\Events\MilestoneSubmitted::dispatch($milestone, $userId);
+        }
+
+        // Send Portal Inbox notification to assigned Supervisors (or Internal Examiner for post-defence)
+        try {
+            $studentUser = Auth::user();
+            $milestoneTitle = $milestone->template?->name ?? 'Milestone Submission';
+            $inboxRecipientIds = collect();
+
+            if ($isPostDefenceStage && $milestone->thesis->internalExaminer && $milestone->thesis->internalExaminer->user_id) {
+                $inboxRecipientIds->push($milestone->thesis->internalExaminer->user_id);
+            } else {
+                foreach ($milestone->thesis->assignments as $assignment) {
+                    if ($assignment->status === 'active' && $assignment->supervisor?->user_id) {
+                        $inboxRecipientIds->push($assignment->supervisor->user_id);
+                    }
+                }
+            }
+
+            $inboxRecipientIds = $inboxRecipientIds->unique()->filter();
+            if ($inboxRecipientIds->isNotEmpty() && $studentUser) {
+                $inboxMsg = \App\Models\InboxMessage::create([
+                    'sender_id' => $studentUser->id,
+                    'subject' => "Thesis Submission Ready for Review: {$studentUser->name} ({$milestoneTitle})",
+                    'body' => "Dear Supervisor,\n\n"
+                        . "{$studentUser->name} ({$milestone->thesis?->student?->student_id_number}) has uploaded a submission for \"{$milestoneTitle}\""
+                        . (!empty($milestone->thesis?->title) ? " titled \"{$milestone->thesis->title}\"" : "") . ".\n\n"
+                        . "Please open your Supervisor Dashboard or the candidate's Milestones page to review and Approve or Reject (Request Revision) the uploaded thesis manuscript.\n\n"
+                        . "ACETEL Academic Portal",
+                    'delivery_method' => 'in_app',
+                ]);
+
+                foreach ($inboxRecipientIds as $supUserId) {
+                    $inboxMsg->recipients()->attach($supUserId, [
+                        'id' => (string) \Illuminate\Support\Str::uuid(),
+                        'recipient_type' => 'to',
+                    ]);
+                    \App\Events\MessageReceived::dispatch($inboxMsg, $supUserId);
+                }
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Failed to send supervisor inbox notification on milestone submission: " . $e->getMessage());
         }
 
         // Invalidate student dashboard query cache

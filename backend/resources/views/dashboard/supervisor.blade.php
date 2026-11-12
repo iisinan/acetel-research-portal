@@ -1186,7 +1186,7 @@ class="space-y-8 animate-in">
                     </div>
                     <div class="flex items-center justify-between pt-2 border-t border-slate-50">
                         <span class="text-[9px] font-bold text-slate-400 uppercase">{{ $cReview->submitted_at ? $cReview->submitted_at->diffForHumans() : 'Pending' }}</span>
-                        <a href="{{ route('theses.show', ['thesis' => $cReview->thesis_project_id, 'expanded' => $cReview->id]) }}" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[9px] font-black uppercase">
+                        <a href="{{ route('milestones.show', $cReview->id) }}" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[9px] font-black uppercase">
                             Sign Off
                         </a>
                     </div>
@@ -1542,7 +1542,7 @@ class="space-y-8 animate-in">
                                 <a href="{{ route('theses.show', $iThesis) }}" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">
                                     Overview
                                 </a>
-                                <a href="{{ route('milestones.index', ['thesis_id' => $iThesis->id, 'expanded' => $iThesis->current_milestone_id]) }}" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-xs">
+                                <a href="{{ route('milestones.index', ['thesis_id' => $iThesis->id, 'expanded' => $iThesis->currentMilestone?->id]) }}" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-xs">
                                     Assess Milestones
                                 </a>
                             </div>
@@ -1679,7 +1679,7 @@ class="space-y-8 animate-in">
                     </div>
                     <div class="pt-3 border-t border-slate-50 flex items-center justify-between">
                         <span class="text-[10px] font-bold text-slate-400 uppercase">{{ $eReview->submitted_at ? $eReview->submitted_at->diffForHumans() : 'Recently' }}</span>
-                        <a href="{{ route('theses.show', ['thesis' => $eReview->thesis_project_id, 'expanded' => $eReview->id]) }}" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[9px] font-black uppercase">
+                        <a href="{{ route('milestones.show', $eReview->id) }}" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[9px] font-black uppercase">
                             Review Submission
                         </a>
                     </div>

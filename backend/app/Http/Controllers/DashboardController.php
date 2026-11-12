@@ -891,6 +891,13 @@ class DashboardController extends Controller
             }
 
             $workflow = app(\App\Services\MilestoneWorkflowService::class);
+
+            // Once the presentation has already been conducted/graded or entered post-defence,
+            // pre-defence supervisor upload review is no longer pending.
+            if ($workflow->isPresentationEvaluated($milestone) || $workflow->isPostDefencePhase($milestone)) {
+                return false;
+            }
+
             $summary = $workflow->getSupervisorReviewSummary($milestone);
 
             $myReview = collect($summary['supervisors'] ?? [])->first(fn($s) => (string) ($s['user_id'] ?? '') === $userIdStr);
@@ -901,21 +908,8 @@ class DashboardController extends Controller
                 if ($myReview['status'] === 'rejected') {
                     return false;
                 }
-                if ($myReview['status'] === 'pending_re_review') {
+                if (in_array($myReview['status'], ['pending', 'pending_re_review'], true)) {
                     return true;
-                }
-                // If candidate is already eligible to present with 0 active rejections/re-reviews
-                if ($summary['is_eligible'] && $summary['approved_count'] > 0 && $summary['rejected_count'] === 0 && $summary['pending_rereview_count'] === 0) {
-                    return false;
-                }
-            }
-
-            // For presentation-gated milestones (proposal defence, progress report 1 & 2):
-            // The supervisor's role is upload acceptance. Once the milestone upload is accepted/eligible,
-            // candidate is cleared to present and supervisor mentorship review is complete.
-            if (in_array($milestone->template?->slug, \App\Services\MilestoneWorkflowService::PRESENTATION_GATED_SLUGS)) {
-                if ($workflow->isSupervisorApproved($milestone)) {
-                    return false;
                 }
             }
 
@@ -923,14 +917,14 @@ class DashboardController extends Controller
             if ($milestone->relationLoaded('submissions')) {
                 $hasFeedbackApproved = $milestone->submissions->contains(function($sub) use ($userId) {
                     if ($sub->relationLoaded('feedbacks')) {
-                        return $sub->feedbacks->contains(fn($f) => $f->created_by == $userId && $f->decision === 'approved');
+                        return $sub->feedbacks->contains(fn($f) => (string) $f->created_by === (string) $userId && $f->decision === 'approved');
                     }
                     if ($sub->relationLoaded('feedback')) {
                         $fb = $sub->feedback;
                         if ($fb instanceof \Illuminate\Support\Collection) {
-                            return $fb->contains(fn($f) => $f->created_by == $userId && $f->decision === 'approved');
+                            return $fb->contains(fn($f) => (string) $f->created_by === (string) $userId && $f->decision === 'approved');
                         }
-                        return $fb && $fb->created_by == $userId && $fb->decision === 'approved';
+                        return $fb && (string) $fb->created_by === (string) $userId && $fb->decision === 'approved';
                     }
                     return $sub->feedbacks()->where('created_by', $userId)->where('decision', 'approved')->exists();
                 });
@@ -942,13 +936,6 @@ class DashboardController extends Controller
                     ->whereHas('feedbacks', fn($q) => $q->where('created_by', $userId)->where('decision', 'approved'))
                     ->exists();
                 if ($hasFeedbackApproved) {
-                    return false;
-                }
-            }
-
-            // Direct check on is_supervisor_approved attribute/column
-            if (!empty($milestone->is_supervisor_approved)) {
-                if (!$myReview || $myReview['status'] !== 'pending_re_review') {
                     return false;
                 }
             }
