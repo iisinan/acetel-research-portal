@@ -27,7 +27,11 @@
                 <span class="text-[10px] font-black {{ $statusBadge['text'] }} uppercase tracking-widest">{{ str_replace('_', ' ', $milestone->status) }}</span>
             </div>
             
-            @if(auth()->user()->hasRole('Admin') && $milestone->status !== 'approved' && (!empty($milestone->defence_date) || in_array($milestone->template?->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2'])))
+            @php
+                $headerWorkflow = app(\App\Services\MilestoneWorkflowService::class);
+                $headerIsPostDefence = $headerWorkflow->isPostDefencePhase($milestone);
+            @endphp
+            @if(auth()->user()->hasRole('Admin') && $milestone->status !== 'approved' && !$headerIsPostDefence && (!empty($milestone->defence_date) || in_array($milestone->template?->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence'])))
             <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST" class="inline">
                 @csrf
                 <button type="submit" 
@@ -74,14 +78,14 @@
                 $isApproved = !is_null($milestone->date_approved_at);
                 $isDateExpired = $defenceDate && $defenceDate->endOfDay()->isPast() && $milestone->status !== 'approved';
                 
-                $isInternalDefence = ($milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6);
-                $hasDefenceOccurred = $defenceDate && ($defenceDate->isPast() || $defenceDate->isToday());
-                $isPostDefenceStage = $isInternalDefence && $hasDefenceOccurred && $milestone->status !== 'approved';
+                $workflow = app(\App\Services\MilestoneWorkflowService::class);
+                $isInternalDefence = $workflow->isInternalDefence($milestone);
+                $isPostDefenceStage = $workflow->isPostDefencePhase($milestone);
 
                 $latestSubForBanner = $milestone->submissions->sortByDesc('created_at')->first();
-                $latestManuscript = $milestone->submissions->whereIn('type', ['manuscript', 'file'])->sortByDesc('created_at')->first();
-                $hasPostDefenceManuscript = $isPostDefenceStage && $latestManuscript && $latestManuscript->created_at->gte($defenceDate->copy()->startOfDay());
-                $postDefenceDecision = $hasPostDefenceManuscript && $latestManuscript->feedback ? $latestManuscript->feedback->decision : null;
+                $latestManuscript = $isPostDefenceStage ? $workflow->getPostDefenceSubmission($milestone) : $milestone->submissions->whereIn('type', ['manuscript', 'file'])->sortByDesc('created_at')->first();
+                $hasPostDefenceManuscript = $isPostDefenceStage && $latestManuscript !== null;
+                $postDefenceDecision = $milestone->approvals['internal_examiner_review']['decision'] ?? ($hasPostDefenceManuscript && $latestManuscript->feedback ? $latestManuscript->feedback->decision : null);
 
                 // Institutional Mandate: Supervisors cannot schedule presentations, only Admin can
                 $canSetDate = auth()->user()->hasRole('Admin') && !request()->is('supervisor*');
@@ -125,9 +129,37 @@
                                     @elseif($postDefenceDecision === 'revision_required')
                                         The Internal Examiner has reviewed your submission and requested adjustments. Please see the comments below and upload an updated thesis file.
                                     @else
-                                        Your defence took place on {{ $defenceDate->format('d M Y') }}. Please incorporate all corrections and observations received from the defence session and upload your corrected thesis manuscript below for final Internal Examiner approval.
+                                        Your defence took place on {{ $defenceDate ? $defenceDate->format('d M Y') : 'schedule' }}. Please incorporate all corrections and observations received from the defence session and upload your corrected thesis manuscript below for final Internal Examiner approval.
                                     @endif
                                 </p>
+
+                                @php
+                                    $canReviewPostDefTop = $hasPostDefenceManuscript
+                                        && $milestone->status !== 'approved'
+                                        && ($workflow->isAssignedInternalExaminer($milestone, auth()->user()) || auth()->user()->hasRole('Admin'));
+                                @endphp
+                                @if($canReviewPostDefTop)
+                                    <div class="mt-4 pt-4 border-t border-indigo-200/70">
+                                        <form method="POST" x-data="{ remarks: '' }" @submit="if(!remarks.trim()) { alert('Please enter your verification remarks.'); $event.preventDefault(); }" class="bg-white p-4 rounded-2xl border border-indigo-200 shadow-sm space-y-3">
+                                            @csrf
+                                            <div class="flex items-center justify-between gap-2">
+                                                <span class="text-[10px] font-black uppercase tracking-widest text-indigo-900">⚖️ Internal Examiner Clearance Action</span>
+                                                <a href="{{ Storage::url($latestManuscript->file_url) }}" target="_blank" class="text-[11px] font-bold text-indigo-600 hover:underline">
+                                                    Download Corrected Manuscript (v.0{{ $latestManuscript->version }}) &rarr;
+                                                </a>
+                                            </div>
+                                            <textarea name="remarks" x-model="remarks" rows="2" class="w-full text-xs rounded-xl border-slate-300 focus:ring-indigo-500 focus:border-indigo-500 p-2.5 shadow-sm resize-none bg-slate-50 focus:bg-white placeholder:text-slate-400" placeholder="Enter verification remarks on the candidate's post-defence corrections..." required></textarea>
+                                            <div class="flex flex-wrap gap-2">
+                                                <button type="submit" formaction="{{ route('milestones.accept_upload', $milestone) }}" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-sm">
+                                                    ✅ Approve Corrected Thesis & Advance to Viva
+                                                </button>
+                                                <button type="submit" formaction="{{ route('milestones.reject_upload', $milestone) }}" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-sm">
+                                                    🔄 Request Further Corrections
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -264,7 +296,7 @@
                     @endif
                 @endif
 
-                @if($defenceDate && !$isDateExpired)
+                @if($defenceDate && !$isDateExpired && !$isPostDefenceStage)
                     <div class="bg-white rounded-[2.5rem] border border-emerald-100 shadow-xl shadow-slate-200/40 p-6 sm:p-8 mb-6 relative overflow-hidden">
                         <div class="absolute inset-0 bg-gradient-to-r from-emerald-50/40 via-white to-blue-50/30 pointer-events-none"></div>
                         <div class="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -656,7 +688,7 @@
                                         <p class="text-xs text-slate-500 mb-2">Please upload your tentative proposal document for supervisor allocation review.</p>
                                     @endif
                                     <div class="relative w-full">
-                                        <input type="file" name="file" accept=".pdf" {{ (!$bothAllowed && !$hasFileSub && !$isPostDefenceStage) ? 'required' : '' }} class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                                        <input type="file" name="file" accept=".pdf" {{ ((!$bothAllowed && !$hasFileSub) || $isPostDefenceStage) ? 'required' : '' }} class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
                                             @change="
                                                 const file = $event.target.files[0];
                                                 document.getElementById('file-name-{{ $milestone->id }}').textContent = file ? file.name : 'Click or drop to select file';
@@ -681,7 +713,7 @@
                                 </div>
                                 @endif
 
-                                @if(in_array('publication', $subTypes) || in_array('publications', $subTypes))
+                                @if(!$isPostDefenceStage && (in_array('publication', $subTypes) || in_array('publications', $subTypes)))
                                 <div class="p-6 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-5">
                                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
                                         <div>
@@ -992,8 +1024,8 @@
                                         <div class="flex flex-col gap-1.5 flex-1">
                                             <div class="flex items-center gap-4">
                                                 <div class="flex flex-wrap items-center gap-2">
-                                                    <span class="px-2.5 py-1 {{ $submission->type === 'publication' ? 'bg-purple-100 text-purple-800' : ($submission->type === 'ppt' ? 'bg-amber-100 text-amber-800' : 'bg-indigo-100 text-indigo-800') }} rounded-md text-[11px] font-black uppercase tracking-wider">
-                                                        {{ $submission->type === 'publication' ? 'Publication' : ($submission->type === 'ppt' ? 'Slides' : ($isPostDefenceStage && $defenceDate && $submission->created_at->gte($defenceDate->copy()->startOfDay()) ? 'Corrected Thesis' : 'Thesis Manuscript')) }} v.0{{ $submission->version }}
+                                                    <span class="px-2.5 py-1 {{ $submission->type === 'publication' ? 'bg-purple-100 text-purple-800' : ($submission->type === 'ppt' ? 'bg-amber-100 text-amber-800' : ($isPostDefenceStage && $latestManuscript && $submission->id === $latestManuscript->id ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800')) }} rounded-md text-[11px] font-black uppercase tracking-wider">
+                                                        {{ $submission->type === 'publication' ? 'Publication' : ($submission->type === 'ppt' ? 'Slides' : ($isPostDefenceStage && $latestManuscript && $submission->id === $latestManuscript->id ? 'Post-Defence Corrected Thesis' : 'Thesis Manuscript')) }} v.0{{ $submission->version }}
                                                     </span>
                                                     @if($submission->type === 'publication' && !empty($submission->file_meta['original_name']))
                                                         <span class="text-[11px] text-slate-500 font-medium truncate max-w-[180px]" title="{{ $submission->file_meta['original_name'] }}">
@@ -1108,27 +1140,31 @@
                                             @endif
 
                                             @php
-                                                $isAssignedInternalExaminer = auth()->user()->hasRole('Internal Examiner') && 
-                                                    ($milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6) &&
-                                                    $milestone->thesis->internal_examiner_profile_id &&
-                                                    auth()->user()->internalExaminerProfiles()->where('id', $milestone->thesis->internal_examiner_profile_id)->exists();
-
-                                                $canReviewUpload = auth()->user()->hasRole('Admin') || (
-                                                    auth()->user()->hasRole('Supervisor') && 
+                                                $isAssignedInternalExaminer = $workflow->isAssignedInternalExaminer($milestone, auth()->user());
+                                                $isAssignedSupervisorForCard = auth()->user()->hasRole('Supervisor') && 
                                                     auth()->user()->supervisorProfile && 
-                                                    $milestone->thesis->assignments->where('supervisor_profile_id', auth()->user()->supervisorProfile->id)->where('status', 'active')->isNotEmpty()
-                                                ) || $isAssignedInternalExaminer;
+                                                    $milestone->thesis->assignments->where('supervisor_profile_id', auth()->user()->supervisorProfile->id)->where('status', 'active')->isNotEmpty();
+
+                                                $isPostDefenceSubCard = $isPostDefenceStage && $latestManuscript && $submission->id === $latestManuscript->id;
+
+                                                if ($isPostDefenceStage) {
+                                                    // In post-defence stage, only the post-defence corrected manuscript is reviewed by the Internal Examiner (or Admin)
+                                                    $canReviewUpload = $isPostDefenceSubCard && ($isAssignedInternalExaminer || auth()->user()->hasRole('Admin'));
+                                                } else {
+                                                    // Pre-defence stage: reviewed by the assigned Supervisor (or Admin)
+                                                    $canReviewUpload = $isAssignedSupervisorForCard || auth()->user()->hasRole('Admin');
+                                                }
                                             @endphp
                                             @if($canReviewUpload && (!$submission->feedback || !in_array($submission->feedback->decision, ['approved', 'revision_required'])))
                                                 <form method="POST" x-data="{ remarks: '' }" @submit="if(!remarks.trim()) { alert('A comment is required to accept or reject the upload.'); $event.preventDefault(); }" class="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 shadow-sm w-full max-w-sm mt-1">
                                                     @csrf
-                                                    <textarea name="remarks" x-model="remarks" rows="2" class="w-full text-xs rounded-xl border-slate-300 focus:ring-indigo-500 focus:border-indigo-500 mb-2 p-2.5 shadow-sm resize-none bg-white placeholder:text-slate-400" placeholder="{{ $isAssignedInternalExaminer ? 'Enter approval feedback or required corrections...' : 'Required: Explain your decision...' }}" required></textarea>
+                                                    <textarea name="remarks" x-model="remarks" rows="2" class="w-full text-xs rounded-xl border-slate-300 focus:ring-indigo-500 focus:border-indigo-500 mb-2 p-2.5 shadow-sm resize-none bg-white placeholder:text-slate-400" placeholder="{{ $isPostDefenceStage ? 'Enter approval feedback or required corrections...' : 'Required: Explain your decision...' }}" required></textarea>
                                                     <div class="flex gap-2">
                                                         <button type="submit" formaction="{{ route('milestones.accept_upload', $milestone) }}" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-2 rounded-xl text-xs font-bold transition-colors">
-                                                            {{ $isAssignedInternalExaminer ? 'Approve Corrected Thesis' : 'Accept Upload' }}
+                                                            {{ $isPostDefenceStage ? 'Approve Corrected Thesis' : 'Accept Upload' }}
                                                         </button>
                                                         <button type="submit" formaction="{{ route('milestones.reject_upload', $milestone) }}" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white py-2 rounded-xl text-xs font-bold transition-colors">
-                                                            {{ $isAssignedInternalExaminer ? 'Request Further Corrections' : 'Reject Upload' }}
+                                                            {{ $isPostDefenceStage ? 'Request Further Corrections' : 'Reject Upload' }}
                                                         </button>
                                                     </div>
                                                 </form>

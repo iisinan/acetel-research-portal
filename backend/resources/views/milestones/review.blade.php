@@ -26,7 +26,11 @@
                 <span id="milestone-status-text">{{ ucfirst(str_replace('_', ' ', $milestone->status)) }}</span>
             </x-badge>
 
-            @if(Auth::user()->hasRole('Admin') && $milestone->status !== 'approved' && (!empty($milestone->defence_date) || in_array($milestone->template?->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2'])))
+            @php
+                $headerWorkflow = app(\App\Services\MilestoneWorkflowService::class);
+                $isPostDefReview = $headerWorkflow->isPostDefencePhase($milestone);
+            @endphp
+            @if(Auth::user()->hasRole('Admin') && $milestone->status !== 'approved' && !$isPostDefReview && (!empty($milestone->defence_date) || in_array($milestone->template?->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence'])))
                 <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST" class="inline">
                     @csrf
                     <button type="submit" 
@@ -118,7 +122,12 @@
                     </div>
                 @else
                     <div class="text-center py-8 text-black">
-                        No submission uploaded yet.
+                        @if($isPostDefReview)
+                            <p class="font-bold text-purple-900">⏳ Awaiting Post-Defence Corrected Thesis Upload</p>
+                            <p class="text-xs text-slate-500 mt-1">The candidate passed the Internal Defence presentation and must now upload their corrected thesis manuscript incorporating defence feedback.</p>
+                        @else
+                            No submission uploaded yet.
+                        @endif
                     </div>
                 @endif
             </x-card>
@@ -244,9 +253,15 @@
                         @method('PATCH')
 
                         @php
-                            $isIE = Auth::user()->hasRole('Internal Examiner') && 
+                            $isIE = ($isPostDefReview || Auth::user()->hasRole('Internal Examiner')) && 
                                 ($milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6);
                         @endphp
+                        @if($isPostDefReview)
+                            <div class="p-4 rounded-2xl border border-purple-200 bg-purple-50/70 text-xs text-purple-900 space-y-1">
+                                <p class="font-black uppercase tracking-wider text-purple-950">⚖️ Post-Defence Correction Stage</p>
+                                <p>Candidate passed the Internal Defence presentation. Approving their post-defence corrected thesis manuscript will officially advance them to <strong>Milestone 07 (Viva Voce)</strong>.</p>
+                            </div>
+                        @endif
                         <div>
                             <label class="block text-sm font-medium text-black dark:text-gray-300 mb-1">
                                 {{ $isIE ? 'Internal Examiner Verdict' : 'Decision' }}

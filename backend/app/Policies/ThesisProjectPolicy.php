@@ -25,24 +25,20 @@ class ThesisProjectPolicy
             return true;
         }
 
-        if ($user->hasRole('Program Coordinator')) {
-            return $user->hasCoordinatorAccess($thesisProject->student);
+        if ($user->hasRole('Program Coordinator') && $user->hasCoordinatorAccess($thesisProject->student)) {
+            return true;
         }
 
-        if ($user->hasRole('Supervisor')) {
-            // Check assignment
-            return $thesisProject->assignments()
-                ->where('supervisor_profile_id', '=', $user->supervisorProfile?->id)
-                ->exists();
+        if ($user->hasRole('Supervisor') && $thesisProject->assignments()->where('supervisor_profile_id', '=', $user->supervisorProfile?->id)->exists()) {
+            return true;
         }
 
-        if ($user->hasRole('Internal Examiner')) {
-            return $thesisProject->internal_examiner_profile_id === $user->internalExaminerProfile?->id;
+        if (app(\App\Services\MilestoneWorkflowService::class)->isAssignedInternalExaminerForThesis($thesisProject, $user)) {
+            return true;
         }
 
-        if ($user->hasRole('Student')) {
-            // Own thesis
-            return $thesisProject->student_profile_id === $user->studentProfile->id;
+        if ($user->hasRole('Student') && $thesisProject->student_profile_id === $user->studentProfile?->id) {
+            return true;
         }
 
         return false;

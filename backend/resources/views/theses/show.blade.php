@@ -59,7 +59,7 @@
                 <!-- Mobile Milestone Cards View -->
                 <div class="block md:hidden space-y-3 p-1">
                     @foreach($thesis->milestones->sortBy('template.order') as $milestone)
-                        @if(Auth::user()->hasRole('Internal Examiner') && $milestone->template->order < 9)
+                        @if(Auth::user()->hasRole('Internal Examiner') && !Auth::user()->hasAnyRole(['Admin', 'Director', 'Program Coordinator']) && !(Auth::user()->hasRole('Supervisor') && $thesis->assignments->where('supervisor_profile_id', Auth::user()->supervisorProfile?->id)->isNotEmpty()) && $milestone->template->slug !== 'internal_defence' && $milestone->template->order < 6)
                             @continue
                         @endif
                         @php
@@ -102,7 +102,7 @@
                         </thead>
                         <tbody class="divide-y divide-slate-50/50">
                             @foreach($thesis->milestones->sortBy('template.order') as $milestone)
-                                @if(Auth::user()->hasRole('Internal Examiner') && $milestone->template->order < 9)
+                                @if(Auth::user()->hasRole('Internal Examiner') && !Auth::user()->hasAnyRole(['Admin', 'Director', 'Program Coordinator']) && !(Auth::user()->hasRole('Supervisor') && $thesis->assignments->where('supervisor_profile_id', Auth::user()->supervisorProfile?->id)->isNotEmpty()) && $milestone->template->slug !== 'internal_defence' && $milestone->template->order < 6)
                                     @continue
                                 @endif
                                 

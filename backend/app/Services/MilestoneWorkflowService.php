@@ -98,10 +98,19 @@ class MilestoneWorkflowService
             }
         }
 
+        // 3b. Internal Defence Post-Presentation Correction Gate
+        if ($this->isInternalDefence($milestone)) {
+            if (!$this->isPostDefencePhase($milestone)) {
+                return "Presentation Session Required: The Internal Defence presentation must be graded as PASS and ended by Admin before post-defence correction clearance.";
+            }
+            if (!$this->hasPostDefenceSubmission($milestone)) {
+                return "Post-Defence Correction Required: Candidate must upload their corrected thesis manuscript after the presentation before advancing to Viva.";
+            }
+        }
+
         // 4. Authorization Check: Admin can approve all; Internal Examiner can approve internal_defence
-        $isInternalExaminerForThis = ($template->slug === 'internal_defence' || $template->order == 6) && 
-            ($role === 'Internal Examiner' || $user->hasRole('Internal Examiner')) &&
-            $user->internalExaminerProfiles()->where('id', $milestone->thesis->internal_examiner_profile_id)->exists();
+        $isInternalExaminerForThis = $this->isInternalDefence($milestone) &&
+            $this->isAssignedInternalExaminer($milestone, $user);
 
         if ($role && $role !== 'Admin' && !$isInternalExaminerForThis) {
             return "Institutional Authority Required: Only an Administrator or assigned Internal Examiner can approve this milestone.";
@@ -200,7 +209,226 @@ class MilestoneWorkflowService
         'proposal_defence',
         'progress_report_1',
         'progress_report_2',
+        'internal_defence',
     ];
+
+    /**
+     * Is this the Internal Defence milestone?
+     */
+    public function isInternalDefence(StudentMilestone $milestone): bool
+    {
+        return ($milestone->template?->slug === 'internal_defence' || (int) ($milestone->template?->order ?? 0) === 6);
+    }
+
+    /**
+     * Has the Internal Defence live presentation been concluded with a PASS grade by Admin,
+     * placing the student in the Post-Defence Correction stage?
+     */
+    public function isPostDefencePhase(StudentMilestone $milestone): bool
+    {
+        if (!$this->isInternalDefence($milestone) || $milestone->status === 'approved') {
+            return false;
+        }
+
+        $approvals = $milestone->approvals ?? [];
+        if (is_string($approvals)) {
+            $approvals = json_decode($approvals, true) ?: [];
+        }
+
+        if (!empty($approvals['presentation_concluded'])) {
+            return true;
+        }
+
+        // Fallback: check if the internal DefenceEvent already has outcome = 'pass'
+        if ($milestone->relationLoaded('thesis') && $milestone->thesis && $milestone->thesis->relationLoaded('defenceEvents')) {
+            $internalEvent = $milestone->thesis->defenceEvents->where('type', 'internal')->first();
+            if ($internalEvent && $internalEvent->outcome === 'pass') {
+                return true;
+            }
+        } elseif ($milestone->thesis_project_id) {
+            if (\App\Models\DefenceEvent::where('thesis_project_id', $milestone->thesis_project_id)->where('type', 'internal')->where('outcome', 'pass')->exists()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Get the latest manuscript uploaded by the student AFTER the Internal Defence presentation ended.
+     */
+    public function getPostDefenceSubmission(StudentMilestone $milestone): ?\App\Models\Submission
+    {
+        if (!$this->isPostDefencePhase($milestone)) {
+            return null;
+        }
+
+        $approvals = $milestone->approvals ?? [];
+        if (is_string($approvals)) {
+            $approvals = json_decode($approvals, true) ?: [];
+        }
+
+        $subs = $milestone->relationLoaded('submissions')
+            ? $milestone->submissions->whereIn('type', ['manuscript', 'file'])->sortByDesc('created_at')
+            : $milestone->submissions()->whereIn('type', ['manuscript', 'file'])->latest()->get();
+
+        if ($subs->isEmpty()) {
+            return null;
+        }
+
+        $postSubId = $approvals['post_defence_submission_id'] ?? null;
+        if ($postSubId) {
+            $found = $subs->firstWhere('id', $postSubId);
+            if ($found) {
+                return $found;
+            }
+        }
+
+        $concludedAt = $approvals['presentation_concluded']['concluded_at'] ?? null;
+        $lastPreSubId = $approvals['presentation_concluded']['last_pre_defence_submission_id'] ?? null;
+        if ($concludedAt) {
+            $concludedTime = \Carbon\Carbon::parse($concludedAt);
+            $afterConcluded = $subs->first(fn($s) => ($lastPreSubId ? $s->id !== $lastPreSubId : true) && $s->created_at && $s->created_at->gte($concludedTime));
+            if ($afterConcluded) {
+                return $afterConcluded;
+            }
+        }
+
+        // Legacy fallback: if description explicitly says Post-Defence or if uploaded after defence_date when >1 manuscript exists
+        $explicitPost = $subs->first(fn($s) => str_contains(strtolower($s->description ?? ''), 'post-defence') || str_contains(strtolower($s->description ?? ''), 'corrected'));
+        if ($explicitPost) {
+            return $explicitPost;
+        }
+
+        if ($subs->count() > 1 && $milestone->defence_date) {
+            $defDate = \Carbon\Carbon::parse($milestone->defence_date)->startOfDay();
+            $afterDef = $subs->first(fn($s) => $s->created_at && $s->created_at->gte($defDate));
+            if ($afterDef) {
+                return $afterDef;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Has the student uploaded their corrected thesis manuscript after the Internal Defence presentation ended?
+     */
+    public function hasPostDefenceSubmission(StudentMilestone $milestone): bool
+    {
+        return !is_null($this->getPostDefenceSubmission($milestone));
+    }
+
+    /**
+     * Check whether the given user is an assigned Internal Examiner for the given thesis.
+     */
+    public function isAssignedInternalExaminerForThesis(?ThesisProject $thesis, ?\App\Models\User $user): bool
+    {
+        if (!$thesis || !$user) {
+            return false;
+        }
+
+        if ($thesis->internal_examiner_profile_id) {
+            if ($user->internalExaminerProfiles()->where('id', $thesis->internal_examiner_profile_id)->exists()) {
+                return true;
+            }
+        }
+
+        if (\App\Models\ExaminerAssignment::where('thesis_project_id', $thesis->id)
+            ->where('type', 'internal_examiner')
+            ->where('examiner_id', $user->id)
+            ->exists()) {
+            return true;
+        }
+
+        if (\App\Models\DefenceEvent::where('thesis_project_id', $thesis->id)
+            ->where('type', 'internal')
+            ->whereHas('panelMembers', fn($q) => $q->where('user_id', $user->id)->where('role', 'examiner'))
+            ->exists()) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check whether the given user is an assigned Internal Examiner for the milestone's thesis.
+     */
+    public function isAssignedInternalExaminer(StudentMilestone $milestone, ?\App\Models\User $user): bool
+    {
+        return $this->isAssignedInternalExaminerForThesis($milestone->thesis, $user);
+    }
+
+    /**
+     * Conclude the Internal Defence live presentation session when the candidate scored PASS.
+     * Does NOT advance to Viva; transitions candidate to Post-Defence Correction stage.
+     */
+    public function concludeInternalDefencePresentation(StudentMilestone $milestone, ?\App\Models\User $admin = null): void
+    {
+        $approvals = $milestone->approvals ?? [];
+        if (is_string($approvals)) {
+            $approvals = json_decode($approvals, true) ?: [];
+        }
+
+        $lastPreSubId = $milestone->submissions()->whereIn('type', ['manuscript', 'file'])->latest()->value('id');
+        $approvals['presentation_concluded'] = [
+            'concluded_by' => $admin?->id ?? auth()->id(),
+            'concluded_by_name' => $admin?->name ?? auth()->user()?->name ?? 'Admin',
+            'concluded_at' => now()->toDateTimeString(),
+            'grading_outcome' => 'pass',
+            'last_pre_defence_submission_id' => $lastPreSubId,
+        ];
+        unset($approvals['post_defence_submission_id'], $approvals['post_defence_submitted_at'], $approvals['internal_examiner_review']);
+
+        $milestone->update([
+            'status' => 'in_progress',
+            'approvals' => $approvals,
+            'remark' => 'Internal defence presentation passed and concluded. Please upload your corrected thesis manuscript incorporating defence feedback for Internal Examiner approval.',
+        ]);
+
+        if ($milestone->thesis_project_id) {
+            \App\Models\DefenceEvent::where('thesis_project_id', $milestone->thesis_project_id)
+                ->where('type', 'internal')
+                ->update(['outcome' => 'pass']);
+        }
+
+        $studentUserId = $milestone->thesis?->student?->user_id;
+        if ($studentUserId) {
+            \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUserId);
+
+            try {
+                $milestoneTitle = $milestone->template?->title ?? $milestone->template?->name ?? 'Internal Defence';
+                $studentName = $milestone->thesis?->student?->user?->name ?? 'Candidate';
+                $examinerName = $milestone->thesis?->internalExaminer?->user?->name ?? 'your assigned Internal Examiner';
+
+                $inboxMsg = \App\Models\InboxMessage::create([
+                    'sender_id' => $admin?->id ?? auth()->id() ?? $studentUserId,
+                    'subject' => "Internal Defence Presentation Passed — Upload Post-Defence Corrected Thesis",
+                    'body' => "Dear {$studentName},\n\n"
+                            . "Your \"{$milestoneTitle}\" presentation session has been concluded with a PASS grade.\n\n"
+                            . "Next Step Before Advancing to Viva:\n"
+                            . "Please incorporate all corrections and observations raised during your presentation and upload your corrected thesis manuscript on your Internal Defence milestone page.\n\n"
+                            . "Once uploaded, {$examinerName} will review your corrections. Upon their approval, you will automatically advance to the Viva milestone.\n\n"
+                            . "Academic Portal Administration",
+                    'delivery_method' => 'in_app',
+                ]);
+
+                $inboxMsg->recipients()->attach($studentUserId, [
+                    'id' => (string) \Illuminate\Support\Str::uuid(),
+                    'recipient_type' => 'to',
+                ]);
+
+                \App\Events\MessageReceived::dispatch($inboxMsg, $studentUserId);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Failed to create inbox message on internal defence conclusion: " . $e->getMessage());
+            }
+        }
+
+        $this->notifyUpdate(
+            $milestone,
+            "Internal defence presentation session concluded (PASS). Candidate must now upload the corrected thesis manuscript for Internal Examiner review and approval to advance to Viva."
+        );
+    }
 
     /**
      * Has at least one examiner graded this student's presentation for the milestone?
@@ -271,6 +499,11 @@ class MilestoneWorkflowService
             return true;
         }
 
+        // Once Internal Defence presentation is concluded with a pass, pre-defence supervisor approval is already complete
+        if ($this->isPostDefencePhase($milestone)) {
+            return true;
+        }
+
         if ($milestone->status === 'revision_required') {
             return false;
         }
@@ -283,7 +516,7 @@ class MilestoneWorkflowService
      */
     public function computeSupervisorApprovalEligibility(StudentMilestone $milestone): bool
     {
-        if ($milestone->status === 'approved') {
+        if ($milestone->status === 'approved' || $this->isPostDefencePhase($milestone)) {
             return true;
         }
 
@@ -415,6 +648,14 @@ class MilestoneWorkflowService
                 'reviewed_at' => $reviewedAt,
                 'remarks' => $remarks,
             ];
+        }
+
+        // Also count any Admin override review recorded in supervisor_reviews
+        $assignedUserIds = collect($supervisorsList)->pluck('user_id')->map(fn($id) => (string) $id)->all();
+        foreach ($reviews as $rUserId => $review) {
+            if (!in_array((string) $rUserId, $assignedUserIds, true) && ($review['decision'] ?? null) === 'approved') {
+                $approvedCount++;
+            }
         }
 
         // Policy rules:
@@ -578,6 +819,10 @@ class MilestoneWorkflowService
     {
         $slug = $milestone->template?->slug;
 
+        if ($this->isPostDefencePhase($milestone)) {
+            return 'presentation session already concluded — awaiting Internal Examiner approval of post-defence corrections';
+        }
+
         if (empty($milestone->defence_date)) {
             return 'not scheduled for presentation';
         }
@@ -592,7 +837,7 @@ class MilestoneWorkflowService
             return null;
         }
 
-        if (in_array($slug, ['proposal_defence', 'progress_report_1', 'progress_report_2'])) {
+        if (in_array($slug, ['proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence'])) {
             if (!$this->hasUploadedPresentation($milestone)) {
                 return 'required document/presentation not uploaded';
             }
@@ -617,7 +862,7 @@ class MilestoneWorkflowService
             return null;
         }
 
-        // Internal defence / Viva rules are not yet defined — keep previous behaviour.
+        // Viva rules are handled separately.
         return null;
     }
 

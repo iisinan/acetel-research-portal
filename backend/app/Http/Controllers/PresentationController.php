@@ -15,10 +15,12 @@ class PresentationController extends Controller
         $todayDateStr = $today->format('Y-m-d');
 
         // Retrieve all scheduled milestones for this template
+        $workflow = app(\App\Services\MilestoneWorkflowService::class);
         $allScheduled = StudentMilestone::where('milestone_template_id', $template->id)
             ->whereNotNull('defence_date')
             ->where('status', '!=', 'approved')
             ->with([
+                'template',
                 'thesis.student.user',
                 'thesis.student.program',
                 'thesis.assignments.supervisor.user', 'thesis.defenceEvents.panelMembers.user', 'thesis.defenceEvents.evaluations',
@@ -26,7 +28,9 @@ class PresentationController extends Controller
             ])
             ->orderBy('defence_date', 'asc')
             ->orderBy('defence_time', 'asc')
-            ->get();
+            ->get()
+            ->reject(fn($sm) => $workflow->isPostDefencePhase($sm))
+            ->values();
 
         $targetEventType = $template->defence_type ?? match($template->slug) {
             'seminar_as_a_course' => 'seminar',
@@ -54,6 +58,17 @@ class PresentationController extends Controller
                     $examinersToAttach = $template->metadata['group_examiners'][$sm->discipline_group]['user_ids'] ?? [];
                 } elseif (!empty($template->metadata['examiner_user_ids'])) {
                     $examinersToAttach = $template->metadata['examiner_user_ids'];
+                }
+
+                if ($template->slug === 'internal_defence' && $sm->thesis) {
+                    if ($sm->thesis->internalExaminer && $sm->thesis->internalExaminer->user_id) {
+                        $examinersToAttach[] = $sm->thesis->internalExaminer->user_id;
+                    }
+                    $assignedExIds = \App\Models\ExaminerAssignment::where('thesis_project_id', $sm->thesis->id)
+                        ->where('type', 'internal_examiner')
+                        ->pluck('examiner_id')
+                        ->all();
+                    $examinersToAttach = array_values(array_unique(array_merge($examinersToAttach, $assignedExIds)));
                 }
 
                 foreach ($examinersToAttach as $uId) {

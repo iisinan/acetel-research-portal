@@ -24,7 +24,7 @@ class MilestoneController extends Controller
                   return redirect()->route('dashboard')->with('error', 'No active thesis found.');
             }
             $thesis = $student->thesis;
-        } elseif ($user->hasRole(['Supervisor', 'Program Coordinator', 'Internal Examiner', 'Admin'])) {
+        } elseif ($user->hasAnyRole(['Supervisor', 'Program Coordinator', 'Internal Examiner', 'Admin', 'Director'])) {
             $thesisId = $request->query('thesis_id');
             if (!$thesisId) {
                 return redirect()->route('dashboard')->with('error', 'No thesis specified.');
@@ -32,11 +32,10 @@ class MilestoneController extends Controller
             $thesis = \App\Models\ThesisProject::findOrFail($thesisId);
             
             // Basic security check: Is the user authorized for this thesis?
-            // (In a real app, use a Policy, but for now we'll check relations)
             $isAuthorized = false;
-            if ($user->hasRole('Admin')) $isAuthorized = true;
+            if ($user->hasAnyRole(['Admin', 'Director'])) $isAuthorized = true;
             if ($user->hasRole('Supervisor') && $thesis->assignments()->where('supervisor_profile_id', '=', $user->supervisorProfile?->id)->exists()) $isAuthorized = true;
-            if ($user->hasRole('Internal Examiner') && $user->internalExaminerProfiles()->where('id', $thesis->internal_examiner_profile_id)->exists()) $isAuthorized = true;
+            if (app(\App\Services\MilestoneWorkflowService::class)->isAssignedInternalExaminerForThesis($thesis, $user)) $isAuthorized = true;
             if ($user->hasRole('Program Coordinator')) {
                 if ($thesis->student && ($user->hasCoordinatorAccess($thesis->student) || $user->coordinatorProfiles()->where('program_id', '=', $thesis->student->program_id)->exists())) {
                     $isAuthorized = true;
@@ -137,13 +136,14 @@ class MilestoneController extends Controller
             abort(403, 'Unauthorized.');
         }
 
+        $workflowService = app(\App\Services\MilestoneWorkflowService::class);
+
         $isAssignedSupervisor = $user->hasRole('Supervisor') && 
             $user->supervisorProfile && 
             $milestone->thesis->assignments()->where('supervisor_profile_id', $user->supervisorProfile->id)->where('status', 'active')->exists();
 
-        $isAssignedInternalExaminer = $user->hasRole('Internal Examiner') && 
-            ($milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6) &&
-            $user->internalExaminerProfiles()->where('id', $milestone->thesis->internal_examiner_profile_id)->exists();
+        $isAssignedInternalExaminer = $workflowService->isAssignedInternalExaminer($milestone, $user);
+        $isPostDefenceStage = $workflowService->isPostDefencePhase($milestone);
 
         if (!$user->hasRole('Admin') && !$isAssignedSupervisor && !$isAssignedInternalExaminer) {
             abort(403, 'Unauthorized. Supervisors can only review uploads for their assigned supervisees, and internal examiners review post-defence corrected manuscripts.');
@@ -155,30 +155,38 @@ class MilestoneController extends Controller
             'remarks.required' => 'A comment is required to explain your decision.'
         ]);
 
-        $workflowService = app(\App\Services\MilestoneWorkflowService::class);
-
-        // When Internal Examiner (or Admin) accepts the corrected thesis for internal defence, approve the milestone and advance to Viva Voce!
-        if ($isAssignedInternalExaminer || ($user->hasRole('Admin') && ($milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6))) {
-            $latestSub = $milestone->submissions()->latest()->first();
-            if ($latestSub) {
-                \App\Models\Feedback::updateOrCreate(
-                    ['submission_id' => $latestSub->id],
-                    [
-                        'user_id' => $user->id,
-                        'decision' => 'approved',
-                        'remarks' => $request->input('remarks'),
-                    ]
-                );
+        // When Internal Examiner (or Admin) accepts the post-defence corrected thesis for internal defence, approve the milestone and advance to Viva Voce!
+        if ($isPostDefenceStage && ($isAssignedInternalExaminer || $user->hasRole('Admin'))) {
+            $postDefenceSub = $workflowService->getPostDefenceSubmission($milestone);
+            if (!$postDefenceSub) {
+                return back()->with('error', 'Cannot approve yet: the candidate has not uploaded the corrected thesis manuscript after the defence presentation.');
             }
+
+            \App\Models\Feedback::updateOrCreate(
+                ['submission_id' => $postDefenceSub->id],
+                [
+                    'user_id' => $user->id,
+                    'decision' => 'approved',
+                    'remarks' => $request->input('remarks'),
+                ]
+            );
 
             $approverRole = $isAssignedInternalExaminer ? 'Internal Examiner' : 'Admin';
             $approvals = $milestone->approvals ?? [];
             $approvalKey = $approverRole . ':' . $user->id;
             $approvals[$approvalKey] = [
                 'user_id' => $user->id,
+                'user_name' => $user->name,
                 'role' => $approverRole,
                 'approved_at' => now()->toDateTimeString(),
                 'remarks' => $request->input('remarks'),
+            ];
+            $approvals['internal_examiner_review'] = [
+                'user_id' => $user->id,
+                'user_name' => $user->name,
+                'decision' => 'approved',
+                'remarks' => $request->input('remarks'),
+                'reviewed_at' => now()->toDateTimeString(),
             ];
             $milestone->approvals = $approvals;
             $milestone->status = 'approved';
@@ -189,9 +197,13 @@ class MilestoneController extends Controller
             // Advance candidate to next milestone (Milestone 7: Viva)
             $workflowService->afterApproval($milestone);
 
-            $workflowService->notifyUpdate($milestone, "{$approverRole} {$user->name} officially approved the corrected thesis for: {$milestone->template->name}. Candidate advanced to Viva Voce.");
+            $workflowService->notifyUpdate($milestone, "{$approverRole} {$user->name} officially approved the post-defence corrected thesis for: {$milestone->template->name}. Candidate advanced to Viva Voce.");
 
             return back()->with('success', 'Corrected thesis approved successfully. Candidate has been officially cleared and advanced to Milestone 7 (Viva Voce).');
+        }
+
+        if (!$isAssignedSupervisor && !$user->hasRole('Admin')) {
+            return back()->with('error', 'Pre-defence manuscript uploads are reviewed by the assigned Supervisor. The Internal Examiner reviews post-defence corrections after the presentation session has ended.');
         }
 
         $summary = $workflowService->recordSupervisorReview(
@@ -217,13 +229,14 @@ class MilestoneController extends Controller
             abort(403, 'Unauthorized.');
         }
 
+        $workflowService = app(\App\Services\MilestoneWorkflowService::class);
+
         $isAssignedSupervisor = $user->hasRole('Supervisor') && 
             $user->supervisorProfile && 
             $milestone->thesis->assignments()->where('supervisor_profile_id', $user->supervisorProfile->id)->where('status', 'active')->exists();
 
-        $isAssignedInternalExaminer = $user->hasRole('Internal Examiner') && 
-            ($milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6) &&
-            $user->internalExaminerProfiles()->where('id', $milestone->thesis->internal_examiner_profile_id)->exists();
+        $isAssignedInternalExaminer = $workflowService->isAssignedInternalExaminer($milestone, $user);
+        $isPostDefenceStage = $workflowService->isPostDefencePhase($milestone);
 
         if (!$user->hasRole('Admin') && !$isAssignedSupervisor && !$isAssignedInternalExaminer) {
             abort(403, 'Unauthorized.');
@@ -235,13 +248,11 @@ class MilestoneController extends Controller
             'remarks.required' => 'A comment is required to explain your decision.'
         ]);
 
-        $workflowService = app(\App\Services\MilestoneWorkflowService::class);
-
-        if ($isAssignedInternalExaminer) {
-            $latestSub = $milestone->submissions()->latest()->first();
-            if ($latestSub) {
+        if ($isPostDefenceStage && ($isAssignedInternalExaminer || $user->hasRole('Admin'))) {
+            $targetSub = $workflowService->getPostDefenceSubmission($milestone) ?? $milestone->submissions()->latest()->first();
+            if ($targetSub) {
                 \App\Models\Feedback::updateOrCreate(
-                    ['submission_id' => $latestSub->id],
+                    ['submission_id' => $targetSub->id],
                     [
                         'user_id' => $user->id,
                         'decision' => 'revision_required',
@@ -249,10 +260,25 @@ class MilestoneController extends Controller
                     ]
                 );
             }
-            $milestone->update(['status' => 'revision_required']);
-            $workflowService->notifyUpdate($milestone, "Internal Examiner {$user->name} requested corrections for: {$milestone->template->name}");
+            $approvals = $milestone->approvals ?? [];
+            $approvals['internal_examiner_review'] = [
+                'user_id' => $user->id,
+                'user_name' => $user->name,
+                'decision' => 'revision_required',
+                'remarks' => $request->input('remarks'),
+                'reviewed_at' => now()->toDateTimeString(),
+            ];
+            $milestone->approvals = $approvals;
+            $milestone->status = 'revision_required';
+            $milestone->save();
 
-            return back()->with('success', 'Corrections requested. The student has been notified to revise the thesis manuscript.');
+            $workflowService->notifyUpdate($milestone, "Internal Examiner {$user->name} requested further post-defence corrections for: {$milestone->template->name}");
+
+            return back()->with('success', 'Corrections requested. The student has been notified to revise and re-upload the corrected thesis manuscript.');
+        }
+
+        if (!$isAssignedSupervisor && !$user->hasRole('Admin')) {
+            return back()->with('error', 'Pre-defence manuscript uploads are reviewed by the assigned Supervisor.');
         }
 
         $workflowService->recordSupervisorReview(
@@ -412,14 +438,11 @@ class MilestoneController extends Controller
             return back()->with('warning', $failMsg);
         }
 
-        $isInternalDefence = ($milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6);
+        $isInternalDefence = $workflow->isInternalDefence($milestone);
         if ($isInternalDefence) {
             // Internal defence: Conclude presentation session and transition candidate to post-defence corrections!
             // Candidate must upload corrected thesis, which must be approved by the Internal Examiner to advance.
-            $milestone->update([
-                'status' => 'revision_required',
-            ]);
-            $workflow->notifyUpdate($milestone, "Internal defence presentation session concluded. Candidate must upload corrected thesis incorporating defence comments for Internal Examiner review.");
+            $workflow->concludeInternalDefencePresentation($milestone, $user);
 
             $successMsg = "Internal defence presentation session concluded for {$studentName}. Candidate transitioned to Post-Defence Correction stage and notified to upload corrected thesis for Internal Examiner review.";
             if ($request->expectsJson()) {
@@ -475,9 +498,9 @@ class MilestoneController extends Controller
         $hasPptSub = $milestone->submissions()->where('type', 'ppt')->exists();
         $hasFileSub = $milestone->submissions()->whereIn('type', ['file', 'manuscript'])->exists();
 
-        $isInternalDefence = ($milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6);
-        $defenceDate = $milestone->defence_date ? \Carbon\Carbon::parse($milestone->defence_date) : null;
-        $isPostDefenceStage = $isInternalDefence && $defenceDate && ($defenceDate->isPast() || $defenceDate->isToday());
+        $workflowService = app(\App\Services\MilestoneWorkflowService::class);
+        $isInternalDefence = $workflowService->isInternalDefence($milestone);
+        $isPostDefenceStage = $workflowService->isPostDefencePhase($milestone);
 
         if (in_array('ppt', $subTypes) && in_array('file', $subTypes)) {
             $requirePpt = !$hasPptSub && !$request->hasFile('file') && !$isPostDefenceStage;
@@ -677,6 +700,7 @@ class MilestoneController extends Controller
         }
 
         // Handle Manuscript
+        $createdManuscriptSub = null;
         if (in_array('file', $subTypes) && $request->hasFile('file')) {
             $file = $request->file('file');
             $path = $file->store('submissions/' . $milestone->thesis_project_id);
@@ -691,9 +715,10 @@ class MilestoneController extends Controller
                     'size' => $file->getSize(),
                 ],
                 'checksum' => md5_file($file->getRealPath()),
-                'description' => $request->description,
+                'description' => $request->description ?: ($isPostDefenceStage ? 'Post-Defence Corrected Thesis Manuscript' : null),
                 'version' => $milestone->submissions()->where('type', 'manuscript')->count() + 1,
             ]);
+            $createdManuscriptSub = $submission;
 
             // Automate Plagiarism Analysis (Turnitin Integration)
             try {
@@ -757,10 +782,23 @@ class MilestoneController extends Controller
             'approved_at' => $approvedAt,
         ]);
 
-        // Multi-supervisor re-upload policy:
-        // Standing approvals are preserved; rejecting supervisors are set to pending re-review.
         $workflowService = app(\App\Services\MilestoneWorkflowService::class);
-        $workflowService->handleStudentReUpload($milestone);
+
+        if ($isPostDefenceStage && $createdManuscriptSub) {
+            $approvals = $milestone->approvals ?? [];
+            $approvals['post_defence_submission_id'] = $createdManuscriptSub->id;
+            $approvals['post_defence_submitted_at'] = now()->toDateTimeString();
+            if (($approvals['internal_examiner_review']['decision'] ?? null) === 'revision_required') {
+                $approvals['internal_examiner_review']['decision'] = 'pending_re_review';
+                $approvals['internal_examiner_review']['re_uploaded_at'] = now()->toDateTimeString();
+            }
+            $milestone->approvals = $approvals;
+            $milestone->save();
+        } else {
+            // Multi-supervisor re-upload policy:
+            // Standing approvals are preserved; rejecting supervisors are set to pending re-review.
+            $workflowService->handleStudentReUpload($milestone);
+        }
 
         if ($status === 'approved') {
             $workflowService->afterApproval($milestone);
@@ -782,6 +820,9 @@ class MilestoneController extends Controller
         // Internal Examiner (for internal defence / milestones with assigned examiner)
         if ($milestone->thesis->internalExaminer && $milestone->thesis->internalExaminer->user_id) {
             $recipients->push($milestone->thesis->internalExaminer->user_id);
+        }
+        foreach ($milestone->examiners as $examinerUser) {
+            $recipients->push($examinerUser->id);
         }
 
         $recipients = $recipients->unique();

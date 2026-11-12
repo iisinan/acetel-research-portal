@@ -44,7 +44,7 @@ class EvaluationController extends Controller
             abort(403);
         }
 
-        $isPassFail = in_array($defenceEvent->type, ['proposal', 'progress_report_1', 'progress_report_2']) || $request->has('verdict');
+        $isPassFail = in_array($defenceEvent->type, ['proposal', 'progress_report_1', 'progress_report_2', 'internal']) || $request->has('verdict');
 
         if ($isPassFail) {
             $validated = $request->validate([

@@ -64,7 +64,50 @@ class MilestoneTemplateController extends Controller
             ? \App\Models\User::whereIn('id', $examinerUserIds->unique()->filter())->get()->keyBy('id')
             : collect();
 
-        $supervisors = \App\Models\SupervisorProfile::with(['user', 'programs'])->get();
+        $supervisors = \App\Models\SupervisorProfile::with([
+            'user',
+            'programs',
+            'assignments.thesis.student.level',
+            'assignments.thesis.student.program',
+        ])->get()->each(function ($sup) {
+            $hasPhdStudent = false;
+            $hasMscStudent = false;
+            foreach ($sup->assignments as $assignment) {
+                $st = $assignment->thesis?->student;
+                if (!$st) continue;
+                $raw = strtolower(($st->level?->name ?? '') . ' ' . ($st->program?->degree_type ?? '') . ' ' . ($st->program?->name ?? ''));
+                if (str_contains($raw, 'phd') || str_contains($raw, 'ph.d') || str_contains($raw, 'doctor')) {
+                    $hasPhdStudent = true;
+                } else {
+                    $hasMscStudent = true;
+                }
+            }
+
+            $hasPhdProg = false;
+            $hasMscProg = false;
+            foreach ($sup->programs as $prog) {
+                $pRaw = strtolower(($prog->degree_type ?? '') . ' ' . ($prog->name ?? '') . ' ' . ($prog->code ?? ''));
+                if (str_contains($pRaw, 'phd') || str_contains($pRaw, 'ph.d') || str_contains($pRaw, 'doctor')) {
+                    $hasPhdProg = true;
+                } else {
+                    $hasMscProg = true;
+                }
+            }
+
+            $rankAndName = strtolower(($sup->rank ?? '') . ' ' . ($sup->user?->name ?? ''));
+            $isSenior = str_contains($rankAndName, 'prof')
+                || str_contains($rankAndName, 'reader')
+                || str_contains($rankAndName, 'senior lecturer')
+                || str_contains($rankAndName, 'dr.')
+                || str_contains($rankAndName, 'dr ');
+
+            $isPhd = $hasPhdStudent || $hasPhdProg || $isSenior;
+            $isMsc = $hasMscStudent || $hasMscProg || (!$hasPhdStudent && !$hasPhdProg);
+
+            $sup->is_msc_supervisor = $isMsc;
+            $sup->is_phd_supervisor = $isPhd;
+            $sup->degree_badge = ($isMsc && $isPhd) ? 'MSc & PhD' : ($isPhd ? 'PhD' : 'MSc');
+        });
         $internalExaminers = \App\Models\InternalExaminerProfile::with(['user', 'program'])->where('active', true)->get();
         if ($internalExaminers->isEmpty()) {
             $internalExaminers = \App\Models\InternalExaminerProfile::with(['user', 'program'])->get();
@@ -257,10 +300,18 @@ class MilestoneTemplateController extends Controller
 
         $template->update(['global_defence_date' => $validated['global_defence_date']]);
 
-        // Sync to all un-approved student milestones
-        \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+        // Sync to all un-approved, un-concluded student milestones
+        $workflow = app(\App\Services\MilestoneWorkflowService::class);
+        $pendingMilestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
             ->where('status', '!=', 'approved')
-            ->update(['defence_date' => $validated['global_defence_date']]);
+            ->with(['template', 'thesis.defenceEvents.evaluations'])
+            ->get()
+            ->reject(fn($sm) => $workflow->isPostDefencePhase($sm) || $workflow->hasBeenGraded($sm));
+
+        if ($pendingMilestones->isNotEmpty()) {
+            \App\Models\StudentMilestone::whereIn('id', $pendingMilestones->pluck('id'))
+                ->update(['defence_date' => $validated['global_defence_date']]);
+        }
 
         return redirect()->route('admin.milestone-templates.index')->with('success', "Date scheduled for {$template->name} and synced to all pending students.");
     }
@@ -345,12 +396,18 @@ class MilestoneTemplateController extends Controller
 
         $targetDegree = strtolower((string)$request->input('degree_type', 'all'));
 
+        $workflow = app(\App\Services\MilestoneWorkflowService::class);
+
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
             foreach ($ids as $id) {
                 $milestone = \App\Models\StudentMilestone::findOrFail($id);
                 $thesis = $milestone->thesis;
                 $template = $milestone->template;
+
+                if ($workflow->isPostDefencePhase($milestone) || $workflow->hasBeenGraded($milestone)) {
+                    continue; // Never reschedule or reset evaluations for already-graded or post-defence candidates
+                }
                 
                 if (in_array('Supervisor', $template->required_approvers ?? []) && !$milestone->is_supervisor_approved) {
                     continue; // Skip if supervisor hasn't approved
@@ -410,7 +467,7 @@ class MilestoneTemplateController extends Controller
                 );
 
                 // If milestone was previously failed (repeated), reset old evaluations and attendance for the fresh attempt
-                if (in_array($event->outcome, ['fail', 'failed']) || $milestone->status === 'revision_required') {
+                if ((in_array($event->outcome, ['fail', 'failed']) || $milestone->status === 'revision_required') && !$workflow->isPostDefencePhase($milestone)) {
                     \App\Models\Evaluation::where('defence_event_id', $event->id)->delete();
                     \App\Models\PanelMember::where('defence_event_id', $event->id)->update(['is_present' => false]);
                     $event->update(['outcome' => 'pending']);
@@ -424,7 +481,18 @@ class MilestoneTemplateController extends Controller
                     ? $groupExaminers 
                     : ($template->slug === 'seminar_as_a_course' ? [] : ($template->metadata['examiner_user_ids'] ?? []));
 
-                if ($event->panelMembers()->where('role', 'examiner')->count() === 0 && !empty($examinersToAttach)) {
+                if ($template->slug === 'internal_defence' && $thesis) {
+                    if ($thesis->internalExaminer && $thesis->internalExaminer->user_id) {
+                        $examinersToAttach[] = $thesis->internalExaminer->user_id;
+                    }
+                    $assignedExIds = \App\Models\ExaminerAssignment::where('thesis_project_id', $thesis->id)
+                        ->where('type', 'internal_examiner')
+                        ->pluck('examiner_id')
+                        ->all();
+                    $examinersToAttach = array_values(array_unique(array_merge($examinersToAttach, $assignedExIds)));
+                }
+
+                if (!empty($examinersToAttach)) {
                     foreach ($examinersToAttach as $uId) {
                         \App\Models\PanelMember::firstOrCreate([
                             'defence_event_id' => $event->id,
@@ -565,8 +633,8 @@ class MilestoneTemplateController extends Controller
                 }
 
                 $workflow = app(\App\Services\MilestoneWorkflowService::class);
-                if ($workflow->hasBeenGraded($sm)) {
-                    continue; // Graded students cannot have their schedule modified or removed
+                if ($workflow->hasBeenGraded($sm) || $workflow->isPostDefencePhase($sm)) {
+                    continue; // Graded or post-defence students cannot have their schedule modified or removed
                 }
 
                 $thesis = $sm->thesis;
@@ -780,9 +848,9 @@ class MilestoneTemplateController extends Controller
             $milestones = $milestones->filter(fn($m) => $m->discipline_group === $request->discipline_group);
         }
 
-        // Graded students must not have their presentation rescheduled
+        // Graded or post-defence students must not have their presentation rescheduled
         $workflow = app(\App\Services\MilestoneWorkflowService::class);
-        $milestones = $milestones->reject(fn($m) => $workflow->hasBeenGraded($m));
+        $milestones = $milestones->reject(fn($m) => $workflow->hasBeenGraded($m) || $workflow->isPostDefencePhase($m));
 
         if ($milestones->isEmpty()) {
             $targetDesc = $fromDateStr ? \Carbon\Carbon::parse($fromDateStr)->format('M d, Y') : 'the selected filter';
@@ -959,8 +1027,8 @@ class MilestoneTemplateController extends Controller
         $studentName = $studentUser?->name ?? 'Candidate';
 
         $workflow = app(\App\Services\MilestoneWorkflowService::class);
-        if ($workflow->hasBeenGraded($milestone)) {
-            return back()->with('error', "Candidate {$studentName} has already been graded and cannot be rescheduled or modified.");
+        if ($workflow->hasBeenGraded($milestone) || $workflow->isPostDefencePhase($milestone)) {
+            return back()->with('error', "Candidate {$studentName} has already been graded or concluded presentation and cannot be rescheduled or modified.");
         }
 
         $type = $template->defence_type ?? match($template->slug) {
@@ -1035,7 +1103,18 @@ class MilestoneTemplateController extends Controller
                     ? $singleGroupExaminers
                     : ($template->slug === 'seminar_as_a_course' ? [] : ($template->metadata['examiner_user_ids'] ?? []));
 
-                if ($event->panelMembers()->where('role', 'examiner')->count() === 0 && !empty($singleExaminersToAttach)) {
+                if ($template->slug === 'internal_defence' && $thesis) {
+                    if ($thesis->internalExaminer && $thesis->internalExaminer->user_id) {
+                        $singleExaminersToAttach[] = $thesis->internalExaminer->user_id;
+                    }
+                    $assignedExIds = \App\Models\ExaminerAssignment::where('thesis_project_id', $thesis->id)
+                        ->where('type', 'internal_examiner')
+                        ->pluck('examiner_id')
+                        ->all();
+                    $singleExaminersToAttach = array_values(array_unique(array_merge($singleExaminersToAttach, $assignedExIds)));
+                }
+
+                if (!empty($singleExaminersToAttach)) {
                     foreach ($singleExaminersToAttach as $uId) {
                         \App\Models\PanelMember::firstOrCreate([
                             'defence_event_id' => $event->id,
@@ -1111,11 +1190,14 @@ class MilestoneTemplateController extends Controller
 
             $milestones = $query->get();
 
+            $workflow = new \App\Services\MilestoneWorkflowService();
+            // Exclude candidates whose internal defence presentation session was already concluded (now in post-defence correction stage)
+            $milestones = $milestones->reject(fn($m) => $workflow->isPostDefencePhase($m))->values();
+
             if ($discGroup && in_array($discGroup, ['cybersecurity', 'artificial_intelligence', 'management_information_systems'])) {
                 $milestones = $milestones->filter(fn($m) => $m->discipline_group === $discGroup);
             }
 
-            $workflow = new \App\Services\MilestoneWorkflowService();
             $advanced = 0;
             $skipped = [];
 
@@ -1130,6 +1212,12 @@ class MilestoneTemplateController extends Controller
                 if ($gradingOutcome === 'fail') {
                     $workflow->failAndRepeatMilestone($sm, "Average examination grade was FAIL. Candidate must repeat milestone.");
                     $skipped[] = ($sm->thesis?->student?->user?->name ?? 'Unknown student') . ' — Failed grading (marked for milestone repetition)';
+                    continue;
+                }
+
+                if ($workflow->isInternalDefence($sm)) {
+                    $workflow->concludeInternalDefencePresentation($sm, auth()->user());
+                    $advanced++;
                     continue;
                 }
 
@@ -1154,7 +1242,9 @@ class MilestoneTemplateController extends Controller
                     ->with('skipped_students', $skipped);
             }
 
-            $msg = "Presentation session for {$sessionTitle} ended: {$advanced} student(s) advanced to the next milestone.";
+            $msg = ($template->slug === 'internal_defence' || $template->order == 6)
+                ? "Presentation session for {$sessionTitle} ended: {$advanced} student(s) passed presentation and entered the Post-Defence Correction stage (must submit corrected thesis for Internal Examiner approval before moving to Viva)."
+                : "Presentation session for {$sessionTitle} ended: {$advanced} student(s) advanced to the next milestone.";
             if (count($skipped) > 0) {
                 $msg .= ' ' . count($skipped) . ' student(s) remain scheduled or were marked to repeat because of requirements or grading.';
             }
@@ -1197,12 +1287,15 @@ class MilestoneTemplateController extends Controller
 
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
+            $workflow = app(\App\Services\MilestoneWorkflowService::class);
             $query = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
                 ->whereNotNull('defence_date')
                 ->where('status', '!=', 'approved')
-                ->with(['thesis.student.user', 'thesis.student.program']);
+                ->with(['template', 'thesis.student.user', 'thesis.student.program', 'thesis.defenceEvents.evaluations']);
 
-            $scheduledMilestones = $query->get();
+            $scheduledMilestones = $query->get()
+                ->reject(fn($m) => $workflow->isPostDefencePhase($m) || $workflow->hasBeenGraded($m))
+                ->values();
 
             if ($discGroup && in_array($discGroup, ['cybersecurity', 'artificial_intelligence', 'management_information_systems'])) {
                 $scheduledMilestones = $scheduledMilestones->filter(fn($m) => $m->discipline_group === $discGroup);
@@ -1345,6 +1438,9 @@ class MilestoneTemplateController extends Controller
             if ($hasInternalExaminerInput) {
                 $internalEx = \App\Models\InternalExaminerProfile::with('user')->find($request->internal_examiner_profile_id);
                 if ($internalEx && $internalEx->user) {
+                    if (!$internalEx->user->hasRole('Internal Examiner')) {
+                        $internalEx->user->assignRole('Internal Examiner');
+                    }
                     $thesis->update(['internal_examiner_profile_id' => $internalEx->id]);
                     \App\Models\ExaminerAssignment::updateOrCreate(
                         [
@@ -1361,6 +1457,9 @@ class MilestoneTemplateController extends Controller
                 }
             } elseif ($supervisors->isNotEmpty()) {
                 $firstSup = $supervisors->first();
+                if ($firstSup->user && !$firstSup->user->hasRole('Internal Examiner')) {
+                    $firstSup->user->assignRole('Internal Examiner');
+                }
                 $internalEx = \App\Models\InternalExaminerProfile::firstOrCreate(
                     ['user_id' => $firstSup->user_id],
                     [
@@ -1424,10 +1523,12 @@ class MilestoneTemplateController extends Controller
             'supervisor_profile_ids' => 'nullable|array',
             'supervisor_profile_ids.*' => 'exists:supervisor_profiles,id',
             'discipline_group' => 'nullable|string|in:cybersecurity,artificial_intelligence,management_information_systems',
+            'degree_scope' => 'nullable|string|in:all,msc,phd',
             'custom_message' => 'nullable|string|max:1000'
         ]);
 
         $disciplineGroup = $request->input('discipline_group');
+        $degreeScope = strtolower($request->input('degree_scope', 'all'));
         $template = MilestoneTemplate::findOrFail($templateId);
         $profileIds = $request->input('supervisor_profile_ids', []);
         $supervisors = !empty($profileIds) 
@@ -1439,7 +1540,7 @@ class MilestoneTemplateController extends Controller
         $milestonesQuery = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
             ->where('status', '!=', 'approved')
             ->where('status', '!=', 'withdrawn')
-            ->with(['thesis.student.program', 'thesis.defenceEvents.panelMembers']);
+            ->with(['thesis.student.level', 'thesis.student.program', 'thesis.defenceEvents.panelMembers']);
 
         if ($isCoordinator) {
             $coordinatorProfile = auth()->user()->coordinatorProfiles()->where('active', true)->first();
@@ -1449,6 +1550,15 @@ class MilestoneTemplateController extends Controller
         }
 
         $milestones = $milestonesQuery->get();
+
+        if (in_array($degreeScope, ['msc', 'phd'])) {
+            $milestones = $milestones->filter(function ($sm) use ($degreeScope) {
+                $st = $sm->thesis?->student;
+                $raw = strtolower(($st?->level?->name ?? '') . ' ' . ($st?->program?->degree_type ?? '') . ' ' . ($st?->program?->name ?? ''));
+                $isPhd = str_contains($raw, 'phd') || str_contains($raw, 'ph.d') || str_contains($raw, 'doctor');
+                return $degreeScope === 'phd' ? $isPhd : !$isPhd;
+            })->values();
+        }
 
         $type = $template->defence_type ?? match($template->slug) {
             'seminar_as_a_course' => 'seminar',
@@ -1525,6 +1635,34 @@ class MilestoneTemplateController extends Controller
                         'invitation_status' => 'accepted'
                     ]);
                 }
+
+                if (($type === 'internal' || $template->slug === 'internal_defence') && $supervisors->isNotEmpty() && $milestone->thesis) {
+                    $firstSup = $supervisors->first();
+                    if ($firstSup->user && !$firstSup->user->hasRole('Internal Examiner')) {
+                        $firstSup->user->assignRole('Internal Examiner');
+                    }
+                    $internalEx = \App\Models\InternalExaminerProfile::firstOrCreate(
+                        ['user_id' => $firstSup->user_id],
+                        [
+                            'program_id' => $milestone->thesis->student?->program_id ?? $firstSup->programs->first()?->id,
+                            'institution' => 'National Open University of Nigeria (NOUN)',
+                            'qualification' => 'Faculty Internal Examiner',
+                            'active' => true,
+                        ]
+                    );
+                    $milestone->thesis->update(['internal_examiner_profile_id' => $internalEx->id]);
+                    \App\Models\ExaminerAssignment::updateOrCreate(
+                        [
+                            'thesis_project_id' => $thesisId,
+                            'type' => 'internal_examiner',
+                        ],
+                        [
+                            'examiner_id' => $firstSup->user_id,
+                            'invitation_status' => 'accepted',
+                            'assigned_at' => now(),
+                        ]
+                    );
+                }
                 $assignedCount++;
             }
 
@@ -1595,6 +1733,34 @@ class MilestoneTemplateController extends Controller
                     'role' => 'examiner',
                     'invitation_status' => 'accepted'
                 ]);
+            }
+
+            if (($type === 'internal' || $template->slug === 'internal_defence') && $supervisors->isNotEmpty() && $milestone->thesis) {
+                $firstSup = $supervisors->first();
+                if ($firstSup->user && !$firstSup->user->hasRole('Internal Examiner')) {
+                    $firstSup->user->assignRole('Internal Examiner');
+                }
+                $internalEx = \App\Models\InternalExaminerProfile::firstOrCreate(
+                    ['user_id' => $firstSup->user_id],
+                    [
+                        'program_id' => $milestone->thesis->student?->program_id ?? $firstSup->programs->first()?->id,
+                        'institution' => 'National Open University of Nigeria (NOUN)',
+                        'qualification' => 'Faculty Internal Examiner',
+                        'active' => true,
+                    ]
+                );
+                $milestone->thesis->update(['internal_examiner_profile_id' => $internalEx->id]);
+                \App\Models\ExaminerAssignment::updateOrCreate(
+                    [
+                        'thesis_project_id' => $thesisId,
+                        'type' => 'internal_examiner',
+                    ],
+                    [
+                        'examiner_id' => $firstSup->user_id,
+                        'invitation_status' => 'accepted',
+                        'assigned_at' => now(),
+                    ]
+                );
             }
 
             $assignedCount++;
@@ -2077,15 +2243,19 @@ class MilestoneTemplateController extends Controller
     /**
 
     /**
-     * Broadcast an inbox message and/or email to students on this milestone.
+     * Broadcast an inbox message and/or email to students and/or MSc/PhD supervisors on this milestone.
      */
     public function broadcastMessage(Request $request, MilestoneTemplate $template)
     {
         $validated = $request->validate([
-            'target' => 'required|in:selected,all,single',
+            'target' => 'required|in:selected,all,single,msc_students,phd_students,none',
+            'student_degree_filter' => 'nullable|in:all,msc,phd',
             'student_milestone_id' => 'nullable|exists:student_milestones,id',
             'milestone_ids' => 'nullable|array',
             'milestone_ids.*' => 'exists:student_milestones,id',
+            'supervisor_scope' => 'nullable|in:none,msc,phd,all,custom',
+            'supervisor_profile_ids' => 'nullable|array',
+            'supervisor_profile_ids.*' => 'exists:supervisor_profiles,id',
             'channels' => 'required|array|min:1',
             'channels.*' => 'in:inbox,email',
             'subject' => 'required|string|max:255',
@@ -2107,52 +2277,160 @@ class MilestoneTemplateController extends Controller
             $coordinatorProgramId = $coordinatorProfile ? $coordinatorProfile->program_id : -1;
         }
 
+        $isPhdMilestone = function ($sm) {
+            $st = $sm->thesis?->student;
+            $raw = strtolower(($st?->level?->name ?? '') . ' ' . ($st?->program?->degree_type ?? '') . ' ' . ($st?->program?->name ?? ''));
+            return str_contains($raw, 'phd') || str_contains($raw, 'ph.d') || str_contains($raw, 'doctor');
+        };
+
         // Fetch candidate student milestones
         $target = $validated['target'];
-        if ($target === 'single') {
+        $studentDegreeFilter = $validated['student_degree_filter'] ?? 'all';
+        if ($target === 'msc_students') {
+            $studentDegreeFilter = 'msc';
+        } elseif ($target === 'phd_students') {
+            $studentDegreeFilter = 'phd';
+        }
+
+        if ($target === 'none') {
+            $milestones = collect();
+        } elseif ($target === 'single') {
             if (empty($validated['student_milestone_id'])) {
                 return back()->with('error', 'No candidate specified for single student message.');
             }
             $milestones = \App\Models\StudentMilestone::where('id', $validated['student_milestone_id'])
-                ->with('thesis.student.user')
+                ->with(['thesis.student.user', 'thesis.student.level', 'thesis.student.program', 'thesis.assignments.supervisor.user'])
                 ->get();
         } elseif ($target === 'selected') {
             $ids = $request->input('milestone_ids', []);
-            if (empty($ids)) {
-                return back()->with('error', 'No students were selected. Please select at least one student or choose to message all.');
+            if (empty($ids) && ($validated['supervisor_scope'] ?? 'none') === 'none') {
+                return back()->with('error', 'No students were selected. Please select at least one student or choose a supervisor audience.');
             }
-            $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
-                ->whereIn('id', $ids)
-                ->with('thesis.student.user')
-                ->get();
+            $milestones = !empty($ids)
+                ? \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+                    ->whereIn('id', $ids)
+                    ->with(['thesis.student.user', 'thesis.student.level', 'thesis.student.program', 'thesis.assignments.supervisor.user'])
+                    ->get()
+                : collect();
         } else {
-            // Target is 'all'
+            // Target is 'all', 'msc_students', or 'phd_students'
             $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
                 ->whereIn('status', ['in_progress', 'submitted', 'revision_required', 'partially_approved'])
-                ->with('thesis.student.user')
+                ->with(['thesis.student.user', 'thesis.student.level', 'thesis.student.program', 'thesis.assignments.supervisor.user'])
                 ->get();
-            
+
             // If empty under active statuses, fallback to all student milestones for this template
             if ($milestones->isEmpty()) {
                 $milestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
-                    ->with('thesis.student.user')
+                    ->with(['thesis.student.user', 'thesis.student.level', 'thesis.student.program', 'thesis.assignments.supervisor.user'])
                     ->get();
             }
         }
 
         if ($isCoordinator && $coordinatorProgramId) {
-            $milestones = $milestones->filter(function($sm) use ($coordinatorProgramId) {
+            $milestones = $milestones->filter(function ($sm) use ($coordinatorProgramId) {
                 return $sm->thesis?->student?->program_id == $coordinatorProgramId;
             });
         }
 
+        if (in_array($studentDegreeFilter, ['msc', 'phd']) && $milestones->isNotEmpty()) {
+            $milestones = $milestones->filter(function ($sm) use ($studentDegreeFilter, $isPhdMilestone) {
+                $phd = $isPhdMilestone($sm);
+                return $studentDegreeFilter === 'phd' ? $phd : !$phd;
+            })->values();
+        }
+
         // Extract student User models
-        $studentUsers = $milestones->map(function($sm) {
+        $studentUsers = $milestones->map(function ($sm) {
             return $sm->thesis?->student?->user;
         })->filter()->unique('id')->values();
 
-        if ($studentUsers->isEmpty()) {
-            return back()->with('error', 'No valid student user accounts were found for the chosen recipient selection.');
+        // Resolve Supervisor recipients (MSc / PhD / All / Custom)
+        $supervisorScope = $validated['supervisor_scope'] ?? 'none';
+        $supervisorUsers = collect();
+
+        if ($supervisorScope !== 'none') {
+            $selectedSupProfileIds = array_values(array_filter($request->input('supervisor_profile_ids', [])));
+
+            if (!empty($selectedSupProfileIds)) {
+                $supervisorUsers = \App\Models\SupervisorProfile::with('user')
+                    ->whereIn('id', $selectedSupProfileIds)
+                    ->get()
+                    ->map(fn($sp) => $sp->user)
+                    ->filter()
+                    ->unique('id')
+                    ->values();
+            } elseif (in_array($supervisorScope, ['msc', 'phd', 'all'])) {
+                // First check supervisors assigned to students on this milestone
+                $milestonePool = $milestones->isNotEmpty()
+                    ? $milestones
+                    : \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
+                        ->with(['thesis.student.level', 'thesis.student.program', 'thesis.assignments.supervisor.user'])
+                        ->get();
+
+                if ($supervisorScope === 'msc') {
+                    $milestonePool = $milestonePool->reject($isPhdMilestone);
+                } elseif ($supervisorScope === 'phd') {
+                    $milestonePool = $milestonePool->filter($isPhdMilestone);
+                }
+
+                $fromMilestoneSups = collect();
+                foreach ($milestonePool as $smItem) {
+                    if ($smItem->thesis && $smItem->thesis->assignments) {
+                        foreach ($smItem->thesis->assignments as $assign) {
+                            if ($assign->supervisor?->user) {
+                                $fromMilestoneSups->push($assign->supervisor->user);
+                            }
+                        }
+                    }
+                }
+                $supervisorUsers = $fromMilestoneSups->unique('id')->values();
+
+                // Fallback to all system MSc / PhD supervisors if none are assigned on this milestone yet
+                if ($supervisorUsers->isEmpty()) {
+                    $allSups = \App\Models\SupervisorProfile::with([
+                        'user',
+                        'programs',
+                        'assignments.thesis.student.level',
+                        'assignments.thesis.student.program',
+                    ])->get();
+
+                    $supervisorUsers = $allSups->filter(function ($sup) use ($supervisorScope) {
+                        if ($supervisorScope === 'all') return true;
+                        $hasPhdSt = false;
+                        $hasMscSt = false;
+                        foreach ($sup->assignments as $a) {
+                            $st = $a->thesis?->student;
+                            if (!$st) continue;
+                            $raw = strtolower(($st->level?->name ?? '') . ' ' . ($st->program?->degree_type ?? '') . ' ' . ($st->program?->name ?? ''));
+                            if (str_contains($raw, 'phd') || str_contains($raw, 'ph.d') || str_contains($raw, 'doctor')) {
+                                $hasPhdSt = true;
+                            } else {
+                                $hasMscSt = true;
+                            }
+                        }
+                        $hasPhdPrg = false;
+                        $hasMscPrg = false;
+                        foreach ($sup->programs as $p) {
+                            $pRaw = strtolower(($p->degree_type ?? '') . ' ' . ($p->name ?? '') . ' ' . ($p->code ?? ''));
+                            if (str_contains($pRaw, 'phd') || str_contains($pRaw, 'ph.d') || str_contains($pRaw, 'doctor')) {
+                                $hasPhdPrg = true;
+                            } else {
+                                $hasMscPrg = true;
+                            }
+                        }
+                        $rankName = strtolower(($sup->rank ?? '') . ' ' . ($sup->user?->name ?? ''));
+                        $isSenior = str_contains($rankName, 'prof') || str_contains($rankName, 'reader') || str_contains($rankName, 'senior lecturer') || str_contains($rankName, 'dr.') || str_contains($rankName, 'dr ');
+                        $isPhd = $hasPhdSt || $hasPhdPrg || $isSenior;
+                        $isMsc = $hasMscSt || $hasMscPrg || (!$hasPhdSt && !$hasPhdPrg);
+                        return $supervisorScope === 'phd' ? $isPhd : $isMsc;
+                    })->map(fn($sp) => $sp->user)->filter()->unique('id')->values();
+                }
+            }
+        }
+
+        if ($studentUsers->isEmpty() && $supervisorUsers->isEmpty()) {
+            return back()->with('error', 'No valid student or supervisor accounts were found for the chosen recipient selection.');
         }
 
         // Format subject with priority tag if needed
@@ -2172,7 +2450,7 @@ class MilestoneTemplateController extends Controller
             'delivery_method' => $deliveryMethod,
         ]);
 
-        // Attach recipients in bulk
+        // Attach recipients in bulk (students and supervisors, deduplicated)
         $attachData = [];
         $recipientIds = [];
         foreach ($studentUsers as $stUser) {
@@ -2183,8 +2461,23 @@ class MilestoneTemplateController extends Controller
                 'is_starred' => false,
                 'is_archived' => false,
             ];
-            $recipientIds[] = $stUser->id;
+            $recipientIds[$stUser->id] = $stUser->id;
         }
+        foreach ($supervisorUsers as $supUser) {
+            if (isset($attachData[$supUser->id])) {
+                continue;
+            }
+            $attachData[$supUser->id] = [
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'recipient_type' => $studentUsers->isNotEmpty() ? 'cc' : 'to',
+                'read_at' => null,
+                'is_starred' => false,
+                'is_archived' => false,
+            ];
+            $recipientIds[$supUser->id] = $supUser->id;
+        }
+        $recipientIds = array_values($recipientIds);
+
         foreach (array_chunk($attachData, 500, true) as $chunk) {
             $inboxMessage->recipients()->attach($chunk);
         }
@@ -2198,10 +2491,20 @@ class MilestoneTemplateController extends Controller
 
         // Construct descriptive success message
         $channelDesc = ($hasInbox && $hasEmail) ? 'System Inbox & Email' : ($hasInbox ? 'System Inbox' : 'Direct Email');
-        $count = $studentUsers->count();
-        $studentLabel = $count === 1 ? 'student candidate' : 'student candidates';
+        $parts = [];
+        if ($studentUsers->isNotEmpty()) {
+            $sCount = $studentUsers->count();
+            $degPrefix = $studentDegreeFilter === 'msc' ? 'MSc ' : ($studentDegreeFilter === 'phd' ? 'PhD ' : '');
+            $parts[] = "{$sCount} {$degPrefix}" . ($sCount === 1 ? 'student candidate' : 'student candidates');
+        }
+        if ($supervisorUsers->isNotEmpty()) {
+            $supCount = $supervisorUsers->count();
+            $supPrefix = $supervisorScope === 'msc' ? 'MSc ' : ($supervisorScope === 'phd' ? 'PhD ' : '');
+            $parts[] = "{$supCount} {$supPrefix}" . ($supCount === 1 ? 'supervisor' : 'supervisors');
+        }
+        $recipientSummary = implode(' and ', $parts);
 
-        return back()->with('success', "Dispatched message to {$count} {$studentLabel} on {$template->name} via {$channelDesc}.");
+        return back()->with('success', "Dispatched message to {$recipientSummary} on {$template->name} via {$channelDesc}.");
     }
 
     /**

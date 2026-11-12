@@ -35,12 +35,8 @@ class StudentMilestonePolicy
             }
         }
 
-        if ($user->hasRole('Internal Examiner')) {
-            if ($user->internalExaminerProfiles()
-                ->where('id', $milestone->thesis->internal_examiner_profile_id)
-                ->exists()) {
-                return true;
-            }
+        if (app(\App\Services\MilestoneWorkflowService::class)->isAssignedInternalExaminerForThesis($milestone->thesis, $user)) {
+            return true;
         }
 
         if ($user->hasRole('External Examiner')) {
@@ -183,11 +179,17 @@ class StudentMilestonePolicy
         }
 
         // Assigned Internal Examiner can review and approve internal_defence milestone
-        if ($milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6) {
-            if ($user->hasRole('Internal Examiner')) {
-                return $user->internalExaminerProfiles()
-                    ->where('id', $milestone->thesis->internal_examiner_profile_id)
-                    ->exists();
+        if (app(\App\Services\MilestoneWorkflowService::class)->isAssignedInternalExaminer($milestone, $user)) {
+            return true;
+        }
+
+        // Assigned Supervisor can review their supervisee's milestone uploads
+        if ($user->hasRole('Supervisor') && $user->supervisorProfile) {
+            if ($milestone->thesis && $milestone->thesis->assignments()
+                ->where('supervisor_profile_id', $user->supervisorProfile->id)
+                ->where('status', 'active')
+                ->exists()) {
+                return true;
             }
         }
 

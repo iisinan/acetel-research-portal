@@ -237,6 +237,84 @@ class StudentMilestone extends Model
             ];
         }
 
+        if ($slug === 'internal_defence' || $this->template?->order == 6) {
+            $workflow = app(\App\Services\MilestoneWorkflowService::class);
+            $hasUploaded = $workflow->hasUploadedPresentation($this) || ($this->relationLoaded('submissions') ? $this->submissions->isNotEmpty() : $this->submissions()->exists());
+            $isSupervisorApproved = $workflow->isSupervisorApproved($this);
+            $isScheduled = !empty($this->defence_date);
+            $hasGraded = $workflow->hasBeenGraded($this);
+            $gradeOutcome = $workflow->getAverageGradingOutcome($this);
+            $isPostDefence = $workflow->isPostDefencePhase($this);
+            $hasPostDefenceUpload = $workflow->hasPostDefenceSubmission($this);
+            $isApproved = $this->status === 'approved';
+            $ieDecision = $this->approvals['internal_examiner_review']['decision'] ?? null;
+
+            $tasks = [
+                [
+                    'id' => 'upload_ppt',
+                    'name' => 'Upload Pre-Defence Thesis Manuscript',
+                    'completed' => $hasUploaded || $isPostDefence || $isApproved,
+                    'details' => ($hasUploaded || $isPostDefence || $isApproved) ? 'Pre-defence manuscript uploaded' : 'Awaiting student manuscript upload',
+                    'action_type' => 'none',
+                ],
+                [
+                    'id' => 'supervisor_approval',
+                    'name' => 'Supervisor Pre-Defence Approval',
+                    'completed' => $isSupervisorApproved || $isPostDefence || $isApproved,
+                    'details' => ($isSupervisorApproved || $isPostDefence || $isApproved) ? 'Approved by supervisor for defence' : 'Awaiting supervisor review & acceptance',
+                    'action_type' => 'none',
+                ],
+                [
+                    'id' => 'examiner_grading',
+                    'name' => 'Internal Defence Presentation & Grading',
+                    'completed' => ($hasGraded && $gradeOutcome === 'pass') || $isPostDefence || $isApproved,
+                    'details' => ($isPostDefence || $isApproved)
+                        ? 'Passed internal defence presentation'
+                        : ($hasGraded ? ($gradeOutcome === 'pass' ? 'Passed evaluation — awaiting Admin session end' : 'Failed evaluation (repeat required)') : ($isScheduled ? 'Scheduled for ' . \Carbon\Carbon::parse($this->defence_date)->format('M d, Y') : 'Awaiting schedule & examiner grading')),
+                    'action_type' => 'none',
+                ],
+                [
+                    'id' => 'admin_end_presentation',
+                    'name' => 'Admin Concludes Presentation Session',
+                    'completed' => $isPostDefence || $isApproved,
+                    'details' => ($isPostDefence || $isApproved) ? 'Presentation session ended — Post-Defence Correction active' : 'Admin ends session after PASS grade',
+                    'action_type' => 'none',
+                ],
+                [
+                    'id' => 'post_defence_upload',
+                    'name' => 'Post-Defence Corrected Thesis Submission',
+                    'completed' => ($hasPostDefenceUpload && $ieDecision !== 'revision_required') || $isApproved,
+                    'details' => $isApproved
+                        ? 'Corrected thesis submitted & verified'
+                        : ($hasPostDefenceUpload
+                            ? ($ieDecision === 'revision_required' ? 'Further corrections requested by Internal Examiner — re-upload required' : 'Corrected thesis uploaded for Internal Examiner review')
+                            : ($isPostDefence ? 'Action Required: Candidate must upload corrected thesis manuscript' : 'Unlocks after presentation session ends')),
+                    'action_type' => 'none',
+                ],
+                [
+                    'id' => 'internal_examiner_approval',
+                    'name' => 'Internal Examiner Approval (Advance to Viva)',
+                    'completed' => $isApproved,
+                    'details' => $isApproved
+                        ? 'Approved by Internal Examiner — Advanced to Viva Voce'
+                        : ($hasPostDefenceUpload
+                            ? ($ieDecision === 'revision_required' ? 'Awaiting candidate re-upload of further corrections' : 'Awaiting Internal Examiner review & approval of corrections')
+                            : 'Awaiting candidate post-defence correction upload'),
+                    'action_type' => 'none',
+                ],
+            ];
+            $completedTasks = count(array_filter($tasks, fn($t) => $t['completed']));
+            $percentage = $isApproved ? 100 : floor(($completedTasks / count($tasks)) * 100);
+
+            return [
+                'tasks' => $tasks,
+                'total' => count($tasks),
+                'completed' => $completedTasks,
+                'percentage' => $percentage,
+                'is_fully_complete' => $percentage == 100,
+            ];
+        }
+
         $tasks = [];
         $completedTasks = 0;
         

@@ -258,6 +258,74 @@
                 </thead>
                 
                     @forelse($templates as $template)
+                    @php
+                        $tplMilestones = $template->studentMilestones;
+                        $tplPhdMilestones = $tplMilestones->filter(function($m) {
+                            $raw = $m->thesis?->student?->level?->name 
+                                ?? $m->thesis?->student?->program?->degree_type 
+                                ?? ($m->thesis?->student?->program?->name ?? '');
+                            return str_contains(strtolower($raw), 'phd') || str_contains(strtolower($raw), 'doctor');
+                        });
+                        $tplMscMilestones = $tplMilestones->reject(function($m) {
+                            $raw = $m->thesis?->student?->level?->name 
+                                ?? $m->thesis?->student?->program?->degree_type 
+                                ?? ($m->thesis?->student?->program?->name ?? '');
+                            return str_contains(strtolower($raw), 'phd') || str_contains(strtolower($raw), 'doctor');
+                        });
+
+                        // Supervisors assigned to MSc / PhD students on this milestone
+                        $milestoneMscSupIds = [];
+                        foreach ($tplMscMilestones as $mItem) {
+                            foreach ($mItem->thesis?->assignments ?? [] as $aItem) {
+                                if ($aItem->supervisor_profile_id) {
+                                    $milestoneMscSupIds[] = (string) $aItem->supervisor_profile_id;
+                                }
+                            }
+                        }
+                        $milestoneMscSupIds = array_values(array_unique($milestoneMscSupIds));
+
+                        $milestonePhdSupIds = [];
+                        foreach ($tplPhdMilestones as $mItem) {
+                            foreach ($mItem->thesis?->assignments ?? [] as $aItem) {
+                                if ($aItem->supervisor_profile_id) {
+                                    $milestonePhdSupIds[] = (string) $aItem->supervisor_profile_id;
+                                }
+                            }
+                        }
+                        $milestonePhdSupIds = array_values(array_unique($milestonePhdSupIds));
+                        $milestoneAllSupIds = array_values(array_unique(array_merge($milestoneMscSupIds, $milestonePhdSupIds)));
+
+                        // System-wide MSc / PhD supervisor profile IDs (fallback when milestone has none assigned yet)
+                        $sysMscSupIds = $supervisors->filter(fn($s) => $s->is_msc_supervisor ?? true)->pluck('id')->map(fn($id) => (string) $id)->values()->all();
+                        $sysPhdSupIds = $supervisors->filter(fn($s) => $s->is_phd_supervisor ?? false)->pluck('id')->map(fn($id) => (string) $id)->values()->all();
+                        if (empty($sysPhdSupIds)) {
+                            $sysPhdSupIds = $supervisors->pluck('id')->map(fn($id) => (string) $id)->values()->all();
+                        }
+                        $sysAllSupIds = $supervisors->pluck('id')->map(fn($id) => (string) $id)->values()->all();
+
+                        $defaultMscSupIds = !empty($milestoneMscSupIds) ? $milestoneMscSupIds : $sysMscSupIds;
+                        $defaultPhdSupIds = !empty($milestonePhdSupIds) ? $milestonePhdSupIds : $sysPhdSupIds;
+                        $defaultAllSupIds = !empty($milestoneAllSupIds) ? $milestoneAllSupIds : $sysAllSupIds;
+
+                        $supervisorPoolForJs = $supervisors->map(function($s) use ($milestoneMscSupIds, $milestonePhdSupIds, $milestoneAllSupIds) {
+                            $sid = (string) $s->id;
+                            $onMsc = in_array($sid, $milestoneMscSupIds, true);
+                            $onPhd = in_array($sid, $milestonePhdSupIds, true);
+                            $isMsc = ($s->is_msc_supervisor ?? true) || $onMsc;
+                            $isPhd = ($s->is_phd_supervisor ?? false) || $onPhd;
+                            return [
+                                'id' => $sid,
+                                'name' => $s->user?->name ?? 'Supervisor',
+                                'email' => $s->user?->email ?? '',
+                                'program' => $s->programs->first()?->code ?? ($s->specialization ?? 'Academic Staff'),
+                                'rank' => $s->rank ?? '',
+                                'isMsc' => $isMsc,
+                                'isPhd' => $isPhd,
+                                'onMilestone' => in_array($sid, $milestoneAllSupIds, true),
+                                'badge' => ($isMsc && $isPhd) ? 'MSc & PhD' : ($isPhd ? 'PhD' : 'MSc'),
+                            ];
+                        })->values();
+                    @endphp
                     <tbody x-data="{ 
                         expanded: false, 
                         showStudents: false, 
@@ -278,7 +346,16 @@
                         slotTrack: '',
                         slotFormUrl: '',
                         messageModalOpen: false,
-                        messageTarget: 'selected',
+                        messageTarget: 'all',
+                        studentDegreeFilter: 'all',
+                        supervisorScope: 'none',
+                        supervisorDegreeFilter: 'all',
+                        supervisorSearch: '',
+                        selectedSupervisors: [],
+                        supervisorPool: {{ Js::from($supervisorPoolForJs) }},
+                        defaultMscSups: {{ Js::from($defaultMscSupIds) }},
+                        defaultPhdSups: {{ Js::from($defaultPhdSupIds) }},
+                        defaultAllSups: {{ Js::from($defaultAllSupIds) }},
                         singleStudentId: null,
                         singleStudentName: '',
                         singleStudentMatric: '',
@@ -287,11 +364,46 @@
                         messageChannels: ['inbox', 'email'],
                         messagePriority: 'normal',
                         isSubmittingMessage: false,
-                        openMessageModal(target = 'selected') {
+                        get filteredModalSupervisors() {
+                            return this.supervisorPool.filter(s => {
+                                if (this.supervisorDegreeFilter === 'msc' && !s.isMsc) return false;
+                                if (this.supervisorDegreeFilter === 'phd' && !s.isPhd) return false;
+                                if (this.supervisorDegreeFilter === 'milestone' && !s.onMilestone) return false;
+                                if (this.supervisorSearch.trim() !== '') {
+                                    const q = this.supervisorSearch.toLowerCase();
+                                    return s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q) || s.program.toLowerCase().includes(q);
+                                }
+                                return true;
+                            });
+                        },
+                        setSupervisorScope(scope) {
+                            this.supervisorScope = scope;
+                            if (scope === 'none') {
+                                this.selectedSupervisors = [];
+                            } else if (scope === 'msc') {
+                                this.supervisorDegreeFilter = 'msc';
+                                this.selectedSupervisors = [...this.defaultMscSups];
+                            } else if (scope === 'phd') {
+                                this.supervisorDegreeFilter = 'phd';
+                                this.selectedSupervisors = [...this.defaultPhdSups];
+                            } else if (scope === 'all') {
+                                this.supervisorDegreeFilter = 'all';
+                                this.selectedSupervisors = [...this.defaultAllSups];
+                            }
+                        },
+                        openMessageModal(target = 'selected', supScope = 'none') {
                             this.messageTarget = target;
                             if (target === 'selected' && this.selected.length === 0) {
                                 this.messageTarget = 'all';
                             }
+                            if (this.degreeFilter === 'MSc') {
+                                this.studentDegreeFilter = 'msc';
+                            } else if (this.degreeFilter === 'PhD') {
+                                this.studentDegreeFilter = 'phd';
+                            } else {
+                                this.studentDegreeFilter = 'all';
+                            }
+                            this.setSupervisorScope(supScope);
                             this.singleStudentId = null;
                             this.singleStudentName = '';
                             this.singleStudentMatric = '';
@@ -300,22 +412,38 @@
                         },
                         openSingleMessageModal(id, name, matric) {
                             this.messageTarget = 'single';
+                            this.studentDegreeFilter = 'all';
+                            this.setSupervisorScope('none');
                             this.singleStudentId = id;
                             this.singleStudentName = name;
                             this.singleStudentMatric = matric;
                             this.isSubmittingMessage = false;
                             this.messageModalOpen = true;
                         },
+                        applyEmailPreset(preset) {
+                            if (preset === 'schedule') {
+                                this.messageSubject = 'Internal Defence Schedule & Presentation Guidelines';
+                                this.messageBody = 'Dear Candidate / Supervisor,\n\nPlease be informed that the Internal Defence presentation schedule has been updated on the Thesis Monitoring Portal. Kindly log in to your portal dashboard to verify your presentation date, time slot, and Zoom meeting link, and ensure your presentation slides and thesis manuscript are uploaded ahead of the session.\n\nBest regards,\nPostgraduate School / ACETEL Administration';
+                            } else if (preset === 'corrections') {
+                                this.messageSubject = 'Submission of Post-Defence Corrected Thesis (Internal Defence)';
+                                this.messageBody = 'Dear Candidate,\n\nFollowing your Internal Defence presentation, kindly incorporate all corrections and observations raised by the panel and upload your revised thesis manuscript on the Internal Defence milestone page for the Internal Examiner\'s verification and clearance to External Viva.\n\nBest regards,\nPostgraduate School / ACETEL Administration';
+                            } else if (preset === 'supervisors') {
+                                this.messageSubject = 'Supervisory Notice: Candidates Under Internal Defence';
+                                this.messageBody = 'Dear Supervisor,\n\nThis is to notify you regarding your MSc/PhD candidate(s) currently under the Internal Defence milestone. Kindly review their thesis submissions on the portal and ensure their readiness for the Internal Defence presentation and subsequent post-defence clearance.\n\nBest regards,\nPostgraduate School / ACETEL Administration';
+                            }
+                        },
                         assignModalOpen: false,
                         assignStudentName: '',
                         assignFormUrl: '',
                         assignProfileIds: [],
                         assignInternalExaminerProfileId: '',
+                        assignSupDegreeFilter: 'all',
                         openAssignModal(name, formUrl, profileIds, internalExaminerProfileId = '') {
                             this.assignStudentName = name;
                             this.assignFormUrl = formUrl;
-                            this.assignProfileIds = (profileIds || []).map(Number);
+                            this.assignProfileIds = (profileIds || []).map(String);
                             this.assignInternalExaminerProfileId = internalExaminerProfileId ? String(internalExaminerProfileId) : '';
+                            this.assignSupDegreeFilter = 'all';
                             this.assignModalOpen = true;
                         }
                     }" class="divide-y divide-slate-50 border-t border-slate-50">
@@ -573,16 +701,27 @@
                                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                                         Export CSV
                                     </a>
-                                    @if($template->studentMilestones->count() > 0)
+                                    @if($template->studentMilestones->count() > 0 || $template->slug === 'internal_defence')
                                     <button type="button" 
-                                        @click="openMessageModal('all')"
+                                        @click="openMessageModal('all', 'none')"
                                         class="inline-flex items-center gap-2 px-4 py-2.5 bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-2xs cursor-pointer"
-                                        title="Send an inbox message or email to students on this milestone">
+                                        title="Send an inbox message or email to students and/or MSc or PhD supervisors on this milestone">
                                         <svg class="w-3.5 h-3.5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                                         </svg>
-                                        <span>Message Students</span>
+                                        <span>{{ $template->slug === 'internal_defence' ? 'Email Students / Supervisors' : 'Message Students' }}</span>
                                     </button>
+                                    @if($template->slug === 'internal_defence')
+                                    <button type="button" 
+                                        @click="openMessageModal('all', 'msc')"
+                                        class="inline-flex items-center gap-2 px-3.5 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-2xs cursor-pointer"
+                                        title="Email Internal Defence candidates and select MSc or PhD supervisors">
+                                        <svg class="w-3.5 h-3.5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                        </svg>
+                                        <span>MSc / PhD Supervisors Email</span>
+                                    </button>
+                                    @endif
                                     @endif
                                     @if($template->slug !== 'supervisors_assigned')
                                     <a href="{{ isset($isCoordinator) && $isCoordinator ? route('coordinator.milestone-templates.export-scheduled-scores', $template->id) : route('admin.milestone-templates.export-scheduled-scores', $template->id) }}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
@@ -1530,20 +1669,26 @@
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <form action="{{ (auth()->user()->hasRole('Program Coordinator') && !auth()->user()->hasRole('Admin')) ? route('coordinator.milestone-templates.assign-examiner-global', $template->id) : route('admin.milestone-templates.assign-examiner-global', $template->id) }}" method="POST" class="flex items-center gap-2 sm:ml-auto overflow-visible relative" 
+                                                <form action="{{ (auth()->user()->hasRole('Program Coordinator') && !auth()->user()->hasRole('Admin')) ? route('coordinator.milestone-templates.assign-examiner-global', $template->id) : route('admin.milestone-templates.assign-examiner-global', $template->id) }}" method="POST" class="flex flex-wrap items-center gap-2 sm:ml-auto overflow-visible relative" 
                                                     x-data="{
                                                         search: '',
+                                                        supLevelFilter: 'all',
+                                                        degreeScope: 'all',
                                                         options: [
                                                             @foreach($supervisors as $sup)
-                                                                { id: '{{ $sup->id }}', name: '{{ addslashes($sup->user->name) }}', program: '{{ addslashes($sup->programs->first()->code ?? 'N/A') }}' }{{ !$loop->last ? ',' : '' }}
+                                                                { id: '{{ $sup->id }}', name: '{{ addslashes($sup->user->name) }}', program: '{{ addslashes($sup->programs->first()->code ?? 'N/A') }}', isMsc: {{ ($sup->is_msc_supervisor ?? true) ? 'true' : 'false' }}, isPhd: {{ ($sup->is_phd_supervisor ?? false) ? 'true' : 'false' }}, badge: '{{ $sup->degree_badge ?? 'MSc' }}' }{{ !$loop->last ? ',' : '' }}
                                                             @endforeach
                                                         ],
                                                         selected: [{{ $selectedJsArray }}],
                                                         open: false,
                                                         get filteredOptions() {
-                                                            if (this.search === '') return this.options;
-                                                            let s = this.search.toLowerCase();
-                                                            return this.options.filter(o => o.name.toLowerCase().includes(s) || o.program.toLowerCase().includes(s));
+                                                            return this.options.filter(o => {
+                                                                if (this.supLevelFilter === 'msc' && !o.isMsc) return false;
+                                                                if (this.supLevelFilter === 'phd' && !o.isPhd) return false;
+                                                                if (this.search === '') return true;
+                                                                let s = this.search.toLowerCase();
+                                                                return o.name.toLowerCase().includes(s) || o.program.toLowerCase().includes(s);
+                                                            });
                                                         },
                                                         get selectedNames() {
                                                             if (this.selected.length === 0) return 'Select Examiner(s)';
@@ -1556,27 +1701,48 @@
                                                     <template x-for="id in selected" :key="id">
                                                         <input type="hidden" name="supervisor_profile_ids[]" :value="id">
                                                     </template>
+
+                                                    @if($template->slug === 'internal_defence')
+                                                    <select name="degree_scope" x-model="degreeScope" @change="if(degreeScope === 'msc') supLevelFilter = 'msc'; else if(degreeScope === 'phd') supLevelFilter = 'phd'; else supLevelFilter = 'all';" class="py-1.5 pl-2.5 pr-7 text-xs font-bold border border-indigo-200 bg-white rounded-lg text-slate-700 focus:ring-indigo-500 focus:border-indigo-500">
+                                                        <option value="all">All Levels (MSc & PhD)</option>
+                                                        <option value="msc">📘 MSc Candidates Only</option>
+                                                        <option value="phd">🎓 PhD Candidates Only</option>
+                                                    </select>
+                                                    @endif
                                                     
                                                     <!-- Alpine component for multiselect -->
-                                                    <div class="relative w-48 z-50">
+                                                    <div class="relative w-52 z-50">
                                                         <div @click="open = !open" class="block w-full py-1.5 pl-3 pr-8 text-xs border border-indigo-200 bg-white rounded-lg cursor-pointer flex items-center justify-between">
                                                             <span class="truncate text-slate-700" x-text="selectedNames"></span>
                                                             <svg class="w-3 h-3 text-slate-400 absolute right-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                                                         </div>
 
-                                                        <div x-show="open" @click.outside="open = false" x-transition class="absolute right-0 w-64 mt-1 bg-white border border-indigo-100 rounded-lg shadow-xl overflow-y-auto z-50" style="display: none;">
+                                                        <div x-show="open" @click.outside="open = false" x-transition class="absolute right-0 w-72 mt-1 bg-white border border-indigo-100 rounded-lg shadow-xl overflow-y-auto z-50" style="display: none;">
                                                             <div class="p-2 sticky top-0 bg-slate-50 border-b border-slate-100 z-10 flex flex-col gap-2">
                                                                 <input type="text" x-model="search" placeholder="Search name or programme..." class="w-full text-xs p-1.5 border border-slate-200 rounded-md focus:ring-indigo-500 focus:border-indigo-500" @click.stop>
+                                                                <div class="grid grid-cols-3 gap-1 p-0.5 bg-slate-200/70 rounded-md">
+                                                                    <button type="button" @click.stop="supLevelFilter = 'all'" :class="supLevelFilter === 'all' ? 'bg-white text-slate-900 shadow-2xs font-black' : 'text-slate-600 font-semibold'" class="text-[10px] py-1 rounded transition">All</button>
+                                                                    <button type="button" @click.stop="supLevelFilter = 'msc'" :class="supLevelFilter === 'msc' ? 'bg-blue-600 text-white shadow-2xs font-black' : 'text-slate-600 font-semibold'" class="text-[10px] py-1 rounded transition">📘 MSc Sups</button>
+                                                                    <button type="button" @click.stop="supLevelFilter = 'phd'" :class="supLevelFilter === 'phd' ? 'bg-purple-600 text-white shadow-2xs font-black' : 'text-slate-600 font-semibold'" class="text-[10px] py-1 rounded transition">🎓 PhD Sups</button>
+                                                                </div>
                                                                 <div class="flex justify-between gap-2">
                                                                     <button type="button" @click.stop="selected = [...new Set([...selected, ...filteredOptions.map(o => o.id)])]" class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 uppercase tracking-wider px-2 py-1 bg-indigo-50 hover:bg-indigo-100 rounded flex-1">Select All</button>
                                                                     <button type="button" @click.stop="selected = []" class="text-[10px] font-bold text-slate-500 hover:text-slate-700 uppercase tracking-wider px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded flex-1">Clear</button>
                                                                 </div>
                                                             </div>
-                                                            <div class="py-1 max-h-40 overflow-y-auto">
+                                                            <div class="py-1 max-h-44 overflow-y-auto">
                                                                 <template x-for="option in filteredOptions" :key="option.id">
-                                                                    <label class="flex items-center px-3 py-2 hover:bg-indigo-50 cursor-pointer">
-                                                                        <input type="checkbox" :value="option.id" x-model="selected" class="rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 mr-2 w-3.5 h-3.5">
-                                                                        <span class="text-xs text-slate-700 flex flex-col"><span x-text="option.name"></span><span class="text-[9px] text-slate-400 font-bold tracking-wider" x-text="option.program"></span></span>
+                                                                    <label class="flex items-center justify-between px-3 py-2 hover:bg-indigo-50 cursor-pointer gap-2">
+                                                                        <div class="flex items-center min-w-0">
+                                                                            <input type="checkbox" :value="option.id" x-model="selected" class="rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 mr-2 w-3.5 h-3.5 shrink-0">
+                                                                            <span class="text-xs text-slate-700 flex flex-col truncate">
+                                                                                <span class="truncate font-semibold" x-text="option.name"></span>
+                                                                                <span class="text-[9px] text-slate-400 font-bold tracking-wider" x-text="option.program"></span>
+                                                                            </span>
+                                                                        </div>
+                                                                        <span class="text-[9px] font-black px-1.5 py-0.5 rounded border shrink-0"
+                                                                            :class="option.isPhd && option.isMsc ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : (option.isPhd ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-blue-50 text-blue-700 border-blue-200')"
+                                                                            x-text="option.badge"></span>
                                                                     </label>
                                                                 </template>
                                                             </div>
@@ -1591,7 +1757,7 @@
                                                     </div>
                                                     
                                                     <button type="submit" class="text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm shrink-0">
-                                                        Assign to All
+                                                        <span x-text="degreeScope === 'msc' ? 'Assign to MSc' : (degreeScope === 'phd' ? 'Assign to PhD' : 'Assign to All')">Assign to All</span>
                                                     </button>
                                                 </form>
                                             </div>
@@ -1980,12 +2146,24 @@
                                             <button type="button" 
                                                 @click="openMessageModal('all')"
                                                 class="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition active:scale-95 whitespace-nowrap cursor-pointer border border-slate-200"
-                                                title="Send an inbox message or email to all students on this milestone">
+                                                title="Send an inbox message or email to students and/or MSc or PhD supervisors on this milestone">
                                                 <svg class="w-4 h-4 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                                                 </svg>
-                                                <span>Message All ({{ $template->studentMilestones->count() }})</span>
+                                                <span>Email / Message All ({{ $template->studentMilestones->count() }})</span>
                                             </button>
+
+                                            @if($template->slug === 'internal_defence' || $showDegreeFilter)
+                                            <button type="button" 
+                                                @click="openMessageModal('all', degreeFilter === 'PhD' ? 'phd' : 'msc')"
+                                                class="inline-flex items-center gap-1.5 px-3.5 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-xl text-xs font-bold transition active:scale-95 whitespace-nowrap cursor-pointer border border-purple-200"
+                                                title="Email students and select MSc or PhD supervisors">
+                                                <svg class="w-4 h-4 text-purple-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                                </svg>
+                                                <span>Email MSc / PhD Supervisors</span>
+                                            </button>
+                                            @endif
 
                                             @if(!isset($isCoordinator) || !$isCoordinator)
                                             <div x-show="selected.length > 0" x-cloak class="flex items-center">
@@ -2052,10 +2230,23 @@
                                                             $hasAcceptedUpload = $latestSub && $latestSub->feedback && $latestSub->feedback->decision === 'approved';
                                                             $hasRejectedUpload = $latestSub && $latestSub->feedback && $latestSub->feedback->decision === 'revision_required';
                                                             $hasUpload = $latestSub !== null;
+                                                            $isPostDefRow = $workflow->isPostDefencePhase($sm);
+                                                            $hasPostDefUpload = $isPostDefRow && $workflow->hasUploadedPostDefenceCorrection($sm);
 
                                                             if ($sm->status === 'approved') {
                                                                 $detailedStatus = 'Approved';
                                                                 $statusColor = 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+                                                            } elseif ($isPostDefRow) {
+                                                                if ($sm->status === 'revision_required') {
+                                                                    $detailedStatus = 'Correction Revision Requested';
+                                                                    $statusColor = 'bg-rose-100 text-rose-800 border border-rose-200';
+                                                                } elseif ($hasPostDefUpload) {
+                                                                    $detailedStatus = 'Corrections Uploaded (Awaiting Examiner)';
+                                                                    $statusColor = 'bg-purple-100 text-purple-800 border border-purple-200';
+                                                                } else {
+                                                                    $detailedStatus = 'Passed Presentation (Awaiting Corrections)';
+                                                                    $statusColor = 'bg-amber-100 text-amber-800 border border-amber-200';
+                                                                }
                                                             } elseif ($sm->status === 'revision_required' || $hasRejectedUpload) {
                                                                 $detailedStatus = 'Revision Required';
                                                                 $statusColor = 'bg-rose-100 text-rose-800 border border-rose-200';
@@ -2360,39 +2551,41 @@
                                                                         </div>
                                                                         @if((!isset($isCoordinator) || !$isCoordinator) && $sm->status !== 'approved')
                                                                             <div class="p-1.5 border-b border-slate-100 space-y-1">
-                                                                                @if(!empty($sm->defence_date))
-                                                                                <button type="button" 
-                                                                                    @click="menuOpen = false; slotModalOpen = true; slotStudentId = '{{ $sm->id }}'; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $sm->defence_time ? \Carbon\Carbon::parse($sm->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($sm->meeting_link ?? '') }}'; slotTrack = '{{ $sm->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
-                                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors flex items-center gap-2">
-                                                                                    <svg class="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                                                    </svg>
-                                                                                    <span>Reschedule Slot</span>
-                                                                                </button>
-                                                                                <form action="{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}" method="POST">
-                                                                                    @csrf
-                                                                                    <input type="hidden" name="action" value="remove">
-                                                                                    <button type="submit" 
-                                                                                        data-confirm="Are you sure you want to remove {{ addslashes($studentName) }} from the presentation schedule? This will clear their presentation date, time, and link."
-                                                                                        data-confirm-title="Remove from Schedule"
-                                                                                        data-confirm-type="danger"
-                                                                                        data-confirm-btn="Remove Student"
-                                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors flex items-center gap-2">
-                                                                                        <svg class="w-3.5 h-3.5 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                                @if(!$isGraded && !$isPostDefRow)
+                                                                                    @if(!empty($sm->defence_date))
+                                                                                    <button type="button" 
+                                                                                        @click="menuOpen = false; slotModalOpen = true; slotStudentId = '{{ $sm->id }}'; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ \Carbon\Carbon::parse($sm->defence_date)->format('Y-m-d') }}'; slotTime = '{{ $sm->defence_time ? \Carbon\Carbon::parse($sm->defence_time)->format('H:i') : '' }}'; slotLink = '{{ addslashes($sm->meeting_link ?? '') }}'; slotTrack = '{{ $sm->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
+                                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors flex items-center gap-2">
+                                                                                        <svg class="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                                                         </svg>
-                                                                                        <span>Remove from Schedule</span>
+                                                                                        <span>Reschedule Slot</span>
                                                                                     </button>
-                                                                                </form>
-                                                                                @else
-                                                                                <button type="button" 
-                                                                                    @click="menuOpen = false; slotModalOpen = true; slotStudentId = '{{ $sm->id }}'; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ $lastScheduledDate ?? date('Y-m-d') }}'; slotTime = '{{ $existingTime ?? '10:00' }}'; slotLink = '{{ addslashes($existingLink ?? '') }}'; slotTrack = '{{ $sm->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
-                                                                                    class="w-full text-left px-3 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors flex items-center gap-2">
-                                                                                    <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                                                                                    </svg>
-                                                                                    <span>Schedule Slot</span>
-                                                                                </button>
+                                                                                    <form action="{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}" method="POST">
+                                                                                        @csrf
+                                                                                        <input type="hidden" name="action" value="remove">
+                                                                                        <button type="submit" 
+                                                                                            data-confirm="Are you sure you want to remove {{ addslashes($studentName) }} from the presentation schedule? This will clear their presentation date, time, and link."
+                                                                                            data-confirm-title="Remove from Schedule"
+                                                                                            data-confirm-type="danger"
+                                                                                            data-confirm-btn="Remove Student"
+                                                                                            class="w-full text-left px-3 py-2 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors flex items-center gap-2">
+                                                                                            <svg class="w-3.5 h-3.5 text-rose-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                                            </svg>
+                                                                                            <span>Remove from Schedule</span>
+                                                                                        </button>
+                                                                                    </form>
+                                                                                    @else
+                                                                                    <button type="button" 
+                                                                                        @click="menuOpen = false; slotModalOpen = true; slotStudentId = '{{ $sm->id }}'; slotStudentName = '{{ addslashes($studentName) }}'; slotAction = 'schedule'; slotDate = '{{ $lastScheduledDate ?? date('Y-m-d') }}'; slotTime = '{{ $existingTime ?? '10:00' }}'; slotLink = '{{ addslashes($existingLink ?? '') }}'; slotTrack = '{{ $sm->discipline_group ?? 'cybersecurity' }}'; slotFormUrl = '{{ route('admin.milestone-templates.update-student-slot', [$template->id, $sm->id]) }}'"
+                                                                                        class="w-full text-left px-3 py-2 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors flex items-center gap-2">
+                                                                                        <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                                                                                        </svg>
+                                                                                        <span>Schedule Slot</span>
+                                                                                    </button>
+                                                                                    @endif
                                                                                 @endif
                                                                                 @if(in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']))
                                                                                 @php
@@ -2408,7 +2601,7 @@
                                                                                     <span>Assign Examiner(s)</span>
                                                                                 </button>
                                                                                 @endif
-                                                                                @if(!empty($sm->defence_date) || in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']))
+                                                                                @if(!$isPostDefRow && (!empty($sm->defence_date) || in_array($template->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence'])))
                                                                                 <form action="{{ route('milestones.end_presentation', $sm) }}" method="POST">
                                                                                     @csrf
                                                                                     <button type="submit" 
@@ -2645,30 +2838,56 @@
                                                 </select>
                                             </div>
                                             <div>
-                                                <label class="block text-xs font-bold text-slate-700 mb-1.5">Additional Defence Panel Members (Optional)</label>
+                                                <div class="flex items-center justify-between mb-1.5">
+                                                    <label class="block text-xs font-bold text-slate-700">Additional Defence Panel Members (Optional)</label>
+                                                    <div class="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg">
+                                                        <button type="button" @click="assignSupDegreeFilter = 'all'" :class="assignSupDegreeFilter === 'all' ? 'bg-white text-slate-900 shadow-2xs font-black' : 'text-slate-600 font-semibold'" class="text-[10px] px-2 py-0.5 rounded-md transition">All</button>
+                                                        <button type="button" @click="assignSupDegreeFilter = 'msc'" :class="assignSupDegreeFilter === 'msc' ? 'bg-blue-600 text-white shadow-2xs font-black' : 'text-slate-600 font-semibold'" class="text-[10px] px-2 py-0.5 rounded-md transition">📘 MSc Sups</button>
+                                                        <button type="button" @click="assignSupDegreeFilter = 'phd'" :class="assignSupDegreeFilter === 'phd' ? 'bg-purple-600 text-white shadow-2xs font-black' : 'text-slate-600 font-semibold'" class="text-[10px] px-2 py-0.5 rounded-md transition">🎓 PhD Sups</button>
+                                                    </div>
+                                                </div>
                                                 <div class="max-h-44 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 p-1">
                                                     @foreach($supervisors as $sup)
-                                                        <label class="flex items-center gap-2.5 p-2 hover:bg-indigo-50/50 rounded-lg cursor-pointer">
-                                                            <input type="checkbox" name="supervisor_profile_ids[]" value="{{ $sup->id }}" :value="{{ $sup->id }}" x-model="assignProfileIds" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
-                                                            <div class="text-xs">
-                                                                <span class="font-bold text-slate-800">{{ $sup->user->name }}</span>
-                                                                <span class="text-[10px] text-slate-400 block font-semibold">{{ $sup->programs->first()->code ?? 'Supervisor' }}</span>
+                                                        <label x-show="assignSupDegreeFilter === 'all' || (assignSupDegreeFilter === 'msc' && {{ ($sup->is_msc_supervisor ?? true) ? 'true' : 'false' }}) || (assignSupDegreeFilter === 'phd' && {{ ($sup->is_phd_supervisor ?? false) ? 'true' : 'false' }})"
+                                                            class="flex items-center justify-between gap-2.5 p-2 hover:bg-indigo-50/50 rounded-lg cursor-pointer">
+                                                            <div class="flex items-center gap-2.5">
+                                                                <input type="checkbox" name="supervisor_profile_ids[]" value="{{ $sup->id }}" :value="'{{ $sup->id }}'" x-model="assignProfileIds" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                                                                <div class="text-xs">
+                                                                    <span class="font-bold text-slate-800">{{ $sup->user->name }}</span>
+                                                                    <span class="text-[10px] text-slate-400 block font-semibold">{{ $sup->programs->first()->code ?? 'Supervisor' }}</span>
+                                                                </div>
                                                             </div>
+                                                            <span class="text-[9px] font-black px-1.5 py-0.5 rounded border {{ ($sup->degree_badge ?? 'MSc') === 'PhD' ? 'bg-purple-50 text-purple-700 border-purple-200' : (($sup->degree_badge ?? 'MSc') === 'MSc & PhD' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-blue-50 text-blue-700 border-blue-200') }}">
+                                                                {{ $sup->degree_badge ?? 'MSc' }}
+                                                            </span>
                                                         </label>
                                                     @endforeach
                                                 </div>
                                             </div>
                                             @else
                                             <div>
-                                                <label class="block text-xs font-bold text-slate-700 mb-2">Select Examiner(s)</label>
+                                                <div class="flex items-center justify-between mb-2">
+                                                    <label class="block text-xs font-bold text-slate-700">Select Examiner(s)</label>
+                                                    <div class="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg">
+                                                        <button type="button" @click="assignSupDegreeFilter = 'all'" :class="assignSupDegreeFilter === 'all' ? 'bg-white text-slate-900 shadow-2xs font-black' : 'text-slate-600 font-semibold'" class="text-[10px] px-2 py-0.5 rounded-md transition">All</button>
+                                                        <button type="button" @click="assignSupDegreeFilter = 'msc'" :class="assignSupDegreeFilter === 'msc' ? 'bg-blue-600 text-white shadow-2xs font-black' : 'text-slate-600 font-semibold'" class="text-[10px] px-2 py-0.5 rounded-md transition">📘 MSc Sups</button>
+                                                        <button type="button" @click="assignSupDegreeFilter = 'phd'" :class="assignSupDegreeFilter === 'phd' ? 'bg-purple-600 text-white shadow-2xs font-black' : 'text-slate-600 font-semibold'" class="text-[10px] px-2 py-0.5 rounded-md transition">🎓 PhD Sups</button>
+                                                    </div>
+                                                </div>
                                                 <div class="max-h-56 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 p-1">
                                                     @foreach($supervisors as $sup)
-                                                        <label class="flex items-center gap-2.5 p-2 hover:bg-indigo-50/50 rounded-lg cursor-pointer">
-                                                            <input type="checkbox" name="supervisor_profile_ids[]" value="{{ $sup->id }}" :value="{{ $sup->id }}" x-model="assignProfileIds" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
-                                                            <div class="text-xs">
-                                                                <span class="font-bold text-slate-800">{{ $sup->user->name }}</span>
-                                                                <span class="text-[10px] text-slate-400 block font-semibold">{{ $sup->programs->first()->code ?? 'Supervisor' }}</span>
+                                                        <label x-show="assignSupDegreeFilter === 'all' || (assignSupDegreeFilter === 'msc' && {{ ($sup->is_msc_supervisor ?? true) ? 'true' : 'false' }}) || (assignSupDegreeFilter === 'phd' && {{ ($sup->is_phd_supervisor ?? false) ? 'true' : 'false' }})"
+                                                            class="flex items-center justify-between gap-2.5 p-2 hover:bg-indigo-50/50 rounded-lg cursor-pointer">
+                                                            <div class="flex items-center gap-2.5">
+                                                                <input type="checkbox" name="supervisor_profile_ids[]" value="{{ $sup->id }}" :value="'{{ $sup->id }}'" x-model="assignProfileIds" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                                                                <div class="text-xs">
+                                                                    <span class="font-bold text-slate-800">{{ $sup->user->name }}</span>
+                                                                    <span class="text-[10px] text-slate-400 block font-semibold">{{ $sup->programs->first()->code ?? 'Supervisor' }}</span>
+                                                                </div>
                                                             </div>
+                                                            <span class="text-[9px] font-black px-1.5 py-0.5 rounded border {{ ($sup->degree_badge ?? 'MSc') === 'PhD' ? 'bg-purple-50 text-purple-700 border-purple-200' : (($sup->degree_badge ?? 'MSc') === 'MSc & PhD' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-blue-50 text-blue-700 border-blue-200') }}">
+                                                                {{ $sup->degree_badge ?? 'MSc' }}
+                                                            </span>
                                                         </label>
                                                     @endforeach
                                                 </div>
@@ -2693,18 +2912,27 @@
                                     class="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" 
                                     @keydown.escape.window="messageModalOpen = false">
                                     <div @click.outside="messageModalOpen = false" 
-                                        class="bg-white rounded-3xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
+                                        class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[92vh]">
                                         
                                         <form action="{{ (isset($isCoordinator) && $isCoordinator) ? route('coordinator.milestone-templates.broadcast-message', $template->id) : route('admin.milestone-templates.broadcast-message', $template->id) }}" 
                                             method="POST" 
                                             @submit="isSubmittingMessage = true">
                                             @csrf
                                             <input type="hidden" name="target" :value="messageTarget">
+                                            <input type="hidden" name="student_degree_filter" :value="studentDegreeFilter">
+                                            <input type="hidden" name="supervisor_scope" :value="supervisorScope">
                                             <input type="hidden" name="student_milestone_id" :value="singleStudentId">
                                             <template x-if="messageTarget === 'selected'">
                                                 <div>
                                                     <template x-for="id in selected" :key="id">
                                                         <input type="hidden" name="milestone_ids[]" :value="id">
+                                                    </template>
+                                                </div>
+                                            </template>
+                                            <template x-if="supervisorScope !== 'none'">
+                                                <div>
+                                                    <template x-for="supId in selectedSupervisors" :key="supId">
+                                                        <input type="hidden" name="supervisor_profile_ids[]" :value="supId">
                                                     </template>
                                                 </div>
                                             </template>
@@ -2719,14 +2947,15 @@
                                                     </div>
                                                     <div>
                                                         <h3 class="text-base font-black text-slate-900">
-                                                            <span x-show="messageTarget === 'single'">Message Candidate</span>
-                                                            <span x-show="messageTarget === 'selected'">Message Selected Candidates</span>
-                                                            <span x-show="messageTarget === 'all'">Broadcast to All Milestone Candidates</span>
+                                                            <span x-show="messageTarget === 'single'">Email / Message Candidate</span>
+                                                            <span x-show="messageTarget === 'selected'">Email / Message Selected Candidates</span>
+                                                            <span x-show="messageTarget === 'all'">Email Students & MSc / PhD Supervisors</span>
+                                                            <span x-show="messageTarget === 'none'">Email MSc / PhD Supervisors</span>
                                                         </h3>
                                                         <p class="text-xs text-slate-500 mt-0.5">
                                                             <span x-show="messageTarget === 'single'" x-text="singleStudentName + (singleStudentMatric ? ' (' + singleStudentMatric + ')' : '') + ' • {{ addslashes($template->name) }}'"></span>
                                                             <span x-show="messageTarget === 'selected'" x-text="selected.length + ' student(s) selected in {{ addslashes($template->name) }}'"></span>
-                                                            <span x-show="messageTarget === 'all'">All {{ $template->studentMilestones->count() }} candidate(s) in {{ addslashes($template->name) }}</span>
+                                                            <span x-show="messageTarget === 'all' || messageTarget === 'none'">{{ $template->name }} • Select MSc/PhD Students and/or MSc/PhD Supervisors</span>
                                                         </p>
                                                     </div>
                                                 </div>
@@ -2736,31 +2965,156 @@
                                             </div>
 
                                             {{-- Modal Body --}}
-                                            <div class="p-6 space-y-5 overflow-y-auto max-h-[calc(90vh-160px)] text-left">
+                                            <div class="p-6 space-y-5 overflow-y-auto max-h-[calc(92vh-160px)] text-left">
                                                 
-                                                {{-- Target Mode Switcher (if not single student) --}}
+                                                {{-- 1. Student Recipients Scope & MSc/PhD Filter (if not single student) --}}
                                                 <template x-if="messageTarget !== 'single'">
-                                                    <div>
-                                                        <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-2">Recipient Scope</label>
-                                                        <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
+                                                    <div class="space-y-3 bg-slate-50/70 p-4 rounded-2xl border border-slate-200/80">
+                                                        <div class="flex items-center justify-between">
+                                                            <label class="block text-[11px] font-black text-slate-800 uppercase tracking-wider">1. Student Recipients ({{ $template->name }})</label>
+                                                            <span class="text-[10px] font-bold text-slate-400">Filter candidates by level</span>
+                                                        </div>
+                                                        <div class="grid grid-cols-3 gap-2 p-1 bg-slate-200/70 rounded-xl">
+                                                            <button type="button" 
+                                                                @click="messageTarget = 'all'"
+                                                                class="py-2 px-2.5 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
+                                                                :class="messageTarget === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'">
+                                                                <span>Milestone Students</span>
+                                                                <span class="px-1.5 py-0.2 rounded-full text-[10px]" :class="messageTarget === 'all' ? 'bg-brand-100 text-brand-700' : 'bg-slate-300 text-slate-700'">{{ $template->studentMilestones->count() }}</span>
+                                                            </button>
                                                             <button type="button" 
                                                                 @click="messageTarget = 'selected'"
                                                                 :disabled="selected.length === 0"
-                                                                class="py-2 px-3 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
+                                                                class="py-2 px-2.5 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
                                                                 :class="messageTarget === 'selected' ? 'bg-white text-slate-900 shadow-xs' : (selected.length === 0 ? 'text-slate-400 cursor-not-allowed opacity-60' : 'text-slate-600 hover:text-slate-900')">
-                                                                <span>Selected</span>
-                                                                <span class="px-1.5 py-0.2 rounded-full text-[10px]" :class="messageTarget === 'selected' ? 'bg-brand-100 text-brand-700' : 'bg-slate-200 text-slate-600'" x-text="selected.length"></span>
+                                                                <span>Selected Rows</span>
+                                                                <span class="px-1.5 py-0.2 rounded-full text-[10px]" :class="messageTarget === 'selected' ? 'bg-brand-100 text-brand-700' : 'bg-slate-300 text-slate-700'" x-text="selected.length"></span>
                                                             </button>
                                                             <button type="button" 
-                                                                @click="messageTarget = 'all'"
-                                                                class="py-2 px-3 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
-                                                                :class="messageTarget === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'">
-                                                                <span>All Milestone Students</span>
-                                                                <span class="px-1.5 py-0.2 rounded-full text-[10px]" :class="messageTarget === 'all' ? 'bg-brand-100 text-brand-700' : 'bg-slate-200 text-slate-600'">{{ $template->studentMilestones->count() }}</span>
+                                                                @click="messageTarget = 'none'; if(supervisorScope === 'none') setSupervisorScope('msc');"
+                                                                class="py-2 px-2.5 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer"
+                                                                :class="messageTarget === 'none' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'">
+                                                                <span>No Students (Sups Only)</span>
+                                                            </button>
+                                                        </div>
+
+                                                        <div x-show="messageTarget === 'all'" x-transition class="grid grid-cols-3 gap-2 pt-1">
+                                                            <button type="button" @click="studentDegreeFilter = 'all'"
+                                                                :class="studentDegreeFilter === 'all' ? 'bg-slate-900 text-white border-slate-900 shadow-2xs' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'"
+                                                                class="py-1.5 px-2.5 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1.5 cursor-pointer transition">
+                                                                <span>All Levels</span>
+                                                                <span class="text-[10px] opacity-80">({{ $template->studentMilestones->count() }})</span>
+                                                            </button>
+                                                            <button type="button" @click="studentDegreeFilter = 'msc'"
+                                                                :class="studentDegreeFilter === 'msc' ? 'bg-blue-600 text-white border-blue-600 shadow-2xs' : 'bg-white text-slate-600 border-slate-200 hover:bg-blue-50/50'"
+                                                                class="py-1.5 px-2.5 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1.5 cursor-pointer transition">
+                                                                <span>📘 MSc Students</span>
+                                                                <span class="text-[10px] opacity-80">({{ $mscCount }})</span>
+                                                            </button>
+                                                            <button type="button" @click="studentDegreeFilter = 'phd'"
+                                                                :class="studentDegreeFilter === 'phd' ? 'bg-purple-600 text-white border-purple-600 shadow-2xs' : 'bg-white text-slate-600 border-slate-200 hover:bg-purple-50/50'"
+                                                                class="py-1.5 px-2.5 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1.5 cursor-pointer transition">
+                                                                <span>🎓 PhD Students</span>
+                                                                <span class="text-[10px] opacity-80">({{ $phdCount }})</span>
                                                             </button>
                                                         </div>
                                                     </div>
                                                 </template>
+
+                                                {{-- 2. Supervisor Recipients: Select Whether MSc or PhD Supervisors --}}
+                                                <div class="space-y-3 bg-indigo-50/40 p-4 rounded-2xl border border-indigo-100">
+                                                    <div class="flex items-center justify-between">
+                                                        <div>
+                                                            <label class="block text-[11px] font-black text-indigo-950 uppercase tracking-wider">2. Select Supervisors (MSc or PhD Supervisors)</label>
+                                                            <p class="text-[10px] text-slate-500 mt-0.5">Choose whether to include MSc supervisors, PhD supervisors, or both in this email/message.</p>
+                                                        </div>
+                                                        <span x-show="supervisorScope !== 'none'" class="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-100 text-indigo-800 border border-indigo-200" x-text="selectedSupervisors.length + ' supervisor(s) selected'"></span>
+                                                    </div>
+
+                                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                        <button type="button" @click="setSupervisorScope('none')"
+                                                            :class="supervisorScope === 'none' ? 'bg-slate-900 text-white border-slate-900 shadow-xs' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'"
+                                                            class="py-2 px-2.5 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer">
+                                                            🚫 None
+                                                        </button>
+                                                        <button type="button" @click="setSupervisorScope('msc')"
+                                                            :class="supervisorScope === 'msc' ? 'bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-500/20' : 'bg-white text-blue-800 border-blue-200 hover:bg-blue-50'"
+                                                            class="py-2 px-2.5 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer flex items-center justify-center gap-1">
+                                                            <span>📘 MSc Supervisors</span>
+                                                        </button>
+                                                        <button type="button" @click="setSupervisorScope('phd')"
+                                                            :class="supervisorScope === 'phd' ? 'bg-purple-600 text-white border-purple-600 shadow-xs ring-2 ring-purple-500/20' : 'bg-white text-purple-800 border-purple-200 hover:bg-purple-50'"
+                                                            class="py-2 px-2.5 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer flex items-center justify-center gap-1">
+                                                            <span>🎓 PhD Supervisors</span>
+                                                        </button>
+                                                        <button type="button" @click="setSupervisorScope('all')"
+                                                            :class="supervisorScope === 'all' ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-500/20' : 'bg-white text-indigo-800 border-indigo-200 hover:bg-indigo-50'"
+                                                            class="py-2 px-2.5 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer flex items-center justify-center gap-1">
+                                                            <span>👥 Both (MSc & PhD)</span>
+                                                        </button>
+                                                    </div>
+
+                                                    {{-- Interactive Supervisor Checklist when MSc / PhD / Both is active --}}
+                                                    <div x-show="supervisorScope !== 'none'" x-transition class="bg-white rounded-xl border border-indigo-100 overflow-hidden shadow-2xs">
+                                                        <div class="p-2.5 bg-slate-50 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                                            <div class="flex items-center gap-1">
+                                                                <button type="button" @click="supervisorDegreeFilter = 'all'" :class="supervisorDegreeFilter === 'all' ? 'bg-slate-900 text-white font-black' : 'bg-white text-slate-600 border border-slate-200 font-semibold'" class="px-2 py-1 rounded-lg text-[10px] transition cursor-pointer">All ({{ $supervisors->count() }})</button>
+                                                                <button type="button" @click="supervisorDegreeFilter = 'msc'" :class="supervisorDegreeFilter === 'msc' ? 'bg-blue-600 text-white font-black' : 'bg-white text-blue-700 border border-blue-200 font-semibold'" class="px-2 py-1 rounded-lg text-[10px] transition cursor-pointer">📘 MSc Sups</button>
+                                                                <button type="button" @click="supervisorDegreeFilter = 'phd'" :class="supervisorDegreeFilter === 'phd' ? 'bg-purple-600 text-white font-black' : 'bg-white text-purple-700 border border-purple-200 font-semibold'" class="px-2 py-1 rounded-lg text-[10px] transition cursor-pointer">🎓 PhD Sups</button>
+                                                            </div>
+                                                            <div class="flex items-center gap-1.5 flex-1 sm:max-w-[220px]">
+                                                                <input type="text" x-model="supervisorSearch" placeholder="Search supervisor..." class="w-full text-[11px] px-2.5 py-1 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500">
+                                                                <button type="button" @click="selectedSupervisors = [...new Set([...selectedSupervisors, ...filteredModalSupervisors.map(s => s.id)])]" class="text-[10px] font-bold text-indigo-600 hover:underline shrink-0 cursor-pointer">All</button>
+                                                                <button type="button" @click="selectedSupervisors = []" class="text-[10px] font-bold text-rose-600 hover:underline shrink-0 cursor-pointer">Clear</button>
+                                                            </div>
+                                                        </div>
+                                                        <div class="max-h-36 overflow-y-auto divide-y divide-slate-100 p-1">
+                                                            <template x-for="sup in filteredModalSupervisors" :key="sup.id">
+                                                                <label class="flex items-center justify-between gap-2 px-2.5 py-1.5 hover:bg-indigo-50/40 rounded-lg cursor-pointer">
+                                                                    <div class="flex items-center gap-2 min-w-0">
+                                                                        <input type="checkbox" :value="sup.id" x-model="selectedSupervisors" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 shrink-0">
+                                                                        <div class="text-xs truncate">
+                                                                            <span class="font-bold text-slate-800" x-text="sup.name"></span>
+                                                                            <span class="text-[10px] text-slate-400 ml-1" x-text="sup.email ? '(' + sup.email + ')' : ''"></span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="flex items-center gap-1 shrink-0">
+                                                                        <template x-if="sup.onMilestone">
+                                                                            <span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">On Milestone</span>
+                                                                        </template>
+                                                                        <span class="px-1.5 py-0.5 rounded text-[9px] font-black border"
+                                                                            :class="sup.isPhd && sup.isMsc ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : (sup.isPhd ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-blue-50 text-blue-700 border-blue-200')"
+                                                                            x-text="sup.badge"></span>
+                                                                    </div>
+                                                                </label>
+                                                            </template>
+                                                            <template x-if="filteredModalSupervisors.length === 0">
+                                                                <div class="py-4 text-center text-xs text-slate-400 italic">No supervisors match the current filter.</div>
+                                                            </template>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {{-- Quick Email Templates for Internal Defence --}}
+                                                @if($template->slug === 'internal_defence')
+                                                <div>
+                                                    <div class="flex items-center justify-between mb-1.5">
+                                                        <label class="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Quick Email Templates (Optional)</label>
+                                                        <span class="text-[10px] text-slate-400">Click to pre-fill subject & body</span>
+                                                    </div>
+                                                    <div class="flex flex-wrap gap-1.5">
+                                                        <button type="button" @click="applyEmailPreset('schedule')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 hover:bg-brand-50 text-slate-700 hover:text-brand-700 border border-slate-200 transition cursor-pointer">
+                                                            📅 Defence Schedule Notice
+                                                        </button>
+                                                        <button type="button" @click="applyEmailPreset('corrections')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 hover:bg-amber-50 text-slate-700 hover:text-amber-800 border border-slate-200 transition cursor-pointer">
+                                                            ✏️ Post-Defence Corrections Reminder
+                                                        </button>
+                                                        <button type="button" @click="applyEmailPreset('supervisors')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 transition cursor-pointer">
+                                                            👨‍🏫 MSc / PhD Supervisors Notice
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                @endif
 
                                                 {{-- Delivery Channels --}}
                                                 <div>
@@ -2774,7 +3128,7 @@
                                                                     <span>📥 System Inbox</span>
                                                                 </div>
                                                                 <div class="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                                                                    Delivers to candidate's portal inbox with real-time notification.
+                                                                    Delivers to recipient's portal inbox with real-time notification.
                                                                 </div>
                                                             </div>
                                                         </label>
@@ -2834,19 +3188,24 @@
                                                     <label class="block text-[11px] font-black text-slate-700 uppercase tracking-wider mb-1.5">
                                                         Message Content <span class="text-rose-500">*</span>
                                                     </label>
-                                                    <textarea name="body" x-model="messageBody" rows="5" required 
-                                                        placeholder="Type the message instructions, presentation details, deadline reminders, or requirements to be communicated to the student(s)..."
+                                                    <textarea name="body" x-model="messageBody" rows="4" required 
+                                                        placeholder="Type the message instructions, presentation details, deadline reminders, or requirements to be communicated to the student(s) and/or supervisors..."
                                                         class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"></textarea>
                                                 </div>
                                             </div>
 
                                             {{-- Footer --}}
                                             <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3 bg-slate-50/50">
-                                                <div class="text-[11px] text-slate-500 font-semibold flex items-center gap-1.5">
+                                                <div class="text-[11px] text-slate-500 font-semibold flex flex-wrap items-center gap-1.5">
                                                     <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
-                                                    <span x-show="messageTarget === 'single'">Dispatching to 1 candidate</span>
-                                                    <span x-show="messageTarget === 'selected'" x-text="'Dispatching to ' + selected.length + ' selected candidate(s)'"></span>
-                                                    <span x-show="messageTarget === 'all'">Dispatching to {{ $template->studentMilestones->count() }} candidate(s)</span>
+                                                    <span x-show="messageTarget === 'single'">1 candidate</span>
+                                                    <span x-show="messageTarget === 'selected'" x-text="selected.length + ' selected candidate(s)'"></span>
+                                                    <span x-show="messageTarget === 'all'">
+                                                        <span x-show="studentDegreeFilter === 'all'">All {{ $template->studentMilestones->count() }} candidate(s)</span>
+                                                        <span x-show="studentDegreeFilter === 'msc'">{{ $mscCount }} MSc candidate(s)</span>
+                                                        <span x-show="studentDegreeFilter === 'phd'">{{ $phdCount }} PhD candidate(s)</span>
+                                                    </span>
+                                                    <span x-show="supervisorScope !== 'none'" class="text-indigo-700 font-bold" x-text="(messageTarget !== 'none' ? '+ ' : '') + selectedSupervisors.length + ' ' + (supervisorScope === 'msc' ? 'MSc' : (supervisorScope === 'phd' ? 'PhD' : '')) + ' supervisor(s)'"></span>
                                                 </div>
 
                                                 <div class="flex items-center gap-2">
@@ -2854,7 +3213,7 @@
                                                         Cancel
                                                     </button>
                                                     <button type="submit" 
-                                                        :disabled="messageChannels.length === 0 || !messageSubject.trim() || !messageBody.trim() || isSubmittingMessage || (messageTarget === 'selected' && selected.length === 0)"
+                                                        :disabled="messageChannels.length === 0 || !messageSubject.trim() || !messageBody.trim() || isSubmittingMessage || (messageTarget === 'selected' && selected.length === 0 && supervisorScope === 'none') || (messageTarget === 'none' && (supervisorScope === 'none' || selectedSupervisors.length === 0))"
                                                         class="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-600/20 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none transition-all cursor-pointer">
                                                         <template x-if="!isSubmittingMessage">
                                                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -2867,7 +3226,7 @@
                                                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                             </svg>
                                                         </template>
-                                                        <span x-text="isSubmittingMessage ? 'Sending...' : 'Send Message'">Send Message</span>
+                                                        <span x-text="isSubmittingMessage ? 'Sending...' : 'Send Email / Message'">Send Email / Message</span>
                                                     </button>
                                                 </div>
                                             </div>

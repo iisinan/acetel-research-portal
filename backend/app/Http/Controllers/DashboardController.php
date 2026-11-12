@@ -133,7 +133,10 @@ class DashboardController extends Controller
     {
         $isSupervisor = $user->hasRole('Supervisor');
         $isCoordinator = $user->hasRole('Program Coordinator');
-        $isInternalExaminer = $user->hasRole('Internal Examiner');
+        $isInternalExaminer = $user->hasRole('Internal Examiner')
+            || $user->internalExaminerProfiles()->exists()
+            || \App\Models\ExaminerAssignment::where('examiner_id', $user->id)->where('type', 'internal_examiner')->exists()
+            || \App\Models\DefenceEvent::where('type', 'internal')->whereHas('panelMembers', fn($q) => $q->where('user_id', $user->id))->exists();
         $isExternalExaminer = $user->hasRole('External Examiner');
 
         $activeFacultyRoles = [
@@ -372,26 +375,36 @@ class DashboardController extends Controller
 
         if ($isInternalExaminer) {
             $internalProfileIds = $user->internalExaminerProfiles()->pluck('id')->toArray();
-            $internalTheses = \App\Models\ThesisProject::whereIn('internal_examiner_profile_id', $internalProfileIds)
+            $internalTheses = \App\Models\ThesisProject::where(function ($q) use ($internalProfileIds, $user) {
+                    if (!empty($internalProfileIds)) {
+                        $q->whereIn('internal_examiner_profile_id', $internalProfileIds);
+                    }
+                    $q->orWhereHas('examinerAssignments', fn($eq) => $eq->where('examiner_id', $user->id)->where('type', 'internal_examiner'))
+                      ->orWhereHas('defenceEvents', fn($dq) => $dq->where('type', 'internal')->whereHas('panelMembers', fn($pq) => $pq->where('user_id', $user->id)));
+                })
                 ->with(['student.user', 'student.program', 'student.level', 'currentMilestone.template', 'milestones.template'])
                 ->latest()
                 ->get();
 
-            $internalPendingReviews = \App\Models\StudentMilestone::whereHas('thesis', function($q) use ($internalProfileIds) {
-                    $q->whereIn('internal_examiner_profile_id', $internalProfileIds);
-                })
-                ->where('status', '!=', 'approved')
-                ->whereHas('template', function($q) {
-                    $q->whereJsonContains('required_approvers', 'Internal Examiner');
-                })
-                ->whereNotNull('submitted_at')
-                ->with(['thesis.student.user', 'template'])
-                ->latest()
-                ->get()
-                ->filter(function($milestone) use ($user) {
-                    return $this->isMilestonePendingReviewForUser($milestone, $user->id, 'Internal Examiner');
-                })
-                ->values();
+            $internalThesisIds = $internalTheses->pluck('id')->toArray();
+
+            $internalPendingReviews = !empty($internalThesisIds)
+                ? \App\Models\StudentMilestone::whereIn('thesis_project_id', $internalThesisIds)
+                    ->where('status', '!=', 'approved')
+                    ->whereHas('template', function($q) {
+                        $q->where('slug', 'internal_defence')
+                          ->orWhere('order', 6)
+                          ->orWhereJsonContains('required_approvers', 'Internal Examiner');
+                    })
+                    ->whereNotNull('submitted_at')
+                    ->with(['thesis.student.user', 'template', 'submissions'])
+                    ->latest()
+                    ->get()
+                    ->filter(function($milestone) use ($user) {
+                        return $this->isMilestonePendingReviewForUser($milestone, $user->id, 'Internal Examiner');
+                    })
+                    ->values()
+                : collect();
         }
 
         $data['internalTheses'] = $internalTheses;
@@ -430,6 +443,9 @@ class DashboardController extends Controller
 
         // 5. VIVA / ORAL DEFENCE EVALUATIONS (Applicable to Examiners & Panelists)
         $data['pending_evaluations'] = \App\Models\DefenceEvent::whereNotIn('type', ['seminar', 'proposal', 'progress_report_1', 'progress_report_2'])
+            ->where(function($q) {
+                $q->whereNull('outcome')->orWhere('outcome', 'pending');
+            })
             ->whereHas('panelMembers', function($q) use ($user) {
                 $q->where('user_id', $user->id);
             })->whereDoesntHave('evaluations', function($q) use ($user) {
@@ -499,31 +515,47 @@ class DashboardController extends Controller
             $thesisColumn = 'external_examiner_profile_id';
         } else {
             $examiner = \App\Models\InternalExaminerProfile::where('user_id', $user->id)->first();
-            $data['theses'] = $examiner ? \App\Models\ThesisProject::where('internal_examiner_profile_id', $examiner->id)->with('student.user')->get() : collect();
+            $internalProfileIds = $user->internalExaminerProfiles()->pluck('id')->toArray();
+            $data['theses'] = \App\Models\ThesisProject::where(function($q) use ($internalProfileIds, $user) {
+                    if (!empty($internalProfileIds)) {
+                        $q->whereIn('internal_examiner_profile_id', $internalProfileIds);
+                    } else {
+                        $q->whereRaw('1 = 0');
+                    }
+                    $q->orWhereHas('examinerAssignments', fn($sq) => $sq->where('examiner_id', $user->id)->where('type', 'internal_examiner'));
+                })
+                ->with('student.user')
+                ->get();
             $thesisColumn = 'internal_examiner_profile_id';
         }
         
         $data['examiner'] = $examiner;
+        $examinerThesisIds = $data['theses']->pluck('id')->toArray();
         
         // Fetch milestones pending internal/external examiner Review
-        $data['pending_reviews'] = \App\Models\StudentMilestone::whereHas('thesis', function($q) use ($examiner, $thesisColumn) {
-                $q->where($thesisColumn, $examiner?->id);
-            })
-            ->where('status', '!=', 'approved')
-            ->whereHas('template', function($q) use ($roleName) {
-                $q->whereJsonContains('required_approvers', $roleName);
-            })
-            ->whereNotNull('submitted_at')
-            ->with(['thesis.student.user', 'template'])
-            ->latest()
-            ->get()
-            ->filter(function($milestone) use ($user, $roleName) {
-                return $this->isMilestonePendingReviewForUser($milestone, $user->id, $roleName);
-            })
-            ->values();
+        $data['pending_reviews'] = !empty($examinerThesisIds)
+            ? \App\Models\StudentMilestone::whereIn('thesis_project_id', $examinerThesisIds)
+                ->where('status', '!=', 'approved')
+                ->whereHas('template', function($q) use ($roleName) {
+                    $q->whereJsonContains('required_approvers', $roleName);
+                    if ($roleName === 'Internal Examiner') {
+                        $q->orWhere('slug', 'internal_defence')->orWhere('order', 6);
+                    }
+                })
+                ->whereNotNull('submitted_at')
+                ->with(['thesis.student.user', 'template', 'submissions'])
+                ->latest()
+                ->get()
+                ->filter(function($milestone) use ($user, $roleName) {
+                    return $this->isMilestonePendingReviewForUser($milestone, $user->id, $roleName);
+                })
+                ->values()
+            : collect();
 
         // Fetch pending defence evaluations
-        $data['pending_evaluations'] = \App\Models\DefenceEvent::whereHas('panelMembers', function($q) use ($user) {
+        $data['pending_evaluations'] = \App\Models\DefenceEvent::where(function($q) {
+                $q->whereNull('outcome')->orWhere('outcome', 'pending');
+            })->whereHas('panelMembers', function($q) use ($user) {
                 $q->where('user_id', $user->id);
             })->whereDoesntHave('evaluations', function($q) use ($user) {
                 $q->where('evaluator_id', $user->id);
@@ -765,6 +797,34 @@ class DashboardController extends Controller
 
         // Institutional Rule: Program Coordinators do not review student documents
         if ($role === 'Program Coordinator') {
+            return false;
+        }
+
+        $workflow = app(\App\Services\MilestoneWorkflowService::class);
+
+        // Internal Examiner: reviews post-defence corrected thesis ONLY after presentation session has been concluded
+        if ($role === 'Internal Examiner') {
+            if ($workflow->isInternalDefence($milestone)) {
+                if (!$workflow->isPostDefencePhase($milestone)) {
+                    return false;
+                }
+                if (!$workflow->hasPostDefenceSubmission($milestone)) {
+                    return false;
+                }
+                $approvals = $milestone->approvals ?? [];
+                if (is_string($approvals)) {
+                    $approvals = json_decode($approvals, true) ?: [];
+                }
+                $ieDecision = $approvals['internal_examiner_review']['decision'] ?? null;
+                if (in_array($ieDecision, ['approved', 'revision_required'])) {
+                    return false;
+                }
+                return true;
+            }
+        }
+
+        // For Supervisor: once internal_defence enters the Post-Defence Correction stage, supervisor review is already complete
+        if (($role === 'Supervisor' || empty($role)) && $workflow->isPostDefencePhase($milestone)) {
             return false;
         }
 

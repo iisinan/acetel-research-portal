@@ -70,11 +70,12 @@
     </x-card>
 
     @php
-        $isPassFail = in_array($defenceEvent->type, ['proposal', 'progress_report_1', 'progress_report_2']);
+        $isPassFail = in_array($defenceEvent->type, ['proposal', 'progress_report_1', 'progress_report_2', 'internal']);
         $eventTypeLabel = match($defenceEvent->type) {
             'proposal' => 'Proposal Defence',
             'progress_report_1' => 'Progress Report 1 Defence',
             'progress_report_2' => 'Progress Report 2 Defence',
+            'internal' => 'Internal Defence',
             'seminar' => 'Seminar as a Course',
             default => ucfirst(str_replace('_', ' ', $defenceEvent->type)),
         };

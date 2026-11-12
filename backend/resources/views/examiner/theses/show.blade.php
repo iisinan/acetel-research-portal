@@ -17,10 +17,89 @@
             <h2 class="text-2xl font-bold text-slate-800">{{ $thesis->title ?? 'Untitled Thesis' }}</h2>
             <p class="text-slate-500 mt-1">Student: <span class="font-bold text-slate-700">{{ $thesis->studentProfile->user->name ?? 'N/A' }}</span> ({{ $thesis->studentProfile->student_id_number ?? 'N/A' }})</p>
         </div>
-        <a href="{{ route('examiner.theses.index') }}" class="inline-flex items-center justify-center px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
-            Back to Assigned Theses
-        </a>
+        <div class="flex items-center gap-3">
+            <a href="{{ route('milestones.index', ['thesis_id' => $thesis->id, 'expanded' => $thesis->current_milestone_id]) }}" class="inline-flex items-center justify-center px-4 py-2 text-sm font-bold text-white bg-purple-600 rounded-xl hover:bg-purple-700 transition-colors shadow-xs">
+                Open Milestones Workspace
+            </a>
+            <a href="{{ route('examiner.theses.index') }}" class="inline-flex items-center justify-center px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
+                Back to Assigned Theses
+            </a>
+        </div>
     </div>
+
+    @php
+        $workflow = app(\App\Services\MilestoneWorkflowService::class);
+        $internalDefenceMilestone = $thesis->milestones->first(fn($m) => $workflow->isInternalDefence($m));
+        $isPostDefenceStage = $internalDefenceMilestone && $workflow->isPostDefencePhase($internalDefenceMilestone);
+        $postDefenceSub = $isPostDefenceStage ? $workflow->getPostDefenceSubmission($internalDefenceMilestone) : null;
+        $canApproveCorrections = $internalDefenceMilestone && ($workflow->isAssignedInternalExaminer($internalDefenceMilestone, auth()->user()) || auth()->user()->hasRole('Admin'));
+    @endphp
+
+    @if($isPostDefenceStage && $canApproveCorrections && $internalDefenceMilestone->status !== 'approved')
+    <div class="p-6 rounded-3xl border-2 border-purple-200 bg-purple-50/70 space-y-4 shadow-sm">
+        <div class="flex items-start justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-black text-sm shadow-sm">
+                    ⚖️
+                </div>
+                <div>
+                    <h3 class="text-sm font-black text-purple-950 uppercase tracking-wider">Post-Defence Correction Verification (Internal Defence)</h3>
+                    <p class="text-xs font-medium text-purple-800 mt-0.5">
+                        Candidate passed the Internal Defence presentation. Review their corrected thesis manuscript below to advance them to Viva (Milestone 07).
+                    </p>
+                </div>
+            </div>
+            <a href="{{ route('milestones.show', $internalDefenceMilestone) }}" class="px-3 py-1.5 bg-white border border-purple-200 text-purple-700 hover:bg-purple-100 rounded-xl text-[10px] font-black uppercase tracking-wider shrink-0 transition-all">
+                Open Milestone View
+            </a>
+        </div>
+
+        @if($postDefenceSub)
+            <div class="p-4 bg-white rounded-2xl border border-purple-200 flex items-center justify-between gap-4">
+                <div>
+                    <span class="px-2 py-0.5 bg-purple-100 text-purple-800 rounded text-[9px] font-black uppercase tracking-wider">Corrected Thesis Uploaded</span>
+                    <p class="text-xs font-bold text-slate-900 mt-1">{{ $postDefenceSub->file_meta['original_name'] ?? 'Corrected Thesis Document' }} (v.0{{ $postDefenceSub->version }})</p>
+                    @if($postDefenceSub->description)
+                        <p class="text-[11px] text-slate-600 mt-0.5 italic">"{{ $postDefenceSub->description }}"</p>
+                    @endif
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <a href="{{ Storage::url($postDefenceSub->file_url) }}" target="_blank" class="px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">
+                        Download Corrected Thesis
+                    </a>
+                    <a href="{{ route('submissions.view', $postDefenceSub->id) }}" class="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">
+                        View Details
+                    </a>
+                </div>
+            </div>
+
+            <form action="{{ route('milestones.review.update', $internalDefenceMilestone) }}" method="POST" class="space-y-3 bg-white p-5 rounded-2xl border border-purple-100">
+                @csrf
+                @method('PATCH')
+                <div>
+                    <label class="block text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1.5">Internal Examiner Decision</label>
+                    <select name="decision" required class="w-full rounded-xl border-slate-200 text-xs font-bold text-slate-800 py-2.5 px-3 focus:ring-purple-500 focus:border-purple-500">
+                        <option value="approved">✅ Approve Corrected Thesis & Advance Candidate to Viva</option>
+                        <option value="revision_required">🔄 Request Further Corrections</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1.5">Examiner Remarks / Verification Notes <span class="text-rose-500">*</span></label>
+                    <textarea name="remarks" rows="3" required class="w-full rounded-xl border-slate-200 text-xs p-3 focus:ring-purple-500 focus:border-purple-500" placeholder="Provide your verification notes on the candidate's post-defence corrections..."></textarea>
+                </div>
+                <div class="flex justify-end">
+                    <button type="submit" class="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md shadow-purple-600/20 transition-all cursor-pointer">
+                        Submit Correction Decision
+                    </button>
+                </div>
+            </form>
+        @else
+            <div class="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs font-bold text-amber-900">
+                ⏳ Waiting for the candidate to upload their post-defence corrected thesis manuscript. Once uploaded, you will be able to review and approve it here.
+            </div>
+        @endif
+    </div>
+    @endif
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2 space-y-6">

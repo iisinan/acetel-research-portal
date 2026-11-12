@@ -30,7 +30,10 @@ class MilestoneReviewController extends Controller
         $this->authorize('view', $milestone);
 
         $milestone->load(['template', 'submissions.submittedBy', 'thesis.student.user', 'thesis.student.program', 'thesis.student.level']);
-        $submission = $milestone->submissions()->latest()->first();
+        $isPostDefenceStage = $this->workflowService->isPostDefencePhase($milestone);
+        $submission = $isPostDefenceStage
+            ? $this->workflowService->getPostDefenceSubmission($milestone)
+            : $milestone->submissions()->latest()->first();
 
         $error = $this->workflowService->canApprove($milestone, Auth::user());
         if ($error) {
@@ -80,7 +83,7 @@ class MilestoneReviewController extends Controller
 
 
         $rules = [
-            'decision' => 'required|in:approved,rejected',
+            'decision' => 'required|in:approved,rejected,revision_required',
             'remarks' => 'required|string|max:5000',
         ];
 
@@ -116,58 +119,60 @@ class MilestoneReviewController extends Controller
             abort(403, 'Unauthorized.');
         }
 
+        $isInternalExaminerForThis = $this->workflowService->isAssignedInternalExaminer($milestone, $user);
+        $isPostDefenceStage = $this->workflowService->isPostDefencePhase($milestone);
+
         // Institutional Rule: Program Coordinators do not review student documents
-        if ($user->hasRole('Program Coordinator') && !$user->hasRole('Admin') && !$user->hasRole('Supervisor')) {
+        if ($user->hasRole('Program Coordinator') && !$user->hasRole('Admin') && !$user->hasRole('Supervisor') && !$isInternalExaminerForThis) {
             abort(403, 'Institutional Protocol: Program Coordinators do not review student documents. Document reviews are conducted by the assigned supervisor.');
         }
 
-        $isSupervisor = $user->hasRole('Supervisor') && !$user->hasRole('Admin');
+        $isAssignedSupervisor = $user->hasRole('Supervisor') && $user->supervisorProfile && $milestone->thesis->assignments()
+            ->where('supervisor_profile_id', $user->supervisorProfile->id)
+            ->where('status', 'active')
+            ->exists();
 
-        // Institutional Rule: Supervisors only review their supervisee students upload
-        if ($isSupervisor) {
-            $isAssigned = $user->supervisorProfile && $milestone->thesis->assignments()
-                ->where('supervisor_profile_id', $user->supervisorProfile->id)
-                ->where('status', 'active')
-                ->exists();
-            if (!$isAssigned) {
-                abort(403, 'Unauthorized. Supervisors can only review uploads for their assigned supervisees.');
-            }
-        }
+        $isSupervisor = $isAssignedSupervisor && !$user->hasRole('Admin');
 
-        $isInternalExaminerForThis = ($milestone->template?->slug === 'internal_defence' || $milestone->template?->order == 6) && 
-            $user->hasRole('Internal Examiner') && 
-            $user->internalExaminerProfiles()->where('id', $milestone->thesis->internal_examiner_profile_id)->exists();
-
-        if (!$user->hasAnyRole(['Admin', 'Supervisor']) && !$isInternalExaminerForThis) {
-            abort(403, 'Institutional Protocol: Unauthorized to review milestones.');
+        if (!$user->hasRole('Admin') && !$isAssignedSupervisor && !$isInternalExaminerForThis) {
+            abort(403, 'Unauthorized. Supervisors can only review uploads for their assigned supervisees, and Internal Examiners review post-defence corrections for their assigned candidates.');
         }
 
         $decision = $request->decision;
         $template = $milestone->template;
 
         // If an Internal Examiner is reviewing post-defence corrections on internal_defence:
-        if ($isInternalExaminerForThis) {
-            $submission = $milestone->submissions()->latest()->first();
+        if ($isInternalExaminerForThis && $isPostDefenceStage) {
+            $submission = $this->workflowService->getPostDefenceSubmission($milestone);
+            if (!$submission) {
+                return redirect()->back()->with('error', 'Cannot review yet: the candidate has not uploaded the corrected thesis manuscript after the defence presentation.');
+            }
 
             if ($decision === 'approved') {
-                if ($submission) {
-                    \App\Models\Feedback::updateOrCreate(
-                        ['submission_id' => $submission->id],
-                        [
-                            'user_id' => $user->id,
-                            'decision' => 'approved',
-                            'remarks' => $request->remarks,
-                        ]
-                    );
-                }
+                \App\Models\Feedback::updateOrCreate(
+                    ['submission_id' => $submission->id],
+                    [
+                        'user_id' => $user->id,
+                        'decision' => 'approved',
+                        'remarks' => $request->remarks,
+                    ]
+                );
 
                 $approvals = $milestone->approvals ?? [];
                 $approvalKey = 'Internal Examiner:' . $user->id;
                 $approvals[$approvalKey] = [
                     'user_id' => $user->id,
+                    'user_name' => $user->name,
                     'role' => 'Internal Examiner',
                     'approved_at' => now()->toDateTimeString(),
                     'remarks' => $request->remarks,
+                ];
+                $approvals['internal_examiner_review'] = [
+                    'user_id' => $user->id,
+                    'user_name' => $user->name,
+                    'decision' => 'approved',
+                    'remarks' => $request->remarks,
+                    'reviewed_at' => now()->toDateTimeString(),
                 ];
                 $milestone->approvals = $approvals;
                 $milestone->status = 'approved';
@@ -178,25 +183,38 @@ class MilestoneReviewController extends Controller
                 // Advance candidate to next milestone (Milestone 7: Viva)
                 $this->workflowService->afterApproval($milestone);
 
-                $this->workflowService->notifyUpdate($milestone, "Internal Examiner {$user->name} officially approved the corrected thesis for: {$template->name}. Student advanced to Viva Voce.");
+                $this->workflowService->notifyUpdate($milestone, "Internal Examiner {$user->name} officially approved the post-defence corrected thesis for: {$template->name}. Student advanced to Viva Voce.");
 
                 return redirect()->back()->with('success', 'Corrected thesis approved successfully. The student has been officially advanced to Milestone 7 (Viva Voce).');
             } else {
-                if ($submission) {
-                    \App\Models\Feedback::updateOrCreate(
-                        ['submission_id' => $submission->id],
-                        [
-                            'user_id' => $user->id,
-                            'decision' => 'revision_required',
-                            'remarks' => $request->remarks,
-                        ]
-                    );
-                }
-                $milestone->update(['status' => 'revision_required']);
-                $this->workflowService->notifyUpdate($milestone, "Internal Examiner {$user->name} requested corrections for: {$template->name}");
+                \App\Models\Feedback::updateOrCreate(
+                    ['submission_id' => $submission->id],
+                    [
+                        'user_id' => $user->id,
+                        'decision' => 'revision_required',
+                        'remarks' => $request->remarks,
+                    ]
+                );
+                $approvals = $milestone->approvals ?? [];
+                $approvals['internal_examiner_review'] = [
+                    'user_id' => $user->id,
+                    'user_name' => $user->name,
+                    'decision' => 'revision_required',
+                    'remarks' => $request->remarks,
+                    'reviewed_at' => now()->toDateTimeString(),
+                ];
+                $milestone->approvals = $approvals;
+                $milestone->status = 'revision_required';
+                $milestone->save();
 
-                return redirect()->back()->with('success', 'Corrections requested. The candidate has been notified to revise the thesis manuscript.');
+                $this->workflowService->notifyUpdate($milestone, "Internal Examiner {$user->name} requested further post-defence corrections for: {$template->name}");
+
+                return redirect()->back()->with('success', 'Corrections requested. The candidate has been notified to revise and re-upload the corrected thesis manuscript.');
             }
+        }
+
+        if ($isInternalExaminerForThis && !$isPostDefenceStage && !$isAssignedSupervisor && !$user->hasRole('Admin')) {
+            return redirect()->back()->with('error', 'Pre-defence manuscript uploads are reviewed by the assigned Supervisor. The Internal Examiner reviews post-defence corrections after the presentation session has ended.');
         }
 
         // If a Supervisor is reviewing, handle document acceptance / revision request
@@ -247,8 +265,8 @@ class MilestoneReviewController extends Controller
         }
         
         if ($decision === 'approved') {
-            // If milestone is gated by presentation, enforce presentation requirements
-            if (in_array($template->slug, \App\Services\MilestoneWorkflowService::PRESENTATION_GATED_SLUGS)) {
+            // If milestone is gated by presentation (and not already in post-defence correction stage), enforce presentation requirements
+            if (in_array($template->slug, \App\Services\MilestoneWorkflowService::PRESENTATION_GATED_SLUGS) && !$isPostDefenceStage) {
                 $endSessionBlockReason = $this->workflowService->getEndSessionBlockReason($milestone);
                 if ($endSessionBlockReason) {
                     return redirect()->back()->with('error', "Cannot clear {$template->name}: {$endSessionBlockReason}. Please ensure all prerequisites are met and use 'End Presentation'.");

@@ -2,7 +2,8 @@
     $workflow = app(\App\Services\MilestoneWorkflowService::class);
     $slug = $milestone->template?->slug;
     $isSeminar = ($slug === 'seminar_as_a_course');
-    $isPresentationMilestone = in_array($slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2']);
+    $isInternalDefence = ($slug === 'internal_defence' || $milestone->template?->order == 6);
+    $isPresentationMilestone = in_array($slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']) || $isInternalDefence;
 @endphp
 
 @if($isPresentationMilestone)
@@ -15,8 +16,15 @@
         $isConducted = $hasSchedule && ($defenceDate->startOfDay()->lte(now()->startOfDay()) || $workflow->hasBeenGraded($milestone));
         $isGraded = $workflow->hasBeenGraded($milestone);
         $isApproved = ($milestone->status === 'approved');
+        $isPostDefence = $isInternalDefence && $workflow->isPostDefencePhase($milestone);
+        $postDefenceSub = $isInternalDefence ? $workflow->getPostDefenceSubmission($milestone) : null;
+        $hasPostDefenceSub = $postDefenceSub !== null;
+        $postDefenceUrl = $postDefenceSub?->file_url ? (str_starts_with($postDefenceSub->file_url, 'http') ? $postDefenceSub->file_url : \Illuminate\Support\Facades\Storage::url($postDefenceSub->file_url)) : null;
+        $ieDecision = $milestone->approvals['internal_examiner_review']['decision'] ?? null;
+        $isAssignedInternalExaminerUser = $isInternalDefence && $workflow->isAssignedInternalExaminer($milestone, auth()->user());
+
         $endSessionBlockReason = $workflow->getEndSessionBlockReason($milestone);
-        $canEndPresentation = is_null($endSessionBlockReason);
+        $canEndPresentation = is_null($endSessionBlockReason) && !$isPostDefence;
         $latestPptSub = $milestone->submissions()->where('type', 'ppt')->latest()->first() 
             ?? $milestone->submissions()->latest()->first();
         $pptUrl = $latestPptSub?->file_url ? (str_starts_with($latestPptSub->file_url, 'http') ? $latestPptSub->file_url : \Illuminate\Support\Facades\Storage::url($latestPptSub->file_url)) : null;
@@ -27,7 +35,8 @@
             'proposal_defence' => 'Progress Report 1',
             'progress_report_1' => 'Progress Report 2',
             'progress_report_2' => 'Internal Defence',
-            default => 'Next Milestone'
+            'internal_defence' => 'Viva Voce',
+            default => $isInternalDefence ? 'Viva Voce' : 'Next Milestone'
         };
 
         $gradingOutcome = $workflow->getAverageGradingOutcome($milestone);
@@ -39,18 +48,26 @@
             'proposal_defence' => 'proposal',
             'progress_report_1' => 'progress_report_1',
             'progress_report_2' => 'progress_report_2',
-            default => null
+            'internal_defence' => 'internal',
+            default => $isInternalDefence ? 'internal' : null
         };
         $checklistEvent = $checklistEventType && $milestone->thesis 
             ? $milestone->thesis->defenceEvents->firstWhere('type', $checklistEventType) 
             : null;
         $evaluatorId = $checklistEvent?->evaluations?->first()?->evaluator_id;
 
-        $totalSteps = $isSeminar ? 3 : 5;
+        $totalSteps = $isSeminar ? 3 : ($isInternalDefence ? 6 : 5);
         $completedSteps = 0;
         if ($isSeminar) {
             if ($hasSchedule) $completedSteps++;
             if ($isGraded) $completedSteps++;
+            if ($isApproved) $completedSteps++;
+        } elseif ($isInternalDefence) {
+            if ($hasPpt || $isPostDefence || $isApproved) $completedSteps++;
+            if ($isSupervisorApproved || $isPostDefence || $isApproved) $completedSteps++;
+            if (($isGraded && $isPass) || $isPostDefence || $isApproved) $completedSteps++;
+            if ($isPostDefence || $isApproved) $completedSteps++;
+            if (($hasPostDefenceSub && $ieDecision !== 'revision_required') || $isApproved) $completedSteps++;
             if ($isApproved) $completedSteps++;
         } else {
             if ($hasPpt) $completedSteps++;
@@ -182,6 +199,216 @@
                                 <p class="text-[10px] text-amber-700 font-bold mt-1">Missing: {{ ucfirst($endSessionBlockReason) }}</p>
                             </div>
                         @endif
+                    @endif
+                </div>
+            </div>
+        @elseif($isInternalDefence)
+            {{-- Internal Defence: 6 Steps (including Post-Defence Correction Upload & Internal Examiner Approval) --}}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-6">
+                {{-- Step 1: Pre-Defence Manuscript Upload --}}
+                <div class="p-5 rounded-2xl border transition-all {{ ($hasPpt || $isPostDefence || $isApproved) ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200' }} flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black {{ ($hasPpt || $isPostDefence || $isApproved) ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-700' }}">1</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider {{ ($hasPpt || $isPostDefence || $isApproved) ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800' }}">
+                                {{ ($hasPpt || $isPostDefence || $isApproved) ? 'Uploaded' : 'Pending Upload' }}
+                            </span>
+                        </div>
+                        <h4 class="text-sm font-bold text-slate-900">1. Pre-Defence Thesis Upload</h4>
+                        <p class="text-xs text-slate-500 mt-1 mb-3">
+                            {{ ($hasPpt || $isPostDefence || $isApproved) ? 'Pre-defence thesis manuscript uploaded by candidate.' : 'Candidate must upload thesis manuscript (PDF) before presentation.' }}
+                        </p>
+                    </div>
+                </div>
+
+                {{-- Step 2: Supervisor Pre-Defence Approval --}}
+                <div class="p-5 rounded-2xl border transition-all {{ ($isSupervisorApproved || $isPostDefence || $isApproved) ? 'bg-emerald-50/50 border-emerald-200' : ($milestone->status === 'revision_required' && !$isPostDefence ? 'bg-rose-50/50 border-rose-200' : 'bg-slate-50 border-slate-200') }} flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black {{ ($isSupervisorApproved || $isPostDefence || $isApproved) ? 'bg-emerald-500 text-white' : ($milestone->status === 'revision_required' && !$isPostDefence ? 'bg-rose-500 text-white' : 'bg-slate-200 text-slate-700') }}">2</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider {{ ($isSupervisorApproved || $isPostDefence || $isApproved) ? 'bg-emerald-100 text-emerald-800' : ($milestone->status === 'revision_required' && !$isPostDefence ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800') }}">
+                                {{ ($isSupervisorApproved || $isPostDefence || $isApproved) ? 'Approved' : ($milestone->status === 'revision_required' && !$isPostDefence ? 'Revision Needed' : 'Awaiting Review') }}
+                            </span>
+                        </div>
+                        <h4 class="text-sm font-bold text-slate-900">2. Supervisor Pre-Defence Approval</h4>
+                        <p class="text-xs text-slate-500 mt-1 mb-3">
+                            {{ ($isSupervisorApproved || $isPostDefence || $isApproved) ? 'Supervisor approved the candidate\'s thesis for internal defence presentation.' : 'Assigned supervisor must review and accept the pre-defence manuscript.' }}
+                        </p>
+                    </div>
+
+                    @php
+                        $canReviewPreDefence = !$isPostDefence && (auth()->user()->hasRole('Admin') || (
+                            auth()->user()->hasRole('Supervisor') && 
+                            auth()->user()->supervisorProfile && 
+                            $milestone->thesis->assignments->where('supervisor_profile_id', auth()->user()->supervisorProfile->id)->where('status', 'active')->isNotEmpty()
+                        ));
+                    @endphp
+                    @if(!$isSupervisorApproved && $canReviewPreDefence && $milestone->submissions()->exists())
+                        <form method="POST" x-data="{ remarks: '' }" @submit="if(!remarks.trim()) { alert('A comment is required to accept or reject the upload.'); event.preventDefault(); }" class="mt-4 pt-4 border-t border-slate-100">
+                            @csrf
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">Supervisor Decision <span class="text-rose-500">*</span></label>
+                            <textarea name="remarks" x-model="remarks" rows="2" class="w-full text-xs rounded-xl border-slate-200 focus:ring-indigo-500 focus:border-indigo-500 p-2.5 mb-2 shadow-sm resize-none bg-white placeholder:text-slate-400" placeholder="Required: Explain your decision..." required></textarea>
+                            <div class="flex gap-2">
+                                <button type="submit" formaction="{{ route('milestones.accept_upload', $milestone) }}" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-2 rounded-xl text-xs font-bold transition-colors">
+                                    Accept Upload
+                                </button>
+                                <button type="submit" formaction="{{ route('milestones.reject_upload', $milestone) }}" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white py-2 rounded-xl text-xs font-bold transition-colors">
+                                    Reject Upload
+                                </button>
+                            </div>
+                        </form>
+                    @endif
+                </div>
+
+                {{-- Step 3: Presentation & Examiner Grading --}}
+                <div class="p-5 rounded-2xl border transition-all {{ (($isGraded && $isPass) || $isPostDefence || $isApproved) ? 'bg-emerald-50/50 border-emerald-200' : ($isGraded && $isFail ? 'bg-rose-50/50 border-rose-200' : 'bg-slate-50 border-slate-200') }} flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black {{ (($isGraded && $isPass) || $isPostDefence || $isApproved) ? 'bg-emerald-500 text-white' : ($isGraded && $isFail ? 'bg-rose-500 text-white' : 'bg-slate-200 text-slate-700') }}">3</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider {{ (($isGraded && $isPass) || $isPostDefence || $isApproved) ? 'bg-emerald-100 text-emerald-800' : ($isGraded && $isFail ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800') }}">
+                                {{ ($isPostDefence || $isApproved) ? 'Passed' : ($isGraded ? ($isPass ? 'Passed' : 'Failed') : ($hasSchedule ? 'Scheduled' : 'Pending')) }}
+                            </span>
+                        </div>
+                        <h4 class="text-sm font-bold text-slate-900">3. Presentation & Grading</h4>
+                        <p class="text-xs text-slate-500 mt-1 mb-3">
+                            @if($isPostDefence || $isApproved || ($isGraded && $isPass))
+                                Candidate passed internal defence evaluation.
+                            @elseif($isGraded && $isFail)
+                                Candidate received a FAIL grade and must repeat internal defence.
+                            @elseif($hasSchedule)
+                                Scheduled for {{ $defenceDate->format('d M Y') }} {{ $milestone->defence_time ? '• ' . \Carbon\Carbon::parse($milestone->defence_time)->format('g:i A') : '' }}
+                            @else
+                                Awaiting presentation schedule and examiner evaluation.
+                            @endif
+                        </p>
+                    </div>
+                </div>
+
+                {{-- Step 4: Admin Concludes Presentation Session --}}
+                <div class="p-5 rounded-2xl border transition-all {{ ($isPostDefence || $isApproved) ? 'bg-emerald-50/50 border-emerald-200' : ($canEndPresentation ? ($isFail ? 'bg-rose-50/60 border-rose-200' : 'bg-blue-50/60 border-blue-200') : 'bg-slate-50 border-slate-200') }} flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black {{ ($isPostDefence || $isApproved) ? 'bg-emerald-500 text-white' : ($canEndPresentation ? ($isFail ? 'bg-rose-600 text-white' : 'bg-blue-600 text-white') : 'bg-slate-200 text-slate-700') }}">4</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider {{ ($isPostDefence || $isApproved) ? 'bg-emerald-100 text-emerald-800' : ($canEndPresentation ? ($isFail ? 'bg-rose-100 text-rose-800' : 'bg-blue-100 text-blue-800') : 'bg-slate-200 text-slate-700') }}">
+                                {{ ($isPostDefence || $isApproved) ? 'Session Ended' : ($canEndPresentation ? 'Ready' : 'Pending') }}
+                            </span>
+                        </div>
+                        <h4 class="text-sm font-bold text-slate-900">4. End Presentation Session</h4>
+                        <p class="text-xs text-slate-500 mt-1 mb-3">
+                            @if($isPostDefence || $isApproved)
+                                Presentation session ended by Admin. Candidate entered Post-Defence Correction stage.
+                            @else
+                                Admin ends the presentation session after PASS grade to unlock post-defence corrections.
+                            @endif
+                        </p>
+                    </div>
+
+                    @if(!$isPostDefence && !$isApproved && auth()->user()->hasRole('Admin'))
+                        @if($canEndPresentation)
+                            <form action="{{ route('milestones.end_presentation', $milestone) }}" method="POST">
+                                @csrf
+                                <button type="submit" 
+                                    data-confirm="Are you sure you want to end the internal defence presentation session for {{ addslashes($milestone->thesis->student->user->name) }}? {{ $isFail ? 'The candidate received a FAIL grade and will repeat this milestone.' : 'The candidate will enter the Post-Defence Correction stage and must upload their corrected thesis for Internal Examiner approval before moving to Viva.' }}"
+                                    data-confirm-title="End Internal Defence Presentation"
+                                    data-confirm-type="{{ $isFail ? 'danger' : 'success' }}"
+                                    data-confirm-btn="{{ $isFail ? 'End & Repeat Milestone' : 'End Presentation & Request Corrections' }}"
+                                    class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 {{ $isFail ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/30' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/30' }} text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer">
+                                    <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    <span>{{ $isFail ? 'Repeat Milestone' : 'End Presentation' }}</span>
+                                </button>
+                            </form>
+                        @else
+                            <div>
+                                <button disabled class="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-slate-200 text-slate-500 rounded-xl text-xs font-bold uppercase tracking-wider cursor-not-allowed">
+                                    <span>End Presentation</span>
+                                </button>
+                                <p class="text-[10px] text-amber-700 font-bold mt-1">Pending: {{ ucfirst($endSessionBlockReason) }}</p>
+                            </div>
+                        @endif
+                    @endif
+                </div>
+
+                {{-- Step 5: Post-Defence Corrected Thesis Upload --}}
+                @php
+                    $step5Completed = ($hasPostDefenceSub && $ieDecision !== 'revision_required') || $isApproved;
+                @endphp
+                <div class="p-5 rounded-2xl border transition-all {{ $step5Completed ? 'bg-emerald-50/50 border-emerald-200' : ($isPostDefence ? 'bg-amber-50/60 border-amber-200' : 'bg-slate-50 border-slate-200') }} flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black {{ $step5Completed ? 'bg-emerald-500 text-white' : ($isPostDefence ? 'bg-amber-500 text-white' : 'bg-slate-200 text-slate-700') }}">5</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider {{ $step5Completed ? 'bg-emerald-100 text-emerald-800' : ($ieDecision === 'revision_required' ? 'bg-rose-100 text-rose-800' : ($isPostDefence ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-700')) }}">
+                                {{ $step5Completed ? 'Uploaded' : ($ieDecision === 'revision_required' ? 'Re-Upload Required' : ($isPostDefence ? 'Awaiting Upload' : 'Locked')) }}
+                            </span>
+                        </div>
+                        <h4 class="text-sm font-bold text-slate-900">5. Corrected Thesis Submission</h4>
+                        <p class="text-xs text-slate-500 mt-1 mb-3">
+                            @if($step5Completed)
+                                Candidate uploaded the corrected thesis manuscript after presentation for Internal Examiner review.
+                            @elseif($ieDecision === 'revision_required')
+                                Internal Examiner requested further corrections. Candidate must upload a revised manuscript.
+                            @elseif($isPostDefence)
+                                Candidate must upload the corrected thesis manuscript incorporating defence feedback.
+                            @else
+                                Unlocks after the presentation session is concluded with a PASS grade.
+                            @endif
+                        </p>
+                    </div>
+
+                    @if($hasPostDefenceSub && $postDefenceUrl)
+                        <button type="button" 
+                            @click.prevent="$dispatch('open-document-preview', { 
+                                url: '{{ $postDefenceUrl }}', 
+                                title: 'Corrected Thesis Manuscript - {{ addslashes($milestone->thesis->student->user->name) }}', 
+                                type: 'pdf' 
+                            })"
+                            class="w-full inline-flex items-center justify-center gap-2 px-3 py-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-indigo-700 transition-colors shadow-sm cursor-pointer">
+                            <svg class="w-3.5 h-3.5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                            <span>View Corrected Thesis (v{{ $postDefenceSub->version }})</span>
+                        </button>
+                    @elseif($isPostDefence && auth()->user()->hasRole('Student'))
+                        <a href="#artifact-upload-section" class="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-colors">
+                            <span>Upload Corrected Thesis Below &darr;</span>
+                        </a>
+                    @endif
+                </div>
+
+                {{-- Step 6: Internal Examiner Approval -> Advance to Viva --}}
+                <div class="p-5 rounded-2xl border transition-all {{ $isApproved ? 'bg-emerald-50/50 border-emerald-200' : ($hasPostDefenceSub ? 'bg-indigo-50/60 border-indigo-200' : 'bg-slate-50 border-slate-200') }} flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black {{ $isApproved ? 'bg-emerald-500 text-white' : ($hasPostDefenceSub ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700') }}">6</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider {{ $isApproved ? 'bg-emerald-100 text-emerald-800' : ($hasPostDefenceSub ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-200 text-slate-700') }}">
+                                {{ $isApproved ? 'Approved & Advanced' : ($hasPostDefenceSub ? ($ieDecision === 'revision_required' ? 'Revision Requested' : 'Ready for Review') : 'Pending') }}
+                            </span>
+                        </div>
+                        <h4 class="text-sm font-bold text-slate-900">6. Internal Examiner Approval</h4>
+                        <p class="text-xs text-slate-500 mt-1 mb-3">
+                            @if($isApproved)
+                                Internal Examiner approved the corrected thesis. Candidate advanced to Viva Voce.
+                            @elseif($hasPostDefenceSub && $ieDecision !== 'revision_required')
+                                Assigned Internal Examiner reviews the corrected thesis and approves it to advance candidate to Viva Voce.
+                            @elseif($ieDecision === 'revision_required')
+                                Internal Examiner requested further corrections ({{ $milestone->approvals['internal_examiner_review']['remarks'] ?? '' }}).
+                            @else
+                                Internal Examiner will review and approve the corrected thesis once uploaded by the student.
+                            @endif
+                        </p>
+                    </div>
+
+                    @if(!$isApproved && $isPostDefence && $hasPostDefenceSub && ($isAssignedInternalExaminerUser || auth()->user()->hasRole('Admin')))
+                        <form method="POST" x-data="{ remarks: '' }" @submit="if(!remarks.trim()) { alert('Please provide review comments explaining your decision.'); event.preventDefault(); }" class="mt-3 pt-3 border-t border-indigo-100">
+                            @csrf
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">Internal Examiner Verdict <span class="text-rose-500">*</span></label>
+                            <textarea name="remarks" x-model="remarks" rows="2" class="w-full text-xs rounded-xl border-slate-200 focus:ring-indigo-500 focus:border-indigo-500 p-2.5 mb-2 shadow-sm resize-none bg-white placeholder:text-slate-400" placeholder="Enter your review of the post-defence corrections..." required></textarea>
+                            <div class="flex flex-col gap-1.5">
+                                <button type="submit" formaction="{{ route('milestones.accept_upload', $milestone) }}" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition-colors cursor-pointer">
+                                    Approve Corrections & Advance to Viva
+                                </button>
+                                <button type="submit" formaction="{{ route('milestones.reject_upload', $milestone) }}" class="w-full bg-rose-500 hover:bg-rose-600 text-white py-2 px-3 rounded-xl text-xs font-bold transition-colors cursor-pointer">
+                                    Request Further Corrections
+                                </button>
+                            </div>
+                        </form>
                     @endif
                 </div>
             </div>

@@ -185,11 +185,20 @@ class MilestoneTemplate extends Model
             }])
             ->orderBy('order')
             ->get()
+            ->map(function ($t) {
+                $workflow = app(\App\Services\MilestoneWorkflowService::class);
+                $t->setRelation(
+                    'studentMilestones',
+                    $t->studentMilestones
+                        ->whereNotNull('defence_date')
+                        ->where('status', '!=', 'approved')
+                        ->reject(fn($sm) => $workflow->isPostDefencePhase($sm->setRelation('template', $t)))
+                        ->values()
+                );
+                return $t;
+            })
             ->filter(function ($t) {
-                return $t->studentMilestones
-                    ->whereNotNull('defence_date')
-                    ->where('status', '!=', 'approved')
-                    ->isNotEmpty();
+                return $t->studentMilestones->isNotEmpty();
             })
             ->values();
     }
