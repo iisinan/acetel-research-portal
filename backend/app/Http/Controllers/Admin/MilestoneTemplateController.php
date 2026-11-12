@@ -648,7 +648,11 @@ class MilestoneTemplateController extends Controller
                 if (!empty($entry['remove'])) {
                     $sm->update(['defence_date' => null, 'defence_time' => null, 'meeting_link' => null]);
                     if ($thesis) {
-                        \App\Models\DefenceEvent::where('thesis_project_id', $thesis->id)->where('type', $type)->delete();
+                        if ($type === 'internal') {
+                            \App\Models\DefenceEvent::where('thesis_project_id', $thesis->id)->where('type', $type)->update(['location' => null]);
+                        } else {
+                            \App\Models\DefenceEvent::where('thesis_project_id', $thesis->id)->where('type', $type)->delete();
+                        }
                     }
                     if ($studentUser) {
                         \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
@@ -1055,7 +1059,11 @@ class MilestoneTemplateController extends Controller
                 ]);
 
                 if ($thesis) {
-                    \App\Models\DefenceEvent::where('thesis_project_id', $thesis->id)->where('type', $type)->delete();
+                    if ($type === 'internal') {
+                        \App\Models\DefenceEvent::where('thesis_project_id', $thesis->id)->where('type', $type)->update(['location' => null]);
+                    } else {
+                        \App\Models\DefenceEvent::where('thesis_project_id', $thesis->id)->where('type', $type)->delete();
+                    }
                 }
                 if ($studentUser) {
                     \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUser->id);
@@ -1064,6 +1072,14 @@ class MilestoneTemplateController extends Controller
                 \Illuminate\Support\Facades\DB::commit();
                 \App\Models\MilestoneTemplate::clearPresentationCache();
                 return back()->with('success', "Cancelled presentation for {$studentName} and removed them from the schedule.");
+            }
+
+            // Enforce supervisor approval before scheduling unscheduled candidates on supervisor-gated milestones
+            $requiresSupervisorApproval = in_array('Supervisor', $template->required_approvers ?? [])
+                || in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']);
+            if ($requiresSupervisorApproval && !$workflow->isSupervisorApproved($milestone)) {
+                \Illuminate\Support\Facades\DB::rollBack();
+                return back()->with('error', "Cannot schedule {$studentName}: The candidate's uploaded thesis/document has not yet been approved by their supervisor.");
             }
 
             // Schedule or change date
@@ -1335,13 +1351,19 @@ class MilestoneTemplateController extends Controller
             };
 
             if ($thesisIds->isNotEmpty()) {
-                \App\Models\DefenceEvent::whereIn('thesis_project_id', $thesisIds)
-                    ->where('type', $type)
-                    ->delete();
+                if ($type === 'internal') {
+                    \App\Models\DefenceEvent::whereIn('thesis_project_id', $thesisIds)
+                        ->where('type', $type)
+                        ->update(['location' => null]);
+                } else {
+                    \App\Models\DefenceEvent::whereIn('thesis_project_id', $thesisIds)
+                        ->where('type', $type)
+                        ->delete();
+                }
             }
 
-            // Only clear global examiner metadata if cancelling globally (not group-specific)
-            if (!$discGroup) {
+            // Only clear global examiner metadata if cancelling globally (not group-specific and not internal_defence)
+            if (!$discGroup && $template->slug !== 'internal_defence') {
                 $metadata = $template->metadata ?? [];
                 if (isset($metadata['examiner_profile_ids'])) {
                     unset($metadata['examiner_profile_ids']);

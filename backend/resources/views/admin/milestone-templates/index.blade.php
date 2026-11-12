@@ -537,8 +537,8 @@
                                             if (empty($m->defence_date) || $m->status === 'approved') {
                                                 return false;
                                             }
-                                            // Requirement: Any students that were graded should not appear on edit schedule tab/modal
-                                            if ($workflow->hasBeenGraded($m)) {
+                                            // Requirement: Any students that were graded or concluded presentation should not appear on edit schedule tab/modal
+                                            if ($workflow->hasBeenGraded($m) || $workflow->isPostDefencePhase($m)) {
                                                 return false;
                                             }
                                             return true;
@@ -1904,10 +1904,16 @@
                                                             </button>
                                                         </div>
                                                         <button type="button" 
-                                                            @click="let visibleRows = Array.from($root.querySelectorAll('tr[data-milestone-id]')).filter(row => row.style.display !== 'none'); selected = visibleRows.map(row => row.getAttribute('data-milestone-id')); selectAll = true;"
-                                                            class="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition flex items-center gap-1 cursor-pointer shadow-2xs">
+                                                            @click="let visibleRows = Array.from($root.querySelectorAll('tr[data-milestone-id]')).filter(row => row.style.display !== 'none' && row.getAttribute('data-supervisor-approved') === '1'); selected = visibleRows.map(row => row.getAttribute('data-milestone-id'));"
+                                                            class="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                                                            title="Select all visible candidates whose thesis/document has been approved by their supervisor">
                                                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                                            <span>Select visible <span x-text="degreeFilter === 'all' ? 'All' : degreeFilter"></span> (<span x-text="degreeFilter === 'PhD' ? '{{ $phdCount }}' : (degreeFilter === 'MSc' ? '{{ $mscCount }}' : '{{ $template->studentMilestones->count() }}')"></span>)</span>
+                                                            <span>Select Approved <span x-text="degreeFilter === 'all' ? 'All' : degreeFilter"></span></span>
+                                                        </button>
+                                                        <button type="button" 
+                                                            @click="let visibleRows = Array.from($root.querySelectorAll('tr[data-milestone-id]')).filter(row => row.style.display !== 'none'); selected = visibleRows.map(row => row.getAttribute('data-milestone-id')); selectAll = true;"
+                                                            class="text-[11px] font-bold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg border border-slate-200 transition flex items-center gap-1 cursor-pointer shadow-2xs">
+                                                            <span>Select All Visible (<span x-text="degreeFilter === 'PhD' ? '{{ $phdCount }}' : (degreeFilter === 'MSc' ? '{{ $mscCount }}' : '{{ $template->studentMilestones->count() }}')"></span>)</span>
                                                         </button>
                                                     </div>
                                                     @endif
@@ -2343,7 +2349,7 @@
                                                             $rowDegreeType = str_contains(strtolower($rawDegree), 'phd') || str_contains(strtolower($rawDegree), 'doctor') ? 'PhD' : 'MSc';
                                                             $isGraded = ($event && $event->evaluations->count() > 0) || $workflow->hasBeenGraded($sm);
                                                         @endphp
-                                                        <tr data-milestone-id="{{ $sm->id }}" class="hover:bg-slate-50/50 transition-colors" 
+                                                        <tr data-milestone-id="{{ $sm->id }}" data-supervisor-approved="{{ $workflow->isSupervisorApproved($sm) ? '1' : '0' }}" class="hover:bg-slate-50/50 transition-colors" 
                                                             x-show="(trackFilter === 'all' || trackFilter === '{{ $sm->discipline_group }}') && (degreeFilter === 'all' || degreeFilter === '{{ $rowDegreeType }}') && (cohortFilter === '' || cohortFilter == '{{ $cohortId }}') && (!search || '{{ strtolower($studentName) }}'.includes(search.toLowerCase()) || '{{ strtolower($matricNo) }}'.includes(search.toLowerCase()))">
                                                             @if(!isset($isCoordinator) || !$isCoordinator)
                                                             <td class="px-4 py-3">

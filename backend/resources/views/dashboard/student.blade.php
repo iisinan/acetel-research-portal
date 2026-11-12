@@ -100,13 +100,54 @@
         </div>
     </div>
 
-    {{-- Scheduled Presentation Banner --}}
+    {{-- Scheduled Presentation / Post-Defence Correction Banner --}}
     @php
         $todayStr = now()->toDateString();
-        $studentSchedMilestone = $milestones->first(function($m) use ($todayStr) {
-            return !empty($m->defence_date) && \Carbon\Carbon::parse($m->defence_date)->format('Y-m-d') >= $todayStr && $m->status !== 'approved';
+        $dashWorkflow = app(\App\Services\MilestoneWorkflowService::class);
+        $studentPostDefMilestone = $milestones->first(fn($m) => $dashWorkflow->isPostDefencePhase($m));
+        $studentSchedMilestone = $milestones->first(function($m) use ($todayStr, $dashWorkflow) {
+            return !empty($m->defence_date)
+                && \Carbon\Carbon::parse($m->defence_date)->format('Y-m-d') >= $todayStr
+                && $m->status !== 'approved'
+                && !$dashWorkflow->isPostDefencePhase($m);
         });
     @endphp
+
+    @if($studentPostDefMilestone)
+        @php
+            $hasPostDefSub = $dashWorkflow->hasPostDefenceSubmission($studentPostDefMilestone);
+            $isPostDefRevision = $studentPostDefMilestone->status === 'revision_required';
+        @endphp
+        <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-purple-900 via-indigo-950 to-slate-900 text-white p-5 sm:p-8 shadow-xl border border-purple-500/30">
+            <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+                <div class="space-y-2">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full {{ $isPostDefRevision ? 'bg-rose-500 text-white font-black' : ($hasPostDefSub ? 'bg-purple-500/20 text-purple-200 border border-purple-400/30' : 'bg-amber-400 text-slate-950 font-black') }} text-[10px] uppercase tracking-wider">
+                        <span class="w-2 h-2 rounded-full {{ $hasPostDefSub && !$isPostDefRevision ? 'bg-purple-300 animate-pulse' : 'bg-slate-950 animate-ping' }}"></span>
+                        <span>{{ $isPostDefRevision ? 'Further Post-Defence Corrections Requested' : ($hasPostDefSub ? 'Post-Defence Thesis Awaiting Internal Examiner Approval' : 'Internal Defence Passed — Upload Corrected Thesis') }}</span>
+                    </div>
+                    <h3 class="text-xl sm:text-2xl font-black text-white tracking-tight">
+                        {{ $studentPostDefMilestone->template->name }} — Post-Defence Correction Stage
+                    </h3>
+                    <p class="text-xs sm:text-sm text-slate-300 font-medium max-w-2xl">
+                        @if($isPostDefRevision)
+                            Your Internal Examiner requested further revisions on your post-defence corrected thesis manuscript. Please review their feedback and upload your updated manuscript to advance to Viva Voce.
+                        @elseif($hasPostDefSub)
+                            Your corrected thesis manuscript has been uploaded and is currently awaiting review and clearance by your assigned Internal Examiner ({{ $active_thesis?->internalExaminer?->user?->name ?? 'Internal Examiner' }}).
+                        @else
+                            Congratulations on passing your Internal Defence presentation! Please incorporate all panel observations and upload your corrected thesis manuscript for Internal Examiner approval to advance to Milestone 07 (Viva Voce).
+                        @endif
+                    </p>
+                </div>
+                <div class="flex items-center gap-3 w-full md:w-auto shrink-0">
+                    <a href="{{ route('milestones.index', ['expanded' => $studentPostDefMilestone->id]) }}"
+                       class="inline-flex items-center justify-center gap-2 px-5 py-3 bg-purple-500 hover:bg-purple-400 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-purple-500/20 transition active:scale-95 w-full sm:w-auto text-center">
+                        <span>{{ $hasPostDefSub && !$isPostDefRevision ? 'View Submission Status' : 'Upload Corrected Thesis' }}</span>
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+    @endif
 
     @if($studentSchedMilestone)
         @php
@@ -231,7 +272,16 @@
                                         <a href="{{ route('milestones.index', ['expanded' => $milestone->id]) }}" class="text-sm font-bold text-slate-800 hover:text-green-700 hover:underline truncate block">
                                             {{ $milestone->template->name }}
                                         </a>
-                                        @if($milestone->defence_date && !$isApproved)
+                                        @php
+                                            $isRowPostDef = $dashWorkflow->isPostDefencePhase($milestone);
+                                            $hasRowPostDefSub = $isRowPostDef && $dashWorkflow->hasPostDefenceSubmission($milestone);
+                                            $isRowSupApproved = !$isRowPostDef && !$isApproved && $dashWorkflow->isSupervisorApproved($milestone);
+                                        @endphp
+                                        @if($isRowPostDef)
+                                            <p class="text-xs text-purple-700 font-bold mt-0.5">
+                                                {{ $hasRowPostDefSub ? 'Corrected thesis uploaded — awaiting Internal Examiner approval' : 'Presentation passed — upload corrected thesis manuscript' }}
+                                            </p>
+                                        @elseif($milestone->defence_date && !$isApproved)
                                             <p class="text-xs text-emerald-700 font-bold mt-0.5 flex items-center gap-1">
                                                 <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -258,8 +308,14 @@
                                     </div>
                                     @if($isApproved)
                                         <span class="shrink-0 self-start sm:self-auto px-2.5 py-1 bg-green-100 text-green-700 text-[10px] font-black uppercase tracking-wider rounded-full border border-green-200">Approved</span>
+                                    @elseif($isRowPostDef)
+                                        <a href="{{ route('milestones.index', ['expanded' => $milestone->id]) }}" class="shrink-0 self-start sm:self-auto px-2.5 py-1 {{ $hasRowPostDefSub ? 'bg-purple-100 text-purple-800 border border-purple-200' : 'bg-amber-100 text-amber-800 border border-amber-200' }} text-[10px] font-black uppercase tracking-wider rounded-full transition">
+                                            {{ $hasRowPostDefSub ? 'Awaiting Examiner' : 'Upload Corrections' }}
+                                        </a>
                                     @elseif($milestone->defence_date && !$isApproved)
                                         <a href="{{ route('presentations.show', $milestone->milestone_template_id) }}" class="shrink-0 self-start sm:self-auto px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black uppercase tracking-wider rounded-full shadow-sm transition">Scheduled</a>
+                                    @elseif($isRowSupApproved)
+                                        <span class="shrink-0 self-start sm:self-auto px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase tracking-wider rounded-full border border-emerald-200">Supervisor Approved</span>
                                     @elseif($isPending)
                                         <span class="shrink-0 self-start sm:self-auto px-2.5 py-1 bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-wider rounded-full border border-amber-200">Under Review</span>
                                     @elseif($isRevision)

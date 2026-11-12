@@ -109,8 +109,8 @@
                             <p class="text-[11px] text-slate-500 font-medium mb-6 line-clamp-2 italic leading-relaxed">"{{ $review->thesis->title }}"</p>
 
                             <div class="flex items-center gap-2">
-                                <a href="{{ route('milestones.review', $review->id) }}" class="flex-1 flex items-center justify-center py-3 bg-slate-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
-                                    Audit Detail
+                                <a href="{{ route('milestones.index', ['thesis_id' => $review->thesis_project_id, 'expanded' => $review->id]) }}" class="flex-1 flex items-center justify-center py-3 bg-slate-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                                    Review Milestone
                                 </a>
                             </div>
                         </div>
@@ -218,8 +218,8 @@
                         <div class="p-6 rounded-2xl bg-blue-50 border border-blue-100 group hover:bg-blue-100 hover:border-blue-200 transition-all duration-300">
                              <div class="space-y-4">
                                  <div class="flex items-center justify-between">
-                                     <span class="px-3 py-1 bg-white text-blue-600 border border-blue-100 text-[9px] font-black uppercase tracking-widest rounded-lg">{{ $event->defence_type }} Defence</span>
-                                     <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ \Carbon\Carbon::parse($event->scheduled_at)->format('M d, Y') }}</span>
+                                     <span class="px-3 py-1 bg-white text-blue-600 border border-blue-100 text-[9px] font-black uppercase tracking-widest rounded-lg">{{ ucfirst(str_replace('_', ' ', $event->type ?? 'Internal')) }} Defence</span>
+                                     <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ $event->schedule_start ? \Carbon\Carbon::parse($event->schedule_start)->format('M d, Y') : 'Scheduled' }}</span>
                                  </div>
                                  <div class="min-w-0">
                                      <h4 class="text-lg font-black text-slate-800 tracking-tight leading-none mb-1 truncate">{{ $event->thesis->student->user->name }}</h4>
@@ -250,7 +250,7 @@
                              <p class="text-xs font-black text-slate-800 mb-1 truncate">{{ $milestone->template->name }}</p>
                              <div class="flex items-center justify-between gap-2">
                                  <span class="text-[10px] font-bold text-slate-500 truncate">{{ $milestone->thesis->student->user->name }}</span>
-                                 <a href="{{ route('theses.show', ['thesis' => $milestone->thesis_project_id, 'expanded' => $milestone->id]) }}" class="text-[9px] font-black text-amber-600 uppercase tracking-widest flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                                 <a href="{{ route('milestones.index', ['thesis_id' => $milestone->thesis_project_id, 'expanded' => $milestone->id]) }}" class="text-[9px] font-black text-amber-600 uppercase tracking-widest flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                                      Review <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7"/></svg>
                                  </a>
                              </div>
