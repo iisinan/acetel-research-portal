@@ -689,14 +689,19 @@
                                         <p class="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1">Not Scheduled</p>
                                         <p class="text-2xl font-black text-amber-700">{{ $template->studentMilestones->filter(fn($m) => empty($m->defence_date))->count() }}</p>
                                     </div>
-                                    @if(in_array('Supervisor', $template->required_approvers ?? []))
+                                    @if(in_array('Supervisor', $template->required_approvers ?? []) || in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']))
+                                    @php
+                                        $summaryWorkflow = app(\App\Services\MilestoneWorkflowService::class);
+                                        $supervisorApprovedCount = $template->studentMilestones->filter(fn($m) => $summaryWorkflow->isSupervisorApproved($m))->count();
+                                        $supervisorPendingCount = $template->studentMilestones->count() - $supervisorApprovedCount;
+                                    @endphp
                                     <div class="bg-blue-50 rounded-xl p-4 border border-blue-100">
                                         <p class="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-1">Approved by Supervisor</p>
-                                        <p class="text-2xl font-black text-blue-700">{{ $template->studentMilestones->filter(fn($m) => $m->is_supervisor_approved || ($m->submissions->last() && $m->submissions->last()->feedback && $m->submissions->last()->feedback->decision === 'approved'))->count() }}</p>
+                                        <p class="text-2xl font-black text-blue-700">{{ $supervisorApprovedCount }}</p>
                                     </div>
                                     <div class="bg-rose-50 rounded-xl p-4 border border-rose-100">
                                         <p class="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1">Pending Supervisor</p>
-                                        <p class="text-2xl font-black text-rose-700">{{ $template->studentMilestones->filter(fn($m) => !$m->is_supervisor_approved && !($m->submissions->last() && $m->submissions->last()->feedback && $m->submissions->last()->feedback->decision === 'approved'))->count() }}</p>
+                                        <p class="text-2xl font-black text-rose-700">{{ $supervisorPendingCount }}</p>
                                     </div>
                                     @endif
                                 </div>
@@ -2237,7 +2242,7 @@
                                                             $hasRejectedUpload = $latestSub && $latestSub->feedback && $latestSub->feedback->decision === 'revision_required';
                                                             $hasUpload = $latestSub !== null;
                                                             $isPostDefRow = $workflow->isPostDefencePhase($sm);
-                                                            $hasPostDefUpload = $isPostDefRow && $workflow->hasUploadedPostDefenceCorrection($sm);
+                                                            $hasPostDefUpload = $isPostDefRow && $workflow->hasPostDefenceSubmission($sm);
 
                                                             if ($sm->status === 'approved') {
                                                                 $detailedStatus = 'Approved';
@@ -2256,7 +2261,7 @@
                                                             } elseif ($sm->status === 'revision_required' || $hasRejectedUpload) {
                                                                 $detailedStatus = 'Revision Required';
                                                                 $statusColor = 'bg-rose-100 text-rose-800 border border-rose-200';
-                                                            } elseif ($sm->is_supervisor_approved) {
+                                                            } elseif ($workflow->isSupervisorApproved($sm)) {
                                                                 $detailedStatus = 'Approved by Supervisor';
                                                                 $statusColor = 'bg-emerald-100 text-emerald-800 border border-emerald-200';
                                                             } elseif ($sm->status === 'submitted' || $hasUpload) {
@@ -2611,7 +2616,7 @@
                                                                                 <form action="{{ route('milestones.end_presentation', $sm) }}" method="POST">
                                                                                     @csrf
                                                                                     <button type="submit" 
-                                                                                        data-confirm="Are you sure you want to end the presentation for {{ addslashes($studentName) }}? If all requirements are met, the milestone will be approved and the student advanced."
+                                                                                        data-confirm="{{ $template->slug === 'internal_defence' ? 'Are you sure you want to end the Internal Defence presentation for ' . addslashes($studentName) . '? If the candidate passed, they will transition to the Post-Defence Correction stage to upload their corrected thesis for Internal Examiner approval.' : 'Are you sure you want to end the presentation for ' . addslashes($studentName) . '? If all requirements are met, the milestone will be approved and the student advanced.' }}"
                                                                                         data-confirm-title="End Presentation Session"
                                                                                         data-confirm-type="success"
                                                                                         data-confirm-btn="End Presentation"

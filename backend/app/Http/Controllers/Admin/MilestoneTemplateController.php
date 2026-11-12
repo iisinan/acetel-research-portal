@@ -390,6 +390,7 @@ class MilestoneTemplateController extends Controller
         $targetDegree = strtolower((string)$request->input('degree_type', 'all'));
 
         $workflow = app(\App\Services\MilestoneWorkflowService::class);
+        $skippedUnapproved = 0;
 
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
@@ -401,8 +402,11 @@ class MilestoneTemplateController extends Controller
                 if ($workflow->isPostDefencePhase($milestone) || $workflow->hasBeenGraded($milestone)) {
                     continue; // Never reschedule or reset evaluations for already-graded or post-defence candidates
                 }
-                
-                if (in_array('Supervisor', $template->required_approvers ?? []) && !$milestone->is_supervisor_approved) {
+
+                $requiresSupervisorApproval = in_array('Supervisor', $template->required_approvers ?? [])
+                    || in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']);
+                if ($requiresSupervisorApproval && !$workflow->isSupervisorApproved($milestone)) {
+                    $skippedUnapproved++;
                     continue; // Skip if supervisor hasn't approved
                 }
 
@@ -513,7 +517,14 @@ class MilestoneTemplateController extends Controller
                 }
             }
             \Illuminate\Support\Facades\DB::commit();
-            return back()->with('success', 'Scheduled ' . $count . ' presentation(s) successfully with date, time, and Zoom link.');
+            if ($count === 0 && $skippedUnapproved > 0) {
+                return back()->with('error', "No presentations were scheduled: {$skippedUnapproved} selected candidate(s) are still awaiting supervisor thesis/document approval.");
+            }
+            $msg = 'Scheduled ' . $count . ' presentation(s) successfully with date, time, and Zoom link.';
+            if ($skippedUnapproved > 0) {
+                $msg .= " ({$skippedUnapproved} candidate(s) awaiting supervisor approval were skipped.)";
+            }
+            return back()->with('success', $msg);
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\DB::rollBack();
             return back()->with('error', 'Error scheduling: ' . $e->getMessage());
@@ -1827,7 +1838,7 @@ class MilestoneTemplateController extends Controller
                             $avgScore = round($total / $count, 1);
                         }
                     }
-                } elseif (in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2'])) {
+                } elseif (in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence'])) {
                     $eventType = $template->defence_type ?? match($template->slug) {
                         'proposal_defence' => 'proposal',
                         'progress_report_1' => 'progress_report_1',
@@ -1842,7 +1853,7 @@ class MilestoneTemplateController extends Controller
                         $failCount = 0;
                         foreach($event->evaluations as $eval) {
                             $verdict = strtolower($eval->verdict ?? $eval->recommendation ?? '');
-                            if ($verdict === 'pass') $passCount++;
+                            if (in_array($verdict, ['pass', 'minor_revisions', 'major_revisions'])) $passCount++;
                             elseif ($verdict === 'fail') $failCount++;
                         }
                         if ($passCount + $failCount > 0) {
@@ -1851,7 +1862,16 @@ class MilestoneTemplateController extends Controller
                     }
                 }
 
-                $statusLabel = $milestone->is_supervisor_approved ? 'Approved by Supervisor' : ucfirst(str_replace('_', ' ', $milestone->status));
+                $workflow = app(\App\Services\MilestoneWorkflowService::class);
+                if ($workflow->isPostDefencePhase($milestone)) {
+                    $statusLabel = $workflow->hasPostDefenceSubmission($milestone)
+                        ? 'Corrections Uploaded (Awaiting Examiner)'
+                        : 'Passed Presentation (Awaiting Corrections)';
+                } elseif ($workflow->isSupervisorApproved($milestone)) {
+                    $statusLabel = 'Approved by Supervisor';
+                } else {
+                    $statusLabel = ucfirst(str_replace('_', ' ', $milestone->status));
+                }
 
                 fputcsv($file, [
                     $milestone->thesis->student->user->name ?? '',
@@ -1901,7 +1921,7 @@ class MilestoneTemplateController extends Controller
         ];
 
         $isSeminar = $template->slug === 'seminar_as_a_course';
-        $isPassFail = in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2']);
+        $isPassFail = in_array($template->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']);
         $columns = $isSeminar
             ? ['Student Name', 'Matric Number', 'Discipline Track', 'Presentation Date', 'Slot Time', 'Meeting Link', 'Average Score']
             : ($isPassFail

@@ -1570,7 +1570,7 @@ class="space-y-8 animate-in">
                 @foreach($pending_evaluations as $event)
                 <div class="p-5 bg-purple-50/40 border border-purple-100 rounded-2xl space-y-3">
                     <div>
-                        <span class="text-[9px] font-black uppercase tracking-widest text-purple-700 bg-purple-100 px-2 py-0.5 rounded">{{ $event->defence_type }} Defence</span>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-purple-700 bg-purple-100 px-2 py-0.5 rounded">{{ ucfirst(str_replace('_', ' ', $event->type ?? 'Internal')) }} Defence</span>
                         <h4 class="text-sm font-black text-slate-800 mt-2">{{ $event->thesis->student->user->name }}</h4>
                         <p class="text-xs text-slate-500 truncate">{{ $event->thesis->title }}</p>
                     </div>
@@ -1853,7 +1853,7 @@ class="space-y-8 animate-in">
                 @foreach($pending_evaluations as $event)
                 <div class="p-5 bg-amber-50/40 border border-amber-100 rounded-2xl space-y-3">
                     <div>
-                        <span class="text-[9px] font-black uppercase tracking-widest text-amber-700 bg-amber-100 px-2 py-0.5 rounded">{{ $event->defence_type }} Defence</span>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-amber-700 bg-amber-100 px-2 py-0.5 rounded">{{ ucfirst(str_replace('_', ' ', $event->type ?? 'External')) }} Defence</span>
                         <h4 class="text-sm font-black text-slate-800 mt-2">{{ $event->thesis->student->user->name }}</h4>
                         <p class="text-xs text-slate-500 truncate">{{ $event->thesis->title }}</p>
                     </div>

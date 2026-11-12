@@ -320,6 +320,61 @@ class MilestoneWorkflowService
     }
 
     /**
+     * Alias for hasPostDefenceSubmission used by blade templates.
+     */
+    public function hasUploadedPostDefenceCorrection(StudentMilestone $milestone): bool
+    {
+        return $this->hasPostDefenceSubmission($milestone);
+    }
+
+    /**
+     * Send an official Portal Inbox notification to the student when the Internal Examiner (or Admin)
+     * approves or requests further revisions on the post-defence corrected thesis manuscript.
+     */
+    public function notifyPostDefenceReviewOutcome(StudentMilestone $milestone, \App\Models\User $reviewer, string $decision, ?string $remarks): void
+    {
+        $studentUserId = $milestone->thesis?->student?->user_id;
+        if (!$studentUserId) {
+            return;
+        }
+
+        \Illuminate\Support\Facades\Cache::forget('user_thesis_' . $studentUserId);
+
+        try {
+            $milestoneTitle = $milestone->template?->title ?? $milestone->template?->name ?? 'Internal Defence';
+            $studentName = $milestone->thesis?->student?->user?->name ?? 'Candidate';
+            $isApproved = $decision === 'approved';
+
+            $subject = $isApproved
+                ? "Post-Defence Corrections Approved: {$milestoneTitle} — Advanced to Viva Voce"
+                : "Post-Defence Revision Requested: {$milestoneTitle}";
+
+            $body = "Dear {$studentName},\n\n"
+                . ($isApproved
+                    ? "{$reviewer->name} has reviewed and APPROVED your post-defence corrected thesis manuscript for \"{$milestoneTitle}\".\n\nCongratulations! Your Internal Defence milestone is now officially completed and you have been advanced to Milestone 7 (Viva Voce)."
+                    : "{$reviewer->name} has reviewed your post-defence corrected thesis manuscript for \"{$milestoneTitle}\" and requested further corrections before final Viva clearance.\n\nPlease review the remarks below, update your manuscript, and re-upload your corrected thesis on the Internal Defence milestone page.")
+                . (!empty($remarks) ? "\n\nReviewer Remarks:\n\"{$remarks}\"" : '')
+                . "\n\nAcademic Portal Administration";
+
+            $inboxMsg = \App\Models\InboxMessage::create([
+                'sender_id' => $reviewer->id,
+                'subject' => $subject,
+                'body' => $body,
+                'delivery_method' => 'in_app',
+            ]);
+
+            $inboxMsg->recipients()->attach($studentUserId, [
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'recipient_type' => 'to',
+            ]);
+
+            \App\Events\MessageReceived::dispatch($inboxMsg, $studentUserId);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Failed to send post-defence review inbox message: " . $e->getMessage());
+        }
+    }
+
+    /**
      * Check whether the given user is an assigned Internal Examiner for the given thesis.
      */
     public function isAssignedInternalExaminerForThesis(?ThesisProject $thesis, ?\App\Models\User $user): bool

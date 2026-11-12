@@ -654,7 +654,7 @@
                                             <form action="{{ route('milestones.end_presentation', $pres) }}" method="POST" class="w-full">
                                                 @csrf
                                                 <button type="submit" 
-                                                    data-confirm="Are you sure you want to end the presentation for {{ addslashes($studentName) }}? If all requirements are met, the candidate will be advanced to the next milestone."
+                                                    data-confirm="{{ $template->slug === 'internal_defence' ? 'Are you sure you want to end the Internal Defence presentation for ' . addslashes($studentName) . '? If the candidate passed, they will transition to the Post-Defence Correction stage to upload their corrected thesis for Internal Examiner approval.' : 'Are you sure you want to end the presentation for ' . addslashes($studentName) . '? If all requirements are met, the candidate will be advanced to the next milestone.' }}"
                                                     data-confirm-title="End Presentation Session"
                                                     data-confirm-type="success"
                                                     data-confirm-btn="End Presentation"
@@ -676,7 +676,7 @@
                                             <form action="{{ route('milestones.end_presentation', $pres) }}" method="POST" class="inline">
                                                 @csrf
                                                 <button type="submit" 
-                                                    data-confirm="Are you sure you want to end the presentation for {{ addslashes($studentName) }}? If all requirements are met, the candidate will be advanced to the next milestone."
+                                                    data-confirm="{{ $template->slug === 'internal_defence' ? 'Are you sure you want to end the Internal Defence presentation for ' . addslashes($studentName) . '? If the candidate passed, they will transition to the Post-Defence Correction stage to upload their corrected thesis for Internal Examiner approval.' : 'Are you sure you want to end the presentation for ' . addslashes($studentName) . '? If all requirements are met, the candidate will be advanced to the next milestone.' }}"
                                                     data-confirm-title="End Presentation Session"
                                                     data-confirm-type="success"
                                                     data-confirm-btn="End Presentation"

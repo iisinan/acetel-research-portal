@@ -199,9 +199,18 @@ class MilestoneController extends Controller
             // Advance candidate to next milestone (Milestone 7: Viva)
             $workflowService->afterApproval($milestone);
 
+            $workflowService->notifyPostDefenceReviewOutcome($milestone, $user, 'approved', $request->input('remarks'));
             $workflowService->notifyUpdate($milestone, "{$approverRole} {$user->name} officially approved the post-defence corrected thesis for: {$milestone->template->name}. Candidate advanced to Viva Voce.");
 
-            return back()->with('success', 'Corrected thesis approved successfully. Candidate has been officially cleared and advanced to Milestone 7 (Viva Voce).');
+            $msg = 'Corrected thesis approved successfully. Candidate has been officially cleared and advanced to Milestone 7 (Viva Voce).';
+            if (str_contains((string) url()->previous(), '/milestones')) {
+                return redirect()->route('milestones.index', [
+                    'thesis_id' => $milestone->thesis_project_id,
+                    'expanded' => $milestone->id,
+                ])->with('success', $msg);
+            }
+
+            return back()->with('success', $msg);
         }
 
         if (!$isAssignedSupervisor && !$user->hasRole('Admin')) {
@@ -283,9 +292,18 @@ class MilestoneController extends Controller
             $milestone->status = 'revision_required';
             $milestone->save();
 
+            $workflowService->notifyPostDefenceReviewOutcome($milestone, $user, 'revision_required', $request->input('remarks'));
             $workflowService->notifyUpdate($milestone, "Internal Examiner {$user->name} requested further post-defence corrections for: {$milestone->template->name}");
 
-            return back()->with('success', 'Corrections requested. The student has been notified to revise and re-upload the corrected thesis manuscript.');
+            $msg = 'Corrections requested. The student has been notified to revise and re-upload the corrected thesis manuscript.';
+            if (str_contains((string) url()->previous(), '/milestones')) {
+                return redirect()->route('milestones.index', [
+                    'thesis_id' => $milestone->thesis_project_id,
+                    'expanded' => $milestone->id,
+                ])->with('success', $msg);
+            }
+
+            return back()->with('success', $msg);
         }
 
         if (!$isAssignedSupervisor && !$user->hasRole('Admin')) {

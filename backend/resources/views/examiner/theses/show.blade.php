@@ -10,6 +10,12 @@
     } elseif (in_array($thesis->external_examiner_profile_id, $externalProfileIds)) {
         $roleLabel = 'External Examiner';
     }
+    $workflow = app(\App\Services\MilestoneWorkflowService::class);
+    $internalDefenceMilestone = $thesis->milestones->first(fn($m) => $workflow->isInternalDefence($m));
+    $isPostDefenceStage = $internalDefenceMilestone && $workflow->isPostDefencePhase($internalDefenceMilestone);
+    $postDefenceSub = $isPostDefenceStage ? $workflow->getPostDefenceSubmission($internalDefenceMilestone) : null;
+    $canApproveCorrections = $internalDefenceMilestone && ($workflow->isAssignedInternalExaminer($internalDefenceMilestone, auth()->user()) || auth()->user()->hasRole('Admin'));
+    $targetMilestoneId = $internalDefenceMilestone?->id ?? $thesis->currentMilestone?->id;
 @endphp
 <div class="space-y-6">
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -18,7 +24,7 @@
             <p class="text-slate-500 mt-1">Student: <span class="font-bold text-slate-700">{{ $thesis->studentProfile->user->name ?? 'N/A' }}</span> ({{ $thesis->studentProfile->student_id_number ?? 'N/A' }})</p>
         </div>
         <div class="flex items-center gap-3">
-            <a href="{{ route('milestones.index', ['thesis_id' => $thesis->id, 'expanded' => $thesis->current_milestone_id]) }}" class="inline-flex items-center justify-center px-4 py-2 text-sm font-bold text-white bg-purple-600 rounded-xl hover:bg-purple-700 transition-colors shadow-xs">
+            <a href="{{ route('milestones.index', ['thesis_id' => $thesis->id, 'expanded' => $targetMilestoneId]) }}" class="inline-flex items-center justify-center px-4 py-2 text-sm font-bold text-white bg-purple-600 rounded-xl hover:bg-purple-700 transition-colors shadow-xs">
                 Open Milestones Workspace
             </a>
             <a href="{{ route('examiner.theses.index') }}" class="inline-flex items-center justify-center px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
@@ -26,14 +32,6 @@
             </a>
         </div>
     </div>
-
-    @php
-        $workflow = app(\App\Services\MilestoneWorkflowService::class);
-        $internalDefenceMilestone = $thesis->milestones->first(fn($m) => $workflow->isInternalDefence($m));
-        $isPostDefenceStage = $internalDefenceMilestone && $workflow->isPostDefencePhase($internalDefenceMilestone);
-        $postDefenceSub = $isPostDefenceStage ? $workflow->getPostDefenceSubmission($internalDefenceMilestone) : null;
-        $canApproveCorrections = $internalDefenceMilestone && ($workflow->isAssignedInternalExaminer($internalDefenceMilestone, auth()->user()) || auth()->user()->hasRole('Admin'));
-    @endphp
 
     @if($isPostDefenceStage && $canApproveCorrections && $internalDefenceMilestone->status !== 'approved')
     <div class="p-6 rounded-3xl border-2 border-purple-200 bg-purple-50/70 space-y-4 shadow-sm">

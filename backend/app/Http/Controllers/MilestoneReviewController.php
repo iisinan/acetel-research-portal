@@ -141,13 +141,14 @@ class MilestoneReviewController extends Controller
         $decision = $request->decision;
         $template = $milestone->template;
 
-        // If an Internal Examiner is reviewing post-defence corrections on internal_defence:
-        if ($isInternalExaminerForThis && $isPostDefenceStage) {
+        // If an Internal Examiner (or Admin) is reviewing post-defence corrections on internal_defence:
+        if (($isInternalExaminerForThis || $user->hasRole('Admin')) && $isPostDefenceStage) {
             $submission = $this->workflowService->getPostDefenceSubmission($milestone);
             if (!$submission) {
                 return redirect()->back()->with('error', 'Cannot review yet: the candidate has not uploaded the corrected thesis manuscript after the defence presentation.');
             }
 
+            $approverRole = $isInternalExaminerForThis ? 'Internal Examiner' : 'Admin';
             if ($decision === 'approved') {
                 \App\Models\Feedback::updateOrCreate(
                     [
@@ -161,11 +162,11 @@ class MilestoneReviewController extends Controller
                 );
 
                 $approvals = $milestone->approvals ?? [];
-                $approvalKey = 'Internal Examiner:' . $user->id;
+                $approvalKey = $approverRole . ':' . $user->id;
                 $approvals[$approvalKey] = [
                     'user_id' => $user->id,
                     'user_name' => $user->name,
-                    'role' => 'Internal Examiner',
+                    'role' => $approverRole,
                     'approved_at' => now()->toDateTimeString(),
                     'remarks' => $request->remarks,
                 ];
@@ -185,7 +186,15 @@ class MilestoneReviewController extends Controller
                 // Advance candidate to next milestone (Milestone 7: Viva)
                 $this->workflowService->afterApproval($milestone);
 
-                $this->workflowService->notifyUpdate($milestone, "Internal Examiner {$user->name} officially approved the post-defence corrected thesis for: {$template->name}. Student advanced to Viva Voce.");
+                $this->workflowService->notifyPostDefenceReviewOutcome($milestone, $user, 'approved', $request->remarks);
+                $this->workflowService->notifyUpdate($milestone, "{$approverRole} {$user->name} officially approved the post-defence corrected thesis for: {$template->name}. Student advanced to Viva Voce.");
+
+                if (str_contains((string) url()->previous(), '/milestones')) {
+                    return redirect()->route('milestones.index', [
+                        'thesis_id' => $milestone->thesis_project_id,
+                        'expanded' => $milestone->id,
+                    ])->with('success', 'Corrected thesis approved successfully. The student has been officially advanced to Milestone 7 (Viva Voce).');
+                }
 
                 return redirect()->back()->with('success', 'Corrected thesis approved successfully. The student has been officially advanced to Milestone 7 (Viva Voce).');
             } else {
@@ -211,7 +220,15 @@ class MilestoneReviewController extends Controller
                 $milestone->status = 'revision_required';
                 $milestone->save();
 
-                $this->workflowService->notifyUpdate($milestone, "Internal Examiner {$user->name} requested further post-defence corrections for: {$template->name}");
+                $this->workflowService->notifyPostDefenceReviewOutcome($milestone, $user, 'revision_required', $request->remarks);
+                $this->workflowService->notifyUpdate($milestone, "{$approverRole} {$user->name} requested further post-defence corrections for: {$template->name}");
+
+                if (str_contains((string) url()->previous(), '/milestones')) {
+                    return redirect()->route('milestones.index', [
+                        'thesis_id' => $milestone->thesis_project_id,
+                        'expanded' => $milestone->id,
+                    ])->with('success', 'Corrections requested. The candidate has been notified to revise and re-upload the corrected thesis manuscript.');
+                }
 
                 return redirect()->back()->with('success', 'Corrections requested. The candidate has been notified to revise and re-upload the corrected thesis manuscript.');
             }
