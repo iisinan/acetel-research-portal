@@ -691,13 +691,21 @@ class MilestoneWorkflowService
      */
     public function recordSupervisorReview(StudentMilestone $milestone, \App\Models\User $user, string $decision, ?string $remarks = null): array
     {
-        $submission = $milestone->submissions()->latest()->first();
+        $submission = $milestone->submissions()->whereIn('type', ['manuscript', 'file', 'ppt'])->latest()->first()
+            ?? $milestone->submissions()->latest()->first();
 
-        // 1. Record feedback per supervisor
-        if ($submission) {
+        // 1. Record feedback per supervisor across the primary and latest submissions
+        $targetSubmissions = $milestone->submissions()
+            ->whereIn('type', ['manuscript', 'file', 'ppt'])
+            ->get();
+        if ($targetSubmissions->isEmpty() && $submission) {
+            $targetSubmissions = collect([$submission]);
+        }
+
+        foreach ($targetSubmissions as $sub) {
             \App\Models\Feedback::updateOrCreate(
                 [
-                    'submission_id' => $submission->id,
+                    'submission_id' => $sub->id,
                     'created_by' => $user->id,
                 ],
                 [

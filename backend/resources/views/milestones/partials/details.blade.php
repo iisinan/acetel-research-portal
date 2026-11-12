@@ -92,8 +92,13 @@
                 if (auth()->user()->hasRole('Supervisor') && !auth()->user()->hasRole('Admin')) {
                     $canSetDate = false;
                 }
-                $isUploadAccepted = $latestSubForBanner && $latestSubForBanner->feedback && $latestSubForBanner->feedback->decision === 'approved';
+                $isUploadAccepted = $workflow->isSupervisorApproved($milestone);
                 $isScheduled = $defenceDate && !$isDateExpired;
+                $supSummaryDetails = $workflow->getSupervisorReviewSummary($milestone);
+                $mySupReviewDetails = collect($supSummaryDetails['supervisors'] ?? [])->first(fn($s) => (string)($s['user_id'] ?? '') === (string)auth()->id());
+                $primaryReviewSub = $isPostDefenceStage
+                    ? $latestManuscript
+                    : ($milestone->submissions->whereIn('type', ['manuscript', 'file', 'ppt'])->sortByDesc('created_at')->first() ?? $milestone->submissions->sortByDesc('created_at')->first());
             @endphp
 
             {{-- Post-Defence Corrections Banner for Internal Defence --}}
@@ -1145,26 +1150,36 @@
                                                     auth()->user()->supervisorProfile && 
                                                     $milestone->thesis->assignments->where('supervisor_profile_id', auth()->user()->supervisorProfile->id)->where('status', 'active')->isNotEmpty();
 
+                                                $isPrimarySubCard = $primaryReviewSub && $submission->id === $primaryReviewSub->id;
                                                 $isPostDefenceSubCard = $isPostDefenceStage && $latestManuscript && $submission->id === $latestManuscript->id;
 
-                                                if ($isPostDefenceStage) {
-                                                    // In post-defence stage, only the post-defence corrected manuscript is reviewed by the Internal Examiner (or Admin)
-                                                    $canReviewUpload = $isPostDefenceSubCard && ($isAssignedInternalExaminer || auth()->user()->hasRole('Admin'));
-                                                } else {
-                                                    // Pre-defence stage: reviewed by the assigned Supervisor (or Admin)
-                                                    $canReviewUpload = $isAssignedSupervisorForCard || auth()->user()->hasRole('Admin');
+                                                $showInlineCardReviewForm = false;
+                                                if ($milestone->status !== 'approved') {
+                                                    if ($isPostDefenceStage) {
+                                                        // In post-defence stage, only the post-defence corrected manuscript is reviewed by the Internal Examiner (or Admin)
+                                                        $ieDec = $milestone->approvals['internal_examiner_review']['decision'] ?? ($submission->feedback->decision ?? null);
+                                                        $showInlineCardReviewForm = $isPostDefenceSubCard
+                                                            && ($isAssignedInternalExaminer || auth()->user()->hasRole('Admin'))
+                                                            && !in_array($ieDec, ['approved', 'revision_required']);
+                                                    } elseif ($isPrimarySubCard && ($isAssignedSupervisorForCard || auth()->user()->hasRole('Admin'))) {
+                                                        if ($mySupReviewDetails) {
+                                                            $showInlineCardReviewForm = in_array($mySupReviewDetails['status'], ['pending', 'pending_re_review']);
+                                                        } else {
+                                                            $showInlineCardReviewForm = !$isUploadAccepted;
+                                                        }
+                                                    }
                                                 }
                                             @endphp
-                                            @if($canReviewUpload && (!$submission->feedback || !in_array($submission->feedback->decision, ['approved', 'revision_required'])))
+                                            @if($showInlineCardReviewForm)
                                                 <form method="POST" x-data="{ remarks: '' }" @submit="if(!remarks.trim()) { alert('A comment is required to accept or reject the upload.'); $event.preventDefault(); }" class="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 shadow-sm w-full max-w-sm mt-1">
                                                     @csrf
                                                     <textarea name="remarks" x-model="remarks" rows="2" class="w-full text-xs rounded-xl border-slate-300 focus:ring-indigo-500 focus:border-indigo-500 mb-2 p-2.5 shadow-sm resize-none bg-white placeholder:text-slate-400" placeholder="{{ $isPostDefenceStage ? 'Enter approval feedback or required corrections...' : 'Required: Explain your decision...' }}" required></textarea>
                                                     <div class="flex gap-2">
-                                                        <button type="submit" formaction="{{ route('milestones.accept_upload', $milestone) }}" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-2 rounded-xl text-xs font-bold transition-colors">
-                                                            {{ $isPostDefenceStage ? 'Approve Corrected Thesis' : 'Accept Upload' }}
+                                                        <button type="submit" formaction="{{ route('milestones.accept_upload', $milestone) }}" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer">
+                                                            {{ $isPostDefenceStage ? 'Approve Corrected Thesis' : '✓ Approve Thesis' }}
                                                         </button>
-                                                        <button type="submit" formaction="{{ route('milestones.reject_upload', $milestone) }}" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white py-2 rounded-xl text-xs font-bold transition-colors">
-                                                            {{ $isPostDefenceStage ? 'Request Further Corrections' : 'Reject Upload' }}
+                                                        <button type="submit" formaction="{{ route('milestones.reject_upload', $milestone) }}" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer">
+                                                            {{ $isPostDefenceStage ? 'Request Further Corrections' : '✕ Reject / Revise' }}
                                                         </button>
                                                     </div>
                                                 </form>
@@ -1180,12 +1195,10 @@
             
             @can('review', $milestone)
                 @php
-                    $isUploadAccepted = !$milestone->template->requires_submission || 
-                                        ($milestone->submissions->last() && 
-                                         $milestone->submissions->last()->feedback && 
-                                         $milestone->submissions->last()->feedback->decision === 'approved');
+                    $isPresentationGatedDetail = in_array($milestone->template?->slug, ['seminar_as_a_course', 'proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']) || $isInternalDefence;
+                    $showBottomEvaluationCard = !$isPresentationGatedDetail && $milestone->status !== 'approved' && !$isUploadAccepted;
                 @endphp
-                @if($isUploadAccepted)
+                @if($showBottomEvaluationCard)
                     <div class="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 p-8 mt-6">
                         <div class="flex items-center justify-between mb-6">
                             <h3 class="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">

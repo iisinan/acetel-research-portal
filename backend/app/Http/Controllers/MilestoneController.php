@@ -163,9 +163,11 @@ class MilestoneController extends Controller
             }
 
             \App\Models\Feedback::updateOrCreate(
-                ['submission_id' => $postDefenceSub->id],
                 [
-                    'user_id' => $user->id,
+                    'submission_id' => $postDefenceSub->id,
+                    'created_by' => $user->id,
+                ],
+                [
                     'decision' => 'approved',
                     'remarks' => $request->input('remarks'),
                 ]
@@ -252,9 +254,11 @@ class MilestoneController extends Controller
             $targetSub = $workflowService->getPostDefenceSubmission($milestone) ?? $milestone->submissions()->latest()->first();
             if ($targetSub) {
                 \App\Models\Feedback::updateOrCreate(
-                    ['submission_id' => $targetSub->id],
                     [
-                        'user_id' => $user->id,
+                        'submission_id' => $targetSub->id,
+                        'created_by' => $user->id,
+                    ],
+                    [
                         'decision' => 'revision_required',
                         'remarks' => $request->input('remarks'),
                     ]

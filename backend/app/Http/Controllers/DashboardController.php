@@ -211,11 +211,14 @@ class DashboardController extends Controller
                     })
                     ->where('status', '!=', 'approved')
                     ->whereHas('template', function($q) {
-                        $q->whereJsonContains('required_approvers', 'Supervisor');
+                        $q->whereJsonContains('required_approvers', 'Supervisor')
+                          ->orWhereIn('slug', ['proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']);
                     })
-                    ->whereNotNull('submitted_at')
+                    ->where(function($q) {
+                        $q->whereNotNull('submitted_at')->orWhereHas('submissions');
+                    })
                     ->with(['thesis.student.user', 'template', 'thesis.assignments.supervisor.user', 'submissions.feedbacks'])
-                    ->latest()
+                    ->latest('updated_at')
                     ->get()
                     ->filter(function($milestone) use ($user) {
                         return $this->isMilestonePendingReviewForUser($milestone, $user->id, 'Supervisor');
@@ -225,7 +228,8 @@ class DashboardController extends Controller
                 $pendingSupervisorMilestoneThesisIds = $pendingSupervisorReviews->pluck('thesis_project_id')->unique()->toArray();
             }
 
-            $supervisorStudents = $supervisorAssignments->map(function($a) use ($pendingSupervisorMilestoneThesisIds) {
+            $workflowForSup = app(\App\Services\MilestoneWorkflowService::class);
+            $supervisorStudents = $supervisorAssignments->map(function($a) use ($pendingSupervisorMilestoneThesisIds, $pendingSupervisorReviews, $workflowForSup, $user) {
                 $s = $a->thesis?->student;
                 if ($s && $a->thesis) {
                     $s->overall_progress = $a->thesis->progress_percentage;
@@ -237,9 +241,30 @@ class DashboardController extends Controller
                             ->sortBy(fn($m) => $m->template?->order ?? 999)
                             ->first()
                         : $a->thesis->currentMilestone;
+                    $s->current_milestone_id = $currentM?->id;
                     $s->current_milestone_name = $currentM?->template?->name ?? 'Initiation Phase';
                     $s->current_milestone_order = $currentM?->template?->order ?? 1;
                     $s->has_pending_review = in_array($a->thesis_project_id, $pendingSupervisorMilestoneThesisIds);
+
+                    $pendingReviewObj = $pendingSupervisorReviews->firstWhere('thesis_project_id', $a->thesis_project_id);
+                    $s->pending_review_milestone_id = $pendingReviewObj?->id ?? $currentM?->id;
+                    $s->pending_review_milestone_name = $pendingReviewObj?->template?->name ?? $s->current_milestone_name;
+
+                    $s->supervisor_review_state = null;
+                    if ($s->has_pending_review) {
+                        $s->supervisor_review_state = 'pending_review';
+                    } elseif ($currentM) {
+                        $hasSubs = $currentM->relationLoaded('submissions')
+                            ? $currentM->submissions->isNotEmpty()
+                            : $currentM->submissions()->exists();
+                        if ($currentM->status === 'revision_required') {
+                            $s->supervisor_review_state = 'revision_required';
+                        } elseif ($hasSubs && $workflowForSup->isSupervisorApproved($currentM)) {
+                            $s->supervisor_review_state = 'approved';
+                        } elseif (!$hasSubs && in_array($currentM->template?->slug, ['proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence'])) {
+                            $s->supervisor_review_state = 'awaiting_upload';
+                        }
+                    }
 
                     // Compute last activity (latest submission or thesis update)
                     $latestSub = $a->thesis->milestones->flatMap->submissions->sortByDesc('created_at')->first();
@@ -857,10 +882,18 @@ class DashboardController extends Controller
 
         // 2. Supervisor-specific checks (via MilestoneWorkflowService & Feedback)
         if ($role === 'Supervisor' || empty($role)) {
+            $hasAnySubmission = $milestone->relationLoaded('submissions')
+                ? $milestone->submissions->isNotEmpty()
+                : $milestone->submissions()->exists();
+
+            if (!$hasAnySubmission) {
+                return false;
+            }
+
             $workflow = app(\App\Services\MilestoneWorkflowService::class);
             $summary = $workflow->getSupervisorReviewSummary($milestone);
 
-            $myReview = collect($summary['supervisors'] ?? [])->firstWhere('user_id', (int) $userId);
+            $myReview = collect($summary['supervisors'] ?? [])->first(fn($s) => (string) ($s['user_id'] ?? '') === $userIdStr);
             if ($myReview) {
                 if ($myReview['status'] === 'approved') {
                     return false;

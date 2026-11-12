@@ -274,22 +274,43 @@
                             </form>
                         @elseif(auth()->user()->can('review', $milestone))
                             @php
-                                $canQuickApprove = !$milestone->template->requires_submission || 
-                                                   ($milestone->submissions->last() && 
-                                                    $milestone->submissions->last()->feedback && 
-                                                    $milestone->submissions->last()->feedback->decision === 'approved');
+                                $headerWf = app(\App\Services\MilestoneWorkflowService::class);
+                                $isSupRoleOnly = auth()->user()->hasRole('Supervisor') && !auth()->user()->hasRole('Admin');
+                                $headerSupSummary = $isSupRoleOnly ? $headerWf->getSupervisorReviewSummary($milestone) : null;
+                                $myHeaderSupReview = $headerSupSummary ? collect($headerSupSummary['supervisors'] ?? [])->first(fn($s) => (string)($s['user_id'] ?? '') === (string)auth()->id()) : null;
+                                $hasHeaderSubs = $milestone->submissions->isNotEmpty();
                             @endphp
-                            @if($canQuickApprove && $milestone->status !== 'approved')
-                            <form action="{{ route('milestones.review.update', $milestone) }}" method="POST" class="inline-block relative z-20" onclick="event.stopPropagation();">
-                                @csrf
-                                @method('PATCH')
-                                <input type="hidden" name="decision" value="approved">
-                                <input type="hidden" name="remarks" value="Approved directly from the roadmap summary.">
-                                <button type="submit" data-confirm="Are you sure you want to officially approve this milestone?" data-confirm-title="Approve Milestone" data-confirm-type="success" data-confirm-btn="Approve" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-emerald-600 transition-colors shadow-sm cursor-pointer border border-emerald-600">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
-                                    Approve
-                                </button>
-                            </form>
+                            @if($isSupRoleOnly && $myHeaderSupReview && $milestone->status !== 'approved' && !$headerWf->isPostDefencePhase($milestone) && $hasHeaderSubs)
+                                @if($myHeaderSupReview['status'] === 'approved')
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                                        <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                        Approved by You
+                                    </span>
+                                @elseif($myHeaderSupReview['status'] === 'rejected')
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                                        Revision Requested
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-100 text-amber-800 border border-amber-300 rounded-lg text-[10px] font-black uppercase tracking-widest animate-pulse">
+                                        Needs Your Approval
+                                    </span>
+                                @endif
+                            @elseif(auth()->user()->hasRole('Admin') && $milestone->status !== 'approved')
+                                @php
+                                    $canQuickApprove = !$milestone->template->requires_submission || $headerWf->isSupervisorApproved($milestone);
+                                @endphp
+                                @if($canQuickApprove)
+                                <form action="{{ route('milestones.review.update', $milestone) }}" method="POST" class="inline-block relative z-20" onclick="event.stopPropagation();">
+                                    @csrf
+                                    @method('PATCH')
+                                    <input type="hidden" name="decision" value="approved">
+                                    <input type="hidden" name="remarks" value="Approved directly from the roadmap summary.">
+                                    <button type="submit" data-confirm="Are you sure you want to officially approve this milestone?" data-confirm-title="Approve Milestone" data-confirm-type="success" data-confirm-btn="Approve" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-emerald-600 transition-colors shadow-sm cursor-pointer border border-emerald-600">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                                        Approve
+                                    </button>
+                                </form>
+                                @endif
                             @endif
                         @endif
                         

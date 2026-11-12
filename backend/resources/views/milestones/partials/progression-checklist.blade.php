@@ -206,6 +206,15 @@
             {{-- Internal Defence: 6 Steps (including Post-Defence Correction Upload & Internal Examiner Approval) --}}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-6">
                 {{-- Step 1: Pre-Defence Manuscript Upload --}}
+                @php
+                    $preDefSub = $milestone->submissions->whereIn('type', ['manuscript', 'file'])->sortByDesc('created_at')->first()
+                        ?? $milestone->submissions->sortByDesc('created_at')->first();
+                    if ($isPostDefence && $postDefenceSub && $milestone->submissions->whereIn('type', ['manuscript', 'file'])->count() > 1) {
+                        $preDefSub = $milestone->submissions->whereIn('type', ['manuscript', 'file'])->where('id', '!=', $postDefenceSub->id)->sortByDesc('created_at')->first() ?? $preDefSub;
+                    }
+                    $preDefUrl = $preDefSub?->file_url ? (str_starts_with($preDefSub->file_url, 'http') ? $preDefSub->file_url : \Illuminate\Support\Facades\Storage::url($preDefSub->file_url)) : null;
+                    $pubSubsCount = $milestone->submissions->where('type', 'publication')->count();
+                @endphp
                 <div class="p-5 rounded-2xl border transition-all {{ ($hasPpt || $isPostDefence || $isApproved) ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200' }} flex flex-col justify-between">
                     <div>
                         <div class="flex items-center justify-between mb-3">
@@ -217,12 +226,45 @@
                         <h4 class="text-sm font-bold text-slate-900">1. Pre-Defence Thesis Upload</h4>
                         <p class="text-xs text-slate-500 mt-1 mb-3">
                             {{ ($hasPpt || $isPostDefence || $isApproved) ? 'Pre-defence thesis manuscript uploaded by candidate.' : 'Candidate must upload thesis manuscript (PDF) before presentation.' }}
+                            @if($pubSubsCount > 0)
+                                <span class="block mt-1 font-semibold text-purple-700">• {{ $pubSubsCount }} Scopus {{ \Illuminate\Support\Str::plural('publication', $pubSubsCount) }} attached</span>
+                            @endif
                         </p>
                     </div>
+
+                    @if($preDefSub && $preDefUrl)
+                        <div class="flex flex-col gap-1.5 mt-2">
+                            <button type="button" 
+                                @click.prevent="$dispatch('open-document-preview', { 
+                                    url: '{{ $preDefUrl }}', 
+                                    title: 'Thesis Manuscript (v{{ $preDefSub->version }}) - {{ addslashes($milestone->thesis->student->user->name) }}', 
+                                    type: 'pdf' 
+                                })"
+                                class="w-full inline-flex items-center justify-center gap-2 px-3 py-2 bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-xl text-xs font-bold text-indigo-700 transition-colors shadow-sm cursor-pointer">
+                                <svg class="w-3.5 h-3.5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                <span>View Thesis Manuscript (v{{ $preDefSub->version }})</span>
+                            </button>
+                            <a href="{{ $preDefUrl }}" target="_blank" class="text-[10px] font-bold text-slate-500 hover:text-indigo-600 text-center underline">
+                                Open / Download PDF in New Tab &rarr;
+                            </a>
+                        </div>
+                    @endif
                 </div>
 
                 {{-- Step 2: Supervisor Pre-Defence Approval --}}
-                <div class="p-5 rounded-2xl border transition-all {{ ($isSupervisorApproved || $isPostDefence || $isApproved) ? 'bg-emerald-50/50 border-emerald-200' : ($milestone->status === 'revision_required' && !$isPostDefence ? 'bg-rose-50/50 border-rose-200' : 'bg-slate-50 border-slate-200') }} flex flex-col justify-between">
+                @php
+                    $supSummaryInt = $workflow->getSupervisorReviewSummary($milestone);
+                    $mySupReviewInt = collect($supSummaryInt['supervisors'] ?? [])->first(fn($s) => (string)($s['user_id'] ?? '') === (string)auth()->id());
+                    $canReviewPreDefence = !$isPostDefence && !$isApproved && (auth()->user()->hasRole('Admin') || (
+                        auth()->user()->hasRole('Supervisor') && 
+                        auth()->user()->supervisorProfile && 
+                        $milestone->thesis->assignments->where('supervisor_profile_id', auth()->user()->supervisorProfile->id)->where('status', 'active')->isNotEmpty()
+                    ));
+                    $needsMyReviewInt = $mySupReviewInt
+                        ? in_array($mySupReviewInt['status'], ['pending', 'pending_re_review'])
+                        : !$isSupervisorApproved;
+                @endphp
+                <div class="p-5 rounded-2xl border transition-all {{ ($isSupervisorApproved || $isPostDefence || $isApproved) ? 'bg-emerald-50/50 border-emerald-200' : ($milestone->status === 'revision_required' && !$isPostDefence ? 'bg-rose-50/50 border-rose-200' : 'bg-slate-50 border-slate-200') }} flex flex-col justify-between" x-data="{ editingDecision: {{ $needsMyReviewInt ? 'true' : 'false' }}, remarks: {{ \Illuminate\Support\Js::from($mySupReviewInt['remarks'] ?? '') }} }">
                     <div>
                         <div class="flex items-center justify-between mb-3">
                             <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black {{ ($isSupervisorApproved || $isPostDefence || $isApproved) ? 'bg-emerald-500 text-white' : ($milestone->status === 'revision_required' && !$isPostDefence ? 'bg-rose-500 text-white' : 'bg-slate-200 text-slate-700') }}">2</span>
@@ -231,32 +273,69 @@
                             </span>
                         </div>
                         <h4 class="text-sm font-bold text-slate-900">2. Supervisor Pre-Defence Approval</h4>
-                        <p class="text-xs text-slate-500 mt-1 mb-3">
-                            {{ ($isSupervisorApproved || $isPostDefence || $isApproved) ? 'Supervisor approved the candidate\'s thesis for internal defence presentation.' : 'Assigned supervisor must review and accept the pre-defence manuscript.' }}
+                        <p class="text-xs text-slate-500 mt-1 mb-2">
+                            @if($isSupervisorApproved || $isPostDefence || $isApproved)
+                                {{ $supSummaryInt['has_supervisors'] ? "{$supSummaryInt['approved_count']} of {$supSummaryInt['total_assigned']} supervisors approved — Candidate eligible for Internal Defence presentation." : 'Supervisor approved the candidate\'s thesis for internal defence presentation.' }}
+                            @elseif($supSummaryInt['rejected_count'] > 0)
+                                Supervisor requested revisions on the thesis manuscript.
+                            @else
+                                Assigned supervisor must review and approve (or reject) the uploaded thesis manuscript.
+                            @endif
                         </p>
+
+                        @if($supSummaryInt['has_supervisors'] && !$isPostDefence)
+                            <div class="space-y-1.5 my-2.5">
+                                @foreach($supSummaryInt['supervisors'] as $sItem)
+                                    <div class="flex items-center justify-between px-2.5 py-1.5 bg-white/90 rounded-lg border border-slate-200/70 text-[11px]">
+                                        <span class="font-bold text-slate-700 truncate mr-2">
+                                            {{ $sItem['name'] }}
+                                            @if((string)$sItem['user_id'] === (string)auth()->id())
+                                                <span class="text-[9px] font-black text-indigo-600 uppercase">(You)</span>
+                                            @endif
+                                        </span>
+                                        @if($sItem['status'] === 'approved')
+                                            <span class="text-[10px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">✓ Approved</span>
+                                        @elseif($sItem['status'] === 'rejected')
+                                            <span class="text-[10px] font-black text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 shrink-0">✕ Rejected</span>
+                                        @elseif($sItem['status'] === 'pending_re_review')
+                                            <span class="text-[10px] font-black text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 shrink-0">↻ Re-Review</span>
+                                        @else
+                                            <span class="text-[10px] font-semibold text-slate-400 italic shrink-0">Pending</span>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
                     </div>
 
-                    @php
-                        $canReviewPreDefence = !$isPostDefence && (auth()->user()->hasRole('Admin') || (
-                            auth()->user()->hasRole('Supervisor') && 
-                            auth()->user()->supervisorProfile && 
-                            $milestone->thesis->assignments->where('supervisor_profile_id', auth()->user()->supervisorProfile->id)->where('status', 'active')->isNotEmpty()
-                        ));
-                    @endphp
-                    @if(!$isSupervisorApproved && $canReviewPreDefence && $milestone->submissions()->exists())
-                        <form method="POST" x-data="{ remarks: '' }" @submit="if(!remarks.trim()) { alert('A comment is required to accept or reject the upload.'); event.preventDefault(); }" class="mt-4 pt-4 border-t border-slate-100">
-                            @csrf
-                            <label class="block text-xs font-bold text-slate-700 mb-1.5">Supervisor Decision <span class="text-rose-500">*</span></label>
-                            <textarea name="remarks" x-model="remarks" rows="2" class="w-full text-xs rounded-xl border-slate-200 focus:ring-indigo-500 focus:border-indigo-500 p-2.5 mb-2 shadow-sm resize-none bg-white placeholder:text-slate-400" placeholder="Required: Explain your decision..." required></textarea>
-                            <div class="flex gap-2">
-                                <button type="submit" formaction="{{ route('milestones.accept_upload', $milestone) }}" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-2 rounded-xl text-xs font-bold transition-colors">
-                                    Accept Upload
-                                </button>
-                                <button type="submit" formaction="{{ route('milestones.reject_upload', $milestone) }}" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white py-2 rounded-xl text-xs font-bold transition-colors">
-                                    Reject Upload
+                    @if($canReviewPreDefence && $milestone->submissions->isNotEmpty())
+                        <div class="mt-2 pt-3 border-t border-slate-200/70">
+                            <div x-show="!editingDecision" class="flex items-center justify-between gap-2">
+                                <span class="text-[11px] font-bold {{ ($mySupReviewInt['status'] ?? '') === 'approved' ? 'text-emerald-700' : 'text-rose-700' }}">
+                                    {{ ($mySupReviewInt['status'] ?? '') === 'approved' ? '✓ Your approval is recorded' : (($mySupReviewInt['status'] ?? '') === 'rejected' ? '✕ You requested revisions' : 'Decision recorded') }}
+                                </span>
+                                <button type="button" @click="editingDecision = true" class="text-[10px] font-black uppercase tracking-wider text-indigo-600 hover:text-indigo-800 underline cursor-pointer">
+                                    Update Decision
                                 </button>
                             </div>
-                        </form>
+
+                            <form x-show="editingDecision" method="POST" @submit="if(!remarks.trim()) { alert('A comment is required to approve or reject the thesis.'); event.preventDefault(); }" class="space-y-2">
+                                @csrf
+                                <div class="flex items-center justify-between">
+                                    <label class="block text-xs font-bold text-slate-700">Supervisor Decision & Remarks <span class="text-rose-500">*</span></label>
+                                    <button type="button" x-show="{{ $needsMyReviewInt ? 'false' : 'true' }}" @click="editingDecision = false" class="text-[10px] font-bold text-slate-400 hover:text-slate-600">Cancel</button>
+                                </div>
+                                <textarea name="remarks" x-model="remarks" rows="2" class="w-full text-xs rounded-xl border-slate-200 focus:ring-indigo-500 focus:border-indigo-500 p-2.5 shadow-sm resize-none bg-white placeholder:text-slate-400" placeholder="Enter your review comments (required to approve or reject)..." required></textarea>
+                                <div class="flex gap-2">
+                                    <button type="submit" formaction="{{ route('milestones.accept_upload', $milestone) }}" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-2 rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer">
+                                        ✓ Approve Thesis
+                                    </button>
+                                    <button type="submit" formaction="{{ route('milestones.reject_upload', $milestone) }}" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-2 px-2 rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer">
+                                        ✕ Reject / Revise
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     @endif
                 </div>
 
@@ -473,7 +552,19 @@
                 </div>
 
                 {{-- Step 2: Supervisor Approval --}}
-                <div class="p-5 rounded-2xl border transition-all {{ $isSupervisorApproved ? 'bg-emerald-50/50 border-emerald-200' : ($milestone->status === 'revision_required' ? 'bg-rose-50/50 border-rose-200' : 'bg-slate-50 border-slate-200') }} flex flex-col justify-between">
+                @php
+                    $supSummary = $workflow->getSupervisorReviewSummary($milestone);
+                    $mySupReviewGen = collect($supSummary['supervisors'] ?? [])->first(fn($s) => (string)($s['user_id'] ?? '') === (string)auth()->id());
+                    $canReviewUpload = !$isApproved && (auth()->user()->hasRole('Admin') || (
+                        auth()->user()->hasRole('Supervisor') && 
+                        auth()->user()->supervisorProfile && 
+                        $milestone->thesis->assignments->where('supervisor_profile_id', auth()->user()->supervisorProfile->id)->where('status', 'active')->isNotEmpty()
+                    ));
+                    $needsMyReviewGen = $mySupReviewGen
+                        ? in_array($mySupReviewGen['status'], ['pending', 'pending_re_review'])
+                        : !$isSupervisorApproved;
+                @endphp
+                <div class="p-5 rounded-2xl border transition-all {{ $isSupervisorApproved ? 'bg-emerald-50/50 border-emerald-200' : ($milestone->status === 'revision_required' ? 'bg-rose-50/50 border-rose-200' : 'bg-slate-50 border-slate-200') }} flex flex-col justify-between" x-data="{ editingDecision: {{ $needsMyReviewGen ? 'true' : 'false' }}, remarks: {{ \Illuminate\Support\Js::from($mySupReviewGen['remarks'] ?? '') }} }">
                     <div>
                         <div class="flex items-center justify-between mb-3">
                             <span class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-black {{ $isSupervisorApproved ? 'bg-emerald-500 text-white' : ($milestone->status === 'revision_required' ? 'bg-rose-500 text-white' : 'bg-slate-200 text-slate-700') }}">2</span>
@@ -482,10 +573,7 @@
                             </span>
                         </div>
                         <h4 class="text-sm font-bold text-slate-900">Supervisor Approval</h4>
-                        @php
-                            $supSummary = $workflow->getSupervisorReviewSummary($milestone);
-                        @endphp
-                        <p class="text-xs text-slate-500 mt-1 mb-3">
+                        <p class="text-xs text-slate-500 mt-1 mb-2">
                             @if($isSupervisorApproved)
                                 {{ $supSummary['has_supervisors'] ? "{$supSummary['approved_count']} of {$supSummary['total_assigned']} supervisors approved (0 rejections) — Candidate eligible to present." : "Supervisor approved the candidate's upload." }}
                             @elseif($supSummary['rejected_count'] > 0)
@@ -496,30 +584,61 @@
                                 Awaiting supervisor review and approval.
                             @endif
                         </p>
+
+                        @if($supSummary['has_supervisors'])
+                            <div class="space-y-1.5 my-2.5">
+                                @foreach($supSummary['supervisors'] as $sItem)
+                                    <div class="flex items-center justify-between px-2.5 py-1.5 bg-white/90 rounded-lg border border-slate-200/70 text-[11px]">
+                                        <span class="font-bold text-slate-700 truncate mr-2">
+                                            {{ $sItem['name'] }}
+                                            @if((string)$sItem['user_id'] === (string)auth()->id())
+                                                <span class="text-[9px] font-black text-indigo-600 uppercase">(You)</span>
+                                            @endif
+                                        </span>
+                                        @if($sItem['status'] === 'approved')
+                                            <span class="text-[10px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">✓ Approved</span>
+                                        @elseif($sItem['status'] === 'rejected')
+                                            <span class="text-[10px] font-black text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 shrink-0">✕ Rejected</span>
+                                        @elseif($sItem['status'] === 'pending_re_review')
+                                            <span class="text-[10px] font-black text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 shrink-0">↻ Re-Review</span>
+                                        @else
+                                            <span class="text-[10px] font-semibold text-slate-400 italic shrink-0">Pending</span>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
                     </div>
 
-                    @php
-                        $canReviewUpload = auth()->user()->hasRole('Admin') || (
-                            auth()->user()->hasRole('Supervisor') && 
-                            auth()->user()->supervisorProfile && 
-                            $milestone->thesis->assignments->where('supervisor_profile_id', auth()->user()->supervisorProfile->id)->where('status', 'active')->isNotEmpty()
-                        );
-                    @endphp
-                    @if(!$isSupervisorApproved && $canReviewUpload && $milestone->submissions()->exists())
-                        <form method="POST" x-data="{ remarks: '' }" @submit="if(!remarks.trim()) { alert('A comment is required to accept or reject the upload.'); event.preventDefault(); }" class="mt-4 pt-4 border-t border-slate-100">
-                            @csrf
-                            <label class="block text-xs font-bold text-slate-700 mb-1.5">Review Decision <span class="text-rose-500">*</span></label>
-                            <textarea name="remarks" x-model="remarks" rows="2" class="w-full text-xs rounded-xl border-slate-200 focus:ring-indigo-500 focus:border-indigo-500 p-2.5 mb-2 shadow-sm resize-none bg-white placeholder:text-slate-400" placeholder="Required: Explain your decision..." required></textarea>
-                            
-                            <div class="flex gap-2">
-                                <button type="submit" formaction="{{ route('milestones.accept_upload', $milestone) }}" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-2 rounded-xl text-xs font-bold transition-colors">
-                                    Accept Upload
-                                </button>
-                                <button type="submit" formaction="{{ route('milestones.reject_upload', $milestone) }}" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white py-2 rounded-xl text-xs font-bold transition-colors">
-                                    Reject Upload
+                    @if($canReviewUpload && $milestone->submissions->isNotEmpty())
+                        <div class="mt-2 pt-3 border-t border-slate-200/70">
+                            <div x-show="!editingDecision" class="flex items-center justify-between gap-2">
+                                <span class="text-[11px] font-bold {{ ($mySupReviewGen['status'] ?? '') === 'approved' ? 'text-emerald-700' : 'text-rose-700' }}">
+                                    {{ ($mySupReviewGen['status'] ?? '') === 'approved' ? '✓ Your approval is recorded' : (($mySupReviewGen['status'] ?? '') === 'rejected' ? '✕ You requested revisions' : 'Decision recorded') }}
+                                </span>
+                                <button type="button" @click="editingDecision = true" class="text-[10px] font-black uppercase tracking-wider text-indigo-600 hover:text-indigo-800 underline cursor-pointer">
+                                    Update Decision
                                 </button>
                             </div>
-                        </form>
+
+                            <form x-show="editingDecision" method="POST" @submit="if(!remarks.trim()) { alert('A comment is required to accept or reject the upload.'); event.preventDefault(); }" class="space-y-2">
+                                @csrf
+                                <div class="flex items-center justify-between">
+                                    <label class="block text-xs font-bold text-slate-700">Review Decision <span class="text-rose-500">*</span></label>
+                                    <button type="button" x-show="{{ $needsMyReviewGen ? 'false' : 'true' }}" @click="editingDecision = false" class="text-[10px] font-bold text-slate-400 hover:text-slate-600">Cancel</button>
+                                </div>
+                                <textarea name="remarks" x-model="remarks" rows="2" class="w-full text-xs rounded-xl border-slate-200 focus:ring-indigo-500 focus:border-indigo-500 p-2.5 shadow-sm resize-none bg-white placeholder:text-slate-400" placeholder="Required: Explain your decision..." required></textarea>
+                                
+                                <div class="flex gap-2">
+                                    <button type="submit" formaction="{{ route('milestones.accept_upload', $milestone) }}" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer">
+                                        ✓ Approve
+                                    </button>
+                                    <button type="submit" formaction="{{ route('milestones.reject_upload', $milestone) }}" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer">
+                                        ✕ Reject
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     @endif
                 </div>
 

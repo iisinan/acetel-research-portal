@@ -150,9 +150,11 @@ class MilestoneReviewController extends Controller
 
             if ($decision === 'approved') {
                 \App\Models\Feedback::updateOrCreate(
-                    ['submission_id' => $submission->id],
                     [
-                        'user_id' => $user->id,
+                        'submission_id' => $submission->id,
+                        'created_by' => $user->id,
+                    ],
+                    [
                         'decision' => 'approved',
                         'remarks' => $request->remarks,
                     ]
@@ -188,9 +190,11 @@ class MilestoneReviewController extends Controller
                 return redirect()->back()->with('success', 'Corrected thesis approved successfully. The student has been officially advanced to Milestone 7 (Viva Voce).');
             } else {
                 \App\Models\Feedback::updateOrCreate(
-                    ['submission_id' => $submission->id],
                     [
-                        'user_id' => $user->id,
+                        'submission_id' => $submission->id,
+                        'created_by' => $user->id,
+                    ],
+                    [
                         'decision' => 'revision_required',
                         'remarks' => $request->remarks,
                     ]

@@ -41,7 +41,43 @@
         </div>
     </div>
 
+    @php
+        $workflowForThesis = app(\App\Services\MilestoneWorkflowService::class);
+        $isAssignedSupOnThesis = Auth::user()->hasRole('Supervisor') && Auth::user()->supervisorProfile && $thesis->assignments->where('supervisor_profile_id', Auth::user()->supervisorProfile->id)->where('status', 'active')->isNotEmpty();
+        $pendingSupMilestoneOnThesis = null;
+        if ($isAssignedSupOnThesis) {
+            $pendingSupMilestoneOnThesis = $thesis->milestones->sortBy('template.order')->first(function($m) use ($workflowForThesis) {
+                if ($m->status === 'approved' || $m->status === 'revision_required') return false;
+                if ($workflowForThesis->isPostDefencePhase($m)) return false;
+                $hasSub = $m->relationLoaded('submissions') ? $m->submissions->isNotEmpty() : $m->submissions()->exists();
+                if (!$hasSub) return false;
+                $summary = $workflowForThesis->getSupervisorReviewSummary($m);
+                $myR = collect($summary['supervisors'] ?? [])->first(fn($s) => (string)($s['user_id'] ?? '') === (string)Auth::id());
+                if ($myR && in_array($myR['status'], ['approved', 'rejected'])) return false;
+                if ($myR && $myR['status'] === 'pending_re_review') return true;
+                return !$workflowForThesis->isSupervisorApproved($m);
+            });
+        }
+    @endphp
 
+    @if($pendingSupMilestoneOnThesis)
+        <div class="rounded-3xl bg-amber-50 border border-amber-200 p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-start sm:items-center gap-4">
+                <div class="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <div>
+                    <span class="inline-block px-2.5 py-0.5 rounded-full bg-amber-200/80 text-amber-900 text-[10px] font-black uppercase tracking-wider mb-1">Supervisor Approval Needed</span>
+                    <h3 class="text-base sm:text-lg font-black text-slate-900">{{ $thesis->student->user->name }} uploaded a submission for {{ $pendingSupMilestoneOnThesis->template->name }}</h3>
+                    <p class="text-xs font-medium text-slate-600 mt-0.5">Click the button to view the uploaded thesis document and approve or request revisions.</p>
+                </div>
+            </div>
+            <a href="{{ route('milestones.show', $pendingSupMilestoneOnThesis) }}" class="inline-flex items-center justify-center gap-2 px-5 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-sm shrink-0">
+                <span>Review & Approve Thesis</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+            </a>
+        </div>
+    @endif
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 
@@ -51,6 +87,7 @@
                     $statusColors = [
                         'approved' => 'bg-emerald-50 text-emerald-600 border-emerald-200',
                         'submitted' => 'bg-amber-50 text-amber-600 border-amber-200',
+                        'revision_required' => 'bg-rose-50 text-rose-600 border-rose-200',
                         'changes_required' => 'bg-rose-50 text-rose-600 border-rose-200',
                         'pending' => 'bg-slate-50 text-slate-500 border-slate-200'
                     ];
@@ -64,8 +101,9 @@
                         @endif
                         @php
                             $statusClass = $statusColors[$milestone->status] ?? $statusColors['pending'];
+                            $isPendingThisSup = $pendingSupMilestoneOnThesis && $pendingSupMilestoneOnThesis->id === $milestone->id;
                         @endphp
-                        <div class="bg-white rounded-2xl border border-slate-200/80 p-4 space-y-3 shadow-xs">
+                        <div id="milestone-{{ $milestone->id }}" class="bg-white rounded-2xl border {{ $isPendingThisSup ? 'border-amber-300 ring-2 ring-amber-200/60' : 'border-slate-200/80' }} p-4 space-y-3 shadow-xs">
                             <div class="flex items-center justify-between gap-3">
                                 <div class="flex items-center gap-3">
                                     <div class="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center font-black text-xs text-slate-600 shrink-0">
@@ -73,15 +111,15 @@
                                     </div>
                                     <h4 class="text-sm font-black text-slate-900 leading-snug">{{ $milestone->template->name }}</h4>
                                 </div>
-                                <span class="px-2.5 py-1 text-[9px] font-black uppercase tracking-widest rounded-md border shrink-0 {{ $statusClass }}">
-                                    {{ str_replace('_', ' ', $milestone->status) }}
+                                <span class="px-2.5 py-1 text-[9px] font-black uppercase tracking-widest rounded-md border shrink-0 {{ $isPendingThisSup ? 'bg-amber-100 text-amber-800 border-amber-300' : $statusClass }}">
+                                    {{ $isPendingThisSup ? 'Awaiting Your Approval' : str_replace('_', ' ', $milestone->status) }}
                                 </span>
                             </div>
 
                             <div class="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
                                 <span>Updated: {{ $milestone->updated_at ? $milestone->updated_at->format('M d, Y') : 'N/A' }}</span>
-                                <a href="{{ route('milestones.show', $milestone) }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary-50 text-primary-700 font-bold text-xs rounded-lg hover:bg-primary-100 transition-colors">
-                                    {{ $milestone->status === 'submitted' ? 'Audit Phase' : 'Access' }}
+                                <a href="{{ route('milestones.show', $milestone) }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 {{ $isPendingThisSup ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-primary-50 text-primary-700 hover:bg-primary-100' }} font-bold text-xs rounded-lg transition-colors">
+                                    {{ $isPendingThisSup ? 'Review & Approve' : ($milestone->status === 'submitted' ? 'Audit Phase' : 'Access') }}
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
                                 </a>
                             </div>
@@ -105,8 +143,11 @@
                                 @if(Auth::user()->hasRole('Internal Examiner') && !Auth::user()->hasAnyRole(['Admin', 'Director', 'Program Coordinator']) && !(Auth::user()->hasRole('Supervisor') && $thesis->assignments->where('supervisor_profile_id', Auth::user()->supervisorProfile?->id)->isNotEmpty()) && $milestone->template->slug !== 'internal_defence' && $milestone->template->order < 6)
                                     @continue
                                 @endif
-                                
-                            <tr class="hover:bg-primary-50/30 transition-all duration-300 group/row">
+                                @php
+                                    $statusClass = $statusColors[$milestone->status] ?? $statusColors['pending'];
+                                    $isPendingThisSup = $pendingSupMilestoneOnThesis && $pendingSupMilestoneOnThesis->id === $milestone->id;
+                                @endphp
+                            <tr id="milestone-row-{{ $milestone->id }}" class="{{ $isPendingThisSup ? 'bg-amber-50/40' : 'hover:bg-primary-50/30' }} transition-all duration-300 group/row">
                                 <td class="px-6 py-5">
                                     <div class="flex items-center gap-4">
                                         <div class="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center font-black text-slate-400 group-hover/row:bg-primary-50 group-hover/row:text-primary-600 transition-colors shadow-sm">
@@ -116,19 +157,18 @@
                                     </div>
                                 </td>
                                 <td class="px-6 py-5">
-                                    @php
-                                        $statusClass = $statusColors[$milestone->status] ?? $statusColors['pending'];
-                                    @endphp
-                                    <span class="px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-md border {{ $statusClass }}">
-                                        {{ str_replace('_', ' ', $milestone->status) }}
+                                    <span class="px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-md border {{ $isPendingThisSup ? 'bg-amber-100 text-amber-800 border-amber-300' : $statusClass }}">
+                                        {{ $isPendingThisSup ? 'Awaiting Your Approval' : str_replace('_', ' ', $milestone->status) }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-5 text-xs font-semibold text-slate-500">
                                     {{ $milestone->updated_at ? $milestone->updated_at->format('M d, Y') : 'N/A' }}
                                 </td>
                                 <td class="px-6 py-5 text-right">
-                                    <a href="{{ route('milestones.show', $milestone) }}" class="inline-flex items-center justify-center gap-2 px-4 py-2 bg-white border border-slate-200 text-primary-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-primary-50 hover:border-primary-200 transition-all duration-300 shadow-sm">
-                                        @if($milestone->status === 'submitted')
+                                    <a href="{{ route('milestones.show', $milestone) }}" class="inline-flex items-center justify-center gap-2 px-4 py-2 {{ $isPendingThisSup ? 'bg-amber-500 hover:bg-amber-600 text-white border border-amber-600' : 'bg-white border border-slate-200 text-primary-600 hover:bg-primary-50 hover:border-primary-200' }} text-[10px] font-black uppercase tracking-widest rounded-lg transition-all duration-300 shadow-sm">
+                                        @if($isPendingThisSup)
+                                            Review & Approve
+                                        @elseif($milestone->status === 'submitted')
                                             Audit Phase
                                         @else
                                             Access

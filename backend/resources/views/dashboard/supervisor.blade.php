@@ -323,8 +323,8 @@ class="space-y-8 animate-in">
                             <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                         </div>
                         <div>
-                            <h3 class="text-lg font-black text-slate-800 tracking-tight leading-none mb-1">Institutional Backlog Requires Immediate Review</h3>
-                            <p class="text-xs font-semibold text-slate-600">You have {{ $stats['total_pending_actions'] }} pending clearance {{ Str::plural('item', $stats['total_pending_actions']) }} requiring approval across your active appointments.</p>
+                            <h3 class="text-lg font-black text-slate-800 tracking-tight leading-none mb-1">Action Required: Candidate Submissions Awaiting Your Approval</h3>
+                            <p class="text-xs font-semibold text-slate-600">You have {{ $stats['total_pending_actions'] }} pending clearance {{ Str::plural('item', $stats['total_pending_actions']) }} requiring your review and decision.</p>
                         </div>
                     </div>
 
@@ -351,6 +351,43 @@ class="space-y-8 animate-in">
                         @endif
                     </div>
                 </div>
+
+                @if($pending_reviews->count() > 0)
+                    <div class="mt-6 pt-5 border-t border-amber-200/70">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-amber-800 mb-3">Supervisees Awaiting Your Thesis / Milestone Approval ({{ $pending_reviews->count() }})</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            @foreach($pending_reviews as $review)
+                                <div class="bg-white border border-amber-200 rounded-2xl p-4 hover:border-amber-400 hover:shadow-md transition-all flex flex-col justify-between gap-3">
+                                    <div class="flex items-start gap-3">
+                                        <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-black text-sm shrink-0 border border-amber-100">
+                                            {{ substr($review->thesis?->student?->user?->name ?? '?', 0, 1) }}
+                                        </div>
+                                        <div class="min-w-0 flex-1">
+                                            <h4 class="text-sm font-black text-slate-800 truncate">{{ $review->thesis?->student?->user?->name ?? 'Candidate' }}</h4>
+                                            <div class="flex flex-wrap items-center gap-1 mt-1">
+                                                <span class="inline-block px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200/60 rounded text-[9px] font-bold uppercase truncate max-w-full">
+                                                    {{ $review->template->name }}
+                                                </span>
+                                                @if(($review->approvals['supervisor_reviews'][(string)auth()->id()]['decision'] ?? null) === 'pending_re_review')
+                                                    <span class="inline-block px-1.5 py-0.5 bg-rose-100 text-rose-800 border border-rose-200 rounded text-[8px] font-black uppercase tracking-wider">
+                                                        Revised Upload
+                                                    </span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase">{{ $review->submitted_at ? $review->submitted_at->diffForHumans() : 'Submitted' }}</span>
+                                        <a href="{{ route('milestones.show', $review->id) }}" class="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-xs inline-flex items-center gap-1">
+                                            <span>Review & Approve Thesis</span>
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                                        </a>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
             </div>
         @endif
 
@@ -729,7 +766,7 @@ class="space-y-8 animate-in">
 
         {{-- Attention Required Alert for Supervisor --}}
         @if($pending_reviews->count() > 0)
-        <div class="relative rounded-3xl bg-amber-50 border border-amber-200 shadow-sm overflow-hidden" x-data="{ expanded: false }">
+        <div class="relative rounded-3xl bg-amber-50 border border-amber-200 shadow-sm overflow-hidden" x-data="{ expanded: true }">
             <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6 p-6 lg:p-8 cursor-pointer" @click="expanded = !expanded">
                 <div class="flex items-center gap-4">
                     <div class="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
@@ -739,8 +776,8 @@ class="space-y-8 animate-in">
                         </span>
                     </div>
                     <div>
-                        <h3 class="text-lg font-black text-slate-800 tracking-tight leading-none mb-1">Supervisor Review Pending</h3>
-                        <p class="text-xs font-semibold text-slate-600">{{ $pending_reviews->count() }} candidate {{ Str::plural('milestone', $pending_reviews->count()) }} require your mentorship review.</p>
+                        <h3 class="text-lg font-black text-slate-800 tracking-tight leading-none mb-1">Supervisor Thesis Review Pending</h3>
+                        <p class="text-xs font-semibold text-slate-600">{{ $pending_reviews->count() }} candidate {{ Str::plural('submission', $pending_reviews->count()) }} waiting for your approval or revision feedback.</p>
                     </div>
                 </div>
                 
@@ -777,8 +814,9 @@ class="space-y-8 animate-in">
                         </div>
                         <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
                             <span class="text-[10px] font-bold text-slate-400 uppercase">{{ $review->submitted_at ? $review->submitted_at->diffForHumans() : 'Recently' }}</span>
-                            <a href="{{ route('theses.show', ['thesis' => $review->thesis_project_id, 'expanded' => $review->id]) }}#milestone-{{$review->id}}" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[9px] font-black uppercase tracking-wider transition-all">
-                                Review Milestone
+                            <a href="{{ route('milestones.show', $review->id) }}" class="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all inline-flex items-center gap-1 shadow-xs">
+                                <span>Review & Approve Thesis</span>
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
                             </a>
                         </div>
                     </div>
@@ -899,9 +937,19 @@ class="space-y-8 animate-in">
 
                                         {{-- Dynamic Health Pill --}}
                                         @if($student->has_pending_review)
-                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-[9px] font-black uppercase animate-pulse">
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-100 text-amber-800 border border-amber-300 rounded text-[9px] font-black uppercase animate-pulse">
                                                 <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
-                                                Review Pending
+                                                Thesis Awaiting Your Approval
+                                            </span>
+                                        @elseif(($student->supervisor_review_state ?? null) === 'revision_required')
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 bg-rose-100 text-rose-800 border border-rose-200 rounded text-[9px] font-black uppercase">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
+                                                Revision Requested
+                                            </span>
+                                        @elseif(($student->supervisor_review_state ?? null) === 'approved')
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded text-[9px] font-black uppercase">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                                                Upload Approved
                                             </span>
                                         @elseif($student->is_stalled)
                                             <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-100 text-rose-800 rounded text-[9px] font-black uppercase">
@@ -974,7 +1022,18 @@ class="space-y-8 animate-in">
                                     </div>
                                 </div>
 
-                                <a href="{{ route('theses.show', $student->thesis) }}" class="flex items-center justify-center px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-xs">
+                                @if($student->has_pending_review && !empty($student->pending_review_milestone_id))
+                                    <a href="{{ route('milestones.show', $student->pending_review_milestone_id) }}" class="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-sm">
+                                        <span>Review & Approve Thesis</span>
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                                    </a>
+                                @elseif(!empty($student->current_milestone_id))
+                                    <a href="{{ route('milestones.show', $student->current_milestone_id) }}" class="flex items-center justify-center px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-xs">
+                                        Open Milestone
+                                    </a>
+                                @endif
+
+                                <a href="{{ route('theses.show', $student->thesis) }}" class="flex items-center justify-center px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-xs">
                                     Audit Thesis
                                 </a>
                             </div>
