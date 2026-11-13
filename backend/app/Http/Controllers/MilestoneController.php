@@ -1183,7 +1183,7 @@ class MilestoneController extends Controller
         $data['uploaded_at'] = now()->toDateTimeString();
         
         if ($request->hasFile('report_file')) {
-            $path = $request->file('report_file')->store('plagiarism_reports');
+            $path = $this->storeSubmissionFile($request->file('report_file'), 'plagiarism_reports');
             $data['report_url'] = $path;
         }
 
@@ -1217,7 +1217,7 @@ class MilestoneController extends Controller
         // Find the student's latest manuscript submission to link it
         $manuscript = $milestone->submissions()->where('type', 'manuscript')->latest()->first();
         
-        $path = $request->file('plagiarism_report')->store('plagiarism_reports/' . $milestone->thesis_project_id);
+        $path = $this->storeSubmissionFile($request->file('plagiarism_report'), 'plagiarism_reports/' . $milestone->thesis_project_id);
         
         // 1. Create a dedicated "Plagiarism Report" submission entry (so it shows in the docs list)
         $plagiarismSubmission = $milestone->submissions()->create([

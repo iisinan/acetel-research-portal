@@ -1040,6 +1040,12 @@ class="space-y-8 animate-in">
                                     </div>
                                 </div>
 
+                                @if(!empty($student->latest_upload_submission))
+                                    <a href="{{ route('submissions.view', $student->latest_upload_submission) }}" target="_blank" class="flex items-center justify-center px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-xs" title="View Candidate Upload">
+                                        View Upload
+                                    </a>
+                                @endif
+
                                 @if($student->has_pending_review && !empty($student->pending_review_milestone_id))
                                     <a href="{{ route('milestones.show', $student->pending_review_milestone_id) }}" class="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-sm">
                                         <span>Review & Approve Thesis</span>

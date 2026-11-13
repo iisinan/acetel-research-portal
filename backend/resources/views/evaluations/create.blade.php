@@ -59,7 +59,7 @@
                         </p>
                     </div>
                 </div>
-                <a href="{{ Storage::url($plagData->type === 'plagiarism_report' ? $plagData->file_url : ($plagData->plagiarism_data['report_path'] ?? $plagData->file_url)) }}" 
+                <a href="{{ ($plagData->type === 'plagiarism_report' || empty($plagData->plagiarism_data['report_path'])) ? route('submissions.view', $plagData) : Storage::url($plagData->plagiarism_data['report_path']) }}" 
                    target="_blank"
                    class="px-4 py-2 bg-white border border-amber-200 rounded-xl text-[10px] font-black text-amber-700 uppercase tracking-widest hover:bg-amber-100 transition-all shadow-sm">
                     View Cert

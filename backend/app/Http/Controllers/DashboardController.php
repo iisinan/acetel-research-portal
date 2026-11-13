@@ -256,6 +256,8 @@ class DashboardController extends Controller
                     $pendingReviewObj = $pendingSupervisorReviews->firstWhere('thesis_project_id', $a->thesis_project_id);
                     $s->pending_review_milestone_id = $pendingReviewObj?->id ?? $currentM?->id;
                     $s->pending_review_milestone_name = $pendingReviewObj?->template?->name ?? $s->current_milestone_name;
+                    $s->latest_upload_submission = $pendingReviewObj?->submissions?->sortByDesc('id')->first()
+                        ?? $currentM?->submissions?->sortByDesc('id')->first();
 
                     $s->supervisor_review_state = null;
                     if ($s->has_pending_review) {
