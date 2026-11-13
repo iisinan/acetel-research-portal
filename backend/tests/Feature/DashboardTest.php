@@ -151,14 +151,54 @@ class DashboardTest extends TestCase
             'current_semester' => 2,
         ]);
 
-        \App\Models\ThesisProject::create([
+        $thesis = \App\Models\ThesisProject::create([
             'student_profile_id' => $examinedStudent->id,
             'internal_examiner_profile_id' => $internalProfile->id,
             'title' => 'Null-Safe Multi-Role Verification Thesis',
             'status' => 'active',
         ]);
 
-        $response = $this->actingAs($faculty)->get('/dashboard?role=Internal%20Examiner');
+        // Also assign faculty as Supervisor with a student milestone submission so supervisor review filtering runs
+        $supProfile = \App\Models\SupervisorProfile::create([
+            'user_id' => $faculty->id,
+            'max_load' => 10,
+            'current_load' => 1,
+        ]);
+        \App\Models\SupervisionAssignment::create([
+            'thesis_project_id' => $thesis->id,
+            'supervisor_profile_id' => $supProfile->id,
+            'role' => 'major',
+            'status' => 'active',
+            'assigned_at' => now(),
+        ]);
+        $template = \App\Models\MilestoneTemplate::where('slug', 'proposal_defence')->first()
+            ?? \App\Models\MilestoneTemplate::first();
+        if ($template) {
+            $sm = \App\Models\StudentMilestone::create([
+                'thesis_project_id' => $thesis->id,
+                'milestone_template_id' => $template->id,
+                'status' => 'pending_review',
+                'submitted_at' => now(),
+            ]);
+            \App\Models\Submission::create([
+                'student_milestone_id' => $sm->id,
+                'submitted_by' => $examinedUser->id,
+                'type' => 'manuscript',
+                'title' => 'Proposal Draft',
+                'file_path' => 'submissions/test.pdf',
+                'file_name' => 'test.pdf',
+                'file_size' => 1024,
+            ]);
+        }
+
+        $admin = User::factory()->create(['name' => 'Admin Impersonator']);
+        $admin->assignRole('Admin');
+
+        $this->actingAs($admin)
+            ->post(route('admin.users.impersonate', $faculty))
+            ->assertRedirect(route('dashboard', ['role' => 'Internal Examiner']));
+
+        $response = $this->get('/dashboard?role=Internal%20Examiner');
 
         $response->assertStatus(200);
         $response->assertSee('Null-Safe Multi-Role Verification Thesis');

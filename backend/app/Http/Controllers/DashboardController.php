@@ -226,7 +226,7 @@ class DashboardController extends Controller
                     ->where(function($q) {
                         $q->whereNotNull('submitted_at')->orWhereHas('submissions');
                     })
-                    ->with(['thesis.student.user', 'template', 'thesis.assignments.supervisor.user', 'submissions.feedbacks'])
+                    ->with(['thesis.student.user', 'template', 'thesis.assignments.supervisor.user', 'thesis.defenceEvents.evaluations', 'submissions.feedbacks'])
                     ->latest('updated_at')
                     ->get()
                     ->filter(function($milestone) use ($user) {
@@ -939,7 +939,7 @@ class DashboardController extends Controller
 
             // Once the presentation has already been conducted/graded or entered post-defence,
             // pre-defence supervisor upload review is no longer pending.
-            if ($workflow->isPresentationEvaluated($milestone) || $workflow->isPostDefencePhase($milestone)) {
+            if ($workflow->hasBeenGraded($milestone) || $workflow->isPostDefencePhase($milestone)) {
                 return false;
             }
 
