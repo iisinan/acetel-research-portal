@@ -752,19 +752,30 @@ class UserManagementController extends Controller
      */
     public function impersonate(Request $request, User $user)
     {
-        $actor = Auth::user();
+        $originalAdminId = session('impersonate_admin_id');
+        $actor = $originalAdminId ? User::find($originalAdminId) : Auth::user();
         if (!$actor || !$actor->hasRole('Admin')) {
             abort(403, 'Only Administrators can view user accounts.');
         }
 
         if ($user->id === $actor->id) {
+            if ($originalAdminId) {
+                return $this->stopImpersonating($request);
+            }
+
             return redirect()->back()->with('warning', 'You are already signed in as this account.');
         }
 
-        if (!session()->has('impersonate_admin_id')) {
+        if (!$originalAdminId) {
+            $previousUrl = url()->previous() ?: route('admin.users.index');
+            $previousPath = (string) parse_url($previousUrl, PHP_URL_PATH);
+            $safeReturnUrl = (str_ends_with($previousPath, '/impersonate') || str_ends_with($previousPath, '/impersonation/leave'))
+                ? route('admin.users.index')
+                : $previousUrl;
+
             session()->put('impersonate_admin_id', $actor->id);
             session()->put('impersonate_admin_name', $actor->name);
-            session()->put('impersonate_return_url', url()->previous() ?: route('admin.users.index'));
+            session()->put('impersonate_return_url', $safeReturnUrl);
         }
 
         Log::info('Admin impersonation started', [
@@ -773,7 +784,8 @@ class UserManagementController extends Controller
             'target_email' => $user->email,
         ]);
 
-        Auth::login($user);
+        // Preserve session ID and CSRF token so open tabs and browser Back navigation remain valid
+        $this->switchSessionUser($request, $user);
         Cookie::queue(Cookie::forget('active_dashboard_role'));
 
         $requestedRole = $request->input('role');
@@ -808,10 +820,17 @@ class UserManagementController extends Controller
             'admin_id' => $admin->id,
         ]);
 
-        Auth::login($admin);
+        $this->switchSessionUser($request, $admin);
         Cookie::queue(Cookie::forget('active_dashboard_role'));
 
         return redirect()->to($returnUrl ?: route('admin.users.index'))
             ->with('success', 'Returned to your Administrator account.');
+    }
+
+    private function switchSessionUser(Request $request, User $targetUser): void
+    {
+        $guard = Auth::guard('web');
+        $request->session()->put($guard->getName(), $targetUser->getAuthIdentifier());
+        $guard->setUser($targetUser);
     }
 }
