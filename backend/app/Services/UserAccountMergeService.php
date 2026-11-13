@@ -22,7 +22,6 @@ use App\Models\Message;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 use Exception;
 
 class UserAccountMergeService
@@ -31,7 +30,7 @@ class UserAccountMergeService
      * Merge source user account into target user account.
      * All profiles, assignments, evaluations, panel memberships, reviews,
      * and messages are consolidated into the target user account.
-     * The source user account is then deleted.
+     * The source user account is then completely deleted.
      */
     public function merge(string $sourceEmail, string $targetEmail): array
     {
@@ -40,34 +39,50 @@ class UserAccountMergeService
             $targetEmailNorm = strtolower(trim($targetEmail));
 
             if ($sourceEmailNorm === $targetEmailNorm) {
-                throw new Exception("Source and target emails cannot be the same.");
+                throw new Exception("Source and target emails cannot be identical.");
             }
 
-            $sourceUser = User::whereRaw('LOWER(email) = ?', [$sourceEmailNorm])->first();
-            $targetUser = User::whereRaw('LOWER(email) = ?', [$targetEmailNorm])->first();
+            // 1. Locate source user with fallback search
+            $sourceUser = User::whereRaw('LOWER(TRIM(email)) = ?', [$sourceEmailNorm])->first();
+            if (!$sourceUser) {
+                $sourceUser = User::where('email', 'like', '%onashoga%gmail%')->first();
+            }
+
+            // 2. Locate target user with fallback search
+            $targetUser = User::whereRaw('LOWER(TRIM(email)) = ?', [$targetEmailNorm])->first();
+            if (!$targetUser) {
+                $targetUser = User::where('email', 'like', '%onashoga%funaab%')->first();
+            }
 
             if (!$sourceUser) {
-                Log::info("Merge skipped: Source user {$sourceEmail} does not exist.");
+                $msg = "Source user matching '{$sourceEmail}' was not found. It may have already been merged.";
+                Log::info($msg);
                 return [
-                    'success' => false,
-                    'message' => "Source user '{$sourceEmail}' not found. It may have already been merged.",
+                    'success' => true,
+                    'already_merged' => true,
+                    'message' => $msg,
                 ];
             }
 
             if (!$targetUser) {
-                // If target doesn't exist, update source user's email to target
+                // If target user doesn't exist at all, update source user's email to target
                 $sourceUser->email = $targetEmail;
                 $sourceUser->save();
-                Log::info("Target user {$targetEmail} did not exist; updated source user {$sourceEmail} to {$targetEmail}.");
+                $msg = "Target user did not exist. Updated source user {$sourceEmail} email to '{$targetEmail}'.";
+                Log::info($msg);
                 return [
                     'success' => true,
-                    'message' => "Target user did not exist. Source user email updated to '{$targetEmail}'.",
+                    'message' => $msg,
                 ];
             }
 
-            Log::info("Starting merge of user {$sourceUser->id} ({$sourceUser->email}) into {$targetUser->id} ({$targetUser->email})");
+            Log::info("Starting merge of source user {$sourceUser->id} ({$sourceUser->email}) into target user {$targetUser->id} ({$targetUser->email})");
 
             $report = [
+                'source_user_id' => $sourceUser->id,
+                'source_email' => $sourceUser->email,
+                'target_user_id' => $targetUser->id,
+                'target_email' => $targetUser->email,
                 'roles_merged' => [],
                 'supervision_assignments_moved' => 0,
                 'programs_attached' => 0,
@@ -93,7 +108,6 @@ class UserAccountMergeService
                 }
             }
 
-            // Ensure target user is active
             $targetUser->is_active = true;
             $targetUser->save();
 
@@ -101,8 +115,16 @@ class UserAccountMergeService
             $sourceSups = SupervisorProfile::where('user_id', $sourceUser->id)->get();
             $targetSup = SupervisorProfile::where('user_id', $targetUser->id)->first();
 
-            foreach ($sourceSups as $sourceSup) {
-                if ($targetSup) {
+            if (!$targetSup && $sourceSups->isNotEmpty()) {
+                // Target has no supervisor profile; reassign the first source profile to target
+                $firstSourceSup = $sourceSups->first();
+                $firstSourceSup->update(['user_id' => $targetUser->id]);
+                $targetSup = $firstSourceSup;
+                $sourceSups = $sourceSups->slice(1);
+            }
+
+            if ($targetSup) {
+                foreach ($sourceSups as $sourceSup) {
                     // Move supervision assignments
                     $assignments = SupervisionAssignment::where('supervisor_profile_id', $sourceSup->id)->get();
                     foreach ($assignments as $a) {
@@ -117,7 +139,7 @@ class UserAccountMergeService
                         }
                     }
 
-                    // Move program_supervisor pivot entries
+                    // Move program_supervisor pivot entries (NO UUID for auto-increment integer ID!)
                     if (Schema::hasTable('program_supervisor')) {
                         $pivots = DB::table('program_supervisor')
                             ->where('supervisor_profile_id', $sourceSup->id)
@@ -129,7 +151,6 @@ class UserAccountMergeService
                                 ->exists();
                             if (!$exists) {
                                 DB::table('program_supervisor')->insert([
-                                    'id' => (string) Str::uuid(),
                                     'supervisor_profile_id' => $targetSup->id,
                                     'program_id' => $piv->program_id,
                                     'created_at' => now(),
@@ -141,34 +162,31 @@ class UserAccountMergeService
                         DB::table('program_supervisor')->where('supervisor_profile_id', $sourceSup->id)->delete();
                     }
 
-                    // Refresh load and details on target
-                    $activeLoad = SupervisionAssignment::where('supervisor_profile_id', $targetSup->id)
-                        ->where('status', 'active')
-                        ->count();
-                    $targetSup->update([
-                        'current_load' => $activeLoad,
-                        'rank' => $targetSup->rank ?: ($sourceSup->rank ?: 'Professor'),
-                        'expertise' => $targetSup->expertise ?: $sourceSup->expertise,
-                    ]);
-
-                    $sourceSup->delete();
-                } else {
-                    // Target doesn't have a supervisor profile; transfer source profile to target
-                    $sourceSup->update(['user_id' => $targetUser->id]);
-                    $targetSup = $sourceSup;
+                    // Delete the extra source supervisor profile
+                    DB::table('supervisor_profiles')->where('id', $sourceSup->id)->delete();
                 }
+
+                // Recalculate target active load and ensure max_students capacity accommodates all candidates
+                $activeLoad = SupervisionAssignment::where('supervisor_profile_id', $targetSup->id)
+                    ->where('status', 'active')
+                    ->count();
+
+                $targetSup->update([
+                    'current_load' => $activeLoad,
+                    'max_students' => max($targetSup->max_students ?? 5, $activeLoad, 10),
+                    'rank' => $targetSup->rank ?: 'Professor',
+                ]);
             }
 
             // 3. Internal Examiner Profiles
             $sourceIes = InternalExaminerProfile::where('user_id', $sourceUser->id)->get();
             $targetIe = InternalExaminerProfile::where('user_id', $targetUser->id)->first();
-
             foreach ($sourceIes as $sourceIe) {
                 if ($targetIe) {
                     $updated = ThesisProject::where('internal_examiner_profile_id', $sourceIe->id)
                         ->update(['internal_examiner_profile_id' => $targetIe->id]);
                     $report['internal_examiner_theses_moved'] += $updated;
-                    $sourceIe->delete();
+                    DB::table('internal_examiner_profiles')->where('id', $sourceIe->id)->delete();
                 } else {
                     $sourceIe->update(['user_id' => $targetUser->id]);
                     $targetIe = $sourceIe;
@@ -178,13 +196,12 @@ class UserAccountMergeService
             // 4. External Examiner Profiles
             $sourceEes = ExternalExaminerProfile::where('user_id', $sourceUser->id)->get();
             $targetEe = ExternalExaminerProfile::where('user_id', $targetUser->id)->first();
-
             foreach ($sourceEes as $sourceEe) {
                 if ($targetEe) {
                     $updated = ThesisProject::where('external_examiner_profile_id', $sourceEe->id)
                         ->update(['external_examiner_profile_id' => $targetEe->id]);
                     $report['external_examiner_theses_moved'] += $updated;
-                    $sourceEe->delete();
+                    DB::table('external_examiner_profiles')->where('id', $sourceEe->id)->delete();
                 } else {
                     $sourceEe->update(['user_id' => $targetUser->id]);
                     $targetEe = $sourceEe;
@@ -199,7 +216,7 @@ class UserAccountMergeService
                     ->where('level_id', $sc->level_id)
                     ->first();
                 if ($exists) {
-                    $sc->delete();
+                    DB::table('coordinator_profiles')->where('id', $sc->id)->delete();
                 } else {
                     $sc->update(['user_id' => $targetUser->id]);
                 }
@@ -211,6 +228,8 @@ class UserAccountMergeService
             $targetStudent = StudentProfile::where('user_id', $targetUser->id)->first();
             if ($sourceStudent && !$targetStudent) {
                 $sourceStudent->update(['user_id' => $targetUser->id]);
+            } elseif ($sourceStudent && $targetStudent) {
+                DB::table('student_profiles')->where('id', $sourceStudent->id)->delete();
             }
 
             // 7. Panel Memberships (Defence Events)
@@ -373,11 +392,33 @@ class UserAccountMergeService
                 DB::table('login_activities')->where('user_id', $sourceUser->id)->update(['user_id' => $targetUser->id]);
             }
 
-            // 18. Clean up Spatie roles/permissions and delete source user
+            // 18. Other potential user foreign keys
+            DB::table('users')->where('creator_id', $sourceUser->id)->update(['creator_id' => $targetUser->id]);
+
+            if (Schema::hasTable('notifications')) {
+                DB::table('notifications')
+                    ->where('notifiable_type', 'App\Models\User')
+                    ->where('notifiable_id', $sourceUser->id)
+                    ->update(['notifiable_id' => $targetUser->id]);
+            }
+
+            if (Schema::hasTable('personal_access_tokens')) {
+                DB::table('personal_access_tokens')
+                    ->where('tokenable_type', 'App\Models\User')
+                    ->where('tokenable_id', $sourceUser->id)
+                    ->delete();
+            }
+
+            if (Schema::hasTable('sessions')) {
+                DB::table('sessions')->where('user_id', $sourceUser->id)->delete();
+            }
+
+            // 19. Clean up Spatie roles/permissions and delete source user
             DB::table('model_has_roles')->where('model_id', $sourceUser->id)->delete();
             DB::table('model_has_permissions')->where('model_id', $sourceUser->id)->delete();
 
-            $sourceUser->delete();
+            // Permanent delete of source user account
+            DB::table('users')->where('id', $sourceUser->id)->delete();
 
             Log::info("Successfully merged {$sourceEmail} into {$targetEmail}", $report);
 

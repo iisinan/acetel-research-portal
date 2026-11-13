@@ -652,7 +652,7 @@
                                     {{ $student?->program?->code ?? 'N/A' }}
                                 </span>
                                 <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
-                                    {{ $student->level->name ?? ($student->isPhdAI() ? 'PhD' : 'MSc') }}
+                                    {{ $student->level->name ?? ($student->isPhd() ? 'PhD' : ($student->isMsc() ? 'MSc' : 'Research')) }}
                                 </p>
                             </td>
 

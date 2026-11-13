@@ -16,7 +16,8 @@ class PastPresentationController extends Controller
             ->whereHas('template', function($q) {
                 $q->where('slug', 'seminar_as_a_course');
             })
-            ->with(['thesis.student.user', 'template', 'thesis.defenceEvents.evaluations'])
+            ->whereDoesntHave('thesis.student.program', fn($pq) => $pq->phdAi())
+            ->with(['thesis.student.user', 'thesis.student.program', 'template', 'thesis.defenceEvents.evaluations'])
             ->orderBy('defence_date', 'desc')
             ->paginate(20);
 
@@ -30,9 +31,11 @@ class PastPresentationController extends Controller
             ->whereHas('template', function($q) {
                 $q->where('slug', 'seminar_as_a_course');
             })
-            ->with(['thesis.student.user', 'template', 'thesis.defenceEvents.evaluations'])
+            ->with(['thesis.student.user', 'thesis.student.program', 'thesis.student.level', 'template', 'thesis.defenceEvents.evaluations'])
             ->orderBy('defence_date', 'desc')
-            ->get();
+            ->get()
+            ->reject(fn($sm) => $sm->thesis && $sm->template && $sm->thesis->isExemptFromMilestone($sm->template))
+            ->values();
 
         $fileName = 'past_seminar_scores.csv';
         $headers = [

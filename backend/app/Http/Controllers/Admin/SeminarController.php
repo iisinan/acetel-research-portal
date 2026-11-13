@@ -17,17 +17,7 @@ class SeminarController extends Controller
         $milestones = StudentMilestone::whereHas("template", function($q) {
                 $q->where("slug", "seminar_as_a_course");
             })
-            ->whereDoesntHave("thesis.student.program", function($pq) {
-                $pq->where(function ($degQ) {
-                    $degQ->whereRaw("LOWER(COALESCE(degree_type, '')) LIKE ?", ['%phd%'])
-                        ->orWhereRaw("LOWER(COALESCE(name, '')) LIKE ?", ['%phd%'])
-                        ->orWhereRaw("LOWER(COALESCE(name, '')) LIKE ?", ['%doctor%'])
-                        ->orWhereRaw("LOWER(COALESCE(code, '')) LIKE ?", ['%doct%']);
-                })->where(function ($aiQ) {
-                    $aiQ->whereRaw("LOWER(COALESCE(name, '')) LIKE ?", ['%artificial intelligence%'])
-                        ->orWhereRaw("LOWER(COALESCE(code, '')) = ?", ['doct7570']);
-                });
-            })
+            ->whereDoesntHave("thesis.student.program", fn($pq) => $pq->phdAi())
             ->with(["thesis.student.user", "thesis.student.program", "submissions" => function($q) {
                 $q->where("description", "LIKE", "%ppt%")->orWhere("description", "LIKE", "%presentation%")->orWhere("file_url", "LIKE", "%.ppt%")->orWhere("file_url", "LIKE", "%.pdf%");
             }, "thesis.defenceEvents" => function($q) {

@@ -1049,6 +1049,10 @@ class MilestoneTemplateController extends Controller
         $studentUser = $thesis?->student?->user;
         $studentName = $studentUser?->name ?? 'Candidate';
 
+        if ($thesis && $thesis->isExemptFromMilestone($template)) {
+            return back()->with('error', "Candidate {$studentName} is exempt from {$template->name} based on their degree programme.");
+        }
+
         $workflow = app(\App\Services\MilestoneWorkflowService::class);
         if ($workflow->hasBeenGraded($milestone) || $workflow->isPostDefencePhase($milestone)) {
             return back()->with('error', "Candidate {$studentName} has already been graded or concluded presentation and cannot be rescheduled or modified.");
@@ -1590,7 +1594,9 @@ class MilestoneTemplateController extends Controller
             }
         }
 
-        $milestones = $milestonesQuery->get();
+        $milestones = $milestonesQuery->get()
+            ->reject(fn($sm) => $sm->thesis && $sm->thesis->isExemptFromMilestone($template))
+            ->values();
 
         if (in_array($degreeScope, ['msc', 'phd'])) {
             $milestones = $milestones->filter(function ($sm) use ($degreeScope) {
@@ -1833,7 +1839,7 @@ class MilestoneTemplateController extends Controller
 
         $query = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
             ->whereIn('status', ['in_progress', 'submitted', 'revision_required', 'partially_approved'])
-            ->with(['thesis.student.user', 'thesis.defenceEvents.evaluations', 'submissions.feedback']);
+            ->with(['thesis.student.user', 'thesis.student.program', 'thesis.student.level', 'thesis.defenceEvents.evaluations', 'submissions.feedback']);
             
         if ($isCoordinator) {
             $query->whereHas('thesis.student', function($sq) use ($coordinatorProgramId) {
@@ -1841,7 +1847,9 @@ class MilestoneTemplateController extends Controller
             });
         }
         
-        $milestones = $query->get();
+        $milestones = $query->get()
+            ->reject(fn($m) => $m->thesis && $m->thesis->isExemptFromMilestone($template))
+            ->values();
             
         $fileName = 'students_' . $template->slug . '.csv';
         $headers = [
@@ -1938,7 +1946,7 @@ class MilestoneTemplateController extends Controller
         $query = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
             ->whereIn('status', ['in_progress', 'submitted', 'revision_required', 'partially_approved'])
             ->whereNotNull('defence_date')
-            ->with(['thesis.student.user', 'thesis.defenceEvents.evaluations', 'submissions.feedback']);
+            ->with(['thesis.student.user', 'thesis.student.program', 'thesis.student.level', 'thesis.defenceEvents.evaluations', 'submissions.feedback']);
             
         if ($isCoordinator) {
             $query->whereHas('thesis.student', function($sq) use ($coordinatorProgramId) {
@@ -1946,7 +1954,9 @@ class MilestoneTemplateController extends Controller
             });
         }
         
-        $milestones = $query->get();
+        $milestones = $query->get()
+            ->reject(fn($m) => $m->thesis && $m->thesis->isExemptFromMilestone($template))
+            ->values();
             
         $fileName = 'scheduled_scores_' . $template->slug . '.csv';
         $headers = [
@@ -2112,6 +2122,7 @@ class MilestoneTemplateController extends Controller
             ->with([
                 'thesis.student.user',
                 'thesis.student.program',
+                'thesis.student.level',
                 'thesis.student.cohort'
             ]);
 
@@ -2121,7 +2132,9 @@ class MilestoneTemplateController extends Controller
             });
         }
 
-        $milestones = $query->get();
+        $milestones = $query->get()
+            ->reject(fn($m) => $m->thesis && $m->thesis->isExemptFromMilestone($template))
+            ->values();
 
         $selectedGroup = request()->query('discipline_group');
         if ($selectedGroup && in_array($selectedGroup, ['cybersecurity', 'artificial_intelligence', 'management_information_systems'])) {

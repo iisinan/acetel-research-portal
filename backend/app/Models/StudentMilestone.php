@@ -405,7 +405,7 @@ class StudentMilestone extends Model
             
             foreach($requiredRoles as $role) {
                 if ($role === 'Supervisor') {
-                    $activeSupervisors = $this->thesis->assignments->where('status', 'active');
+                    $activeSupervisors = $this->thesis?->assignments?->where('status', 'active') ?? collect();
 
                     if ($activeSupervisors->count() > 0) {
                         foreach ($activeSupervisors as $assignment) {

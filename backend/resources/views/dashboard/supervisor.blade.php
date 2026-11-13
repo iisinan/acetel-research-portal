@@ -377,11 +377,11 @@ class="space-y-8 animate-in">
                                         </div>
                                     </div>
                                     @php
-                                        $latestReviewSub = $review->submissions->sortByDesc('id')->first();
+                                        $latestReviewSub = $review->submissions?->sortByDesc('id')->first();
                                     @endphp
                                     @if($latestReviewSub)
                                         <div class="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-100 text-[10px]">
-                                            <span class="font-bold text-slate-600 truncate">{{ $latestReviewSub->file_meta['original_name'] ?? ('Submission v.0' . $latestReviewSub->version) }}</span>
+                                            <span class="font-bold text-slate-600 truncate">{{ (is_array($latestReviewSub->file_meta) ? ($latestReviewSub->file_meta['original_name'] ?? null) : null) ?? ('Submission v.0' . $latestReviewSub->version) }}</span>
                                             <a href="{{ route('submissions.view', $latestReviewSub) }}" target="_blank" class="font-black text-indigo-600 hover:text-indigo-800 shrink-0 uppercase tracking-wider">View File &rarr;</a>
                                         </div>
                                     @endif
@@ -822,11 +822,11 @@ class="space-y-8 animate-in">
                             </div>
                         </div>
                         @php
-                            $latestTabReviewSub = $review->submissions->sortByDesc('id')->first();
+                            $latestTabReviewSub = $review->submissions?->sortByDesc('id')->first();
                         @endphp
                         @if($latestTabReviewSub)
                             <div class="mt-3 flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-100 text-[10px]">
-                                <span class="font-bold text-slate-600 truncate">{{ $latestTabReviewSub->file_meta['original_name'] ?? ('Submission v.0' . $latestTabReviewSub->version) }}</span>
+                                <span class="font-bold text-slate-600 truncate">{{ (is_array($latestTabReviewSub->file_meta) ? ($latestTabReviewSub->file_meta['original_name'] ?? null) : null) ?? ('Submission v.0' . $latestTabReviewSub->version) }}</span>
                                 <a href="{{ route('submissions.view', $latestTabReviewSub) }}" target="_blank" class="font-black text-indigo-600 hover:text-indigo-800 shrink-0 uppercase tracking-wider">View File &rarr;</a>
                             </div>
                         @endif
@@ -947,7 +947,7 @@ class="space-y-8 animate-in">
                                             {{ $student?->program?->code ?? 'N/A' }}
                                         </span>
                                         <span class="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold">
-                                            {{ $student->level->name ?? '' }}
+                                            {{ $student->level?->name ?? '' }}
                                         </span>
                                         <span class="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[9px] font-black uppercase">
                                             {{ $student->assignment_role ?? 'Supervisor' }}
@@ -1296,8 +1296,8 @@ class="space-y-8 animate-in">
                                 <span class="text-[10px] text-slate-400 ml-1">{{ $cs->level?->name ?? '' }}</span>
                             </td>
                             <td class="px-6 py-4">
-                                @if($cs->thesis && $cs->thesis->assignments->isNotEmpty())
-                                    <span class="text-slate-700 font-bold">{{ $cs->thesis->assignments->first()?->supervisor?->user?->name ?? 'Assigned' }}</span>
+                                @if($cs->thesis?->assignments?->isNotEmpty())
+                                    <span class="text-slate-700 font-bold">{{ $cs->thesis?->assignments?->first()?->supervisor?->user?->name ?? 'Assigned' }}</span>
                                 @else
                                     <span class="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[9px] font-bold uppercase">Pending Assignment</span>
                                 @endif
@@ -1524,7 +1524,7 @@ class="space-y-8 animate-in">
                                 </span>
                                 @if($iThesis->student?->level)
                                     <span class="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[9px] font-bold uppercase">
-                                        {{ $iThesis->student->level->name }}
+                                        {{ $iThesis->student?->level?->name ?? '' }}
                                     </span>
                                 @endif
                                 @if($hasPendingMilestone)
@@ -1543,7 +1543,7 @@ class="space-y-8 animate-in">
                                 <div class="mt-2 flex items-center gap-2">
                                     <span class="text-[10px] font-bold text-slate-400 uppercase">Stage:</span>
                                     <span class="px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-[10px] font-bold truncate">
-                                        {{ $iThesis->currentMilestone->template?->name ?? 'Active Stage' }}
+                                        {{ $iThesis->currentMilestone?->template?->name ?? 'Active Stage' }}
                                     </span>
                                 </div>
                             @endif
@@ -1810,7 +1810,7 @@ class="space-y-8 animate-in">
                                 </span>
                                 @if($eThesis->student?->level)
                                     <span class="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[9px] font-bold uppercase">
-                                        {{ $eThesis->student->level->name }}
+                                        {{ $eThesis->student?->level?->name ?? '' }}
                                     </span>
                                 @endif
                                 @if($hasPendingMilestone)
@@ -1829,7 +1829,7 @@ class="space-y-8 animate-in">
                                 <div class="mt-2 flex items-center gap-2">
                                     <span class="text-[10px] font-bold text-slate-400 uppercase">Stage:</span>
                                     <span class="px-2 py-0.5 bg-amber-50 text-amber-700 rounded text-[10px] font-bold truncate">
-                                        {{ $eThesis->currentMilestone->template?->name ?? 'Active Stage' }}
+                                        {{ $eThesis->currentMilestone?->template?->name ?? 'Active Stage' }}
                                     </span>
                                 </div>
                             @endif

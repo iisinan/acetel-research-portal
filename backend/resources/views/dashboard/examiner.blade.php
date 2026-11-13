@@ -184,7 +184,7 @@
                                  </div>
                                  <div class="flex items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
                                      @if($thesis->student?->user_id)
-                                     <a href="{{ route('inbox.compose', ['reply_to' => $thesis->student->user_id]) }}" class="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-green-600 hover:border-green-200 transition-all shadow-sm shrink-0" title="Send Message">
+                                     <a href="{{ route('inbox.compose', ['reply_to' => $thesis->student?->user_id]) }}" class="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-green-600 hover:border-green-200 transition-all shadow-sm shrink-0" title="Send Message">
                                          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
                                      </a>
                                      @endif

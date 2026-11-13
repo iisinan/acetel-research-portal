@@ -33,6 +33,10 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->report(function (\Throwable $e) {
+            error_log('[FATAL EXCEPTION] ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+        });
+
         $exceptions->render(function (\Throwable $e, \Illuminate\Http\Request $request) {
             $isTokenMismatch = $e instanceof \Illuminate\Session\TokenMismatchException
                 || ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface && $e->getStatusCode() === 419);

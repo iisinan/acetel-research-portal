@@ -33,7 +33,7 @@
         $nextDestination = match($slug) {
             'seminar_as_a_course' => 'Supervisors Assigned',
             'proposal_defence' => 'Progress Report 1',
-            'progress_report_1' => 'Progress Report 2',
+            'progress_report_1' => ($milestone->thesis?->isMsc() ? 'Internal Defence' : 'Progress Report 2'),
             'progress_report_2' => 'Internal Defence',
             'internal_defence' => 'Viva Voce',
             default => $isInternalDefence ? 'Viva Voce' : 'Next Milestone'

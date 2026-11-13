@@ -172,6 +172,15 @@ class MilestoneExemptionAndMigrationTest extends TestCase
         }
 
         $pr1 = $thesis->milestones()->whereHas('template', fn ($q) => $q->where('slug', 'progress_report_1'))->firstOrFail();
+
+        // Checklist view for MSc on PR1 should advertise Internal Defence, not Progress Report 2
+        $checklistHtml = view('milestones.partials.progression-checklist', [
+            'milestone' => $pr1->load('template', 'thesis.student.program', 'thesis.defenceEvents.evaluations'),
+            'thesis' => $thesis,
+        ])->render();
+        $this->assertStringContainsString('Internal Defence', $checklistHtml);
+        $this->assertStringNotContainsString('Progress Report 2', $checklistHtml);
+
         $pr1->update(['status' => 'approved', 'approved_at' => now(), 'date_approved_at' => now()]);
         $workflow->afterApproval($pr1);
 

@@ -14,54 +14,68 @@ class DashboardController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $data = [];
-
-        // Instantiate analytics safely
-        try {
-            $this->analytics = app(\App\Services\DirectorAnalyticsService::class);
-        } catch (\Exception $e) {
-            $this->analytics = null;
+        if (!$user) {
+            return redirect()->route('login');
         }
-        
-        // Fetch global active announcements and document templates
-        $data['announcements'] = \App\Models\Announcement::active()
-            ->forRole($user->getRoleNames()->first()) 
-            ->latest()
-            ->get();
 
-        $data['document_templates'] = \App\Models\DocumentTemplate::where('is_active', true)->latest()->get();
+        try {
+            $data = [];
 
-        $requestedRole = $request->query('role') ?? $request->cookie('active_dashboard_role');
-
-        if ($requestedRole && $user->hasRole($requestedRole)) {
+            // Instantiate analytics safely
+            try {
+                $this->analytics = app(\App\Services\DirectorAnalyticsService::class);
+            } catch (\Throwable $e) {
+                $this->analytics = null;
+            }
+            
+            // Fetch global active announcements and document templates
             $data['announcements'] = \App\Models\Announcement::active()
-                ->forRole($requestedRole) 
+                ->forRole($user->getRoleNames()->first()) 
                 ->latest()
                 ->get();
 
-            if ($requestedRole === 'Director') {
-                return $this->directorDashboard($user, $data);
-            } elseif ($requestedRole === 'Admin') {
-                return $this->adminDashboard($user, $data);
-            } elseif (in_array($requestedRole, ['Supervisor', 'Program Coordinator', 'Internal Examiner', 'External Examiner'])) {
-                return $this->supervisorDashboard($user, $data);
-            } elseif ($requestedRole === 'Student') {
-                return $this->studentDashboard($user, $data);
+            $data['document_templates'] = \App\Models\DocumentTemplate::where('is_active', true)->latest()->get();
+
+            $requestedRole = $request->query('role') ?? $request->cookie('active_dashboard_role');
+
+            if ($requestedRole && $user->hasRole($requestedRole)) {
+                $data['announcements'] = \App\Models\Announcement::active()
+                    ->forRole($requestedRole) 
+                    ->latest()
+                    ->get();
+
+                if ($requestedRole === 'Director') {
+                    return $this->directorDashboard($user, $data);
+                } elseif ($requestedRole === 'Admin') {
+                    return $this->adminDashboard($user, $data);
+                } elseif (in_array($requestedRole, ['Supervisor', 'Program Coordinator', 'Internal Examiner', 'External Examiner'])) {
+                    return $this->supervisorDashboard($user, $data);
+                } elseif ($requestedRole === 'Student') {
+                    return $this->studentDashboard($user, $data);
+                }
             }
-        }
 
-        if ($user->hasRole('Student')) {
-            return $this->studentDashboard($user, $data);
-        } elseif ($user->hasRole('Director')) {
-            return $this->directorDashboard($user, $data);
-        } elseif ($user->hasAnyRole(['Supervisor', 'Program Coordinator', 'Internal Examiner', 'External Examiner'])) {
-            return $this->supervisorDashboard($user, $data);
-        } elseif ($user->hasRole('Admin')) {
-            return $this->adminDashboard($user, $data);
-        }
+            if ($user->hasRole('Student')) {
+                return $this->studentDashboard($user, $data);
+            } elseif ($user->hasRole('Director')) {
+                return $this->directorDashboard($user, $data);
+            } elseif ($user->hasAnyRole(['Supervisor', 'Program Coordinator', 'Internal Examiner', 'External Examiner'])) {
+                return $this->supervisorDashboard($user, $data);
+            } elseif ($user->hasRole('Admin')) {
+                return $this->adminDashboard($user, $data);
+            }
 
-        // Fallback for other roles or unassigned
-        return view('dashboard', ['stats' => []]);
+            // Fallback for other roles or unassigned
+            return view('dashboard', ['stats' => []]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('DashboardController@index fatal error: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            error_log('[DASHBOARD_FATAL_ERROR] ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+
+            return view('dashboard', [
+                'stats' => [],
+                'error' => 'A component on your dashboard encountered an issue loading. Your account is active, and our team has been alerted.'
+            ]);
+        }
     }
 
     private function getUnreadMessagesCount($user)
@@ -241,6 +255,7 @@ class DashboardController extends Controller
             $supervisorStudents = $supervisorAssignments->map(function($a) use ($pendingSupervisorMilestoneThesisIds, $pendingSupervisorReviews, $workflowForSup, $user) {
                 $s = $a->thesis?->student;
                 if ($s && $a->thesis) {
+                    $s->setRelation('thesis', $a->thesis);
                     $s->overall_progress = $a->thesis->progress_percentage;
                     $s->thesis_title = $a->thesis->title ?? 'Postgraduate Thesis Investigation';
                     $s->assignment_role = $a->role ?? 'Supervisor';
@@ -342,60 +357,76 @@ class DashboardController extends Controller
         $coordinatorStats = ['students' => 0, 'theses' => 0, 'supervisors' => 0, 'pending_reviews' => 0];
 
         if ($isCoordinator) {
-            $scopes = $user->coordinatorScopes();
-            $allProgramIds = $scopes->pluck('program_id')->unique()->toArray();
-            $allLevelIds = $scopes->pluck('level_id')->unique()->toArray();
-            $coordinatedPrograms = \App\Models\Program::whereIn('id', $allProgramIds)->get();
+            try {
+                $scopes = $user->coordinatorScopes();
+                $allProgramIds = $scopes->pluck('program_id')->unique()->filter()->toArray();
+                $allLevelIds = $scopes->pluck('level_id')->unique()->filter()->toArray();
+                $coordinatedPrograms = !empty($allProgramIds) ? \App\Models\Program::whereIn('id', $allProgramIds)->get() : collect();
 
-            $coordinatorStudents = StudentProfile::forCoordinator($user)
-                ->with(['user', 'program', 'level', 'thesis.milestones.template', 'thesis.assignments.supervisor.user'])
-                ->where('enrollment_status', 'active')
-                ->latest()
-                ->take(25)
-                ->get();
+                $coordinatorStudents = StudentProfile::forCoordinator($user)
+                    ->with(['user', 'program', 'level', 'thesis.milestones.template', 'thesis.assignments.supervisor.user'])
+                    ->where('enrollment_status', 'active')
+                    ->latest()
+                    ->take(25)
+                    ->get();
 
-            $totalCoordStudents = StudentProfile::forCoordinator($user)->where('enrollment_status', 'active')->count();
-            $totalCoordTheses = \App\Models\ThesisProject::whereHas('student', function($q) use ($user) {
-                $q->forCoordinator($user);
-            })->whereIn('status', ['active', 'proposed'])->count();
-            $totalCoordSupervisors = SupervisorProfile::whereHas('programs', function($q) use ($allProgramIds) {
-                $q->whereIn('programs.id', $allProgramIds);
-            })->count();
-
-            // Institutional Rule: Programme Coordinators do not review student documents (reviews are strictly supervisory)
-            $coordinatorPendingReviews = collect();
-
-            $coordinatorUpcomingEvents = \App\Models\DefenceEvent::whereHas('thesis.student', function($q) use ($user) {
+                $totalCoordStudents = StudentProfile::forCoordinator($user)->where('enrollment_status', 'active')->count();
+                $totalCoordTheses = \App\Models\ThesisProject::whereHas('student', function($q) use ($user) {
                     $q->forCoordinator($user);
-                })
-                ->where('schedule_start', '>=', now())
-                ->orderBy('schedule_start')
-                ->take(5)
-                ->get();
+                })->whereIn('status', ['active', 'proposed'])->count();
+                $totalCoordSupervisors = !empty($allProgramIds) ? SupervisorProfile::whereHas('programs', function($q) use ($allProgramIds) {
+                    $q->whereIn('programs.id', $allProgramIds);
+                })->count() : 0;
 
-            $denom = $totalCoordStudents ?: 1;
-            $approvedCounts = \App\Models\StudentMilestone::whereHas('thesis.student', function($q) use ($user) {
-                    $q->forCoordinator($user);
-                })
-                ->where('student_milestones.status', 'approved')
-                ->join('milestone_templates', 'student_milestones.milestone_template_id', '=', 'milestone_templates.id')
-                ->whereIn('milestone_templates.order', [1, 2, 6])
-                ->groupBy('milestone_templates.order')
-                ->select('milestone_templates.order', \Illuminate\Support\Facades\DB::raw('count(*) as count'))
-                ->pluck('count', 'order');
+                // Institutional Rule: Programme Coordinators do not review student documents (reviews are strictly supervisory)
+                $coordinatorPendingReviews = collect();
 
-            $coordinatorClearanceMetrics = [
-                'm1' => round((($approvedCounts->get(1, 0)) / $denom) * 100),
-                'm2' => round((($approvedCounts->get(2, 0)) / $denom) * 100),
-                'm6' => round((($approvedCounts->get(6, 0)) / $denom) * 100),
-            ];
+                $coordinatorUpcomingEvents = \App\Models\DefenceEvent::whereHas('thesis.student', function($q) use ($user) {
+                        $q->forCoordinator($user);
+                    })
+                    ->where('schedule_start', '>=', now())
+                    ->orderBy('schedule_start')
+                    ->take(5)
+                    ->get();
 
-            $coordinatorStats = [
-                'students' => $totalCoordStudents,
-                'theses' => $totalCoordTheses,
-                'supervisors' => $totalCoordSupervisors,
-                'pending_reviews' => $coordinatorPendingReviews->count(),
-            ];
+                $denom = $totalCoordStudents ?: 1;
+                $approvedCounts = collect();
+                try {
+                    $approvedCounts = \App\Models\StudentMilestone::whereHas('thesis.student', function($q) use ($user) {
+                            $q->forCoordinator($user);
+                        })
+                        ->where('student_milestones.status', 'approved')
+                        ->join('milestone_templates', 'student_milestones.milestone_template_id', '=', 'milestone_templates.id')
+                        ->whereIn('milestone_templates.order', [1, 2, 6])
+                        ->groupBy('milestone_templates.order')
+                        ->select('milestone_templates.order as m_order', \Illuminate\Support\Facades\DB::raw('count(*) as count'))
+                        ->get()
+                        ->pluck('count', 'm_order');
+                } catch (\Throwable $e) {
+                    \Log::warning('Failed calculating coordinator clearance metrics: ' . $e->getMessage());
+                    error_log('[CLEARANCE_METRICS_WARN] ' . $e->getMessage());
+                }
+
+                $m1Count = (int) ($approvedCounts->get(1) ?? $approvedCounts->get('1') ?? 0);
+                $m2Count = (int) ($approvedCounts->get(2) ?? $approvedCounts->get('2') ?? 0);
+                $m6Count = (int) ($approvedCounts->get(6) ?? $approvedCounts->get('6') ?? 0);
+
+                $coordinatorClearanceMetrics = [
+                    'm1' => round(($m1Count / $denom) * 100),
+                    'm2' => round(($m2Count / $denom) * 100),
+                    'm6' => round(($m6Count / $denom) * 100),
+                ];
+
+                $coordinatorStats = [
+                    'students' => $totalCoordStudents,
+                    'theses' => $totalCoordTheses,
+                    'supervisors' => $totalCoordSupervisors,
+                    'pending_reviews' => $coordinatorPendingReviews->count(),
+                ];
+            } catch (\Throwable $e) {
+                \Log::error('Coordinator telemetry failed for user ' . $user->id . ': ' . $e->getMessage());
+                error_log('[COORDINATOR_DASHBOARD_ERROR] ' . $e->getMessage());
+            }
         }
 
         $data['coordinatedPrograms'] = $coordinatedPrograms;
@@ -410,39 +441,44 @@ class DashboardController extends Controller
         $internalPendingReviews = collect();
 
         if ($isInternalExaminer) {
-            $internalProfileIds = $user->internalExaminerProfiles()->pluck('id')->toArray();
-            $internalTheses = \App\Models\ThesisProject::where(function ($q) use ($internalProfileIds, $user) {
-                    $method = 'whereHas';
-                    if (!empty($internalProfileIds)) {
-                        $q->whereIn('internal_examiner_profile_id', $internalProfileIds);
-                        $method = 'orWhereHas';
-                    }
-                    $q->{$method}('examinerAssignments', fn($eq) => $eq->where('examiner_id', $user->id)->where('type', 'internal_examiner'))
-                      ->orWhereHas('defenceEvents', fn($dq) => $dq->where('type', 'internal')->whereHas('panelMembers', fn($pq) => $pq->where('user_id', $user->id)));
-                })
-                ->with(['student.user', 'student.program', 'student.level', 'currentMilestone.template', 'milestones.template'])
-                ->latest()
-                ->get();
-
-            $internalThesisIds = $internalTheses->pluck('id')->toArray();
-
-            $internalPendingReviews = !empty($internalThesisIds)
-                ? \App\Models\StudentMilestone::whereIn('thesis_project_id', $internalThesisIds)
-                    ->where('status', '!=', 'approved')
-                    ->whereHas('template', function($q) {
-                        $q->where('slug', 'internal_defence')
-                          ->orWhere('order', 6)
-                          ->orWhereJsonContains('required_approvers', 'Internal Examiner');
+            try {
+                $internalProfileIds = $user->internalExaminerProfiles()->pluck('id')->toArray();
+                $internalTheses = \App\Models\ThesisProject::where(function ($q) use ($internalProfileIds, $user) {
+                        $method = 'whereHas';
+                        if (!empty($internalProfileIds)) {
+                            $q->whereIn('internal_examiner_profile_id', $internalProfileIds);
+                            $method = 'orWhereHas';
+                        }
+                        $q->{$method}('examinerAssignments', fn($eq) => $eq->where('examiner_id', $user->id)->where('type', 'internal_examiner'))
+                          ->orWhereHas('defenceEvents', fn($dq) => $dq->where('type', 'internal')->whereHas('panelMembers', fn($pq) => $pq->where('user_id', $user->id)));
                     })
-                    ->whereNotNull('submitted_at')
-                    ->with(['thesis.student.user', 'template', 'submissions'])
+                    ->with(['student.user', 'student.program', 'student.level', 'currentMilestone.template', 'milestones.template'])
                     ->latest()
-                    ->get()
-                    ->filter(function($milestone) use ($user) {
-                        return $this->isMilestonePendingReviewForUser($milestone, $user->id, 'Internal Examiner');
-                    })
-                    ->values()
-                : collect();
+                    ->get();
+
+                $internalThesisIds = $internalTheses->pluck('id')->toArray();
+
+                $internalPendingReviews = !empty($internalThesisIds)
+                    ? \App\Models\StudentMilestone::whereIn('thesis_project_id', $internalThesisIds)
+                        ->where('status', '!=', 'approved')
+                        ->whereHas('template', function($q) {
+                            $q->where('slug', 'internal_defence')
+                              ->orWhere('order', 6)
+                              ->orWhereJsonContains('required_approvers', 'Internal Examiner');
+                        })
+                        ->whereNotNull('submitted_at')
+                        ->with(['thesis.student.user', 'template', 'submissions'])
+                        ->latest()
+                        ->get()
+                        ->filter(function($milestone) use ($user) {
+                            return $this->isMilestonePendingReviewForUser($milestone, $user->id, 'Internal Examiner');
+                        })
+                        ->values()
+                    : collect();
+            } catch (\Throwable $e) {
+                \Log::warning('Internal examiner telemetry failed: ' . $e->getMessage());
+                error_log('[INTERNAL_EXAM_DASHBOARD_WARN] ' . $e->getMessage());
+            }
         }
 
         $data['internalTheses'] = $internalTheses;
@@ -453,27 +489,32 @@ class DashboardController extends Controller
         $externalPendingReviews = collect();
 
         if ($isExternalExaminer) {
-            $externalProfileIds = $user->externalExaminerProfiles()->pluck('id')->toArray();
-            $externalTheses = \App\Models\ThesisProject::whereIn('external_examiner_profile_id', $externalProfileIds)
-                ->with(['student.user', 'student.program', 'student.level', 'currentMilestone.template', 'milestones.template'])
-                ->latest()
-                ->get();
+            try {
+                $externalProfileIds = $user->externalExaminerProfiles()->pluck('id')->toArray();
+                $externalTheses = \App\Models\ThesisProject::whereIn('external_examiner_profile_id', $externalProfileIds)
+                    ->with(['student.user', 'student.program', 'student.level', 'currentMilestone.template', 'milestones.template'])
+                    ->latest()
+                    ->get();
 
-            $externalPendingReviews = \App\Models\StudentMilestone::whereHas('thesis', function($q) use ($externalProfileIds) {
-                    $q->whereIn('external_examiner_profile_id', $externalProfileIds);
-                })
-                ->where('status', '!=', 'approved')
-                ->whereHas('template', function($q) {
-                    $q->whereJsonContains('required_approvers', 'External Examiner');
-                })
-                ->whereNotNull('submitted_at')
-                ->with(['thesis.student.user', 'template'])
-                ->latest()
-                ->get()
-                ->filter(function($milestone) use ($user) {
-                    return $this->isMilestonePendingReviewForUser($milestone, $user->id, 'External Examiner');
-                })
-                ->values();
+                $externalPendingReviews = \App\Models\StudentMilestone::whereHas('thesis', function($q) use ($externalProfileIds) {
+                        $q->whereIn('external_examiner_profile_id', $externalProfileIds);
+                    })
+                    ->where('status', '!=', 'approved')
+                    ->whereHas('template', function($q) {
+                        $q->whereJsonContains('required_approvers', 'External Examiner');
+                    })
+                    ->whereNotNull('submitted_at')
+                    ->with(['thesis.student.user', 'template'])
+                    ->latest()
+                    ->get()
+                    ->filter(function($milestone) use ($user) {
+                        return $this->isMilestonePendingReviewForUser($milestone, $user->id, 'External Examiner');
+                    })
+                    ->values();
+            } catch (\Throwable $e) {
+                \Log::warning('External examiner telemetry failed: ' . $e->getMessage());
+                error_log('[EXTERNAL_EXAM_DASHBOARD_WARN] ' . $e->getMessage());
+            }
         }
 
         $data['externalTheses'] = $externalTheses;
@@ -481,64 +522,80 @@ class DashboardController extends Controller
 
         // 5. VIVA / ORAL DEFENCE EVALUATIONS (Applicable to Examiners & Panelists)
         $workflowService = app(\App\Services\MilestoneWorkflowService::class);
-        $data['pending_evaluations'] = \App\Models\DefenceEvent::whereNotIn('type', ['seminar', 'proposal', 'progress_report_1', 'progress_report_2'])
-            ->where(function($q) {
-                $q->whereNull('outcome')->orWhere('outcome', 'pending');
-            })
-            ->whereHas('panelMembers', function($q) use ($user) {
-                $q->where('user_id', $user->id);
-            })->whereDoesntHave('evaluations', function($q) use ($user) {
-                $q->where('evaluator_id', $user->id);
-            })->with(['thesis.student.user', 'thesis.milestones.template'])
-            ->get()
-            ->filter(function ($event) use ($workflowService) {
-                $milestones = $event->thesis?->milestones ?? collect();
-                if (in_array($event->type, ['internal', 'internal_defence'])) {
-                    $m = $milestones->first(fn($sm) => $workflowService->isInternalDefence($sm));
-                    return $m && !empty($m->defence_date) && $m->status !== 'approved' && !$workflowService->isPostDefencePhase($m);
-                }
-                if (in_array($event->type, ['external', 'external_defence', 'viva'])) {
-                    $m = $milestones->first(fn($sm) => $sm->template?->slug === 'viva' || (int) ($sm->template?->order ?? 0) === 7);
-                    return $m && !empty($m->defence_date) && $m->status !== 'approved';
-                }
-                return !empty($event->schedule_start);
-            })
-            ->values();
+        $data['pending_evaluations'] = collect();
+        try {
+            $data['pending_evaluations'] = \App\Models\DefenceEvent::whereNotIn('type', ['seminar', 'proposal', 'progress_report_1', 'progress_report_2'])
+                ->where(function($q) {
+                    $q->whereNull('outcome')->orWhere('outcome', 'pending');
+                })
+                ->whereHas('panelMembers', function($q) use ($user) {
+                    $q->where('user_id', $user->id);
+                })->whereDoesntHave('evaluations', function($q) use ($user) {
+                    $q->where('evaluator_id', $user->id);
+                })->with(['thesis.student.user', 'thesis.milestones.template'])
+                ->get()
+                ->filter(function ($event) use ($workflowService) {
+                    $milestones = $event->thesis?->milestones ?? collect();
+                    if (in_array($event->type, ['internal', 'internal_defence'])) {
+                        $m = $milestones->first(fn($sm) => $workflowService->isInternalDefence($sm));
+                        return $m && !empty($m->defence_date) && $m->status !== 'approved' && !$workflowService->isPostDefencePhase($m);
+                    }
+                    if (in_array($event->type, ['external', 'external_defence', 'viva'])) {
+                        $m = $milestones->first(fn($sm) => $sm->template?->slug === 'viva' || (int) ($sm->template?->order ?? 0) === 7);
+                        return $m && !empty($m->defence_date) && $m->status !== 'approved';
+                    }
+                    return !empty($event->schedule_start);
+                })
+                ->values();
+        } catch (\Throwable $e) {
+            \Log::warning('Pending evaluations query failed: ' . $e->getMessage());
+            error_log('[PENDING_EVALUATIONS_WARN] ' . $e->getMessage());
+        }
 
         // 6. UPCOMING ACADEMIC DEFENCES (Unified timeline across active portfolios)
-        $upcomingDefences = \App\Models\DefenceEvent::where(function($q) use ($user, $supervisor, $isCoordinator, $isInternalExaminer, $isExternalExaminer) {
-            $q->whereHas('panelMembers', fn($sq) => $sq->where('user_id', $user->id));
-            if ($supervisor) {
-                $q->orWhereHas('thesis.assignments', fn($sq) => $sq->where('supervisor_profile_id', $supervisor->id));
-            }
-            if ($isCoordinator) {
-                $q->orWhereHas('thesis.student', fn($sq) => $sq->forCoordinator($user));
-            }
-            if ($isInternalExaminer) {
-                $internalIds = $internalProfileIds ?? $user->internalExaminerProfiles()->pluck('id')->toArray();
-                if (!empty($internalIds)) {
-                    $q->orWhereHas('thesis', fn($sq) => $sq->whereIn('internal_examiner_profile_id', $internalIds));
+        $upcomingDefences = collect();
+        try {
+            $upcomingDefences = \App\Models\DefenceEvent::where(function($q) use ($user, $supervisor, $isCoordinator, $isInternalExaminer, $isExternalExaminer) {
+                $q->whereHas('panelMembers', fn($sq) => $sq->where('user_id', $user->id));
+                if ($supervisor) {
+                    $q->orWhereHas('thesis.assignments', fn($sq) => $sq->where('supervisor_profile_id', $supervisor->id));
                 }
-            }
-            if ($isExternalExaminer) {
-                $externalIds = $externalProfileIds ?? $user->externalExaminerProfiles()->pluck('id')->toArray();
-                if (!empty($externalIds)) {
-                    $q->orWhereHas('thesis', fn($sq) => $sq->whereIn('external_examiner_profile_id', $externalIds));
+                if ($isCoordinator) {
+                    $q->orWhereHas('thesis.student', fn($sq) => $sq->forCoordinator($user));
                 }
-            }
-        })
-        ->where('schedule_start', '>=', now()->subHours(6))
-        ->with(['thesis.student.user', 'thesis.student.program', 'panelMembers.user'])
-        ->orderBy('schedule_start', 'asc')
-        ->take(8)
-        ->get();
+                if ($isInternalExaminer) {
+                    $internalIds = $internalProfileIds ?? $user->internalExaminerProfiles()->pluck('id')->toArray();
+                    if (!empty($internalIds)) {
+                        $q->orWhereHas('thesis', fn($sq) => $sq->whereIn('internal_examiner_profile_id', $internalIds));
+                    }
+                }
+                if ($isExternalExaminer) {
+                    $externalIds = $externalProfileIds ?? $user->externalExaminerProfiles()->pluck('id')->toArray();
+                    if (!empty($externalIds)) {
+                        $q->orWhereHas('thesis', fn($sq) => $sq->whereIn('external_examiner_profile_id', $externalIds));
+                    }
+                }
+            })
+            ->where('schedule_start', '>=', now()->subHours(6))
+            ->with(['thesis.student.user', 'thesis.student.program', 'panelMembers.user'])
+            ->orderBy('schedule_start', 'asc')
+            ->take(8)
+            ->get();
+        } catch (\Throwable $e) {
+            \Log::warning('Upcoming defences query failed: ' . $e->getMessage());
+            error_log('[UPCOMING_DEFENCES_WARN] ' . $e->getMessage());
+        }
 
         $data['upcomingDefences'] = $upcomingDefences;
 
         // 7. GLOBAL MILESTONE TEMPLATES (for milestone jump)
-        $data['milestone_templates'] = \Illuminate\Support\Facades\Cache::remember('all_milestone_templates', 3600, function() {
-            return \App\Models\MilestoneTemplate::orderBy('order')->get();
-        });
+        try {
+            $data['milestone_templates'] = \Illuminate\Support\Facades\Cache::remember('all_milestone_templates', 3600, function() {
+                return \App\Models\MilestoneTemplate::orderBy('order')->get();
+            });
+        } catch (\Throwable $e) {
+            $data['milestone_templates'] = \App\Models\MilestoneTemplate::orderBy('order')->get();
+        }
 
         // 7. AGGREGATED STATS MATRIX
         $unreadCounts = $this->getUnreadMessagesCount($user);
@@ -857,153 +914,158 @@ class DashboardController extends Controller
      */
     private function isMilestonePendingReviewForUser($milestone, $userId, ?string $role = null): bool
     {
-        if ($milestone->status === 'approved') {
-            return false;
-        }
-
-        if ($milestone->status === 'revision_required') {
-            return false;
-        }
-
-        // Institutional Rule: Program Coordinators do not review student documents
-        if ($role === 'Program Coordinator') {
-            return false;
-        }
-
-        $workflow = app(\App\Services\MilestoneWorkflowService::class);
-
-        // Internal Examiner: reviews post-defence corrected thesis ONLY after presentation session has been concluded
-        if ($role === 'Internal Examiner') {
-            if ($workflow->isInternalDefence($milestone)) {
-                if (!$workflow->isPostDefencePhase($milestone)) {
-                    return false;
-                }
-                if (!$workflow->hasPostDefenceSubmission($milestone)) {
-                    return false;
-                }
-                $approvals = $milestone->approvals ?? [];
-                if (is_string($approvals)) {
-                    $approvals = json_decode($approvals, true) ?: [];
-                }
-                $ieDecision = $approvals['internal_examiner_review']['decision'] ?? null;
-                if (in_array($ieDecision, ['approved', 'revision_required'])) {
-                    return false;
-                }
-                return true;
-            }
-        }
-
-        // For Supervisor: once internal_defence enters the Post-Defence Correction stage, supervisor review is already complete
-        if (($role === 'Supervisor' || empty($role)) && $workflow->isPostDefencePhase($milestone)) {
-            return false;
-        }
-
-        $approvals = $milestone->approvals ?? [];
-        if (is_string($approvals)) {
-            $approvals = json_decode($approvals, true) ?: [];
-        }
-
-        $userIdStr = (string) $userId;
-
-        // 1. Multi-supervisor review tracking
-        if (is_array($approvals) && isset($approvals['supervisor_reviews'][$userIdStr])) {
-            $supReview = $approvals['supervisor_reviews'][$userIdStr];
-            $decision = $supReview['decision'] ?? null;
-
-            // Standing approval: supervisor already approved this milestone
-            if ($decision === 'approved') {
+        try {
+            if ($milestone->status === 'approved') {
                 return false;
             }
 
-            // Student re-uploaded after rejection -> awaiting re-review by this specific supervisor
-            if ($decision === 'pending_re_review') {
-                return true;
-            }
-
-            if ($decision === 'rejected') {
+            if ($milestone->status === 'revision_required') {
                 return false;
             }
-        }
 
-        // 2. Supervisor-specific checks (via MilestoneWorkflowService & Feedback)
-        if ($role === 'Supervisor' || empty($role)) {
-            $hasAnySubmission = $milestone->relationLoaded('submissions')
-                ? $milestone->submissions->isNotEmpty()
-                : $milestone->submissions()->exists();
-
-            if (!$hasAnySubmission) {
+            // Institutional Rule: Program Coordinators do not review student documents
+            if ($role === 'Program Coordinator') {
                 return false;
             }
 
             $workflow = app(\App\Services\MilestoneWorkflowService::class);
 
-            // Once the presentation has already been conducted/graded or entered post-defence,
-            // pre-defence supervisor upload review is no longer pending.
-            if ($workflow->hasBeenGraded($milestone) || $workflow->isPostDefencePhase($milestone)) {
-                return false;
-            }
-
-            $summary = $workflow->getSupervisorReviewSummary($milestone);
-
-            $myReview = collect($summary['supervisors'] ?? [])->first(fn($s) => (string) ($s['user_id'] ?? '') === $userIdStr);
-            if ($myReview) {
-                if ($myReview['status'] === 'approved') {
-                    return false;
-                }
-                if ($myReview['status'] === 'rejected') {
-                    return false;
-                }
-                if (in_array($myReview['status'], ['pending', 'pending_re_review'], true)) {
+            // Internal Examiner: reviews post-defence corrected thesis ONLY after presentation session has been concluded
+            if ($role === 'Internal Examiner') {
+                if ($workflow->isInternalDefence($milestone)) {
+                    if (!$workflow->isPostDefencePhase($milestone)) {
+                        return false;
+                    }
+                    if (!$workflow->hasPostDefenceSubmission($milestone)) {
+                        return false;
+                    }
+                    $approvals = $milestone->approvals ?? [];
+                    if (is_string($approvals)) {
+                        $approvals = json_decode($approvals, true) ?: [];
+                    }
+                    $ieDecision = $approvals['internal_examiner_review']['decision'] ?? null;
+                    if (in_array($ieDecision, ['approved', 'revision_required'])) {
+                        return false;
+                    }
                     return true;
                 }
             }
 
-            // Direct check on submissions feedback for this supervisor
-            if ($milestone->relationLoaded('submissions')) {
-                $hasFeedbackApproved = $milestone->submissions->contains(function($sub) use ($userId) {
-                    if ($sub->relationLoaded('feedbacks')) {
-                        return $sub->feedbacks->contains(fn($f) => (string) $f->created_by === (string) $userId && $f->decision === 'approved');
+            // For Supervisor: once internal_defence enters the Post-Defence Correction stage, supervisor review is already complete
+            if (($role === 'Supervisor' || empty($role)) && $workflow->isPostDefencePhase($milestone)) {
+                return false;
+            }
+
+            $approvals = $milestone->approvals ?? [];
+            if (is_string($approvals)) {
+                $approvals = json_decode($approvals, true) ?: [];
+            }
+
+            $userIdStr = (string) $userId;
+
+            // 1. Multi-supervisor review tracking
+            if (is_array($approvals) && isset($approvals['supervisor_reviews'][$userIdStr])) {
+                $supReview = $approvals['supervisor_reviews'][$userIdStr];
+                $decision = $supReview['decision'] ?? null;
+
+                // Standing approval: supervisor already approved this milestone
+                if ($decision === 'approved') {
+                    return false;
+                }
+
+                // Student re-uploaded after rejection -> awaiting re-review by this specific supervisor
+                if ($decision === 'pending_re_review') {
+                    return true;
+                }
+
+                if ($decision === 'rejected') {
+                    return false;
+                }
+            }
+
+            // 2. Supervisor-specific checks (via MilestoneWorkflowService & Feedback)
+            if ($role === 'Supervisor' || empty($role)) {
+                $hasAnySubmission = $milestone->relationLoaded('submissions')
+                    ? $milestone->submissions->isNotEmpty()
+                    : $milestone->submissions()->exists();
+
+                if (!$hasAnySubmission) {
+                    return false;
+                }
+
+                $workflow = app(\App\Services\MilestoneWorkflowService::class);
+
+                // Once the presentation has already been conducted/graded or entered post-defence,
+                // pre-defence supervisor upload review is no longer pending.
+                if ($workflow->hasBeenGraded($milestone) || $workflow->isPostDefencePhase($milestone)) {
+                    return false;
+                }
+
+                $summary = $workflow->getSupervisorReviewSummary($milestone);
+
+                $myReview = collect($summary['supervisors'] ?? [])->first(fn($s) => (string) ($s['user_id'] ?? '') === $userIdStr);
+                if ($myReview) {
+                    if ($myReview['status'] === 'approved') {
+                        return false;
                     }
-                    if ($sub->relationLoaded('feedback')) {
-                        $fb = $sub->feedback;
-                        if ($fb instanceof \Illuminate\Support\Collection) {
-                            return $fb->contains(fn($f) => (string) $f->created_by === (string) $userId && $f->decision === 'approved');
+                    if ($myReview['status'] === 'rejected') {
+                        return false;
+                    }
+                    if (in_array($myReview['status'], ['pending', 'pending_re_review'], true)) {
+                        return true;
+                    }
+                }
+
+                // Direct check on submissions feedback for this supervisor
+                if ($milestone->relationLoaded('submissions')) {
+                    $hasFeedbackApproved = $milestone->submissions->contains(function($sub) use ($userId) {
+                        if ($sub->relationLoaded('feedbacks')) {
+                            return $sub->feedbacks->contains(fn($f) => (string) $f->created_by === (string) $userId && $f->decision === 'approved');
                         }
-                        return $fb && (string) $fb->created_by === (string) $userId && $fb->decision === 'approved';
+                        if ($sub->relationLoaded('feedback')) {
+                            $fb = $sub->feedback;
+                            if ($fb instanceof \Illuminate\Support\Collection) {
+                                return $fb->contains(fn($f) => (string) $f->created_by === (string) $userId && $f->decision === 'approved');
+                            }
+                            return $fb && (string) $fb->created_by === (string) $userId && $fb->decision === 'approved';
+                        }
+                        return $sub->feedbacks()->where('created_by', $userId)->where('decision', 'approved')->exists();
+                    });
+                    if ($hasFeedbackApproved) {
+                        return false;
                     }
-                    return $sub->feedbacks()->where('created_by', $userId)->where('decision', 'approved')->exists();
-                });
-                if ($hasFeedbackApproved) {
-                    return false;
-                }
-            } else {
-                $hasFeedbackApproved = $milestone->submissions()
-                    ->whereHas('feedbacks', fn($q) => $q->where('created_by', $userId)->where('decision', 'approved'))
-                    ->exists();
-                if ($hasFeedbackApproved) {
-                    return false;
-                }
-            }
-        }
-
-        // 3. Role-keyed approval (e.g. 'Admin:1', 'Supervisor:2') or list of approval entries
-        if (is_array($approvals)) {
-            if ($role && isset($approvals["{$role}:{$userId}"])) {
-                $item = $approvals["{$role}:{$userId}"];
-                if (($item['decision'] ?? '') === 'approved' || !isset($item['decision'])) {
-                    return false;
-                }
-            }
-
-            foreach ($approvals as $key => $item) {
-                if (is_array($item) && ($item['user_id'] ?? null) == $userId) {
-                    if (($item['decision'] ?? '') === 'approved' || !isset($item['decision'])) {
+                } else {
+                    $hasFeedbackApproved = $milestone->submissions()
+                        ->whereHas('feedbacks', fn($q) => $q->where('created_by', $userId)->where('decision', 'approved'))
+                        ->exists();
+                    if ($hasFeedbackApproved) {
                         return false;
                     }
                 }
             }
-        }
 
-        return true;
+            // 3. Role-keyed approval (e.g. 'Admin:1', 'Supervisor:2') or list of approval entries
+            if (is_array($approvals)) {
+                if ($role && isset($approvals["{$role}:{$userId}"])) {
+                    $item = $approvals["{$role}:{$userId}"];
+                    if (($item['decision'] ?? '') === 'approved' || !isset($item['decision'])) {
+                        return false;
+                    }
+                }
+
+                foreach ($approvals as $key => $item) {
+                    if (is_array($item) && ($item['user_id'] ?? null) == $userId) {
+                        if (($item['decision'] ?? '') === 'approved' || !isset($item['decision'])) {
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            return true;
+        } catch (\Throwable $e) {
+            \Log::warning('Error checking pending review for milestone: ' . $e->getMessage());
+            return false;
+        }
     }
 }

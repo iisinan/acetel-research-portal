@@ -48,4 +48,20 @@ class Program extends Model
     {
         return $this->hasMany(SupervisorProfile::class);
     }
+
+    /**
+     * Scope matching PhD Artificial Intelligence programmes (e.g. DOCT7570).
+     */
+    public function scopePhdAi($query)
+    {
+        return $query->where(function ($degQ) {
+            $degQ->whereRaw("LOWER(COALESCE(degree_type, '')) LIKE ?", ['%phd%'])
+                ->orWhereRaw("LOWER(COALESCE(name, '')) LIKE ?", ['%phd%'])
+                ->orWhereRaw("LOWER(COALESCE(name, '')) LIKE ?", ['%doctor%'])
+                ->orWhereRaw("LOWER(COALESCE(code, '')) LIKE ?", ['%doct%']);
+        })->where(function ($aiQ) {
+            $aiQ->whereRaw("LOWER(COALESCE(name, '')) LIKE ?", ['%artificial intelligence%'])
+                ->orWhereRaw("LOWER(COALESCE(code, '')) = ?", ['doct7570']);
+        });
+    }
 }
