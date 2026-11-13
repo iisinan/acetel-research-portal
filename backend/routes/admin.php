@@ -22,6 +22,7 @@ Route::get('/users/download-supervisors', [UserManagementController::class, 'dow
 Route::resource('users', UserManagementController::class);
 Route::patch('/users/{user}/toggle-status', [UserManagementController::class, 'toggleStatus'])->name('users.toggle-status');
 Route::post('/users/{user}/reset-password', [UserManagementController::class, 'resetPassword'])->name('users.reset_password');
+Route::post('/users/{user}/impersonate', [UserManagementController::class, 'impersonate'])->name('users.impersonate');
 
 Route::delete('/students/bulk-destroy', [StudentController::class, 'bulkDestroy'])->name('students.bulk-destroy');
 Route::delete('/students/{student}', [StudentController::class, 'destroy'])->name('students.destroy');

@@ -157,7 +157,19 @@
                                     <div class="absolute -right-1 -bottom-1 w-5 h-5 rounded-full border-4 border-white shadow-sm {{ $user->is_active ? 'bg-green-500' : 'bg-rose-500' }}"></div>
                                 </div>
                                 <div class="min-w-0">
-                                    <p class="text-base font-black text-slate-900 tracking-tight leading-none mb-2 group-hover:text-green-700 transition-colors">{{ $user->name }}</p>
+                                    @if(auth()->user()->hasRole('Admin') && auth()->id() !== $user->id)
+                                        <form action="{{ route('admin.users.impersonate', $user) }}" method="POST" class="inline">
+                                            @csrf
+                                            <button type="submit" class="text-left group/name focus:outline-none cursor-pointer mb-2 flex items-center gap-2" title="Click to view {{ $user->name }}'s dashboard and pages">
+                                                <span class="text-base font-black text-slate-900 tracking-tight leading-none group-hover/name:text-green-700 group-hover:text-green-700 underline decoration-slate-200 group-hover/name:decoration-green-500 underline-offset-4 transition-colors">{{ $user->name }}</span>
+                                                <span class="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    View Portal &rarr;
+                                                </span>
+                                            </button>
+                                        </form>
+                                    @else
+                                        <p class="text-base font-black text-slate-900 tracking-tight leading-none mb-2 group-hover:text-green-700 transition-colors">{{ $user->name }}</p>
+                                    @endif
                                     <div class="flex items-center gap-2 flex-wrap">
                                         <p class="text-[11px] font-bold text-slate-400 truncate">{{ $user->email }}</p>
                                         @if($user->studentProfile?->student_id_number)
@@ -284,6 +296,14 @@
                         </td>
                         <td class="px-6 sm:px-10 py-6 sm:py-8 text-right">
                             <div class="flex items-center justify-end gap-2 opacity-100 sm:opacity-0 sm:translate-x-4 sm:group-hover:opacity-100 sm:group-hover:translate-x-0 transition-all duration-300">
+                                @if(auth()->user()->hasRole('Admin') && auth()->id() !== $user->id)
+                                    <form action="{{ route('admin.users.impersonate', $user) }}" method="POST" class="contents">
+                                        @csrf
+                                        <button type="submit" class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 hover:text-white hover:bg-emerald-600 hover:border-emerald-600 transition-all cursor-pointer" title="View User Dashboard & Pages">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                        </button>
+                                    </form>
+                                @endif
                                 <form action="{{ route('admin.users.reset_password', $user) }}" method="POST" class="contents"
                                     data-confirm="Securely reset password for {{ $user->name }}? Credentials will be dispatched to their institutional email address."
                                     data-confirm-title="Reset User Password"

@@ -8,7 +8,10 @@ use App\Models\Cohort;
 use App\Models\Program;
 use App\Models\Level;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Spatie\Permission\Models\Role;
 use Illuminate\Validation\Rule;
 
@@ -742,5 +745,68 @@ class UserManagementController extends Controller
         \Illuminate\Support\Facades\Mail::to($user->email)->send(new \App\Mail\PasswordResetDispatched($user, $password));
 
         return redirect()->back()->with('success', 'User password has been reset to default and credentials dispatched via email.');
+    }
+
+    /**
+     * Allow an Administrator to view the portal as the specified user.
+     */
+    public function impersonate(Request $request, User $user)
+    {
+        $actor = Auth::user();
+        if (!$actor || !$actor->hasRole('Admin')) {
+            abort(403, 'Only Administrators can view user accounts.');
+        }
+
+        if ($user->id === $actor->id) {
+            return redirect()->back()->with('warning', 'You are already signed in as this account.');
+        }
+
+        if (!session()->has('impersonate_admin_id')) {
+            session()->put('impersonate_admin_id', $actor->id);
+            session()->put('impersonate_admin_name', $actor->name);
+            session()->put('impersonate_return_url', url()->previous() ?: route('admin.users.index'));
+        }
+
+        Log::info('Admin impersonation started', [
+            'admin_id' => session('impersonate_admin_id'),
+            'target_user_id' => $user->id,
+            'target_email' => $user->email,
+        ]);
+
+        Auth::login($user);
+        Cookie::queue(Cookie::forget('active_dashboard_role'));
+
+        return redirect()->route('dashboard')
+            ->with('success', "Viewing portal as {$user->name}. Use the top banner to return to your Admin session.");
+    }
+
+    /**
+     * Exit impersonation and restore the original Administrator session.
+     */
+    public function stopImpersonating(Request $request)
+    {
+        $adminId = session('impersonate_admin_id');
+        if (!$adminId) {
+            return redirect()->route('dashboard');
+        }
+
+        $admin = User::find($adminId);
+        $returnUrl = session('impersonate_return_url', route('admin.users.index'));
+        session()->forget(['impersonate_admin_id', 'impersonate_admin_name', 'impersonate_return_url']);
+
+        if (!$admin || !$admin->hasRole('Admin')) {
+            Auth::logout();
+            return redirect()->route('login')->with('error', 'Original Admin session could not be restored.');
+        }
+
+        Log::info('Admin impersonation ended', [
+            'admin_id' => $admin->id,
+        ]);
+
+        Auth::login($admin);
+        Cookie::queue(Cookie::forget('active_dashboard_role'));
+
+        return redirect()->to($returnUrl ?: route('admin.users.index'))
+            ->with('success', 'Returned to your Administrator account.');
     }
 }

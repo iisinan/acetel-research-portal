@@ -106,6 +106,7 @@
 
         <!-- Main Viewport -->
         <div class="flex flex-col flex-1 min-w-0 overflow-hidden relative">
+            <x-impersonation-banner />
             
             <!-- Global Header -->
             <header class="h-16 sm:h-20 flex items-center justify-between px-4 sm:px-6 lg:px-10 light-header z-30 shrink-0">

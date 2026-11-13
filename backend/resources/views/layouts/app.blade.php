@@ -20,6 +20,8 @@
         <div class="absolute top-0 right-0 w-[40rem] h-[40rem] bg-brand-500/5 blur-[120px] rounded-full pointer-events-none -mt-40 -mr-40"></div>
         <div class="absolute bottom-0 left-0 w-[35rem] h-[35rem] bg-brand-500/5 blur-[100px] rounded-full pointer-events-none -mb-40 -ml-40"></div>
 
+        <x-impersonation-banner />
+
         <main class="relative z-10">
             @if (session('error'))
                 <div class="max-w-xl mx-auto pt-8 px-6">

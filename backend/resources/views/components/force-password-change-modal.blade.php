@@ -1,4 +1,4 @@
-@if (auth()->check() && auth()->user()->must_change_password && !request()->is('profile*'))
+@if (auth()->check() && auth()->user()->must_change_password && !request()->is('profile*') && !session()->has('impersonate_admin_id'))
     <div x-data="{ open: true }"
          x-show="open"
          class="fixed inset-0 z-50 overflow-y-auto"

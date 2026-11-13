@@ -76,6 +76,7 @@ use App\Http\Controllers\MilestoneController;
 
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::post('/impersonation/leave', [App\Http\Controllers\Admin\UserManagementController::class, 'stopImpersonating'])->name('impersonation.leave');
     
     // Shared Dashboard (Content varies by role via Controller)
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
