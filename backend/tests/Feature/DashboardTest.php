@@ -88,4 +88,79 @@ class DashboardTest extends TestCase
         $response->assertViewHas('recent_logs');
         $response->assertViewHas('projects');
     }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function student_without_profile_sees_student_dashboard()
+    {
+        $bareStudent = User::factory()->create();
+        $bareStudent->assignRole('Student');
+
+        $this->actingAs($bareStudent)->get('/dashboard')->assertStatus(200);
+    }
+
+    #[\PHPUnit\Framework\Attributes\Test]
+    public function multi_role_faculty_sees_internal_examiner_tab_even_when_coordinated_student_lacks_thesis()
+    {
+        $level = Level::where('name', 'MSc')->first();
+        $program = Program::create(['name' => 'Software Eng', 'code' => 'SE', 'serial_number' => '992']);
+        $cohort = \App\Models\Cohort::create([
+            'name' => '2025/2026 SE Cohort',
+            'code' => 'SE_TEST_COHORT',
+            'intake_year' => 2025,
+            'status' => 'active',
+            'start_date' => now(),
+            'end_date' => now()->addYear(),
+        ]);
+
+        $faculty = User::factory()->create(['name' => 'Prof Ishaq Multi']);
+        $faculty->assignRole(['Internal Examiner', 'Supervisor', 'Program Coordinator']);
+
+        $faculty->coordinatorProfiles()->create([
+            'program_id' => $program->id,
+            'level_id' => $level->id,
+            'active' => true,
+        ]);
+
+        $internalProfile = \App\Models\InternalExaminerProfile::create([
+            'user_id' => $faculty->id,
+            'program_id' => $program->id,
+            'active' => true,
+        ]);
+
+        // Coordinated active student with NO ThesisProject
+        $noThesisUser = User::factory()->create();
+        $noThesisUser->assignRole('Student');
+        $noThesisUser->studentProfile()->create([
+            'program_id' => $program->id,
+            'level_id' => $level->id,
+            'cohort_id' => $cohort->id,
+            'student_id_number' => 'SE-NO-THESIS',
+            'enrollment_status' => 'active',
+            'current_semester' => 1,
+        ]);
+
+        // Another student WITH a ThesisProject assigned to this Internal Examiner (no current milestone)
+        $examinedUser = User::factory()->create();
+        $examinedUser->assignRole('Student');
+        $examinedStudent = $examinedUser->studentProfile()->create([
+            'program_id' => $program->id,
+            'level_id' => $level->id,
+            'cohort_id' => $cohort->id,
+            'student_id_number' => 'SE-EXAMINED',
+            'enrollment_status' => 'active',
+            'current_semester' => 2,
+        ]);
+
+        \App\Models\ThesisProject::create([
+            'student_profile_id' => $examinedStudent->id,
+            'internal_examiner_profile_id' => $internalProfile->id,
+            'title' => 'Null-Safe Multi-Role Verification Thesis',
+            'status' => 'active',
+        ]);
+
+        $response = $this->actingAs($faculty)->get('/dashboard?role=Internal%20Examiner');
+
+        $response->assertStatus(200);
+        $response->assertSee('Null-Safe Multi-Role Verification Thesis');
+    }
 }

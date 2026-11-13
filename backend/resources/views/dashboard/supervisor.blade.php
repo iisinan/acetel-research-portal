@@ -366,7 +366,7 @@ class="space-y-8 animate-in">
                                             <h4 class="text-sm font-black text-slate-800 truncate">{{ $review->thesis?->student?->user?->name ?? 'Candidate' }}</h4>
                                             <div class="flex flex-wrap items-center gap-1 mt-1">
                                                 <span class="inline-block px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200/60 rounded text-[9px] font-bold uppercase truncate max-w-full">
-                                                    {{ $review->template->name }}
+                                                    {{ $review->template?->name ?? 'Milestone' }}
                                                 </span>
                                                 @if(($review->approvals['supervisor_reviews'][(string)auth()->id()]['decision'] ?? null) === 'pending_re_review')
                                                     <span class="inline-block px-1.5 py-0.5 bg-rose-100 text-rose-800 border border-rose-200 rounded text-[8px] font-black uppercase tracking-wider">
@@ -531,10 +531,10 @@ class="space-y-8 animate-in">
 
                             <div>
                                 <h4 class="text-sm font-black text-slate-800 line-clamp-1 group-hover:text-green-700 transition-colors uppercase">
-                                    {{ $ev->thesis->student->user->name ?? 'Candidate' }}
+                                    {{ $ev->thesis?->student?->user?->name ?? 'Candidate' }}
                                 </h4>
                                 <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                                    {{ $ev->thesis->student->program->code ?? 'N/A' }} • {{ $ev->thesis->student->student_id_number ?? '' }}
+                                    {{ $ev->thesis?->student?->program?->code ?? 'N/A' }} • {{ $ev->thesis?->student?->student_id_number ?? '' }}
                                 </p>
                                 @if($ev->thesis && $ev->thesis->title)
                                     <p class="text-xs text-slate-500 line-clamp-2 mt-1 italic">
@@ -811,7 +811,7 @@ class="space-y-8 animate-in">
                                 @endphp
                                 <div class="flex flex-wrap items-center gap-1 mt-1">
                                     <span class="inline-block px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200/50 rounded text-[9px] font-bold uppercase truncate max-w-full">
-                                        {{ $review->template->name }}
+                                        {{ $review->template?->name ?? 'Milestone' }}
                                     </span>
                                     @if($myReviewStatus === 'pending_re_review')
                                         <span class="inline-block px-1.5 py-0.5 bg-rose-100 text-rose-800 border border-rose-200 rounded text-[8px] font-black uppercase tracking-wider">
@@ -1057,9 +1057,11 @@ class="space-y-8 animate-in">
                                     </a>
                                 @endif
 
-                                <a href="{{ route('theses.show', $student->thesis) }}" class="flex items-center justify-center px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-xs">
-                                    Audit Thesis
-                                </a>
+                                @if($student->thesis)
+                                    <a href="{{ route('theses.show', $student->thesis) }}" class="flex items-center justify-center px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-xs">
+                                        Audit Thesis
+                                    </a>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -1096,8 +1098,8 @@ class="space-y-8 animate-in">
                 <div class="p-5 bg-blue-50/40 border border-blue-100 rounded-2xl space-y-3">
                     <div>
                         <span class="text-[9px] font-black uppercase tracking-widest text-blue-600 bg-blue-100 px-2 py-0.5 rounded">{{ $eventBadge }}</span>
-                        <h4 class="text-sm font-black text-slate-800 mt-2">{{ $event->thesis->student->user->name }}</h4>
-                        <p class="text-xs text-slate-500 truncate">{{ $event->thesis->title }}</p>
+                        <h4 class="text-sm font-black text-slate-800 mt-2">{{ $event->thesis?->student?->user?->name ?? 'Candidate' }}</h4>
+                        <p class="text-xs text-slate-500 truncate">{{ $event->thesis?->title ?? 'Untitled Thesis' }}</p>
                     </div>
                     <a href="{{ route('evaluations.create', ['defenceEvent' => $event->id]) }}" class="block text-center py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs">
                         Grade Defence
@@ -1205,8 +1207,8 @@ class="space-y-8 animate-in">
                 @foreach($coordinatorPendingReviews->take(6) as $cReview)
                 <div class="bg-white border border-blue-100 rounded-2xl p-4 space-y-3">
                     <div>
-                        <p class="text-xs font-black text-slate-800 truncate">{{ $cReview->thesis->student->user->name ?? 'Candidate' }}</p>
-                        <p class="text-[10px] font-bold text-blue-600 uppercase truncate mt-0.5">{{ $cReview->template->name }}</p>
+                        <p class="text-xs font-black text-slate-800 truncate">{{ $cReview->thesis?->student?->user?->name ?? 'Candidate' }}</p>
+                        <p class="text-[10px] font-bold text-blue-600 uppercase truncate mt-0.5">{{ $cReview->template?->name ?? 'Milestone' }}</p>
                     </div>
                     <div class="flex items-center justify-between pt-2 border-t border-slate-50">
                         <span class="text-[9px] font-bold text-slate-400 uppercase">{{ $cReview->submitted_at ? $cReview->submitted_at->diffForHumans() : 'Pending' }}</span>
@@ -1280,28 +1282,28 @@ class="space-y-8 animate-in">
                     <tbody class="divide-y divide-slate-50 text-xs font-medium">
                         @forelse($coordinatorStudents as $cs)
                         @php
-                            $csName = addslashes($cs->user->name ?? '');
+                            $csName = addslashes($cs->user?->name ?? '');
                             $csMatric = addslashes($cs->student_id_number ?? '');
-                            $csProg = addslashes($cs->program->code ?? '');
+                            $csProg = addslashes($cs->program?->code ?? '');
                         @endphp
                         <tr x-show="matchesCoord('{{ $csName }}', '{{ $csMatric }}', '{{ $csProg }}')" class="hover:bg-slate-50/60 transition-colors">
                             <td class="px-8 py-4">
-                                <p class="font-black text-slate-800 uppercase">{{ $cs->user->name }}</p>
-                                <p class="text-[10px] text-slate-400 font-bold uppercase">{{ $cs->student_id_number }}</p>
+                                <p class="font-black text-slate-800 uppercase">{{ $cs->user?->name ?? 'Candidate' }}</p>
+                                <p class="text-[10px] text-slate-400 font-bold uppercase">{{ $cs->student_id_number ?? '' }}</p>
                             </td>
                             <td class="px-6 py-4">
-                                <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-bold uppercase">{{ $cs->program->code ?? 'N/A' }}</span>
-                                <span class="text-[10px] text-slate-400 ml-1">{{ $cs->level->name ?? '' }}</span>
+                                <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-bold uppercase">{{ $cs->program?->code ?? 'N/A' }}</span>
+                                <span class="text-[10px] text-slate-400 ml-1">{{ $cs->level?->name ?? '' }}</span>
                             </td>
                             <td class="px-6 py-4">
                                 @if($cs->thesis && $cs->thesis->assignments->isNotEmpty())
-                                    <span class="text-slate-700 font-bold">{{ $cs->thesis->assignments->first()->supervisor->user->name ?? 'Assigned' }}</span>
+                                    <span class="text-slate-700 font-bold">{{ $cs->thesis->assignments->first()?->supervisor?->user?->name ?? 'Assigned' }}</span>
                                 @else
                                     <span class="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[9px] font-bold uppercase">Pending Assignment</span>
                                 @endif
                             </td>
                             <td class="px-6 py-4">
-                                <span class="text-slate-600 font-semibold">{{ $cs->thesis->currentMilestone->template->name ?? 'Initiation' }}</span>
+                                <span class="text-slate-600 font-semibold">{{ $cs->thesis?->currentMilestone?->template?->name ?? 'Initiation' }}</span>
                             </td>
                             <td class="px-8 py-4 text-right">
                                 <a href="{{ route('coordinator.students.show', $cs) }}" class="px-3 py-1.5 bg-slate-100 hover:bg-blue-600 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">
@@ -1410,9 +1412,9 @@ class="space-y-8 animate-in">
                 @foreach($internalPendingReviews as $iReview)
                 <div class="bg-white border border-purple-100 rounded-2xl p-5 space-y-3 hover:border-purple-300 transition-all">
                     <div>
-                        <h4 class="text-sm font-black text-slate-800 truncate">{{ $iReview->thesis->student->user->name ?? 'Candidate' }}</h4>
+                        <h4 class="text-sm font-black text-slate-800 truncate">{{ $iReview->thesis?->student?->user?->name ?? 'Candidate' }}</h4>
                         <span class="inline-block mt-1 px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-[9px] font-bold uppercase truncate max-w-full">
-                            {{ $iReview->template->name }}
+                            {{ $iReview->template?->name ?? 'Milestone' }}
                         </span>
                     </div>
                     <div class="pt-3 border-t border-slate-50 flex items-center justify-between">
@@ -1492,9 +1494,9 @@ class="space-y-8 animate-in">
                 @forelse($internalTheses as $iThesis)
                     @php
                         $safeTitle = addslashes($iThesis->title ?? '');
-                        $safeCandidate = addslashes($iThesis->student->user->name ?? '');
-                        $safeMatric = addslashes($iThesis->student->student_id_number ?? '');
-                        $safeProg = addslashes($iThesis->student->program->code ?? '');
+                        $safeCandidate = addslashes($iThesis->student?->user?->name ?? '');
+                        $safeMatric = addslashes($iThesis->student?->student_id_number ?? '');
+                        $safeProg = addslashes($iThesis->student?->program?->code ?? '');
                         $safeStatus = addslashes($iThesis->status ?? 'active');
                         $progress = $iThesis->progress_percentage;
                         $hasPendingMilestone = $internalPendingReviews->where('thesis_project_id', $iThesis->id)->isNotEmpty();
@@ -1505,22 +1507,22 @@ class="space-y-8 animate-in">
                         <div class="flex items-start justify-between gap-3">
                             <div class="flex items-center gap-3">
                                 <div class="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-black text-sm shrink-0 shadow-xs">
-                                    {{ substr($iThesis->student->user->name ?? '?', 0, 1) }}
+                                    {{ substr($iThesis->student?->user?->name ?? '?', 0, 1) }}
                                 </div>
                                 <div class="min-w-0">
                                     <h4 class="text-sm font-black text-slate-800 uppercase truncate leading-none">
-                                        {{ $iThesis->student->user->name ?? 'Candidate' }}
+                                        {{ $iThesis->student?->user?->name ?? 'Candidate' }}
                                     </h4>
                                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                                        {{ $iThesis->student->student_id_number }}
+                                        {{ $iThesis->student?->student_id_number ?? 'N/A' }}
                                     </p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-1.5 flex-wrap justify-end">
                                 <span class="px-2 py-0.5 bg-purple-100 text-purple-800 rounded text-[9px] font-black uppercase">
-                                    {{ $iThesis->student->program->code ?? 'N/A' }}
+                                    {{ $iThesis->student?->program?->code ?? 'N/A' }}
                                 </span>
-                                @if($iThesis->student->level)
+                                @if($iThesis->student?->level)
                                     <span class="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[9px] font-bold uppercase">
                                         {{ $iThesis->student->level->name }}
                                     </span>
@@ -1541,7 +1543,7 @@ class="space-y-8 animate-in">
                                 <div class="mt-2 flex items-center gap-2">
                                     <span class="text-[10px] font-bold text-slate-400 uppercase">Stage:</span>
                                     <span class="px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-[10px] font-bold truncate">
-                                        {{ $iThesis->currentMilestone->template->name }}
+                                        {{ $iThesis->currentMilestone->template?->name ?? 'Active Stage' }}
                                     </span>
                                 </div>
                             @endif
@@ -1595,8 +1597,8 @@ class="space-y-8 animate-in">
                 <div class="p-5 bg-purple-50/40 border border-purple-100 rounded-2xl space-y-3">
                     <div>
                         <span class="text-[9px] font-black uppercase tracking-widest text-purple-700 bg-purple-100 px-2 py-0.5 rounded">{{ ucfirst(str_replace('_', ' ', $event->type ?? 'Internal')) }} Defence</span>
-                        <h4 class="text-sm font-black text-slate-800 mt-2">{{ $event->thesis->student->user->name }}</h4>
-                        <p class="text-xs text-slate-500 truncate">{{ $event->thesis->title }}</p>
+                        <h4 class="text-sm font-black text-slate-800 mt-2">{{ $event->thesis?->student?->user?->name ?? 'Candidate' }}</h4>
+                        <p class="text-xs text-slate-500 truncate">{{ $event->thesis?->title ?? 'Untitled Thesis' }}</p>
                     </div>
                     <a href="{{ route('evaluations.create', ['defenceEvent' => $event->id]) }}" class="block text-center py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs">
                         Grade Oral Defence
@@ -1696,9 +1698,9 @@ class="space-y-8 animate-in">
                 @foreach($externalPendingReviews as $eReview)
                 <div class="bg-white border border-amber-100 rounded-2xl p-5 space-y-3 hover:border-amber-300 transition-all">
                     <div>
-                        <h4 class="text-sm font-black text-slate-800 truncate">{{ $eReview->thesis->student->user->name ?? 'Candidate' }}</h4>
+                        <h4 class="text-sm font-black text-slate-800 truncate">{{ $eReview->thesis?->student?->user?->name ?? 'Candidate' }}</h4>
                         <span class="inline-block mt-1 px-2 py-0.5 bg-amber-50 text-amber-700 rounded text-[9px] font-bold uppercase truncate max-w-full">
-                            {{ $eReview->template->name }}
+                            {{ $eReview->template?->name ?? 'Milestone' }}
                         </span>
                     </div>
                     <div class="pt-3 border-t border-slate-50 flex items-center justify-between">
@@ -1778,9 +1780,9 @@ class="space-y-8 animate-in">
                 @forelse($externalTheses as $eThesis)
                     @php
                         $safeTitle = addslashes($eThesis->title ?? '');
-                        $safeCandidate = addslashes($eThesis->student->user->name ?? '');
-                        $safeMatric = addslashes($eThesis->student->student_id_number ?? '');
-                        $safeProg = addslashes($eThesis->student->program->code ?? '');
+                        $safeCandidate = addslashes($eThesis->student?->user?->name ?? '');
+                        $safeMatric = addslashes($eThesis->student?->student_id_number ?? '');
+                        $safeProg = addslashes($eThesis->student?->program?->code ?? '');
                         $safeStatus = addslashes($eThesis->status ?? 'active');
                         $progress = $eThesis->progress_percentage;
                         $hasPendingMilestone = $externalPendingReviews->where('thesis_project_id', $eThesis->id)->isNotEmpty();
@@ -1791,22 +1793,22 @@ class="space-y-8 animate-in">
                         <div class="flex items-start justify-between gap-3">
                             <div class="flex items-center gap-3">
                                 <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-black text-sm shrink-0 shadow-xs">
-                                    {{ substr($eThesis->student->user->name ?? '?', 0, 1) }}
+                                    {{ substr($eThesis->student?->user?->name ?? '?', 0, 1) }}
                                 </div>
                                 <div class="min-w-0">
                                     <h4 class="text-sm font-black text-slate-800 uppercase truncate leading-none">
-                                        {{ $eThesis->student->user->name ?? 'Candidate' }}
+                                        {{ $eThesis->student?->user?->name ?? 'Candidate' }}
                                     </h4>
                                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                                        {{ $eThesis->student->student_id_number }}
+                                        {{ $eThesis->student?->student_id_number ?? 'N/A' }}
                                     </p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-1.5 flex-wrap justify-end">
                                 <span class="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-[9px] font-black uppercase">
-                                    {{ $eThesis->student->program->code ?? 'N/A' }}
+                                    {{ $eThesis->student?->program?->code ?? 'N/A' }}
                                 </span>
-                                @if($eThesis->student->level)
+                                @if($eThesis->student?->level)
                                     <span class="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[9px] font-bold uppercase">
                                         {{ $eThesis->student->level->name }}
                                     </span>
@@ -1827,7 +1829,7 @@ class="space-y-8 animate-in">
                                 <div class="mt-2 flex items-center gap-2">
                                     <span class="text-[10px] font-bold text-slate-400 uppercase">Stage:</span>
                                     <span class="px-2 py-0.5 bg-amber-50 text-amber-700 rounded text-[10px] font-bold truncate">
-                                        {{ $eThesis->currentMilestone->template->name }}
+                                        {{ $eThesis->currentMilestone->template?->name ?? 'Active Stage' }}
                                     </span>
                                 </div>
                             @endif
@@ -1878,8 +1880,8 @@ class="space-y-8 animate-in">
                 <div class="p-5 bg-amber-50/40 border border-amber-100 rounded-2xl space-y-3">
                     <div>
                         <span class="text-[9px] font-black uppercase tracking-widest text-amber-700 bg-amber-100 px-2 py-0.5 rounded">{{ ucfirst(str_replace('_', ' ', $event->type ?? 'External')) }} Defence</span>
-                        <h4 class="text-sm font-black text-slate-800 mt-2">{{ $event->thesis->student->user->name }}</h4>
-                        <p class="text-xs text-slate-500 truncate">{{ $event->thesis->title }}</p>
+                        <h4 class="text-sm font-black text-slate-800 mt-2">{{ $event->thesis?->student?->user?->name ?? 'Candidate' }}</h4>
+                        <p class="text-xs text-slate-500 truncate">{{ $event->thesis?->title ?? 'Untitled Thesis' }}</p>
                     </div>
                     <a href="{{ route('evaluations.create', ['defenceEvent' => $event->id]) }}" class="block text-center py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs">
                         Grade Oral Defence

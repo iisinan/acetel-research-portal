@@ -89,7 +89,7 @@
                             </div>
                             <div class="flex-1 min-w-0 pt-0.5 sm:pt-1">
                                 <h4 class="text-white font-black text-sm sm:text-base uppercase tracking-tight truncate leading-none mb-1.5 sm:mb-2">{{ $review->thesis?->student?->user?->name ?? 'Student' }}</h4>
-                                <div class="inline-block px-2.5 py-1 bg-amber-900/50 border border-amber-700/50 rounded-lg text-[9px] sm:text-[10px] font-bold text-amber-200 uppercase tracking-[0.1em] truncate max-w-full shadow-inner">{{ $review->template->name }}</div>
+                                <div class="inline-block px-2.5 py-1 bg-amber-900/50 border border-amber-700/50 rounded-lg text-[9px] sm:text-[10px] font-bold text-amber-200 uppercase tracking-[0.1em] truncate max-w-full shadow-inner">{{ $review->template?->name ?? 'Milestone' }}</div>
                             </div>
                         </div>
                         <div class="mt-4 sm:mt-6 pt-3 sm:pt-5 flex items-center justify-between border-t border-amber-500/20 relative z-10">

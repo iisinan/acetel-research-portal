@@ -98,15 +98,15 @@
                         <div class="relative z-10">
                             <div class="flex items-center gap-4 mb-5">
                                 <div class="w-12 h-12 rounded-2xl bg-amber-600 text-white flex items-center justify-center font-black text-lg">
-                                    {{ substr($review->thesis->student->user->name, 0, 1) }}
+                                    {{ substr($review->thesis?->student?->user?->name ?? '?', 0, 1) }}
                                 </div>
                                 <div class="min-w-0">
-                                    <h4 class="text-sm font-black text-slate-800 tracking-tight truncate">{{ $review->thesis->student->user->name }}</h4>
-                                    <p class="text-[10px] font-bold text-amber-600 uppercase tracking-widest">{{ $review->template->name }}</p>
+                                    <h4 class="text-sm font-black text-slate-800 tracking-tight truncate">{{ $review->thesis?->student?->user?->name ?? 'Candidate' }}</h4>
+                                    <p class="text-[10px] font-bold text-amber-600 uppercase tracking-widest">{{ $review->template?->name ?? 'Milestone' }}</p>
                                 </div>
                             </div>
 
-                            <p class="text-[11px] text-slate-500 font-medium mb-6 line-clamp-2 italic leading-relaxed">"{{ $review->thesis->title }}"</p>
+                            <p class="text-[11px] text-slate-500 font-medium mb-6 line-clamp-2 italic leading-relaxed">"{{ $review->thesis?->title ?? 'Untitled Thesis' }}"</p>
 
                             <div class="flex items-center gap-2">
                                 <a href="{{ route('milestones.index', ['thesis_id' => $review->thesis_project_id, 'expanded' => $review->id]) }}" class="flex-1 flex items-center justify-center py-3 bg-slate-900 hover:bg-black text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
@@ -174,18 +174,20 @@
                              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-5 sm:gap-6">
                                  <div class="flex items-center gap-4 sm:gap-5">
                                      <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-green-50 border border-green-100 flex items-center justify-center text-green-700 font-black text-lg sm:text-xl shadow-sm group-hover:bg-green-600 group-hover:text-white transition-all duration-300 shrink-0">
-                                         {{ substr($thesis->student->user->name, 0, 1) }}
+                                         {{ substr($thesis->student?->user?->name ?? '?', 0, 1) }}
                                      </div>
                                      <div class="min-w-0">
-                                         <h4 class="text-base sm:text-lg font-black text-slate-800 group-hover:text-green-600 transition-colors tracking-tight leading-none mb-1.5 sm:mb-2 truncate">{{ $thesis->student->user->name }}</h4>
-                                         <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">{{ $thesis->student->program->code ?? 'N/A' }} • {{ $thesis->student->student_id_number }}</p>
+                                         <h4 class="text-base sm:text-lg font-black text-slate-800 group-hover:text-green-600 transition-colors tracking-tight leading-none mb-1.5 sm:mb-2 truncate">{{ $thesis->student?->user?->name ?? 'Candidate' }}</h4>
+                                         <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">{{ $thesis->student?->program?->code ?? 'N/A' }} • {{ $thesis->student?->student_id_number ?? 'N/A' }}</p>
                                          <p class="text-xs text-slate-500 truncate max-w-sm" title="{{ $thesis->title }}">"{{ $thesis->title }}"</p>
                                      </div>
                                  </div>
                                  <div class="flex items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
+                                     @if($thesis->student?->user_id)
                                      <a href="{{ route('inbox.compose', ['reply_to' => $thesis->student->user_id]) }}" class="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-green-600 hover:border-green-200 transition-all shadow-sm shrink-0" title="Send Message">
                                          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
                                      </a>
+                                     @endif
                                      <a href="{{ route('theses.show', $thesis) }}" class="flex-1 sm:flex-none flex items-center justify-center px-6 py-3 bg-white border border-slate-200 rounded-xl text-slate-700 text-xs font-black uppercase tracking-widest hover:bg-green-600 hover:border-green-600 hover:text-white transition-all shadow-sm text-center">
                                          Audit Thesis
                                      </a>
@@ -222,8 +224,8 @@
                                      <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ $event->schedule_start ? \Carbon\Carbon::parse($event->schedule_start)->format('M d, Y') : 'Scheduled' }}</span>
                                  </div>
                                  <div class="min-w-0">
-                                     <h4 class="text-lg font-black text-slate-800 tracking-tight leading-none mb-1 truncate">{{ $event->thesis->student->user->name }}</h4>
-                                     <p class="text-xs text-slate-500 font-medium truncate">"{{ $event->thesis->title }}"</p>
+                                     <h4 class="text-lg font-black text-slate-800 tracking-tight leading-none mb-1 truncate">{{ $event->thesis?->student?->user?->name ?? 'Candidate' }}</h4>
+                                     <p class="text-xs text-slate-500 font-medium truncate">"{{ $event->thesis?->title ?? 'Untitled Thesis' }}"</p>
                                  </div>
                                  <a href="{{ route('evaluations.create', ['defenceEvent' => $event->id]) }}" class="w-full flex items-center justify-center py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-sm">
                                      Submit Grade
@@ -247,9 +249,9 @@
                 <div class="p-6 space-y-4">
                     @forelse($pending_reviews->take(5) as $milestone)
                         <div class="p-4 bg-amber-50/50 border border-amber-100 rounded-2xl group hover:bg-amber-50 transition-all">
-                             <p class="text-xs font-black text-slate-800 mb-1 truncate">{{ $milestone->template->name }}</p>
+                             <p class="text-xs font-black text-slate-800 mb-1 truncate">{{ $milestone->template?->name ?? 'Milestone' }}</p>
                              <div class="flex items-center justify-between gap-2">
-                                 <span class="text-[10px] font-bold text-slate-500 truncate">{{ $milestone->thesis->student->user->name }}</span>
+                                 <span class="text-[10px] font-bold text-slate-500 truncate">{{ $milestone->thesis?->student?->user?->name ?? 'Candidate' }}</span>
                                  <a href="{{ route('milestones.index', ['thesis_id' => $milestone->thesis_project_id, 'expanded' => $milestone->id]) }}" class="text-[9px] font-black text-amber-600 uppercase tracking-widest flex items-center gap-1 group-hover:translate-x-1 transition-transform">
                                      Review <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 5l7 7-7 7"/></svg>
                                  </a>

@@ -122,9 +122,11 @@ class DashboardController extends Controller
             ->orderBy('due_date', 'asc')
             ->get() : collect();
 
-        $data['completed_thesis'] = \App\Models\ThesisProject::where('student_profile_id', $student->id)
-            ->where('status', 'completed')
-            ->first();
+        $data['completed_thesis'] = $student
+            ? \App\Models\ThesisProject::where('student_profile_id', $student->id)
+                ->where('status', 'completed')
+                ->first()
+            : null;
 
         return view('dashboard.student', $data);
     }
@@ -379,7 +381,7 @@ class DashboardController extends Controller
                 ->join('milestone_templates', 'student_milestones.milestone_template_id', '=', 'milestone_templates.id')
                 ->whereIn('milestone_templates.order', [1, 2, 6])
                 ->groupBy('milestone_templates.order')
-                ->selectRaw('milestone_templates.order, count(*) as count')
+                ->select('milestone_templates.order', \Illuminate\Support\Facades\DB::raw('count(*) as count'))
                 ->pluck('count', 'order');
 
             $coordinatorClearanceMetrics = [
@@ -410,10 +412,12 @@ class DashboardController extends Controller
         if ($isInternalExaminer) {
             $internalProfileIds = $user->internalExaminerProfiles()->pluck('id')->toArray();
             $internalTheses = \App\Models\ThesisProject::where(function ($q) use ($internalProfileIds, $user) {
+                    $method = 'whereHas';
                     if (!empty($internalProfileIds)) {
                         $q->whereIn('internal_examiner_profile_id', $internalProfileIds);
+                        $method = 'orWhereHas';
                     }
-                    $q->orWhereHas('examinerAssignments', fn($eq) => $eq->where('examiner_id', $user->id)->where('type', 'internal_examiner'))
+                    $q->{$method}('examinerAssignments', fn($eq) => $eq->where('examiner_id', $user->id)->where('type', 'internal_examiner'))
                       ->orWhereHas('defenceEvents', fn($dq) => $dq->where('type', 'internal')->whereHas('panelMembers', fn($pq) => $pq->where('user_id', $user->id)));
                 })
                 ->with(['student.user', 'student.program', 'student.level', 'currentMilestone.template', 'milestones.template'])
@@ -512,11 +516,15 @@ class DashboardController extends Controller
             }
             if ($isInternalExaminer) {
                 $internalIds = $internalProfileIds ?? $user->internalExaminerProfiles()->pluck('id')->toArray();
-                $q->orWhereHas('thesis', fn($sq) => $sq->whereIn('internal_examiner_profile_id', $internalIds));
+                if (!empty($internalIds)) {
+                    $q->orWhereHas('thesis', fn($sq) => $sq->whereIn('internal_examiner_profile_id', $internalIds));
+                }
             }
             if ($isExternalExaminer) {
                 $externalIds = $externalProfileIds ?? $user->externalExaminerProfiles()->pluck('id')->toArray();
-                $q->orWhereHas('thesis', fn($sq) => $sq->whereIn('external_examiner_profile_id', $externalIds));
+                if (!empty($externalIds)) {
+                    $q->orWhereHas('thesis', fn($sq) => $sq->whereIn('external_examiner_profile_id', $externalIds));
+                }
             }
         })
         ->where('schedule_start', '>=', now()->subHours(6))
@@ -686,7 +694,7 @@ class DashboardController extends Controller
                 'unread_inbox' => $unreadCounts['inbox'],
             ];
             
-            $data['program_name'] = $coordinatorProfile->program->code . ($coordinatorProfile->level ? ' (' . $coordinatorProfile->level->name . ')' : '');
+            $data['program_name'] = ($coordinatorProfile->program?->code ?? 'Program') . ($coordinatorProfile->level ? ' (' . $coordinatorProfile->level->name . ')' : '');
         } else {
              $data['stats'] = ['error' => 'No Program Assigned'];
         }
