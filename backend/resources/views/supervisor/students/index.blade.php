@@ -69,10 +69,32 @@
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                     <span class="text-[10px] font-black uppercase tracking-widest">{{ $assignment->thesis->student->student_id_number ?? 'Matric Pending' }}</span>
                                 </div>
-                                @if($assignment->thesis->milestones->count() > 0)
-                                <div class="flex items-center gap-2">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
-                                    <span class="text-[9px] font-black text-rose-600 uppercase tracking-widest">{{ $assignment->thesis->milestones->count() }} Pending Reviews</span>
+                                @php
+                                    $supWorkflow = app(\App\Services\MilestoneWorkflowService::class);
+                                    $pendingMilestoneForSup = $assignment->thesis->milestones
+                                        ->sortBy(fn($m) => $m->template?->order ?? 999)
+                                        ->first(function($m) use ($supWorkflow) {
+                                            if (in_array($m->status, ['approved', 'revision_required'])) return false;
+                                            if ($supWorkflow->isPostDefencePhase($m)) return false;
+                                            $hasSub = $m->submissions && $m->submissions->isNotEmpty();
+                                            if (!$hasSub && !$m->submitted_at) return false;
+                                            $summary = $supWorkflow->getSupervisorReviewSummary($m);
+                                            $myReview = collect($summary['supervisors'] ?? [])->first(fn($s) => (string)($s['user_id'] ?? '') === (string)auth()->id());
+                                            if ($myReview && in_array($myReview['status'], ['approved', 'rejected'])) return false;
+                                            if ($myReview && $myReview['status'] === 'pending_re_review') return true;
+                                            return !$supWorkflow->isSupervisorApproved($m);
+                                        });
+                                    $latestUploadForSup = $pendingMilestoneForSup?->submissions?->sortByDesc('id')->first();
+                                @endphp
+                                @if($pendingMilestoneForSup)
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                    <span class="text-[9px] font-black text-amber-700 uppercase tracking-widest">Awaiting Your Approval: {{ $pendingMilestoneForSup->template?->name }}</span>
+                                    @if($latestUploadForSup)
+                                        <a href="{{ route('submissions.view', $latestUploadForSup) }}" target="_blank" class="px-2 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[9px] font-black uppercase tracking-wider transition-colors">
+                                            View Upload (v.0{{ $latestUploadForSup->version }}) &rarr;
+                                        </a>
+                                    @endif
                                 </div>
                                 @endif
                             </div>
@@ -80,11 +102,17 @@
                     </div>
 
                     <!-- Actions -->
-                    <div class="flex items-center justify-between sm:justify-start gap-3 sm:gap-4 w-full lg:w-auto pt-4 lg:pt-0 border-t lg:border-t-0 lg:pl-10 lg:border-l border-slate-100/80">
+                    <div class="flex flex-wrap items-center justify-between sm:justify-start gap-3 sm:gap-4 w-full lg:w-auto pt-4 lg:pt-0 border-t lg:border-t-0 lg:pl-10 lg:border-l border-slate-100/80">
                         <div class="flex flex-col items-center px-3 sm:px-6">
                             <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Progress</p>
                             <p class="text-xl sm:text-2xl font-black text-green-600 tracking-tighter">{{ $assignment->thesis->progress_percentage }}%</p>
                         </div>
+                        @if($pendingMilestoneForSup)
+                            <a href="{{ route('milestones.show', $pendingMilestoneForSup) }}" class="flex-1 lg:flex-none flex items-center justify-center gap-2 px-5 sm:px-6 py-3.5 sm:py-5 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl sm:rounded-[1.5rem] transition-all duration-300 shadow-sm">
+                                <span class="text-xs font-black uppercase tracking-[0.15em]">Review & Approve</span>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+                            </a>
+                        @endif
                         <a href="{{ route('theses.show', $assignment->thesis) }}" class="flex-1 lg:flex-none flex items-center justify-center gap-2 sm:gap-3 px-5 sm:px-8 py-3.5 sm:py-5 bg-white border-2 border-slate-100 rounded-2xl sm:rounded-[1.5rem] text-slate-900 hover:bg-green-600 hover:text-white hover:border-transparent transition-all duration-500 shadow-sm group/btn group-hover:shadow-green-500/10">
                             <span class="text-xs font-black uppercase tracking-[0.2em]">View Profile</span>
                             <svg class="w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 group-hover/btn:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>

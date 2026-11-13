@@ -109,7 +109,7 @@
                                 <h4 class="text-sm font-medium text-black dark:text-white truncate">{{ $submission->file_meta['original_name'] ?? 'document.pdf' }}</h4>
                                 <p class="text-xs text-black dark:text-gray-400">{{ number_format(($submission->file_meta['size'] ?? 0) / 1024, 2) }} KB</p>
                             </div>
-                            <a href="{{ Storage::url($submission->file_url) }}" target="_blank" class="ml-auto bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 px-3 py-1 rounded text-sm font-medium text-black dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <a href="{{ route('submissions.view', $submission) }}" target="_blank" class="ml-auto bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 px-3 py-1 rounded text-sm font-medium text-black dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
                                 Download
                             </a>
                         </div>
@@ -174,7 +174,7 @@
                                 </div>
                                 <div class="flex items-center gap-3 shrink-0 self-end sm:self-center">
                                     <span class="text-slate-400 text-xs">{{ $oldSub->created_at->format('M d, H:i') }}</span>
-                                    <a href="{{ Storage::url($oldSub->file_url) }}" target="_blank" class="text-acetel-600 dark:text-acetel-400 text-xs font-bold hover:underline">View</a>
+                                    <a href="{{ route('submissions.view', $oldSub) }}" target="_blank" class="text-acetel-600 dark:text-acetel-400 text-xs font-bold hover:underline">View</a>
                                 </div>
                              </li>
                         @endforeach

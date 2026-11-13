@@ -191,7 +191,7 @@ class DashboardController extends Controller
         ];
 
         if ($isSupervisor) {
-            $supervisor = SupervisorProfile::where('user_id', $user->id)
+            $supervisorProfiles = SupervisorProfile::where('user_id', $user->id)
                 ->with([
                     'assignments.thesis.student.user', 
                     'assignments.thesis.student.program', 
@@ -200,18 +200,25 @@ class DashboardController extends Controller
                     'assignments.thesis.milestones.submissions.feedbacks',
                     'programs'
                 ])
-                ->first();
-            
-            $supervisorAssignments = $supervisor ? $supervisor->assignments : collect();
+                ->get();
+
+            $supervisor = $supervisorProfiles->first();
+            $supervisorProfileIds = $supervisorProfiles->pluck('id');
+            $supervisorAssignments = $supervisorProfiles->flatMap(fn($p) => $p->assignments)
+                ->where('status', 'active')
+                ->unique('thesis_project_id')
+                ->values();
             
             $pendingSupervisorMilestoneThesisIds = [];
-            if ($supervisor) {
-                $pendingSupervisorReviews = \App\Models\StudentMilestone::whereHas('thesis.assignments', function($q) use ($supervisor) {
-                        $q->where('supervisor_profile_id', $supervisor->id)->where('status', 'active');
+            $pendingSupervisorReviews = collect();
+            if ($supervisorProfileIds->isNotEmpty()) {
+                $pendingSupervisorReviews = \App\Models\StudentMilestone::whereHas('thesis.assignments', function($q) use ($supervisorProfileIds) {
+                        $q->whereIn('supervisor_profile_id', $supervisorProfileIds)->where('status', 'active');
                     })
                     ->where('status', '!=', 'approved')
                     ->whereHas('template', function($q) {
                         $q->whereJsonContains('required_approvers', 'Supervisor')
+                          ->orWhere('order', 6)
                           ->orWhereIn('slug', ['proposal_defence', 'progress_report_1', 'progress_report_2', 'internal_defence']);
                     })
                     ->where(function($q) {

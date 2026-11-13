@@ -61,23 +61,85 @@
     @endphp
 
     @if($pendingSupMilestoneOnThesis)
-        <div class="rounded-3xl bg-amber-50 border border-amber-200 p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div class="flex items-start sm:items-center gap-4">
-                <div class="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        @php
+            $pendingSubs = $pendingSupMilestoneOnThesis->submissions->sortByDesc('id');
+        @endphp
+        <div class="rounded-3xl bg-amber-50 border border-amber-200 p-6 shadow-sm space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="flex items-start sm:items-center gap-4">
+                    <div class="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </div>
+                    <div>
+                        <span class="inline-block px-2.5 py-0.5 rounded-full bg-amber-200/80 text-amber-900 text-[10px] font-black uppercase tracking-wider mb-1">Supervisor Approval Needed</span>
+                        <h3 class="text-base sm:text-lg font-black text-slate-900">{{ $thesis->student->user->name }} uploaded a submission for {{ $pendingSupMilestoneOnThesis->template->name }}</h3>
+                        <p class="text-xs font-medium text-slate-600 mt-0.5">Preview the uploaded thesis document(s) below and approve or request revisions directly.</p>
+                    </div>
                 </div>
-                <div>
-                    <span class="inline-block px-2.5 py-0.5 rounded-full bg-amber-200/80 text-amber-900 text-[10px] font-black uppercase tracking-wider mb-1">Supervisor Approval Needed</span>
-                    <h3 class="text-base sm:text-lg font-black text-slate-900">{{ $thesis->student->user->name }} uploaded a submission for {{ $pendingSupMilestoneOnThesis->template->name }}</h3>
-                    <p class="text-xs font-medium text-slate-600 mt-0.5">Click the button to view the uploaded thesis document and approve or request revisions.</p>
-                </div>
+                <a href="{{ route('milestones.show', $pendingSupMilestoneOnThesis) }}" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all shadow-xs shrink-0">
+                    <span>Open Full Workspace</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                </a>
             </div>
-            <a href="{{ route('milestones.show', $pendingSupMilestoneOnThesis) }}" class="inline-flex items-center justify-center gap-2 px-5 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-sm shrink-0">
-                <span>Review & Approve Thesis</span>
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
-            </a>
+
+            @if($pendingSubs->isNotEmpty())
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    @foreach($pendingSubs->take(4) as $sub)
+                        <div class="bg-white rounded-2xl border border-amber-200/80 p-3.5 flex items-center justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[9px] font-black uppercase tracking-wider">v.0{{ $sub->version }}</span>
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase">{{ $sub->type ?? 'document' }}</span>
+                                </div>
+                                <p class="text-xs font-black text-slate-800 truncate mt-1">{{ $sub->file_meta['original_name'] ?? ('Submission v.0' . $sub->version) }}</p>
+                                <p class="text-[10px] font-medium text-slate-400">{{ $sub->created_at?->format('M d, Y · H:i') }}</p>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <button type="button"
+                                    @click.prevent="$dispatch('open-document-preview', {
+                                        url: '{{ route('submissions.view', $sub) }}',
+                                        title: '{{ addslashes($sub->file_meta['original_name'] ?? ('Submission v.0' . $sub->version)) }}',
+                                        type: '{{ str_ends_with(strtolower($sub->file_url), '.pdf') ? 'pdf' : 'document' }}'
+                                    })"
+                                    class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors">
+                                    Preview
+                                </button>
+                                <a href="{{ route('submissions.view', $sub) }}" target="_blank" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors">
+                                    Open
+                                </a>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+
+            <form method="POST" x-data="{ remarks: '' }" class="bg-white/90 rounded-2xl border border-amber-200/80 p-4 space-y-3">
+                @csrf
+                <div>
+                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Supervisor Review Remarks (Required when requesting revisions)</label>
+                    <textarea name="remarks" x-model="remarks" rows="2" placeholder="Optional approval note, or required explanation if requesting revisions..." class="w-full rounded-xl border border-slate-200 text-xs font-medium text-slate-800 focus:border-amber-400 focus:ring-amber-400"></textarea>
+                    @error('remarks')
+                        <p class="text-[11px] font-bold text-rose-600 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div class="flex flex-wrap items-center justify-end gap-2">
+                    <button type="submit"
+                        formaction="{{ route('milestones.reject_upload', $pendingSupMilestoneOnThesis) }}"
+                        @click="if (!remarks.trim()) { $event.preventDefault(); alert('Please enter remarks explaining the revision required before rejecting.'); }"
+                        class="px-4 py-2 bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-200 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all">
+                        Reject / Request Revision
+                    </button>
+                    <button type="submit"
+                        formaction="{{ route('milestones.accept_upload', $pendingSupMilestoneOnThesis) }}"
+                        class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-black uppercase tracking-wider transition-all shadow-sm">
+                        Approve Submission
+                    </button>
+                </div>
+            </form>
         </div>
     @endif
+
+    <x-document-preview-modal />
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 
@@ -116,6 +178,16 @@
                                 </span>
                             </div>
 
+                            @if($milestone->submissions && $milestone->submissions->isNotEmpty())
+                                <div class="flex flex-wrap gap-1.5">
+                                    @foreach($milestone->submissions->sortByDesc('id')->take(2) as $mSub)
+                                        <a href="{{ route('submissions.view', $mSub) }}" target="_blank" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold transition-colors">
+                                            <span>v.0{{ $mSub->version }} · {{ \Illuminate\Support\Str::limit($mSub->file_meta['original_name'] ?? 'Document', 24) }}</span>
+                                        </a>
+                                    @endforeach
+                                </div>
+                            @endif
+
                             <div class="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
                                 <span>Updated: {{ $milestone->updated_at ? $milestone->updated_at->format('M d, Y') : 'N/A' }}</span>
                                 <a href="{{ route('milestones.show', $milestone) }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 {{ $isPendingThisSup ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-primary-50 text-primary-700 hover:bg-primary-100' }} font-bold text-xs rounded-lg transition-colors">
@@ -150,10 +222,21 @@
                             <tr id="milestone-row-{{ $milestone->id }}" class="{{ $isPendingThisSup ? 'bg-amber-50/40' : 'hover:bg-primary-50/30' }} transition-all duration-300 group/row">
                                 <td class="px-6 py-5">
                                     <div class="flex items-center gap-4">
-                                        <div class="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center font-black text-slate-400 group-hover/row:bg-primary-50 group-hover/row:text-primary-600 transition-colors shadow-sm">
+                                        <div class="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center font-black text-slate-400 group-hover/row:bg-primary-50 group-hover/row:text-primary-600 transition-colors shadow-sm shrink-0">
                                             0{{ $milestone->template->order }}
                                         </div>
-                                        <span class="text-sm font-bold text-slate-900 tracking-tight">{{ $milestone->template->name }}</span>
+                                        <div class="min-w-0">
+                                            <span class="text-sm font-bold text-slate-900 tracking-tight block">{{ $milestone->template->name }}</span>
+                                            @if($milestone->submissions && $milestone->submissions->isNotEmpty())
+                                                <div class="flex flex-wrap items-center gap-1.5 mt-1">
+                                                    @foreach($milestone->submissions->sortByDesc('id')->take(2) as $mSub)
+                                                        <a href="{{ route('submissions.view', $mSub) }}" target="_blank" class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold transition-colors">
+                                                            <span>v.0{{ $mSub->version }} · {{ \Illuminate\Support\Str::limit($mSub->file_meta['original_name'] ?? 'Submission', 26) }}</span>
+                                                        </a>
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                        </div>
                                     </div>
                                 </td>
                                 <td class="px-6 py-5">

@@ -921,8 +921,10 @@ class MilestoneController extends Controller
             ]);
         }
 
-        return redirect()->route('milestones.index')
-            ->with('success', 'Milestone submitted successfully.');
+        return redirect()->route('milestones.index', [
+            'expanded' => $milestone->id,
+            'thesis_id' => $milestone->thesis_project_id,
+        ])->with('success', 'Milestone submitted successfully.');
     }
 
     /**
@@ -1255,10 +1257,40 @@ class MilestoneController extends Controller
         // Use the same policy we just hardened
         $this->authorize('view', $milestone);
 
-        if (!Storage::disk('public')->exists($submission->file_url)) {
+        $fileUrl = $submission->file_url;
+        if (str_starts_with($fileUrl, 'http://') || str_starts_with($fileUrl, 'https://')) {
+            return redirect()->away($fileUrl);
+        }
+
+        $disks = array_values(array_unique(array_filter([
+            config('filesystems.default'),
+            'r2',
+            'public',
+            'local',
+        ])));
+
+        $foundDisk = null;
+        foreach ($disks as $diskName) {
+            try {
+                if (Storage::disk($diskName)->exists($fileUrl)) {
+                    $foundDisk = $diskName;
+                    break;
+                }
+            } catch (\Throwable $e) {
+                continue;
+            }
+        }
+
+        if (!$foundDisk) {
             abort(404, 'Artifact not found in institutional repository.');
         }
 
-        return Storage::disk('public')->response($submission->file_url, $submission->file_meta['original_name'] ?? 'artifact');
+        $filename = $submission->file_meta['original_name'] ?? basename($fileUrl) ?? 'artifact';
+        $mimeType = $submission->file_meta['mime_type'] ?? Storage::disk($foundDisk)->mimeType($fileUrl) ?? 'application/octet-stream';
+
+        return Storage::disk($foundDisk)->response($fileUrl, $filename, [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'inline; filename="' . str_replace('"', '\"', $filename) . '"',
+        ]);
     }
 }

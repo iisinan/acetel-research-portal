@@ -19,7 +19,7 @@
         $isPostDefence = $isInternalDefence && $workflow->isPostDefencePhase($milestone);
         $postDefenceSub = $isInternalDefence ? $workflow->getPostDefenceSubmission($milestone) : null;
         $hasPostDefenceSub = $postDefenceSub !== null;
-        $postDefenceUrl = $postDefenceSub?->file_url ? (str_starts_with($postDefenceSub->file_url, 'http') ? $postDefenceSub->file_url : \Illuminate\Support\Facades\Storage::url($postDefenceSub->file_url)) : null;
+        $postDefenceUrl = $postDefenceSub ? route('submissions.view', $postDefenceSub) : null;
         $ieDecision = $milestone->approvals['internal_examiner_review']['decision'] ?? null;
         $isAssignedInternalExaminerUser = $isInternalDefence && $workflow->isAssignedInternalExaminer($milestone, auth()->user());
 
@@ -27,7 +27,7 @@
         $canEndPresentation = is_null($endSessionBlockReason) && !$isPostDefence;
         $latestPptSub = $milestone->submissions()->where('type', 'ppt')->latest()->first() 
             ?? $milestone->submissions()->latest()->first();
-        $pptUrl = $latestPptSub?->file_url ? (str_starts_with($latestPptSub->file_url, 'http') ? $latestPptSub->file_url : \Illuminate\Support\Facades\Storage::url($latestPptSub->file_url)) : null;
+        $pptUrl = $latestPptSub ? route('submissions.view', $latestPptSub) : null;
 
         // Next destination name
         $nextDestination = match($slug) {

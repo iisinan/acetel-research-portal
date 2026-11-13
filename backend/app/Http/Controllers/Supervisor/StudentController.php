@@ -12,29 +12,21 @@ class StudentController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $supervisor = SupervisorProfile::where('user_id', $user->id)
-            ->with([
-                'assignments.thesis.student.user', 
-                'assignments.thesis.currentMilestone.template',
-                'assignments.thesis.milestones' => function($q) {
-                    $q->where('status', 'submitted');
-                }
-            ])
-            ->withCount(['assignments'])
-            ->first();
+        $supervisorProfileIds = SupervisorProfile::where('user_id', $user->id)->pluck('id');
 
-        if (!$supervisor) {
+        if ($supervisorProfileIds->isEmpty()) {
             abort(403, 'No active supervisor profile found.');
         }
 
-        $query = \App\Models\SupervisionAssignment::where('supervisor_profile_id', $supervisor->id)
+        $query = \App\Models\SupervisionAssignment::whereIn('supervisor_profile_id', $supervisorProfileIds)
+            ->where('status', 'active')
             ->with([
                 'thesis.student.user', 
                 'thesis.student.program',
                 'thesis.currentMilestone.template',
-                'thesis.milestones' => function($q) {
-                    $q->where('status', 'submitted');
-                }
+                'thesis.assignments.supervisor.user',
+                'thesis.milestones.template',
+                'thesis.milestones.submissions.feedbacks',
             ]);
 
         if (request()->has('search') && request()->filled('search')) {

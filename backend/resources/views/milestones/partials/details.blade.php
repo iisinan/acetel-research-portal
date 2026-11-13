@@ -149,7 +149,7 @@
                                             @csrf
                                             <div class="flex items-center justify-between gap-2">
                                                 <span class="text-[10px] font-black uppercase tracking-widest text-indigo-900">⚖️ Internal Examiner Clearance Action</span>
-                                                <a href="{{ Storage::url($latestManuscript->file_url) }}" target="_blank" class="text-[11px] font-bold text-indigo-600 hover:underline">
+                                                <a href="{{ route('submissions.view', $latestManuscript) }}" target="_blank" class="text-[11px] font-bold text-indigo-600 hover:underline">
                                                     Download Corrected Manuscript (v.0{{ $latestManuscript->version }}) &rarr;
                                                 </a>
                                             </div>
@@ -635,11 +635,27 @@
                                     headers: {
                                         'Accept': 'text/html'
                                     }
-                                }).then(res => res.text()).then(html => {
+                                }).then(async res => {
+                                    const text = await res.text();
+                                    if (!res.ok) {
+                                        let message = 'Upload failed (HTTP ' + res.status + '). Please check file size/format and try again.';
+                                        try {
+                                            const errJson = JSON.parse(text);
+                                            if (errJson.message) message = errJson.message;
+                                        } catch (e) {}
+                                        alert(message);
+                                        return;
+                                    }
                                     let parser = new DOMParser();
-                                    let doc = parser.parseFromString(html, 'text/html');
-                                    let newContent = doc.getElementById('milestone-details-container-{{ $milestone->id }}').innerHTML;
-                                    document.getElementById('milestone-details-container-{{ $milestone->id }}').innerHTML = newContent;
+                                    let doc = parser.parseFromString(text, 'text/html');
+                                    let newEl = doc.getElementById('milestone-details-container-{{ $milestone->id }}');
+                                    if (newEl) {
+                                        document.getElementById('milestone-details-container-{{ $milestone->id }}').innerHTML = newEl.innerHTML;
+                                    } else {
+                                        window.location.href = '{{ route('milestones.index', ['expanded' => $milestone->id, 'thesis_id' => $milestone->thesis_project_id]) }}';
+                                    }
+                                }).catch(() => {
+                                    alert('Network error while uploading submission. Please check your connection and try again.');
                                 }).finally(() => {
                                     uploading = false;
                                 })
@@ -1113,7 +1129,7 @@
                                             <div class="flex items-center gap-2">
                                                 <button type="button"
                                                     @click.prevent="$dispatch('open-document-preview', { 
-                                                        url: '{{ Storage::url($submission->file_url) }}', 
+                                                        url: '{{ route('submissions.view', $submission) }}', 
                                                         title: 'Submission v.0{{ $submission->version }}',
                                                         type: '{{ str_ends_with(strtolower($submission->file_url), '.pdf') ? 'pdf' : 'document' }}'
                                                     })"

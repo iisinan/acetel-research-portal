@@ -376,6 +376,15 @@ class="space-y-8 animate-in">
                                             </div>
                                         </div>
                                     </div>
+                                    @php
+                                        $latestReviewSub = $review->submissions->sortByDesc('id')->first();
+                                    @endphp
+                                    @if($latestReviewSub)
+                                        <div class="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-100 text-[10px]">
+                                            <span class="font-bold text-slate-600 truncate">{{ $latestReviewSub->file_meta['original_name'] ?? ('Submission v.0' . $latestReviewSub->version) }}</span>
+                                            <a href="{{ route('submissions.view', $latestReviewSub) }}" target="_blank" class="font-black text-indigo-600 hover:text-indigo-800 shrink-0 uppercase tracking-wider">View File &rarr;</a>
+                                        </div>
+                                    @endif
                                     <div class="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
                                         <span class="text-[10px] font-bold text-slate-400 uppercase">{{ $review->submitted_at ? $review->submitted_at->diffForHumans() : 'Submitted' }}</span>
                                         <a href="{{ route('milestones.show', $review->id) }}" class="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-xs inline-flex items-center gap-1">
@@ -812,6 +821,15 @@ class="space-y-8 animate-in">
                                 </div>
                             </div>
                         </div>
+                        @php
+                            $latestTabReviewSub = $review->submissions->sortByDesc('id')->first();
+                        @endphp
+                        @if($latestTabReviewSub)
+                            <div class="mt-3 flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-100 text-[10px]">
+                                <span class="font-bold text-slate-600 truncate">{{ $latestTabReviewSub->file_meta['original_name'] ?? ('Submission v.0' . $latestTabReviewSub->version) }}</span>
+                                <a href="{{ route('submissions.view', $latestTabReviewSub) }}" target="_blank" class="font-black text-indigo-600 hover:text-indigo-800 shrink-0 uppercase tracking-wider">View File &rarr;</a>
+                            </div>
+                        @endif
                         <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
                             <span class="text-[10px] font-bold text-slate-400 uppercase">{{ $review->submitted_at ? $review->submitted_at->diffForHumans() : 'Recently' }}</span>
                             <a href="{{ route('milestones.show', $review->id) }}" class="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all inline-flex items-center gap-1 shadow-xs">

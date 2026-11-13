@@ -69,7 +69,7 @@ class ThesisController extends Controller
         $this->authorize('view', $thesis);
         
 
-        $thesis->load(['student.user', 'milestones.template', 'messages.sender', 'supervisors.supervisor.user', 'defenceEvents.panelMembers', 'actionItems']);
+        $thesis->load(['student.user', 'milestones.template', 'milestones.submissions.submittedBy', 'milestones.submissions.feedbacks', 'messages.sender', 'supervisors.supervisor.user', 'defenceEvents.panelMembers', 'actionItems']);
         
         // Institutional Isolation: Restrict supervisor pool to student's matching program context
         $allSupervisors = SupervisorProfile::with('user')
