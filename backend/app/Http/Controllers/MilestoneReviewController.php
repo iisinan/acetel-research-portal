@@ -127,8 +127,9 @@ class MilestoneReviewController extends Controller
             abort(403, 'Institutional Protocol: Program Coordinators do not review student documents. Document reviews are conducted by the assigned supervisor.');
         }
 
-        $isAssignedSupervisor = $user->hasRole('Supervisor') && $user->supervisorProfile && $milestone->thesis->assignments()
-            ->where('supervisor_profile_id', $user->supervisorProfile->id)
+        $supIds = $user->supervisorProfiles()->pluck('id');
+        $isAssignedSupervisor = $user->hasRole('Supervisor') && $supIds->isNotEmpty() && $milestone->thesis->assignments()
+            ->whereIn('supervisor_profile_id', $supIds)
             ->where('status', 'active')
             ->exists();
 

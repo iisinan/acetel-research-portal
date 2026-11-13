@@ -706,33 +706,36 @@
                                     }
                                 }
                                 uploading = true;
+                                fileError = '';
                                 fetch('{{ route('milestones.store', $milestone) }}', {
                                     method: 'POST',
                                     body: new FormData($event.target),
                                     headers: {
-                                        'Accept': 'text/html'
+                                        'Accept': 'application/json',
+                                        'X-Requested-With': 'XMLHttpRequest'
                                     }
                                 }).then(async res => {
                                     const text = await res.text();
+                                    let payload = null;
+                                    try { payload = JSON.parse(text); } catch (e) {}
                                     if (!res.ok) {
-                                        let message = 'Upload failed (HTTP ' + res.status + '). Please check file size/format and try again.';
-                                        try {
-                                            const errJson = JSON.parse(text);
-                                            if (errJson.message) message = errJson.message;
-                                        } catch (e) {}
+                                        let message = 'Upload failed (HTTP ' + res.status + '). Please verify the file is a valid PDF (max 50MB) and try again.';
+                                        if (payload) {
+                                            if (payload.errors) {
+                                                message = Object.values(payload.errors).flat().join('\n');
+                                            } else if (payload.message) {
+                                                message = payload.message;
+                                            }
+                                        }
+                                        fileError = message;
                                         alert(message);
                                         return;
                                     }
-                                    let parser = new DOMParser();
-                                    let doc = parser.parseFromString(text, 'text/html');
-                                    let newEl = doc.getElementById('milestone-details-container-{{ $milestone->id }}');
-                                    if (newEl) {
-                                        document.getElementById('milestone-details-container-{{ $milestone->id }}').innerHTML = newEl.innerHTML;
-                                    } else {
-                                        window.location.href = '{{ route('milestones.index', ['expanded' => $milestone->id, 'thesis_id' => $milestone->thesis_project_id]) }}';
-                                    }
+                                    window.location.href = '{{ route('milestones.index', ['expanded' => $milestone->id, 'thesis_id' => $milestone->thesis_project_id]) }}';
                                 }).catch(() => {
-                                    alert('Network error while uploading submission. Please check your connection and try again.');
+                                    const netErr = 'Network error while uploading submission. Please check your connection and try again.';
+                                    fileError = netErr;
+                                    alert(netErr);
                                 }).finally(() => {
                                     uploading = false;
                                 })

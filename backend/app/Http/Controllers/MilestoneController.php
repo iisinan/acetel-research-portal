@@ -624,27 +624,27 @@ class MilestoneController extends Controller
             foreach ($parsedPubs as $pIdx => $pubItem) {
                 $slotNum = $pIdx + 1;
                 if (empty($pubItem['file'])) {
-                    return back()->withInput()->withErrors([
+                    throw \Illuminate\Validation\ValidationException::withMessages([
                         'publications' => "Please upload the PDF manuscript for Publication #{$slotNum}."
                     ]);
                 }
                 if (!$pubItem['file']->isValid() || strtolower($pubItem['file']->getClientOriginalExtension()) !== 'pdf') {
-                    return back()->withInput()->withErrors([
+                    throw \Illuminate\Validation\ValidationException::withMessages([
                         'publications' => "Publication #{$slotNum} file must be a valid PDF document."
                     ]);
                 }
                 if ($pubItem['file']->getSize() > 51200 * 1024) {
-                    return back()->withInput()->withErrors([
+                    throw \Illuminate\Validation\ValidationException::withMessages([
                         'publications' => "Publication #{$slotNum} file exceeds the maximum size limit of 50MB."
                     ]);
                 }
                 if (empty($pubItem['title'])) {
-                    return back()->withInput()->withErrors([
+                    throw \Illuminate\Validation\ValidationException::withMessages([
                         'publications' => "Please enter the title for Publication #{$slotNum}."
                     ]);
                 }
                 if (empty($pubItem['doi'])) {
-                    return back()->withInput()->withErrors([
+                    throw \Illuminate\Validation\ValidationException::withMessages([
                         'publications' => "Please provide the DOI for Publication #{$slotNum} (e.g. 10.1016/j...)."
                     ]);
                 }
@@ -653,21 +653,21 @@ class MilestoneController extends Controller
                 try {
                     $scopusInfo = $scopusVerifier->verify($pubItem['doi'], $assignedSupervisors);
                 } catch (\Throwable $e) {
-                    return back()->withInput()->withErrors([
+                    throw \Illuminate\Validation\ValidationException::withMessages([
                         'publications' => "Error verifying Publication #{$slotNum} DOI against Scopus: " . $e->getMessage()
                     ]);
                 }
 
                 if (empty($scopusInfo['valid'])) {
                     $doiErr = $scopusInfo['error'] ?? 'Invalid or unrecognized DOI.';
-                    return back()->withInput()->withErrors([
+                    throw \Illuminate\Validation\ValidationException::withMessages([
                         'publications' => "Publication #{$slotNum} DOI verification failed: {$doiErr}"
                     ]);
                 }
 
                 // Institutional Gate 1: ONLY Scopus-indexed publications are allowed!
                 if (empty($scopusInfo['is_scopus_indexed'])) {
-                    return back()->withInput()->withErrors([
+                    throw \Illuminate\Validation\ValidationException::withMessages([
                         'publications' => "Institutional Requirement: Every publication for Internal Defence must be indexed in Scopus. Publication #{$slotNum} with DOI '{$pubItem['doi']}' is not indexed in Scopus. You cannot submit this milestone until all required publications are verified as Scopus-indexed."
                     ]);
                 }
@@ -676,7 +676,7 @@ class MilestoneController extends Controller
                 if (!empty($assignedSupervisors) && empty($scopusInfo['has_supervisor_coauthor'])) {
                     $supNamesStr = implode(', ', $assignedSupervisors);
                     $authNamesStr = !empty($scopusInfo['authors']) ? implode(', ', $scopusInfo['authors']) : 'None found in DOI registry';
-                    return back()->withInput()->withErrors([
+                    throw \Illuminate\Validation\ValidationException::withMessages([
                         'publications' => "Institutional Requirement: For a publication to be accepted, your assigned supervisor ({$supNamesStr}) must be an author. Publication #{$slotNum} authors ({$authNamesStr}) do not match any of your assigned supervisors. You cannot submit this milestone until your publication is co-authored with your supervisor."
                     ]);
                 }
@@ -725,7 +725,7 @@ class MilestoneController extends Controller
         // Handle PPT Upload
         if (in_array('ppt', $subTypes) && $request->hasFile('ppt')) {
             $pptFile = $request->file('ppt');
-            $pptPath = $pptFile->store('submissions/' . $milestone->thesis_project_id . '/ppt');
+            $pptPath = $this->storeSubmissionFile($pptFile, 'submissions/' . $milestone->thesis_project_id . '/ppt');
 
             $milestone->submissions()->create([
                 'submitted_by' => Auth::id(),
@@ -746,7 +746,7 @@ class MilestoneController extends Controller
         $createdManuscriptSub = null;
         if (in_array('file', $subTypes) && $request->hasFile('file')) {
             $file = $request->file('file');
-            $path = $file->store('submissions/' . $milestone->thesis_project_id);
+            $path = $this->storeSubmissionFile($file, 'submissions/' . $milestone->thesis_project_id);
 
             $submission = $milestone->submissions()->create([
                 'submitted_by' => Auth::id(),
@@ -785,7 +785,7 @@ class MilestoneController extends Controller
                 $publicationAuthors = $pubItem['publication_authors'] ?? [];
                 $scopusData = $pubItem['scopus_data'];
 
-                $pubPath = $pubFile->store('submissions/' . $milestone->thesis_project_id . '/publications');
+                $pubPath = $this->storeSubmissionFile($pubFile, 'submissions/' . $milestone->thesis_project_id . '/publications');
 
                 $milestone->submissions()->create([
                     'submitted_by' => Auth::id(),
@@ -1297,5 +1297,35 @@ class MilestoneController extends Controller
             'Content-Type' => $mimeType,
             'Content-Disposition' => 'inline; filename="' . str_replace('"', '\"', $filename) . '"',
         ]);
+    }
+
+    /**
+     * Store a student upload reliably, falling back to local disk if the primary disk fails silently.
+     */
+    private function storeSubmissionFile(\Illuminate\Http\UploadedFile $file, string $directory): string
+    {
+        $path = false;
+        try {
+            $path = $file->store($directory);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Primary disk store failed, attempting local fallback: ' . $e->getMessage());
+            $path = false;
+        }
+
+        if (empty($path)) {
+            \Illuminate\Support\Facades\Log::warning('Primary disk store returned empty path; falling back to local disk.', [
+                'default_disk' => config('filesystems.default'),
+                'directory' => $directory,
+            ]);
+            $path = $file->store($directory, 'local');
+        }
+
+        if (empty($path)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'file' => 'Failed to store uploaded file in repository storage. Please try again.',
+            ]);
+        }
+
+        return $path;
     }
 }
