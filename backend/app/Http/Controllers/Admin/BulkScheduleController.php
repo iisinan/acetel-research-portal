@@ -19,6 +19,7 @@ class BulkScheduleController extends Controller
             ->with([
                 'students.user',
                 'students.program',
+                'students.level',
                 'students.thesis',
             ])
             ->get();
@@ -38,7 +39,7 @@ class BulkScheduleController extends Controller
         ]);
 
         $students = StudentProfile::whereIn('id', $request->student_ids)
-            ->with('user', 'thesis.milestones.template')
+            ->with('user', 'program', 'level', 'thesis.student.program', 'thesis.student.level', 'thesis.milestones.template')
             ->get();
 
         $updatedCount  = 0;
@@ -48,7 +49,11 @@ class BulkScheduleController extends Controller
             if (!$student->thesis) continue;
 
             // Find the milestone(s) matching the chosen defence type
-            $milestonesToUpdate = $student->thesis->milestones->filter(function ($m) use ($request) {
+            $milestonesToUpdate = $student->thesis->milestones->filter(function ($m) use ($request, $student) {
+                if (!$m->template || $student->thesis->isExemptFromMilestone($m->template)) {
+                    return false;
+                }
+
                 // Direct match via database field
                 if ($m->template->defence_type === $request->defence_type) {
                     return true;

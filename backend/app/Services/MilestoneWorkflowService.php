@@ -1294,4 +1294,230 @@ class MilestoneWorkflowService
             \App\Events\MilestoneUpdated::dispatch($milestone, $message, $userId);
         }
     }
+
+    /**
+     * Remove seminar_as_a_course milestone and related seminar artifacts for PhD AI theses.
+     */
+    public function purgePhdAiSeminarCourse(ThesisProject $project): void
+    {
+        $seminarTemplate = \App\Models\MilestoneTemplate::where('slug', 'seminar_as_a_course')->first();
+        if (!$seminarTemplate) {
+            return;
+        }
+
+        DB::transaction(function () use ($project, $seminarTemplate) {
+            $milestoneIds = $project->milestones()
+                ->where('milestone_template_id', $seminarTemplate->id)
+                ->pluck('id')
+                ->all();
+
+            if (!empty($milestoneIds)) {
+                if (\Illuminate\Support\Facades\Schema::hasTable('seminar_grades')) {
+                    DB::table('seminar_grades')->whereIn('student_milestone_id', $milestoneIds)->delete();
+                }
+                \App\Models\Submission::whereIn('student_milestone_id', $milestoneIds)->delete();
+                \App\Models\Message::whereIn('student_milestone_id', $milestoneIds)->delete();
+                StudentMilestone::whereIn('id', $milestoneIds)->delete();
+            }
+
+            \App\Models\DefenceEvent::where('thesis_project_id', $project->id)
+                ->where('type', 'seminar')
+                ->get()
+                ->each->delete();
+        });
+    }
+
+    /**
+     * Remove progress_report_2 for MSc theses, migrating any active PR2 student back to
+     * progress_report_1 with all uploads, supervisor approvals, messages, and schedule details preserved.
+     */
+    public function migrateMscProgressReport2(ThesisProject $project): bool
+    {
+        $pr2Template = \App\Models\MilestoneTemplate::where('slug', 'progress_report_2')->first();
+        if (!$pr2Template) {
+            return false;
+        }
+
+        return DB::transaction(function () use ($project, $pr2Template) {
+            $pr2 = $project->milestones()
+                ->where('milestone_template_id', $pr2Template->id)
+                ->first();
+
+            $pr2Events = \App\Models\DefenceEvent::where('thesis_project_id', $project->id)
+                ->where('type', 'progress_report_2')
+                ->with(['panelMembers', 'evaluations'])
+                ->get();
+
+            if (!$pr2 && $pr2Events->isEmpty()) {
+                return false;
+            }
+
+            $pr1Template = \App\Models\MilestoneTemplate::where('slug', 'progress_report_1')->first();
+            $hasPr2Submissions = $pr2 && $pr2->submissions()->exists();
+            $hasPr2Messages = $pr2 && $pr2->messages()->exists();
+            $pr2Approvals = $pr2 ? ($pr2->approvals ?? []) : [];
+            if (is_string($pr2Approvals)) {
+                $pr2Approvals = json_decode($pr2Approvals, true) ?: [];
+            }
+
+            $hasPr2Activity = $pr2 && (
+                in_array($pr2->status, ['in_progress', 'submitted', 'revision_required', 'partially_approved'], true)
+                || $hasPr2Submissions
+                || $hasPr2Messages
+                || !empty($pr2Approvals)
+                || !empty($pr2->defence_date)
+                || !empty($pr2->submitted_at)
+                || !empty($pr2->remark)
+                || $pr2Events->isNotEmpty()
+            );
+
+            // If student was actively on PR2 (or had any uploads/approvals/events on PR2), fold back to PR1
+            if ($pr2 && $pr1Template && $hasPr2Activity) {
+                $pr1 = $project->milestones()
+                    ->where('milestone_template_id', $pr1Template->id)
+                    ->first();
+
+                if (!$pr1) {
+                    $pr1 = StudentMilestone::create([
+                        'thesis_project_id' => $project->id,
+                        'milestone_template_id' => $pr1Template->id,
+                        'status' => 'in_progress',
+                    ]);
+                }
+
+                // 1. Reassign all submissions (PPTs, manuscripts, reports) preserving linked feedbacks & chronological versions
+                $maxPr1Version = (int) (\App\Models\Submission::where('student_milestone_id', $pr1->id)->max('version') ?? 0);
+                $pr2Submissions = \App\Models\Submission::where('student_milestone_id', $pr2->id)
+                    ->orderBy('created_at')
+                    ->orderBy('version')
+                    ->get();
+
+                foreach ($pr2Submissions as $sub) {
+                    $maxPr1Version++;
+                    \App\Models\Submission::withoutEvents(function () use ($sub, $pr1, $maxPr1Version) {
+                        $sub->student_milestone_id = $pr1->id;
+                        $sub->version = $maxPr1Version;
+                        $sub->save();
+                    });
+                }
+
+                // 2. Reassign milestone chat messages
+                \App\Models\Message::where('student_milestone_id', $pr2->id)
+                    ->update(['student_milestone_id' => $pr1->id]);
+
+                // 3. Merge approvals JSON (supervisor_reviews + role-keyed entries)
+                $pr1Approvals = $pr1->approvals ?? [];
+                if (is_string($pr1Approvals)) {
+                    $pr1Approvals = json_decode($pr1Approvals, true) ?: [];
+                }
+
+                if (!empty($pr2Approvals) && is_array($pr2Approvals)) {
+                    $mergedApprovals = $pr1Approvals;
+                    if (isset($pr2Approvals['supervisor_reviews']) && is_array($pr2Approvals['supervisor_reviews'])) {
+                        $mergedApprovals['supervisor_reviews'] = array_replace(
+                            $mergedApprovals['supervisor_reviews'] ?? [],
+                            $pr2Approvals['supervisor_reviews']
+                        );
+                    }
+                    foreach ($pr2Approvals as $key => $val) {
+                        if ($key === 'supervisor_reviews') {
+                            continue;
+                        }
+                        if (!isset($mergedApprovals[$key]) || !empty($val)) {
+                            $mergedApprovals[$key] = $val;
+                        }
+                    }
+                    $pr1Approvals = $mergedApprovals;
+                }
+
+                // 4. Merge communication logs cleanly
+                $pr1Log = is_array($pr1->communication_log) ? $pr1->communication_log : [];
+                $pr2Log = is_array($pr2->communication_log) ? $pr2->communication_log : [];
+                $mergedLog = array_values(array_merge($pr1Log, $pr2Log, [[
+                    'action' => 'migrated_from_progress_report_2',
+                    'timestamp' => now()->toIso8601String(),
+                    'note' => 'Returned MSc candidate from removed Progress Report 2 stage to Progress Report 1 with uploads and supervisor approvals preserved.',
+                ]]));
+
+                // 5. Carry over defence scheduling & review metadata without overwriting existing PR1 values unnecessarily
+                $shouldReopenPr1 = in_array($pr2->status, ['in_progress', 'submitted', 'revision_required', 'partially_approved'], true);
+                $targetStatus = $shouldReopenPr1
+                    ? $pr2->status
+                    : ($pr1->status === 'approved' ? 'approved' : ($hasPr2Submissions ? 'submitted' : 'in_progress'));
+
+                $pr1->status = $targetStatus;
+                if ($shouldReopenPr1) {
+                    $pr1->approved_at = null;
+                    $pr1->date_approved_at = null;
+                    $pr1->date_approved_by = null;
+                }
+
+                $pr1->approvals = !empty($pr1Approvals) ? $pr1Approvals : null;
+                $pr1->defence_date = $pr2->defence_date ?? $pr1->defence_date;
+                $pr1->defence_time = $pr2->defence_time ?? $pr1->defence_time;
+                $pr1->defence_location = $pr2->defence_location ?? $pr1->defence_location;
+                $pr1->meeting_link = $pr2->meeting_link ?? $pr1->meeting_link;
+                $pr1->due_date = $pr2->due_date ?? $pr1->due_date;
+                $pr1->submitted_at = $pr2->submitted_at ?? $pr1->submitted_at;
+                $pr1->reviewed_at = $pr2->reviewed_at ?? $pr1->reviewed_at;
+                $pr1->remark = $pr2->remark ?: $pr1->remark;
+                $pr1->is_submission_unlocked = (bool) ($pr1->is_submission_unlocked || $pr2->is_submission_unlocked);
+                $pr1->submission_unlocked_at = $pr2->submission_unlocked_at ?? $pr1->submission_unlocked_at;
+                $pr1->submission_unlocked_by = $pr2->submission_unlocked_by ?? $pr1->submission_unlocked_by;
+                $pr1->communication_log = $mergedLog;
+                $pr1->is_supervisor_approved = (bool) (
+                    ($pr1->getRawOriginal('is_supervisor_approved') ?? false)
+                    || ($pr2->getRawOriginal('is_supervisor_approved') ?? false)
+                    || $this->computeSupervisorApprovalEligibility($pr1)
+                );
+                $pr1->save();
+
+                // 6. Migrate progress_report_2 defence events & evaluations onto progress_report_1
+                if ($pr2Events->isNotEmpty()) {
+                    $existingPr1Event = \App\Models\DefenceEvent::where('thesis_project_id', $project->id)
+                        ->where('type', 'progress_report_1')
+                        ->first();
+
+                    foreach ($pr2Events as $ev) {
+                        if (!$existingPr1Event) {
+                            $ev->update(['type' => 'progress_report_1']);
+                            $existingPr1Event = $ev;
+                        } else {
+                            foreach ($ev->panelMembers as $pm) {
+                                \App\Models\PanelMember::firstOrCreate([
+                                    'defence_event_id' => $existingPr1Event->id,
+                                    'user_id' => $pm->user_id,
+                                    'role' => $pm->role,
+                                ], [
+                                    'invitation_status' => $pm->invitation_status,
+                                    'is_present' => $pm->is_present,
+                                ]);
+                            }
+                            foreach ($ev->evaluations as $evaluation) {
+                                $alreadyExists = \App\Models\Evaluation::where('defence_event_id', $existingPr1Event->id)
+                                    ->where('evaluator_id', $evaluation->evaluator_id)
+                                    ->exists();
+                                if (!$alreadyExists) {
+                                    $evaluation->update(['defence_event_id' => $existingPr1Event->id]);
+                                }
+                            }
+                            $ev->delete();
+                        }
+                    }
+                }
+            } else {
+                // Clean up unused PR2 defence events
+                $pr2Events->each->delete();
+            }
+
+            if ($pr2) {
+                if (\Illuminate\Support\Facades\Schema::hasTable('seminar_grades')) {
+                    DB::table('seminar_grades')->where('student_milestone_id', $pr2->id)->delete();
+                }
+                $pr2->delete();
+            }
+
+            return true;
+        });
+    }
 }

@@ -17,7 +17,18 @@ class SeminarController extends Controller
         $milestones = StudentMilestone::whereHas("template", function($q) {
                 $q->where("slug", "seminar_as_a_course");
             })
-            ->with(["thesis.student.user", "submissions" => function($q) {
+            ->whereDoesntHave("thesis.student.program", function($pq) {
+                $pq->where(function ($degQ) {
+                    $degQ->whereRaw("LOWER(COALESCE(degree_type, '')) LIKE ?", ['%phd%'])
+                        ->orWhereRaw("LOWER(COALESCE(name, '')) LIKE ?", ['%phd%'])
+                        ->orWhereRaw("LOWER(COALESCE(name, '')) LIKE ?", ['%doctor%'])
+                        ->orWhereRaw("LOWER(COALESCE(code, '')) LIKE ?", ['%doct%']);
+                })->where(function ($aiQ) {
+                    $aiQ->whereRaw("LOWER(COALESCE(name, '')) LIKE ?", ['%artificial intelligence%'])
+                        ->orWhereRaw("LOWER(COALESCE(code, '')) = ?", ['doct7570']);
+                });
+            })
+            ->with(["thesis.student.user", "thesis.student.program", "submissions" => function($q) {
                 $q->where("description", "LIKE", "%ppt%")->orWhere("description", "LIKE", "%presentation%")->orWhere("file_url", "LIKE", "%.ppt%")->orWhere("file_url", "LIKE", "%.pdf%");
             }, "thesis.defenceEvents" => function($q) {
                 $q->where("type", "seminar")->with(["panelMembers.user", "evaluations"]);
@@ -92,9 +103,14 @@ class SeminarController extends Controller
 
         DB::beginTransaction();
         try {
+            $scheduledCount = 0;
             foreach ($ids as $id) {
-                $milestone = StudentMilestone::findOrFail($id);
+                $milestone = StudentMilestone::with(['thesis.student.program', 'thesis.student.level', 'template'])->findOrFail($id);
                 $thesis = $milestone->thesis;
+
+                if ($thesis && $thesis->isPhdAI()) {
+                    continue;
+                }
                 
                 $milestone->update([
                     "defence_date" => $currentDate->format("Y-m-d")
@@ -111,6 +127,7 @@ class SeminarController extends Controller
                     ]
                 );
 
+                $scheduledCount++;
                 $count++;
                 if ($count % $request->students_per_day === 0) {
                     $currentDate->addDay();
@@ -118,7 +135,7 @@ class SeminarController extends Controller
                 }
             }
             DB::commit();
-            return back()->with("success", "Scheduled " . count($ids) . " seminars successfully.");
+            return back()->with("success", "Scheduled " . $scheduledCount . " seminars successfully.");
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with("error", "Error scheduling seminars: " . $e->getMessage());

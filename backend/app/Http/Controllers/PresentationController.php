@@ -23,13 +23,14 @@ class PresentationController extends Controller
                 'template',
                 'thesis.student.user',
                 'thesis.student.program',
+                'thesis.student.level',
                 'thesis.assignments.supervisor.user', 'thesis.defenceEvents.panelMembers.user', 'thesis.defenceEvents.evaluations',
                 'submissions' => fn($q) => $q->latest()
             ])
             ->orderBy('defence_date', 'asc')
             ->orderBy('defence_time', 'asc')
             ->get()
-            ->reject(fn($sm) => $workflow->isPostDefencePhase($sm))
+            ->reject(fn($sm) => $workflow->isPostDefencePhase($sm) || ($sm->thesis && $sm->template && $sm->thesis->isExemptFromMilestone($sm->template)))
             ->values();
 
         $targetEventType = $template->defence_type ?? match($template->slug) {

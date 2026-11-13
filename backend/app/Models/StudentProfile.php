@@ -176,14 +176,37 @@ class StudentProfile extends Model
 
     public function isPhd(): bool
     {
-        $pName = strtolower(($this->program?->name ?? '') . ' ' . ($this->program?->degree_type ?? ''));
+        $pName = strtolower(($this->program?->name ?? '') . ' ' . ($this->program?->degree_type ?? '') . ' ' . ($this->program?->code ?? ''));
         $lName = strtolower($this->level?->name ?? '');
 
         return str_contains($pName, 'phd') 
             || str_contains($pName, 'ph.d') 
             || str_contains($pName, 'doctor') 
+            || str_contains($pName, 'doct') 
             || str_contains($lName, 'phd') 
             || str_contains($lName, 'doctor');
+    }
+
+    public function isMsc(): bool
+    {
+        if ($this->isPhd()) {
+            return false;
+        }
+
+        $lName = strtolower($this->level?->name ?? '');
+        $pName = strtolower(($this->program?->degree_type ?? '') . ' ' . ($this->program?->name ?? '') . ' ' . ($this->program?->code ?? ''));
+
+        if (str_contains($lName, 'pgd') || str_contains($lName, 'diploma') || str_contains($pName, 'pgd') || str_contains($pName, 'diploma')) {
+            return false;
+        }
+
+        return str_contains($lName, 'msc')
+            || str_contains($lName, 'm.sc')
+            || str_contains($lName, 'master')
+            || str_contains($pName, 'msc')
+            || str_contains($pName, 'm.sc')
+            || str_contains($pName, 'master')
+            || str_contains($pName, 'mast');
     }
 
     public function requiredPublicationsCount(): int
@@ -193,16 +216,14 @@ class StudentProfile extends Model
 
     public function isPhdAI(): bool
     {
-        $pName = strtolower(($this->program?->name ?? '') . ' ' . ($this->program?->degree_type ?? ''));
-        $lName = strtolower($this->level?->name ?? '');
+        $pName = strtolower(($this->program?->name ?? '') . ' ' . ($this->program?->degree_type ?? '') . ' ' . ($this->program?->code ?? ''));
 
         $isPhd = $this->isPhd();
 
         $isAI = str_contains($pName, 'artificial intelligence') 
             || str_contains($pName, 'intelligence') 
-            || str_contains($pName, ' ai') 
-            || str_ends_with($pName, 'ai') 
-            || ($this->program?->code && strtoupper($this->program->code) === 'AI');
+            || (bool) preg_match('/\bai\b/i', $pName)
+            || ($this->program?->code && in_array(strtoupper($this->program->code), ['AI', 'DOCT7570', 'PHD-AI'], true));
 
         return $isPhd && $isAI;
     }

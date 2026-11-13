@@ -32,7 +32,7 @@
 
                     {{-- Defence Type --}}
                     <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Defence Layer</label>
-                    <select name="defence_type" id="defenceType" required
+                    <select name="defence_type" id="defenceType" required onchange="filterBS()"
                         class="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-bold rounded-xl p-3 mb-5 focus:ring-acetel-500 focus:border-acetel-500 transition-colors">
                         <option value="seminar">📚 Seminar as a Course</option>
                         <option value="proposal">📋 Proposal Defence</option>
@@ -132,7 +132,9 @@
                                         @foreach($cohortStudents as $student)
                                             <label class="student-row flex items-center gap-4 px-5 py-3 hover:bg-acetel-50/30 cursor-pointer transition-colors"
                                                    data-name="{{ strtolower($student->user->name) }}"
-                                                   data-matric="{{ strtolower($student->student_id_number ?? '') }}">
+                                                   data-matric="{{ strtolower($student->student_id_number ?? '') }}"
+                                                   data-is-phd-ai="{{ $student->isPhdAI() ? '1' : '0' }}"
+                                                   data-is-msc="{{ $student->isMsc() ? '1' : '0' }}">
                                                 <input type="checkbox" name="student_ids[]" value="{{ $student->id }}"
                                                        class="student-cb w-4 h-4 text-acetel-600 border-slate-300 rounded focus:ring-acetel-500 cursor-pointer"
                                                        data-cohort="{{ $cohort->id }}"
@@ -222,9 +224,10 @@
         btn.classList.toggle('rotate-180');
     }
 
-    /* Live search filter */
+    /* Live search & exemption filter */
     function filterBS() {
         const q = (document.getElementById('bsSearch').value || '').toLowerCase().trim();
+        const defenceType = (document.getElementById('defenceType')?.value || '').toLowerCase();
         let anyVisible = false;
 
         document.querySelectorAll('.cohort-block').forEach(block => {
@@ -234,14 +237,20 @@
 
             let studentVisible = 0;
             block.querySelectorAll('.student-row').forEach(row => {
+                const isExempt = (defenceType === 'seminar' && row.dataset.isPhdAi === '1')
+                    || (defenceType === 'progress_report_2' && row.dataset.isMsc === '1');
                 const nameMatch  = (row.dataset.name  || '').includes(q);
                 const matricMatch = (row.dataset.matric || '').includes(q);
-                const show = !q || cohortMatch || nameMatch || matricMatch;
+                const show = !isExempt && (!q || cohortMatch || nameMatch || matricMatch);
                 row.classList.toggle('hidden', !show);
+                if (isExempt) {
+                    const cb = row.querySelector('.student-cb');
+                    if (cb && cb.checked) cb.checked = false;
+                }
                 if (show) studentVisible++;
             });
 
-            const showBlock = !q || cohortMatch || studentVisible > 0;
+            const showBlock = studentVisible > 0 && (!q || cohortMatch || studentVisible > 0);
             block.classList.toggle('hidden', !showBlock);
 
             // auto-expand if query matches students inside
@@ -254,7 +263,10 @@
         });
 
         document.getElementById('noResults').classList.toggle('hidden', anyVisible);
+        if (typeof updateCount === 'function') updateCount();
     }
+
+    document.addEventListener('DOMContentLoaded', () => filterBS());
 
     /* Select / clear all currently visible */
     function selectAll() {

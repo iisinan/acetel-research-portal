@@ -190,7 +190,7 @@ class MilestoneController extends Controller
                     'phone' => $student->phone_number ?? 'N/A',
                     'program_name' => $student->program?->name ?? 'N/A',
                     'program_code' => $student->program?->code ?? '',
-                    'level' => $student->level?->name ?? ($student->isPhdAI() ? 'PhD' : 'MSc'),
+                    'level' => $student->level?->name ?? ($student->isPhd() ? 'PhD' : ($student->isMsc() ? 'MSc' : 'Research')),
                     'cohort' => $student->cohort?->name ?? 'N/A',
                     'enrollment_status' => $student->enrollment_status,
                     'thesis_id' => $thesis?->id,

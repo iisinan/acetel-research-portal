@@ -106,16 +106,8 @@ class DatabaseSeeder extends Seeder
             'start_date' => now(),
         ]);
         
-        // Manually trigger milestone creation since model events are disabled in the seeder
-        $templates = \App\Models\MilestoneTemplate::orderBy('order')->get();
-        foreach ($templates as $template) {
-            \App\Models\StudentMilestone::create([
-                'thesis_project_id' => $thesis->id,
-                'milestone_template_id' => $template->id,
-                'status' => 'not_started',
-                'due_date' => null,
-            ]);
-        }
+        // Manually sync milestones since model events are disabled in the seeder
+        $thesis->syncMilestones();
         
         return $thesis;
     }

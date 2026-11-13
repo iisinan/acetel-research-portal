@@ -704,9 +704,18 @@
                 if (this.form.program_id) {
                     const prog = serverPrograms.find(p => p.id == this.form.program_id);
                     if (prog) {
-                        const name = prog.name.toLowerCase();
-                        if ((name.includes('phd') || name.includes('doctor of philosophy')) && name.includes('artificial intelligence')) {
+                        const name = (prog.name || '').toLowerCase();
+                        const code = (prog.code || '').toLowerCase();
+                        const deg = (prog.degree_type || '').toLowerCase();
+                        const isPhdProg = deg === 'phd' || name.includes('phd') || name.includes('doctor of philosophy') || code.includes('doct');
+                        const isMscProg = !isPhdProg && (deg === 'msc' || deg === 'master' || name.includes('msc') || name.includes('master') || code.includes('mast'));
+                        const isAiProg = name.includes('artificial intelligence') || code === 'doct7570' || code.includes('ai');
+
+                        if (isPhdProg && isAiProg) {
                             allQuestions = allQuestions.filter(q => q.highlight !== 'Seminar Course');
+                        }
+                        if (isMscProg) {
+                            allQuestions = allQuestions.filter(q => q.highlight !== 'Progress Report 2');
                         }
                     }
                 }
@@ -718,7 +727,11 @@
             isPhd() {
                 if (!this.form.program_id) return false;
                 const prog = serverPrograms.find(p => p.id == this.form.program_id);
-                return prog ? prog.name.toLowerCase().includes('phd') : false;
+                if (!prog) return false;
+                const name = (prog.name || '').toLowerCase();
+                const code = (prog.code || '').toLowerCase();
+                const deg = (prog.degree_type || '').toLowerCase();
+                return deg === 'phd' || name.includes('phd') || name.includes('doctor of philosophy') || code.includes('doct');
             },
 
             validateStep1() {

@@ -371,12 +371,23 @@ class RegisteredUserController extends Controller
 
             $student->loadMissing(['program', 'level']);
             $isPhdAI = $student->isPhdAI();
+            $isMsc   = $student->isMsc();
+
+            $isExemptTemplate = function ($template) use ($isPhdAI, $isMsc): bool {
+                if ($isPhdAI && $template->slug === 'seminar_as_a_course') {
+                    return true;
+                }
+                if ($isMsc && $template->slug === 'progress_report_2') {
+                    return true;
+                }
+                return false;
+            };
 
             // Determine the active milestone: the first template (by order) that is NOT completed.
             // All completed ones → 'approved'. The first non-completed → 'in_progress'. The rest → 'not_started'.
             $activeMilestoneId = null;
             foreach ($templates as $template) {
-                if ($isPhdAI && $template->slug === 'seminar_as_a_course') continue;
+                if ($isExemptTemplate($template)) continue;
                 
                 if (!in_array($template->id, $completedIds)) {
                     $activeMilestoneId = $template->id;
@@ -385,7 +396,7 @@ class RegisteredUserController extends Controller
             }
 
             foreach ($templates as $template) {
-                if ($isPhdAI && $template->slug === 'seminar_as_a_course') continue;
+                if ($isExemptTemplate($template)) continue;
 
                 $isCompleted = in_array($template->id, $completedIds);
                 $isActive    = ($template->id === $activeMilestoneId);
@@ -416,6 +427,10 @@ class RegisteredUserController extends Controller
                         $sm->update(['remark' => 'Course Grade: ' . $request->seminar_grade]);
                     } elseif ($template->slug === 'proposal_defence' && $request->has('proposal_defence_date')) {
                         $sm->update(['defence_date' => $request->proposal_defence_date]);
+                    } elseif ($template->slug === 'progress_report_1' && ($request->has('progress_report_1_date') || $request->has('progress_presentation_1_date'))) {
+                        $sm->update(['defence_date' => $request->input('progress_report_1_date', $request->input('progress_presentation_1_date'))]);
+                    } elseif ($template->slug === 'progress_report_2' && ($request->has('progress_report_2_date') || $request->has('progress_presentation_2_date'))) {
+                        $sm->update(['defence_date' => $request->input('progress_report_2_date', $request->input('progress_presentation_2_date'))]);
                     } elseif ($template->slug === 'progress_presentation_1' && $request->has('progress_presentation_1_date')) {
                         $sm->update(['defence_date' => $request->progress_presentation_1_date]);
                     } elseif ($template->slug === 'progress_presentation_2' && $request->has('progress_presentation_2_date')) {

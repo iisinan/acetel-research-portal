@@ -67,6 +67,7 @@ class SeminarExaminationController extends Controller
             ->with([
                 'thesis.student.user',
                 'thesis.student.program',
+                'thesis.student.level',
                 'thesis.milestones' => function($q) {
                     $q->whereHas('template', function($q2) {
                         $q2->where('slug', 'seminar_as_a_course');
@@ -77,7 +78,9 @@ class SeminarExaminationController extends Controller
                 }
             ])
             ->orderBy('schedule_start')
-            ->get();
+            ->get()
+            ->reject(fn($ev) => $ev->thesis?->isPhdAI())
+            ->values();
             
         return view('supervisor.seminars.index', compact('events'));
     }

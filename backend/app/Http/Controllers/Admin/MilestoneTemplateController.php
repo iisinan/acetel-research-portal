@@ -44,7 +44,14 @@ class MilestoneTemplateController extends Controller
                         $sq->where('program_id', $coordinatorProgramId);
                     });
                 }
-            }])->orderBy('order')->get();
+            }])->orderBy('order')->get()->each(function ($template) {
+                $template->setRelation(
+                    'studentMilestones',
+                    $template->studentMilestones
+                        ->reject(fn($sm) => $sm->thesis && $sm->thesis->isExemptFromMilestone($template))
+                        ->values()
+                );
+            });
             
         // Preload examiners mapped by id to prevent N+1 queries in the Blade view
         $examinerUserIds = collect();
@@ -297,9 +304,9 @@ class MilestoneTemplateController extends Controller
         $workflow = app(\App\Services\MilestoneWorkflowService::class);
         $pendingMilestones = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
             ->where('status', '!=', 'approved')
-            ->with(['template', 'thesis.defenceEvents.evaluations'])
+            ->with(['template', 'thesis.student.program', 'thesis.student.level', 'thesis.defenceEvents.evaluations'])
             ->get()
-            ->reject(fn($sm) => $workflow->isPostDefencePhase($sm) || $workflow->hasBeenGraded($sm));
+            ->reject(fn($sm) => $workflow->isPostDefencePhase($sm) || $workflow->hasBeenGraded($sm) || ($sm->thesis && $sm->thesis->isExemptFromMilestone($template)));
 
         if ($pendingMilestones->isNotEmpty()) {
             \App\Models\StudentMilestone::whereIn('id', $pendingMilestones->pluck('id'))
@@ -395,9 +402,13 @@ class MilestoneTemplateController extends Controller
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
             foreach ($ids as $id) {
-                $milestone = \App\Models\StudentMilestone::findOrFail($id);
+                $milestone = \App\Models\StudentMilestone::with(['thesis.student.program', 'thesis.student.level', 'template'])->findOrFail($id);
                 $thesis = $milestone->thesis;
                 $template = $milestone->template;
+
+                if ($thesis && $template && $thesis->isExemptFromMilestone($template)) {
+                    continue;
+                }
 
                 if ($workflow->isPostDefencePhase($milestone) || $workflow->hasBeenGraded($milestone)) {
                     continue; // Never reschedule or reset evaluations for already-graded or post-defence candidates
@@ -629,10 +640,14 @@ class MilestoneTemplateController extends Controller
         \Illuminate\Support\Facades\DB::beginTransaction();
         try {
             foreach ($request->input('entries', []) as $smId => $entry) {
-                $sm = \App\Models\StudentMilestone::with(['thesis.student.user', 'thesis.student.program', 'thesis.internalExaminer.user', 'thesis.externalExaminer.user', 'template', 'thesis.defenceEvents.evaluations'])
+                $sm = \App\Models\StudentMilestone::with(['thesis.student.user', 'thesis.student.program', 'thesis.student.level', 'thesis.internalExaminer.user', 'thesis.externalExaminer.user', 'template', 'thesis.defenceEvents.evaluations'])
                     ->where('milestone_template_id', $template->id)
                     ->find($smId);
                 if (!$sm) {
+                    continue;
+                }
+
+                if ($sm->thesis && $sm->thesis->isExemptFromMilestone($template)) {
                     continue;
                 }
 
@@ -844,7 +859,7 @@ class MilestoneTemplateController extends Controller
         $query = \App\Models\StudentMilestone::where('milestone_template_id', $template->id)
             ->whereNotNull('defence_date')
             ->where('status', '!=', 'approved')
-            ->with(['thesis.student.user', 'thesis.student.program', 'thesis.defenceEvents.evaluations']);
+            ->with(['thesis.student.user', 'thesis.student.program', 'thesis.student.level', 'template', 'thesis.defenceEvents.evaluations']);
 
         if (!$isAllDates) {
             $query->whereDate('defence_date', $fromDateStr);
@@ -856,9 +871,9 @@ class MilestoneTemplateController extends Controller
             $milestones = $milestones->filter(fn($m) => $m->discipline_group === $request->discipline_group);
         }
 
-        // Graded or post-defence students must not have their presentation rescheduled
+        // Graded, post-defence, or program-exempt students must not have their presentation rescheduled
         $workflow = app(\App\Services\MilestoneWorkflowService::class);
-        $milestones = $milestones->reject(fn($m) => $workflow->hasBeenGraded($m) || $workflow->isPostDefencePhase($m));
+        $milestones = $milestones->reject(fn($m) => $workflow->hasBeenGraded($m) || $workflow->isPostDefencePhase($m) || ($m->thesis && $m->thesis->isExemptFromMilestone($template)));
 
         if ($milestones->isEmpty()) {
             $targetDesc = $fromDateStr ? \Carbon\Carbon::parse($fromDateStr)->format('M d, Y') : 'the selected filter';

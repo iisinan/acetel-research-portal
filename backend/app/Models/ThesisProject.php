@@ -203,11 +203,19 @@ class ThesisProject extends Model
         return $this->student?->isPhdAI() ?? false;
     }
 
+    public function isMsc(): bool
+    {
+        return $this->student?->isMsc() ?? false;
+    }
+
     public function isExemptFromMilestone(MilestoneTemplate|string|null $template): bool
     {
         if (!$template) return false;
         $slug = is_string($template) ? $template : $template->slug;
         if ($slug === 'seminar_as_a_course' && $this->isPhdAI()) {
+            return true;
+        }
+        if ($slug === 'progress_report_2' && $this->isMsc()) {
             return true;
         }
         return false;
@@ -222,13 +230,9 @@ class ThesisProject extends Model
             }
         })->orderBy('order')->get();
 
-        if ($this->isPhdAI()) {
-            $templates = $templates->reject(function ($t) {
-                return $t->slug === 'seminar_as_a_course';
-            })->values();
-        }
-
-        return $templates;
+        return $templates->reject(function ($t) {
+            return $this->isExemptFromMilestone($t);
+        })->values();
     }
 
     /**
@@ -248,14 +252,13 @@ class ThesisProject extends Model
             );
         }
 
-        // If this is a PhD AI project, purge any accidental seminar_as_a_course records
+        // Purge/migrate any exempt milestones (e.g. after program transfer or legacy creation)
+        $workflow = app(\App\Services\MilestoneWorkflowService::class);
         if ($this->isPhdAI()) {
-            $seminarTemplate = MilestoneTemplate::where('slug', 'seminar_as_a_course')->first();
-            if ($seminarTemplate) {
-                $this->milestones()
-                    ->where('milestone_template_id', $seminarTemplate->id)
-                    ->delete();
-            }
+            $workflow->purgePhdAiSeminarCourse($this);
+        }
+        if ($this->isMsc()) {
+            $workflow->migrateMscProgressReport2($this);
         }
     }
 
