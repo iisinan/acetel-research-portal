@@ -136,6 +136,14 @@ class AuthController extends Controller
     {
         $request->validate(['email' => 'required|email']);
 
+        // Check if account is suspended / inactive
+        $user = \App\Models\User::where('email', $request->email)->first();
+        if ($user && !$user->is_active) {
+            return back()->withErrors([
+                'email' => 'Institutional access for this account is currently suspended. Please contact the ACETEL administration.'
+            ]);
+        }
+
         try {
             $status = Password::sendResetLink($request->only('email'));
         } catch (\Throwable $e) {
@@ -145,15 +153,17 @@ class AuthController extends Controller
             ]);
 
             return back()->withErrors([
-                'email' => 'Unable to dispatch reset email via mail server (' . $e->getMessage() . '). Please verify institutional SMTP configuration.'
+                'email' => 'Unable to dispatch reset email via institutional mail server at this moment. Please try again shortly or contact support.'
             ]);
         }
 
-        if ($status === Password::RESET_LINK_SENT) {
-            return back()->with('status', 'If this email belongs to an active institutional account, a password reset link has been dispatched to it.');
+        // If throttled, inform user to wait before retrying
+        if ($status === Password::RESET_THROTTLED) {
+            return back()->withErrors(['email' => __($status)]);
         }
 
-        return back()->withErrors(['email' => __($status)]);
+        // Return uniform status message whether user exists or not (User Enumeration Protection)
+        return back()->with('status', 'If this email belongs to an active institutional account, a password reset link has been dispatched to it.');
     }
 
     public function showResetPassword(Request $request, $token)
@@ -195,6 +205,13 @@ class AuthController extends Controller
             }
 
             return redirect()->route('login')->with('status', 'Password reset successfully. Please log in with your new password.');
+        }
+
+        // Clear and dedicated feedback when token is invalid or expired
+        if ($status === Password::INVALID_TOKEN) {
+            return back()->withErrors([
+                'token' => 'This password reset link is invalid or has expired. Please request a fresh reset link.'
+            ]);
         }
 
         return back()->withErrors(['email' => [__($status)]]);

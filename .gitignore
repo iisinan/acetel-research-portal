@@ -1,5 +1,5 @@
 .venv/
 sync_railway.sh
 user_msgs.txt
-vendor/
+/vendor/
 node_modules/

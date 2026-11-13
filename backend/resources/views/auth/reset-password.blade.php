@@ -55,7 +55,25 @@
                 <p class="text-slate-500 text-sm">Enter and confirm your new secure password below.</p>
             </div>
 
-            @if ($errors->any())
+            @if ($errors->has('token'))
+                <div class="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl">
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 rounded-xl bg-rose-500 flex items-center justify-center flex-shrink-0 text-white">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-bold text-rose-800">Reset Link Expired or Invalid</p>
+                            <p class="text-xs text-rose-600 mt-0.5 leading-relaxed">{{ $errors->first('token') }}</p>
+                            <div class="mt-2.5">
+                                <a href="{{ route('password.request') }}" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm">
+                                    <span>Request New Reset Link</span>
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @elseif ($errors->any())
                 <div class="mb-6 flex items-start gap-3 p-4 bg-red-50 border border-red-100 rounded-2xl">
                     <div class="w-8 h-8 rounded-xl bg-red-500 flex items-center justify-center flex-shrink-0">
                         <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>

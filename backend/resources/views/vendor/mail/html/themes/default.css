@@ -304,13 +304,23 @@ img {
 .button {
     -webkit-text-size-adjust: none;
     border-radius: 6px;
-    color: #fff;
+    color: #ffffff !important;
     display: inline-block;
     overflow: hidden;
     text-decoration: none;
     font-weight: 600;
     font-size: 15px;
     letter-spacing: 0.2px;
+}
+
+.inner-body a.button,
+.inner-body a.button-primary,
+.inner-body a.button-blue,
+.inner-body a.button-green,
+.inner-body a.button-success,
+.inner-body a.button-red,
+.inner-body a.button-error {
+    color: #ffffff !important;
 }
 
 .button-blue,
