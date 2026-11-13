@@ -776,7 +776,12 @@ class UserManagementController extends Controller
         Auth::login($user);
         Cookie::queue(Cookie::forget('active_dashboard_role'));
 
-        return redirect()->route('dashboard')
+        $requestedRole = $request->input('role');
+        $targetRole = ($requestedRole && $user->hasRole($requestedRole))
+            ? $requestedRole
+            : $user->getRoleNames()->first();
+
+        return redirect()->route('dashboard', $targetRole ? ['role' => $targetRole] : [])
             ->with('success', "Viewing portal as {$user->name}. Use the top banner to return to your Admin session.");
     }
 

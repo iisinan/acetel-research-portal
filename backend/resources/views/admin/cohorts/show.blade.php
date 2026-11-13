@@ -109,7 +109,17 @@
                             <tr class="hover:bg-slate-50 transition-colors duration-150">
                                 <td class="whitespace-nowrap py-4 pl-6 pr-3">
                                     <div class="flex flex-col">
-                                        <span class="text-sm font-bold text-black">{{ $student->user->name ?? 'Unknown User' }}</span>
+                                        @if($student->user && $student->user_id !== auth()->id() && auth()->user()?->hasRole('Admin'))
+                                            <form action="{{ route('admin.users.impersonate', $student->user) }}" method="POST" class="inline">
+                                                @csrf
+                                                <input type="hidden" name="role" value="Student">
+                                                <button type="submit" class="text-sm font-bold text-black hover:text-emerald-600 transition-colors text-left cursor-pointer" title="View Student Portal">
+                                                    {{ $student->user->name }}
+                                                </button>
+                                            </form>
+                                        @else
+                                            <span class="text-sm font-bold text-black">{{ $student->user->name ?? 'Unknown User' }}</span>
+                                        @endif
                                         <span class="text-sm text-black">{{ $student->user->email ?? 'N/A' }}</span>
                                     </div>
                                 </td>
@@ -129,6 +139,15 @@
                                 </td>
                                 <td class="relative whitespace-nowrap py-4 pl-3 pr-6 text-right text-sm font-medium">
                                     <div class="flex items-center justify-end space-x-3">
+                                        @if($student->user && $student->user_id !== auth()->id() && auth()->user()?->hasRole('Admin'))
+                                            <form action="{{ route('admin.users.impersonate', $student->user) }}" method="POST" class="inline">
+                                                @csrf
+                                                <input type="hidden" name="role" value="Student">
+                                                <button type="submit" class="inline-flex items-center px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs rounded-lg transition-colors border border-emerald-200 cursor-pointer" title="View Student Portal">
+                                                    View Portal
+                                                </button>
+                                            </form>
+                                        @endif
                                         <a href="{{ $student->thesis ? route('milestones.index', ['thesis_id' => $student->thesis->id]) : route('admin.students.show', $student->id) }}" class="inline-flex items-center px-3 py-1.5 bg-acetel-50 text-acetel-700 hover:bg-acetel-100 font-bold text-xs rounded-lg transition-colors border border-acetel-200">
                                             View Progress
                                         </a>

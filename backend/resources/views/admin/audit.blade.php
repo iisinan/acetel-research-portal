@@ -43,14 +43,35 @@
                         <h3 class="text-xl font-black text-slate-900 group-hover/audit:text-acetel-600 transition-colors uppercase leading-tight tracking-tight">
                             {{ $thesis->title }}
                         </h3>
-                        <div class="flex items-center gap-6 mt-4">
+                        <div class="flex flex-wrap items-center gap-6 mt-4">
                             <div class="flex items-center gap-2">
                                 <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Student:</span>
-                                <span class="text-[10px] font-bold text-slate-900 uppercase italic">{{ $thesis->student->user->name }}</span>
+                                @if($thesis->student?->user && auth()->user()?->hasRole('Admin') && $thesis->student->user_id !== auth()->id())
+                                    <form action="{{ route('admin.users.impersonate', $thesis->student->user) }}" method="POST" class="inline">
+                                        @csrf
+                                        <input type="hidden" name="role" value="Student">
+                                        <button type="submit" class="text-[10px] font-bold text-slate-900 hover:text-emerald-600 underline decoration-dotted underline-offset-4 uppercase italic cursor-pointer" title="View Student Portal">
+                                            {{ $thesis->student->user->name }}
+                                        </button>
+                                    </form>
+                                @else
+                                    <span class="text-[10px] font-bold text-slate-900 uppercase italic">{{ $thesis->student->user->name }}</span>
+                                @endif
                             </div>
                             <div class="flex items-center gap-2">
                                 <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Supervisor:</span>
-                                <span class="text-[10px] font-bold text-slate-500 uppercase italic">{{ $thesis->assignments->first()?->supervisor->user->name ?? 'TBD' }}</span>
+                                @php $primarySupervisorUser = $thesis->assignments->first()?->supervisor?->user; @endphp
+                                @if($primarySupervisorUser && auth()->user()?->hasRole('Admin') && $primarySupervisorUser->id !== auth()->id())
+                                    <form action="{{ route('admin.users.impersonate', $primarySupervisorUser) }}" method="POST" class="inline">
+                                        @csrf
+                                        <input type="hidden" name="role" value="Supervisor">
+                                        <button type="submit" class="text-[10px] font-bold text-slate-600 hover:text-emerald-600 underline decoration-dotted underline-offset-4 uppercase italic cursor-pointer" title="View Supervisor Portal">
+                                            {{ $primarySupervisorUser->name }}
+                                        </button>
+                                    </form>
+                                @else
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase italic">{{ $primarySupervisorUser->name ?? 'TBD' }}</span>
+                                @endif
                             </div>
                         </div>
                     </div>

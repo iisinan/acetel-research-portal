@@ -38,6 +38,16 @@
         </div>
         
         <div class="flex items-center gap-3">
+            @if($student->user && $student->user_id !== auth()->id())
+                <form action="{{ route('admin.users.impersonate', $student->user) }}" method="POST" class="inline">
+                    @csrf
+                    <input type="hidden" name="role" value="Student">
+                    <button type="submit" class="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-[10px] tracking-widest uppercase transition-all shadow-lg shadow-emerald-600/20 flex items-center gap-2 cursor-pointer">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                        View Student Portal
+                    </button>
+                </form>
+            @endif
              <a href="{{ route('inbox.index', ['user_id' => $student->user_id]) }}" class="px-6 py-3 bg-white hover:bg-slate-50 text-slate-700 rounded-xl font-black text-[10px] tracking-widest uppercase transition-all border border-slate-200 shadow-sm flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                 Communicate

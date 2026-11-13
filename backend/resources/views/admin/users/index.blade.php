@@ -252,13 +252,39 @@
                                                             
                                                             <div class="max-h-72 overflow-y-auto custom-scrollbar p-2">
                                                                 @forelse($user->supervisorProfile->assignments as $assignment)
-                                                                    <div class="p-3 mb-2 last:mb-0 rounded-xl border border-slate-100 hover:border-green-200 hover:bg-green-50/50 transition-all flex items-center gap-3">
-                                                                        <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                                                                            <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                                                    @php
+                                                                        $assignedStudent = $assignment->thesis?->student;
+                                                                        $assignedStudentUser = $assignedStudent?->user;
+                                                                    @endphp
+                                                                    <div class="p-3 mb-2 last:mb-0 rounded-xl border border-slate-100 hover:border-green-200 hover:bg-green-50/50 transition-all flex items-center justify-between gap-3">
+                                                                        <div class="flex items-center gap-3 min-w-0">
+                                                                            <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                                                                                <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                                                            </div>
+                                                                            <div class="min-w-0">
+                                                                                <p class="text-sm font-bold text-slate-800 truncate capitalize">{{ strtolower($assignedStudentUser?->name ?? 'Unknown Student') }}</p>
+                                                                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{{ $assignedStudent?->student_id_number ?? 'No Matric No' }}</p>
+                                                                            </div>
                                                                         </div>
-                                                                        <div class="min-w-0">
-                                                                            <p class="text-sm font-bold text-slate-800 truncate capitalize">{{ strtolower($assignment->thesis?->student?->user?->name ?? 'Unknown Student') }}</p>
-                                                                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{{ $assignment->thesis?->student?->student_id_number ?? 'No Matric No' }}</p>
+                                                                        <div class="flex items-center gap-1.5 shrink-0">
+                                                                            @if($assignment->thesis)
+                                                                                <a href="{{ route('milestones.index', ['thesis_id' => $assignment->thesis->id]) }}"
+                                                                                   class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[9px] font-black uppercase tracking-wider transition-colors"
+                                                                                   title="Inspect Thesis Milestones">
+                                                                                    Thesis
+                                                                                </a>
+                                                                            @endif
+                                                                            @if($assignedStudentUser)
+                                                                                <form action="{{ route('admin.users.impersonate', $assignedStudentUser) }}" method="POST" class="inline">
+                                                                                    @csrf
+                                                                                    <input type="hidden" name="role" value="Student">
+                                                                                    <button type="submit"
+                                                                                            class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-black uppercase tracking-wider transition-colors cursor-pointer"
+                                                                                            title="View Student Portal as {{ $assignedStudentUser->name }}">
+                                                                                        View Portal
+                                                                                    </button>
+                                                                                </form>
+                                                                            @endif
                                                                         </div>
                                                                     </div>
                                                                 @empty
