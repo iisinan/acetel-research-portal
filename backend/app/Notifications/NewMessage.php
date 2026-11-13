@@ -25,7 +25,11 @@ class NewMessage extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        $thesisTitle = $this->messageObj->thesis->title ?? 'a thesis project';
+        $candidateName = $this->messageObj->thesis?->student?->user?->name;
+        $title = $this->messageObj->thesis?->title;
+        $thesisTitle = !empty($title) && $title !== 'Untitled Thesis' && $title !== 'Untitled Project' 
+            ? $title 
+            : ($candidateName ? "Thesis Project ({$candidateName})" : 'a thesis project');
 
         return (new MailMessage)
             ->subject('New Institutional Message: ' . $thesisTitle)

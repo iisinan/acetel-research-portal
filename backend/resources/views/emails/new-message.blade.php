@@ -4,7 +4,15 @@
 
 Dear **{{ $notifiable->name }}**,
 
-You have received a new communication regarding the thesis project: **{{ $messageObj->thesis->title ?? 'Untitled Project' }}**.
+@php
+    $rawTitle = $messageObj->thesis?->title;
+    $hasCustomTitle = !empty($rawTitle) && $rawTitle !== 'Untitled Thesis' && $rawTitle !== 'Untitled Project';
+    $displayTitle = $hasCustomTitle ? $rawTitle : 'Topic Pending / In Progress';
+    $candidate = $messageObj->thesis?->student?->user?->name;
+    $matricNo = $messageObj->thesis?->student?->student_id_number;
+    $program = $messageObj->thesis?->student?->program?->name;
+@endphp
+You have received a new communication regarding the thesis project: **{{ $displayTitle }}**@if($candidate) (Candidate: **{{ $candidate }}**@if($matricNo) • `{{ $matricNo }}`@endif)@endif.
 
 <x-mail::panel>
 **From:** {{ $messageObj->sender->name ?? 'System User' }}  
