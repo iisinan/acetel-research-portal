@@ -34,7 +34,12 @@ class MilestoneController extends Controller
             // Basic security check: Is the user authorized for this thesis?
             $isAuthorized = false;
             if ($user->hasAnyRole(['Admin', 'Director'])) $isAuthorized = true;
-            if ($user->hasRole('Supervisor') && $thesis->assignments()->where('supervisor_profile_id', '=', $user->supervisorProfile?->id)->exists()) $isAuthorized = true;
+            if ($user->hasRole('Supervisor')) {
+                $supIds = $user->supervisorProfiles()->pluck('id');
+                if ($supIds->isNotEmpty() && $thesis->assignments()->whereIn('supervisor_profile_id', $supIds)->exists()) {
+                    $isAuthorized = true;
+                }
+            }
             if (app(\App\Services\MilestoneWorkflowService::class)->isAssignedInternalExaminerForThesis($thesis, $user)) $isAuthorized = true;
             if ($user->hasRole('Program Coordinator')) {
                 if ($thesis->student && ($user->hasCoordinatorAccess($thesis->student) || $user->coordinatorProfiles()->where('program_id', '=', $thesis->student->program_id)->exists())) {
@@ -138,9 +143,10 @@ class MilestoneController extends Controller
 
         $workflowService = app(\App\Services\MilestoneWorkflowService::class);
 
+        $supIds = $user->supervisorProfiles()->pluck('id');
         $isAssignedSupervisor = $user->hasRole('Supervisor') && 
-            $user->supervisorProfile && 
-            $milestone->thesis->assignments()->where('supervisor_profile_id', $user->supervisorProfile->id)->where('status', 'active')->exists();
+            $supIds->isNotEmpty() && 
+            $milestone->thesis->assignments()->whereIn('supervisor_profile_id', $supIds)->where('status', 'active')->exists();
 
         $isAssignedInternalExaminer = $workflowService->isAssignedInternalExaminer($milestone, $user);
         $isPostDefenceStage = $workflowService->isPostDefencePhase($milestone);
@@ -150,9 +156,7 @@ class MilestoneController extends Controller
         }
 
         $request->validate([
-            'remarks' => 'required|string|max:2000'
-        ], [
-            'remarks.required' => 'A comment is required to explain your decision.'
+            'remarks' => 'nullable|string|max:2000',
         ]);
 
         // When Internal Examiner (or Admin) accepts the post-defence corrected thesis for internal defence, approve the milestone and advance to Viva Voce!
@@ -249,9 +253,10 @@ class MilestoneController extends Controller
 
         $workflowService = app(\App\Services\MilestoneWorkflowService::class);
 
+        $supIds = $user->supervisorProfiles()->pluck('id');
         $isAssignedSupervisor = $user->hasRole('Supervisor') && 
-            $user->supervisorProfile && 
-            $milestone->thesis->assignments()->where('supervisor_profile_id', $user->supervisorProfile->id)->where('status', 'active')->exists();
+            $supIds->isNotEmpty() && 
+            $milestone->thesis->assignments()->whereIn('supervisor_profile_id', $supIds)->where('status', 'active')->exists();
 
         $isAssignedInternalExaminer = $workflowService->isAssignedInternalExaminer($milestone, $user);
         $isPostDefenceStage = $workflowService->isPostDefencePhase($milestone);

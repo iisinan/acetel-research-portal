@@ -43,7 +43,8 @@
 
     @php
         $workflowForThesis = app(\App\Services\MilestoneWorkflowService::class);
-        $isAssignedSupOnThesis = Auth::user()->hasRole('Supervisor') && Auth::user()->supervisorProfile && $thesis->assignments->where('supervisor_profile_id', Auth::user()->supervisorProfile->id)->where('status', 'active')->isNotEmpty();
+        $supIdsForThesis = Auth::user()->supervisorProfiles()->pluck('id');
+        $isAssignedSupOnThesis = Auth::user()->hasRole('Supervisor') && $supIdsForThesis->isNotEmpty() && $thesis->assignments->whereIn('supervisor_profile_id', $supIdsForThesis)->where('status', 'active')->isNotEmpty();
         $pendingSupMilestoneOnThesis = null;
         if ($isAssignedSupOnThesis) {
             $pendingSupMilestoneOnThesis = $thesis->milestones->sortBy('template.order')->first(function($m) use ($workflowForThesis) {
@@ -138,8 +139,6 @@
             </form>
         </div>
     @endif
-
-    <x-document-preview-modal />
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 

@@ -65,6 +65,11 @@ class User extends Authenticatable
         return $this->hasOne(SupervisorProfile::class);
     }
 
+    public function supervisorProfiles()
+    {
+        return $this->hasMany(SupervisorProfile::class);
+    }
+
     public function coordinatorProfiles()
     {
         return $this->hasMany(CoordinatorProfile::class);

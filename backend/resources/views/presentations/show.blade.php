@@ -570,7 +570,7 @@
                                         @if($latestSub && $latestSub->file_url)
                                             <button type="button"
                                                 @click.prevent="$dispatch('open-document-preview', {
-                                                    url: '{{ Storage::url($latestSub->file_url) }}',
+                                                    url: '{{ route('submissions.view', $latestSub) }}',
                                                     title: '{{ addslashes($studentName) }} - {{ addslashes($template->name) }}',
                                                     type: '{{ str_ends_with(strtolower($latestSub->file_url), '.pdf') ? 'pdf' : 'other' }}'
                                                 })"
@@ -826,7 +826,7 @@
                                         @if($latestSub && $latestSub->file_url)
                                             <button type="button" 
                                                 @click.prevent="$dispatch('open-document-preview', { 
-                                                    url: '{{ Storage::url($latestSub->file_url) }}', 
+                                                    url: '{{ route('submissions.view', $latestSub) }}', 
                                                     title: '{{ addslashes($studentName) }} - {{ addslashes($template->name) }}',
                                                     type: '{{ str_ends_with(strtolower($latestSub->file_url), '.pdf') ? 'pdf' : 'other' }}'
                                                 })"
@@ -1159,7 +1159,7 @@
                                         @if($latestSub && $latestSub->file_url)
                                             <button type="button" 
                                                 @click.prevent="$dispatch('open-document-preview', { 
-                                                    url: '{{ Storage::url($latestSub->file_url) }}', 
+                                                    url: '{{ route('submissions.view', $latestSub) }}', 
                                                     title: '{{ addslashes($studentName) }} - {{ addslashes($template->name) }}',
                                                     type: '{{ str_ends_with(strtolower($latestSub->file_url), '.pdf') ? 'pdf' : 'other' }}'
                                                 })"

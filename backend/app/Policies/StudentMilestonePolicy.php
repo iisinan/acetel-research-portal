@@ -27,8 +27,9 @@ class StudentMilestonePolicy
 
         // Supervisor can view if assigned to the thesis
         if ($user->hasRole('Supervisor')) {
-            if ($user->supervisorProfile && $milestone->thesis->assignments()
-                ->where('supervisor_profile_id', $user->supervisorProfile->id)
+            $supIds = $user->supervisorProfiles()->pluck('id');
+            if ($supIds->isNotEmpty() && $milestone->thesis->assignments()
+                ->whereIn('supervisor_profile_id', $supIds)
                 ->whereIn('status', ['active', 'ended']) 
                 ->exists()) {
                 return true;
@@ -127,7 +128,8 @@ class StudentMilestonePolicy
             }
 
             if ($user->hasRole('Supervisor')) {
-                if ($user->supervisorProfile && $milestone->thesis->assignments()->where('supervisor_profile_id', $user->supervisorProfile->id)->whereIn('status', ['active', 'ended'])->exists()) {
+                $supIds = $user->supervisorProfiles()->pluck('id');
+                if ($supIds->isNotEmpty() && $milestone->thesis->assignments()->whereIn('supervisor_profile_id', $supIds)->whereIn('status', ['active', 'ended'])->exists()) {
                     return true;
                 }
             }
@@ -152,7 +154,8 @@ class StudentMilestonePolicy
                     return true;
                 }
             } elseif ($role === 'Supervisor') {
-                if ($user->supervisorProfile && $milestone->thesis->assignments()->where('supervisor_profile_id', $user->supervisorProfile->id)->whereIn('status', ['active', 'ended'])->exists()) {
+                $supIds = $user->supervisorProfiles()->pluck('id');
+                if ($supIds->isNotEmpty() && $milestone->thesis->assignments()->whereIn('supervisor_profile_id', $supIds)->whereIn('status', ['active', 'ended'])->exists()) {
                     return true;
                 }
             } elseif ($role === 'Internal Examiner') {
@@ -184,9 +187,10 @@ class StudentMilestonePolicy
         }
 
         // Assigned Supervisor can review their supervisee's milestone uploads
-        if ($user->hasRole('Supervisor') && $user->supervisorProfile) {
-            if ($milestone->thesis && $milestone->thesis->assignments()
-                ->where('supervisor_profile_id', $user->supervisorProfile->id)
+        if ($user->hasRole('Supervisor')) {
+            $supIds = $user->supervisorProfiles()->pluck('id');
+            if ($supIds->isNotEmpty() && $milestone->thesis && $milestone->thesis->assignments()
+                ->whereIn('supervisor_profile_id', $supIds)
                 ->where('status', 'active')
                 ->exists()) {
                 return true;

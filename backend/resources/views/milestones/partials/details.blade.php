@@ -96,10 +96,87 @@
                 $isScheduled = $defenceDate && !$isDateExpired;
                 $supSummaryDetails = $workflow->getSupervisorReviewSummary($milestone);
                 $mySupReviewDetails = collect($supSummaryDetails['supervisors'] ?? [])->first(fn($s) => (string)($s['user_id'] ?? '') === (string)auth()->id());
+                $supIdsDetails = auth()->user()?->supervisorProfiles()->pluck('id') ?? collect();
+                $isAssignedSupervisorDetails = auth()->user()?->hasRole('Supervisor') && $supIdsDetails->isNotEmpty() && $milestone->thesis->assignments->whereIn('supervisor_profile_id', $supIdsDetails)->where('status', 'active')->isNotEmpty();
+                $showTopSupReviewCard = !$isPostDefenceStage && $milestone->submissions->isNotEmpty() && ($isAssignedSupervisorDetails || auth()->user()?->hasRole('Admin'));
+                $canActTopSupReview = $showTopSupReviewCard && $milestone->status !== 'approved' && (
+                    $mySupReviewDetails ? in_array($mySupReviewDetails['status'], ['pending', 'pending_re_review']) : !$isUploadAccepted
+                );
                 $primaryReviewSub = $isPostDefenceStage
                     ? $latestManuscript
-                    : ($milestone->submissions->whereIn('type', ['manuscript', 'file', 'ppt'])->sortByDesc('created_at')->first() ?? $milestone->submissions->sortByDesc('created_at')->first());
+                    : ($milestone->submissions->whereIn('type', ['manuscript', 'file', 'ppt'])->sortByDesc('id')->first() ?? $milestone->submissions->sortByDesc('id')->first());
             @endphp
+
+            {{-- Prominent Supervisor Upload Review Banner (Above the Fold) --}}
+            @if($showTopSupReviewCard)
+                @php
+                    $topReviewSubs = $milestone->submissions->sortByDesc('id');
+                @endphp
+                <div class="overflow-hidden rounded-[2rem] {{ $canActTopSupReview ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200' }} border shadow-xl shadow-slate-200/40 relative mb-6">
+                    <div class="absolute left-0 top-0 bottom-0 w-1.5 {{ $canActTopSupReview ? 'bg-amber-500' : 'bg-emerald-500' }}"></div>
+                    <div class="p-6 sm:p-7 space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full {{ $canActTopSupReview ? 'bg-amber-200/80 text-amber-900' : 'bg-emerald-100 text-emerald-800' }} text-[10px] font-black uppercase tracking-wider mb-1">
+                                    {{ $canActTopSupReview ? 'Supervisor Review & Decision Needed' : 'Candidate Submissions On Record' }}
+                                </span>
+                                <h3 class="text-base sm:text-lg font-black text-slate-900">
+                                    Uploaded Submission(s) ({{ $topReviewSubs->count() }})
+                                </h3>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            @foreach($topReviewSubs->take(4) as $topSub)
+                                <div class="bg-white rounded-2xl border border-slate-200/80 p-3.5 flex items-center justify-between gap-3 shadow-xs">
+                                    <div class="min-w-0">
+                                        <div class="flex items-center gap-2">
+                                            <span class="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[9px] font-black uppercase tracking-wider">v.0{{ $topSub->version }}</span>
+                                            <span class="text-[10px] font-bold text-slate-400 uppercase">{{ $topSub->type === 'ppt' ? 'Slides' : ($topSub->type === 'publication' ? 'Publication' : 'Manuscript') }}</span>
+                                        </div>
+                                        <p class="text-xs font-bold text-slate-800 truncate mt-1">{{ $topSub->file_meta['original_name'] ?? ('Submission v.0' . $topSub->version) }}</p>
+                                        <p class="text-[10px] text-slate-400">{{ $topSub->created_at?->format('M d, Y · H:i') }}</p>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 shrink-0">
+                                        <button type="button"
+                                            @click.prevent="$dispatch('open-document-preview', {
+                                                url: '{{ route('submissions.view', $topSub) }}',
+                                                title: '{{ addslashes($topSub->file_meta['original_name'] ?? ('Submission v.0' . $topSub->version)) }}',
+                                                type: '{{ str_ends_with(strtolower($topSub->file_url), '.pdf') ? 'pdf' : 'document' }}'
+                                            })"
+                                            class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors">
+                                            Preview
+                                        </button>
+                                        <a href="{{ route('submissions.view', $topSub) }}" target="_blank" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors">
+                                            Open
+                                        </a>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+
+                        @if($canActTopSupReview)
+                            <form method="POST" x-data="{ remarks: '' }" class="bg-white/90 rounded-2xl border border-amber-200/80 p-4 space-y-3">
+                                @csrf
+                                <textarea name="remarks" x-model="remarks" rows="2" class="w-full text-xs rounded-xl border-slate-300 focus:ring-amber-500 focus:border-amber-500 p-2.5 bg-white placeholder:text-slate-400" placeholder="Optional approval note, or required explanation when rejecting / requesting revision..."></textarea>
+                                <div class="flex flex-wrap justify-end gap-2">
+                                    <button type="submit"
+                                        formaction="{{ route('milestones.reject_upload', $milestone) }}"
+                                        @click="if (!remarks.trim()) { alert('Please enter remarks explaining the revision required before rejecting.'); $event.preventDefault(); }"
+                                        class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer">
+                                        ✕ Reject / Request Revision
+                                    </button>
+                                    <button type="submit"
+                                        formaction="{{ route('milestones.accept_upload', $milestone) }}"
+                                        class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-sm">
+                                        ✓ Approve Thesis
+                                    </button>
+                                </div>
+                            </form>
+                        @endif
+                    </div>
+                </div>
+            @endif
 
             {{-- Post-Defence Corrections Banner for Internal Defence --}}
             @if($isPostDefenceStage)
@@ -1034,7 +1111,7 @@
                     </div>
                     
                     <div class="relative pl-6 border-l-2 border-slate-100 py-2">
-                        @foreach($milestone->submissions->sortByDesc('created_at') as $submission)
+                        @foreach($milestone->submissions->sortByDesc('id') as $submission)
                             <div class="relative mb-6 last:mb-0 group">
                                 <div class="absolute -left-[35px] top-1.5 w-6 h-6 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center">
                                     <div class="w-2 h-2 rounded-full bg-slate-300 group-hover:bg-emerald-500 transition-colors"></div>
@@ -1137,6 +1214,9 @@
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                                                     View Document
                                                 </button>
+                                                <a href="{{ route('submissions.view', $submission) }}" target="_blank" class="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors">
+                                                    Open
+                                                </a>
                                                 
                                                 @if($submission->feedback && $submission->feedback->decision === 'approved')
                                                     <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-black uppercase tracking-widest">
@@ -1162,9 +1242,10 @@
 
                                             @php
                                                 $isAssignedInternalExaminer = $workflow->isAssignedInternalExaminer($milestone, auth()->user());
+                                                $supIdsCard = auth()->user()->supervisorProfiles()->pluck('id');
                                                 $isAssignedSupervisorForCard = auth()->user()->hasRole('Supervisor') && 
-                                                    auth()->user()->supervisorProfile && 
-                                                    $milestone->thesis->assignments->where('supervisor_profile_id', auth()->user()->supervisorProfile->id)->where('status', 'active')->isNotEmpty();
+                                                    $supIdsCard->isNotEmpty() && 
+                                                    $milestone->thesis->assignments->whereIn('supervisor_profile_id', $supIdsCard)->where('status', 'active')->isNotEmpty();
 
                                                 $isPrimarySubCard = $primaryReviewSub && $submission->id === $primaryReviewSub->id;
                                                 $isPostDefenceSubCard = $isPostDefenceStage && $latestManuscript && $submission->id === $latestManuscript->id;
@@ -1187,14 +1268,14 @@
                                                 }
                                             @endphp
                                             @if($showInlineCardReviewForm)
-                                                <form method="POST" x-data="{ remarks: '' }" @submit="if(!remarks.trim()) { alert('A comment is required to accept or reject the upload.'); $event.preventDefault(); }" class="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 shadow-sm w-full max-w-sm mt-1">
+                                                <form method="POST" x-data="{ remarks: '' }" class="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 shadow-sm w-full max-w-sm mt-1">
                                                     @csrf
-                                                    <textarea name="remarks" x-model="remarks" rows="2" class="w-full text-xs rounded-xl border-slate-300 focus:ring-indigo-500 focus:border-indigo-500 mb-2 p-2.5 shadow-sm resize-none bg-white placeholder:text-slate-400" placeholder="{{ $isPostDefenceStage ? 'Enter approval feedback or required corrections...' : 'Required: Explain your decision...' }}" required></textarea>
+                                                    <textarea name="remarks" x-model="remarks" rows="2" class="w-full text-xs rounded-xl border-slate-300 focus:ring-indigo-500 focus:border-indigo-500 mb-2 p-2.5 shadow-sm resize-none bg-white placeholder:text-slate-400" placeholder="{{ $isPostDefenceStage ? 'Enter approval feedback or required corrections...' : 'Optional approval note, or required reason when rejecting...' }}"></textarea>
                                                     <div class="flex gap-2">
                                                         <button type="submit" formaction="{{ route('milestones.accept_upload', $milestone) }}" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer">
                                                             {{ $isPostDefenceStage ? 'Approve Corrected Thesis' : '✓ Approve Thesis' }}
                                                         </button>
-                                                        <button type="submit" formaction="{{ route('milestones.reject_upload', $milestone) }}" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer">
+                                                        <button type="submit" formaction="{{ route('milestones.reject_upload', $milestone) }}" @click="if(!remarks.trim()) { alert('Please enter remarks explaining the revision required before rejecting.'); $event.preventDefault(); }" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer">
                                                             {{ $isPostDefenceStage ? 'Request Further Corrections' : '✕ Reject / Revise' }}
                                                         </button>
                                                     </div>
